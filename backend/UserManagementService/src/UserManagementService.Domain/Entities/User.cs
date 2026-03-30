@@ -9,6 +9,7 @@ public sealed class User
     public string LastName { get; private set; }
     public Guid RoleId { get; private set; }
     public Role Role { get; private set; }
+    public string PasswordHash { get; private set; }
 
     public DateTime CreatedAtUtc { get; }
     public bool IsActive { get; private set; }
@@ -20,6 +21,7 @@ public sealed class User
         string firstName,
         string lastName,
         Guid roleId,
+        string passwordHash,
         DateTime createdAtUtc,
         bool isActive,
         Role role)
@@ -34,6 +36,8 @@ public sealed class User
             throw new ArgumentException("LastName is required.", nameof(lastName));
         if (roleId == Guid.Empty)
             throw new ArgumentException("RoleId is required.", nameof(roleId));
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new ArgumentException("PasswordHash is required.", nameof(passwordHash));
 
         Id = id;
         UserName = userName;
@@ -41,12 +45,20 @@ public sealed class User
         FirstName = firstName;
         LastName = lastName;
         RoleId = roleId;
+        PasswordHash = passwordHash;
         CreatedAtUtc = createdAtUtc;
         IsActive = isActive;
         Role = role;
     }
 
-    public static User Create(string userName, string email, string firstName, string lastName, Guid roleId, Role role)
+    public static User Create(
+        string userName,
+        string email,
+        string firstName,
+        string lastName,
+        Guid roleId,
+        string passwordHash,
+        Role role)
         => new(
             id: Guid.NewGuid(),
             userName: userName,
@@ -54,6 +66,7 @@ public sealed class User
             firstName: firstName,
             lastName: lastName,
             roleId: roleId,
+            passwordHash: passwordHash,
             createdAtUtc: DateTime.UtcNow,
             isActive: true,
             role: role);
@@ -66,6 +79,15 @@ public sealed class User
         RoleId = roleId;
         Role = role;
     }
+
+    public void ChangePasswordHash(string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(passwordHash))
+            throw new ArgumentException("PasswordHash is required.", nameof(passwordHash));
+
+        PasswordHash = passwordHash;
+    }
+
     public void Deactivate() => IsActive = false;
 
     public void Activate() => IsActive = true;
