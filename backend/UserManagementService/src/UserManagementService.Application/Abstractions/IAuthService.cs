@@ -1,19 +1,7 @@
-namespace UserManagementService.Application.Abstractions;
+using UserManagementService.Application.DTOs;
 
 public interface IAuthService
 {
-    Task<Guid> RegisterAsync(
-        string userName,
-        string email,
-        string firstName,
-        string lastName,
-        Guid roleId,
-        string password,
-        CancellationToken cancellationToken = default);
-
-    Task<string> AuthenticateAsync(
-        string userNameOrEmail,
-        string password,
-        CancellationToken cancellationToken = default);
+    Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default);
+    Task<AuthResponse> AuthenticateAsync(LoginRequest request, CancellationToken cancellationToken = default);
 }
-

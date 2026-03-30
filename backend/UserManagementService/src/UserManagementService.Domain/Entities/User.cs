@@ -2,7 +2,7 @@ namespace UserManagementService.Domain.Entities;
 
 public sealed class User
 {
-    public Guid Id { get; }
+    public Guid Id { get; private set; } // Add private set
     public string UserName { get; private set; }
     public string Email { get; private set; }
     public string FirstName { get; private set; }
@@ -11,8 +11,11 @@ public sealed class User
     public Role Role { get; private set; }
     public string PasswordHash { get; private set; }
 
-    public DateTime CreatedAtUtc { get; }
+    public DateTime CreatedAtUtc { get; private set; } // Add private set
     public bool IsActive { get; private set; }
+
+    private User() { }
+
 
     private User(
         Guid id,
