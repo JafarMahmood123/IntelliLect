@@ -35,4 +35,9 @@ public class GenericRepository<T> : IRepository<T> where T : class
             _context.Set<T>().Remove(entity);
         }
     }
+
+    public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        return await _context.SaveChangesAsync(ct);
+    }
 }

@@ -32,36 +32,46 @@ try
     builder.Services.AddProblemDetails();
 
     var app = builder.Build();
+
     using (var scope = app.Services.CreateScope())
     {
         var services = scope.ServiceProvider;
         var context = services.GetRequiredService<ApplicationDbContext>();
         var logger = services.GetRequiredService<ILogger<Program>>();
 
-        try
+        // Retry policy: Try 5 times with a 2-second gap
+        int retries = 5;
+        while (retries > 0)
         {
-            logger.LogInformation("Applying migrations...");
-            context.Database.Migrate();
+            try
+            {
+                logger.LogInformation("Attempting to apply migrations... (Retries left: {Retries})", retries);
+                context.Database.Migrate();
 
-            if (!context.Roles.Any())
-            {
-                logger.LogInformation("Seeding database with roles...");
-                context.Roles.AddRange(
-                    Role.Create(RoleName.Admin),
-                    Role.Create(RoleName.Teacher),
-                    Role.Create(RoleName.Student)
-                );
-                context.SaveChanges();
-                logger.LogInformation("Database seeded successfully.");
+                // If we reach here, migration succeeded
+                if (!context.Roles.Any())
+                {
+                    logger.LogInformation("Seeding database with roles...");
+                    context.Roles.AddRange(
+                        Role.Create(RoleName.Admin),
+                        Role.Create(RoleName.Teacher),
+                        Role.Create(RoleName.Student)
+                    );
+                    context.SaveChanges();
+                }
+                break; // Exit the retry loop
             }
-            else
+            catch (Exception ex)
             {
-                logger.LogInformation("Database already has roles, skipping seed.");
+                retries--;
+                if (retries == 0)
+                {
+                    logger.LogCritical(ex, "Could not apply migrations after multiple attempts. Shutting down.");
+                    throw; // Crash the app so Docker restarts it
+                }
+                logger.LogWarning("Database not ready yet. Retrying in 2 seconds...");
+                Thread.Sleep(2000);
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "An error occurred during migration or seeding.");
         }
     }
 

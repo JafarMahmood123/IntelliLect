@@ -9,4 +9,6 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ResetPasswordToken> ResetPasswordTokens => Set<ResetPasswordToken>();
 }

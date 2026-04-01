@@ -121,5 +121,16 @@ public sealed class JwtProvider : IJwtProvider
             return null;
         }
     }
+
+    public string GenerateAccessToken(Guid userId, Guid roleId)
+    => GenerateToken(userId, roleId, DateTime.UtcNow.AddMinutes(15)); 
+
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
 }
 

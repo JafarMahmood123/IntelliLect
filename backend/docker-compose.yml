@@ -8,6 +8,11 @@ services:
       - POSTGRES_DB=users_db
     ports:
       - "5432:5432"
+    healthcheck: # ADD THIS
+      test: ["CMD-SHELL", "pg_isready -U postgres -d users_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - user_db_data_v2:/var/lib/postgresql/data
 
