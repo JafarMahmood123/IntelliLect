@@ -1,6 +1,7 @@
 using AutoMapper;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Domain.Entities;
 
 namespace UserManagementService.Application.Authentication;
@@ -35,36 +36,30 @@ public sealed class AuthService : IAuthService
     }
 
     public async Task<Guid> RegisterAsync(
-        RegisterRequest request,
-        CancellationToken cancellationToken = default)
+    RegisterRequest request,
+    CancellationToken cancellationToken = default)
     {
-        // Basic Validation
-        if (string.IsNullOrWhiteSpace(request.Email)) throw new ArgumentException("Email is required.");
-
-        // Check if user already exists
+        // 1. Check if email exists
         var existingUser = await _userRepository.FindByEmail(request.Email, cancellationToken);
         if (existingUser != null)
             throw new InvalidOperationException("A user with this email already exists.");
 
-        // Validate Role
+        // 2. Validate that the Role selected by the user actually exists
         var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
         if (role == null)
-            throw new ArgumentException("Invalid role specified.");
+            throw new ArgumentException("The selected role is invalid.");
 
-        // Hash the password
-        var passwordHash = _hasher.HashPassword(request.Password);
-
-        // Map DTO to Domain Entity
+        // 4. Use Mapping
         var user = _mapper.Map<User>(request);
-        user.PasswordHash = passwordHash;
+
+        // 5. Set the hashed password (which requires the _hasher service)
+        user.UpdatePassword(_hasher.HashPassword(request.Password));
 
         await _userRepository.AddAsync(user, cancellationToken);
-
         await _userRepository.SaveChangesAsync(cancellationToken);
 
         return user.Id;
     }
-
     public async Task<AuthResponse> AuthenticateAsync(LoginRequest request, CancellationToken ct = default)
     {
         var user = await _userRepository.FindByEmail(request.Email, ct);

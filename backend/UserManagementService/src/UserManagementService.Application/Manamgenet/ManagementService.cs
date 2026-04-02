@@ -1,5 +1,5 @@
 using UserManagementService.Application.Abstractions;
-using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.User;
 
 namespace UserManagementService.Application.Authentication;
 
@@ -14,15 +14,15 @@ public sealed class ManagementService : IManagementService
         _hasher = hasher;
     }
 
-    public async Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct)
+    public async Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct = default)
     {
         var user = await _userRepository.GetByIdAsync(userId, ct);
         if (user == null) throw new ArgumentException("User not found.");
 
-        user.UpdateInfo(request.FirstName, request.LastName, request.UserName);
-        await _userRepository.UpdateAsync(user, ct);
+        user.UpdateInfo(request.FirstName, request.LastName, request.UserName, request.Bio);
 
-        await _userRepository.SaveChangesAsync(ct); 
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
     }
 
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct)
@@ -36,7 +36,7 @@ public sealed class ManagementService : IManagementService
         user.UpdatePassword(_hasher.HashPassword(request.NewPassword));
         await _userRepository.UpdateAsync(user, ct);
 
-        await _userRepository.SaveChangesAsync(ct); 
+        await _userRepository.SaveChangesAsync(ct);
     }
 
     public async Task DeactivateUserAsync(Guid userId, CancellationToken ct)
@@ -47,7 +47,7 @@ public sealed class ManagementService : IManagementService
             user.Deactivate();
             await _userRepository.UpdateAsync(user, ct);
 
-            await _userRepository.SaveChangesAsync(ct); 
+            await _userRepository.SaveChangesAsync(ct);
         }
     }
 }

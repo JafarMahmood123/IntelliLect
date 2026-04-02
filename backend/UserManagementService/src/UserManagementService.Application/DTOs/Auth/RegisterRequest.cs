@@ -1,4 +1,4 @@
-namespace UserManagementService.Application.DTOs;
+namespace UserManagementService.Application.DTOs.Auth;
 
 public record RegisterRequest(
     string UserName,

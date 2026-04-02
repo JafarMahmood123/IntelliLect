@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
 
 namespace UserManagementService.Presentation.Controllers;
 
@@ -16,16 +18,22 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(
-        [FromBody] RegisterRequest request, 
-        CancellationToken cancellationToken)
+    [FromBody] RegisterRequest request,
+    CancellationToken cancellationToken)
     {
         var userId = await _authService.RegisterAsync(request, cancellationToken);
-        return Ok(new { UserId = userId });
+
+        // Return 201 Created with the specific blueprint message
+        return StatusCode(StatusCodes.Status201Created, new
+        {
+            Message = "Registration request submitted. Please wait for Admin approval.",
+            UserId = userId
+        });
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(
-        [FromBody] LoginRequest request, 
+        [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
         var response = await _authService.AuthenticateAsync(request, cancellationToken);

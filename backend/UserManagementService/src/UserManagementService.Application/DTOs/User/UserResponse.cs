@@ -1,4 +1,4 @@
-namespace UserManagementService.Application.DTOs;
+namespace UserManagementService.Application.DTOs.User;
 
 public record UserResponse(
     Guid Id,
@@ -7,5 +7,6 @@ public record UserResponse(
     string FirstName,
     string LastName,
     string RoleName,
-    bool IsActive,
+    string Status,
+    string? Bio,
     DateTime CreatedAtUtc);

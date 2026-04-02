@@ -1,4 +1,5 @@
 using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
 
 public interface IAuthService
 {

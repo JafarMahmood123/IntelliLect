@@ -1,3 +1,5 @@
+using UserManagementService.Application.DTOs.User;
+
 public interface IManagementService
 {
     Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct = default);

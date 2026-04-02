@@ -2,7 +2,6 @@ namespace UserManagementService.Domain.Entities;
 
 public sealed class User
 {
-    // Main Properties
     public Guid Id { get; set; }
     public string UserName { get; set; }
     public string Email { get; set; }
@@ -10,7 +9,8 @@ public sealed class User
     public string LastName { get; set; }
     public string PasswordHash { get; set; }
     public DateTime CreatedAtUtc { get; set; }
-    public bool IsActive { get; set; }
+    public UserStatus Status { get; private set; } = UserStatus.Pending;
+    public string? Bio { get; set; }
 
     // Foreign Keys
     public Guid RoleId { get; set; }
@@ -22,20 +22,31 @@ public sealed class User
 
     public User() { }
 
-    public void UpdateInfo(string firstName, string lastName, string userName)
+    public void UpdateInfo(string firstName, string lastName, string userName, string? bio)
     {
         FirstName = firstName;
         LastName = lastName;
         UserName = userName;
+        Bio = bio;
+    }
+
+    public void Approve()
+    {
+        Status = UserStatus.Active;
+    }
+
+    public void Reject()
+    {
+        Status = UserStatus.Rejected;
+    }
+
+    public void Deactivate()
+    {
+        Status = UserStatus.Deactivated;
     }
 
     public void UpdatePassword(string newHash)
     {
         PasswordHash = newHash;
-    }
-
-    public void Deactivate()
-    {
-        IsActive = false;
     }
 }
