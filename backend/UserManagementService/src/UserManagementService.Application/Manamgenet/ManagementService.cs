@@ -1,5 +1,6 @@
 using AutoMapper;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
 using UserManagementService.Application.DTOs.User;
 using UserManagementService.Domain.Entities;
 
@@ -80,6 +81,26 @@ public sealed class ManagementService : IManagementService
         else throw new ArgumentException("Invalid status update.");
 
         await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task<PagedResponse<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    {
+        // Call the specialized repository method
+        var (users, totalCount) = await _userRepository.GetPaginatedUsersAsync(roleId, page, pageSize, ct);
+
+        // Map to Response DTOs
+        var mappedUsers = _mapper.Map<List<UserResponse>>(users);
+
+        return new PagedResponse<UserResponse>(mappedUsers, totalCount, page, pageSize);
+    }
+
+    public async Task DeleteUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        await _userRepository.DeleteAsync(userId, ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 }

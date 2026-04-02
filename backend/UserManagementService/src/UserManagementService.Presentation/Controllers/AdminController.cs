@@ -34,4 +34,15 @@ public sealed class AdminController : ControllerBase
         await _managementService.ChangeUserStatus(id, newStatus, ct);
         return NoContent();
     }
+
+    [HttpGet("users")]
+    public async Task<IActionResult> GetAllUsers(
+    [FromQuery] Guid? roleId, 
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    CancellationToken ct = default)
+    {
+        var result = await _managementService.GetAllUsersAsync(roleId, page, pageSize, ct);
+        return Ok(result);
+    }
 }
