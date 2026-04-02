@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -61,6 +62,9 @@ public static class DependencyInjection
         });
 
         services.AddAuthorization();
+
+        services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
+        services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
 
         return services;
     }

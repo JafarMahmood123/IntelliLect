@@ -52,7 +52,7 @@ public static class DatabaseSeeder
                     Email = adminEmail,
                     FirstName = "System",
                     LastName = "Administrator",
-                    PasswordHash = hasher.HashPassword("Admin123!"),
+                    PasswordHash = hasher.Hash("Admin123!"),
                     CreatedAtUtc = DateTime.UtcNow,
                     RoleId = adminRole.Id,
                     Bio = "Default system administrator account."

@@ -35,10 +35,10 @@ public sealed class ManagementService : IManagementService
         var user = await _userRepository.GetByIdAsync(userId, ct);
         if (user == null) throw new ArgumentException("User not found.");
 
-        if (!_hasher.VerifyPassword(request.OldPassword, user.PasswordHash))
+        if (!_hasher.Verify(request.OldPassword, user.PasswordHash))
             throw new UnauthorizedAccessException("Old password is incorrect.");
 
-        user.UpdatePassword(_hasher.HashPassword(request.NewPassword));
+        user.UpdatePassword(_hasher.Hash(request.NewPassword));
         await _userRepository.UpdateAsync(user, ct);
 
         await _userRepository.SaveChangesAsync(ct);
@@ -99,6 +99,16 @@ public sealed class ManagementService : IManagementService
         if (user == null) throw new ArgumentException("User not found.");
 
         await _userRepository.DeleteAsync(userId, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task ReactivateUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        user.Reactivate();
+        await _userRepository.UpdateAsync(user, ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 }

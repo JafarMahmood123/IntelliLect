@@ -14,7 +14,8 @@ public sealed class AuthService : IAuthService
     private readonly IHasher _hasher;
     private readonly IJwtProvider _jwtProvider;
     private readonly IRepository<RefreshToken> _refreshTokenRepository;
-    private readonly IRepository<ResetPasswordToken> _resetPasswordRepository;
+    private readonly IResetTokenRepository _resetPasswordRepository;
+    private readonly IResetPasswordTokenGenerator _resetPasswordTokenGenerator;
     private readonly IMapper _mapper;
 
 
@@ -24,7 +25,8 @@ public sealed class AuthService : IAuthService
         IHasher hasher,
         IJwtProvider jwtProvider,
         IRepository<RefreshToken> refreshTokenRepository,
-        IRepository<ResetPasswordToken> resetPasswordRepository,
+        IResetTokenRepository resetPasswordRepository,
+        IResetPasswordTokenGenerator resetPasswordTokenGenerator,
         IMapper mapper)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
@@ -33,6 +35,7 @@ public sealed class AuthService : IAuthService
         _jwtProvider = jwtProvider ?? throw new ArgumentNullException(nameof(jwtProvider));
         _refreshTokenRepository = refreshTokenRepository;
         _resetPasswordRepository = resetPasswordRepository;
+        _resetPasswordTokenGenerator = resetPasswordTokenGenerator;
         _mapper = mapper;
     }
 
@@ -49,7 +52,7 @@ public sealed class AuthService : IAuthService
 
             // CASE B: User exists but IS soft-deleted -> Restore them (The logic you wanted in the service)
             existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
-            existingUser.UpdatePassword(_hasher.HashPassword(request.Password));
+            existingUser.UpdatePassword(_hasher.Hash(request.Password));
 
             // Custom Domain logic to reset flags
             existingUser.Restore(request.RoleId);
@@ -64,7 +67,7 @@ public sealed class AuthService : IAuthService
         if (role == null) throw new ArgumentException("The selected role is invalid.");
 
         var user = _mapper.Map<User>(request);
-        user.UpdatePassword(_hasher.HashPassword(request.Password));
+        user.UpdatePassword(_hasher.Hash(request.Password));
 
         await _userRepository.AddAsync(user, ct);
         await _userRepository.SaveChangesAsync(ct);
@@ -78,7 +81,7 @@ public sealed class AuthService : IAuthService
         var user = await _userRepository.FindByEmail(request.Email, ct);
 
         // 2. Check credentials first (to prevent account enumeration attacks)
-        if (user == null || !_hasher.VerifyPassword(request.Password, user.PasswordHash))
+        if (user == null || !_hasher.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid credentials.");
 
         // 3. Check Account Status
@@ -148,7 +151,7 @@ public sealed class AuthService : IAuthService
             User = user
         });
 
-        await _refreshTokenRepository.SaveChangesAsync();
+        await _refreshTokenRepository.SaveChangesAsync(ct);
 
         var response = _mapper.Map<UserResponse>(user);
 
@@ -158,21 +161,51 @@ public sealed class AuthService : IAuthService
     public async Task ForgotPasswordAsync(string email, CancellationToken ct)
     {
         var user = await _userRepository.FindByEmail(email, ct);
+
         if (user == null) return;
 
-        var token = Guid.NewGuid().ToString("N");
-        await _resetPasswordRepository.AddAsync(new ResetPasswordToken()
+        var resetPasswordToken = await _resetPasswordRepository.FindResetPasswordTokenByUserId(user.Id);
+
+        var code = _resetPasswordTokenGenerator.Generate();
+
+        if (resetPasswordToken == null)
         {
-            Id = Guid.NewGuid(),
-            Token = token,
-            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
-            User = user
-        });
+            resetPasswordToken = new ResetPasswordToken()
+            {
+                Id = Guid.NewGuid(),
+                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
+                Token = _hasher.Hash(code),
+                RequestCount = 1,
+                LastRequestedAtUtc = DateTime.UtcNow,
+                UserId = user.Id,
+                User = user
+            };
 
-        await _resetPasswordRepository.SaveChangesAsync();
+            await _resetPasswordRepository.AddAsync(resetPasswordToken, ct);
+            await _resetPasswordRepository.SaveChangesAsync(ct);
+        }
+        else
+        {
+            var isCurrentlyBlocked = resetPasswordToken.LastRequestedAtUtc.HasValue &&
+                                 resetPasswordToken.LastRequestedAtUtc.Value.AddDays(1) > DateTime.UtcNow &&
+                                 resetPasswordToken.RequestCount >= 5;
 
-        // Log the token for now (In a real app, you'd email this)
-        Console.WriteLine($"Password Reset Token for {email}: {token}");
+            if (isCurrentlyBlocked)
+            {
+                throw new InvalidOperationException("Daily limit reached. Please try again in 24 hours.");
+            }
+
+            resetPasswordToken.Token = _hasher.Hash(code);
+            resetPasswordToken.RequestCount++;
+            resetPasswordToken.LastRequestedAtUtc = DateTime.UtcNow;
+            resetPasswordToken.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+
+            await _resetPasswordRepository.UpdateAsync(resetPasswordToken, ct);
+            await _resetPasswordRepository.SaveChangesAsync(ct);
+        }
+
+        // Logging the result
+        Console.WriteLine($"[AUTH] Reset code for {email}: {code} (Attempt {resetPasswordToken.RequestCount}/5)");
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
@@ -182,7 +215,7 @@ public sealed class AuthService : IAuthService
         if (user == null || user.ResetPasswordToken!.IsExpired)
             throw new InvalidOperationException("Invalid or expired reset token.");
 
-        user.PasswordHash = _hasher.HashPassword(request.NewPassword);
+        user.PasswordHash = _hasher.Hash(request.NewPassword);
 
         await _userRepository.UpdateAsync(user, ct);
 

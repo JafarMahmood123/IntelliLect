@@ -59,4 +59,11 @@ public sealed class AdminController : ControllerBase
         await _managementService.DeleteUserAsync(id, ct);
         return NoContent();
     }
+
+    [HttpPut("users/{id}/reactivate")]
+    public async Task<IActionResult> ReactivateUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.ReactivateUserAsync(id, ct);
+        return NoContent();
+    }
 }

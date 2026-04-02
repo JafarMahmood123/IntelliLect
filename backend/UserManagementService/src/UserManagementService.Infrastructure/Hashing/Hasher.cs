@@ -13,7 +13,7 @@ public sealed class Hasher : IHasher
     // Format: v1:iterations:saltBase64:hashBase64
     private const string Version = "v1";
 
-    public string HashPassword(string password)
+    public string Hash(string password)
     {
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password is required.", nameof(password));
@@ -31,7 +31,7 @@ public sealed class Hasher : IHasher
             Convert.ToBase64String(hash));
     }
 
-    public bool VerifyPassword(string password, string passwordHash)
+    public bool Verify(string password, string passwordHash)
     {
         if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
             return false;

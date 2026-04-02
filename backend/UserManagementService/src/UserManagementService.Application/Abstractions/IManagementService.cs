@@ -14,4 +14,5 @@ public interface IManagementService
     Task DeactivateUserAsync(Guid userId, CancellationToken ct = default);
     Task<PagedResponse<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct = default);
     Task DeleteUserAsync(Guid userId, CancellationToken ct = default);
+    Task ReactivateUserAsync(Guid userId, CancellationToken ct = default);
 }

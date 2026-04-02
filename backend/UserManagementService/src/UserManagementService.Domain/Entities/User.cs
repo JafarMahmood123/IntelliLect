@@ -56,7 +56,7 @@ public sealed class User
     {
         IsDeleted = true;
         DeletedAtUtc = DateTime.UtcNow;
-        Status = UserStatus.Deactivated; 
+        Status = UserStatus.Deactivated;
     }
 
     public void Restore(Guid newRoleId)
@@ -65,5 +65,11 @@ public sealed class User
         DeletedAtUtc = null;
         Status = UserStatus.Pending;
         RoleId = newRoleId;
+    }
+
+    public void Reactivate()
+    {
+        if (IsDeleted) throw new InvalidOperationException("Cannot reactivate a deleted user. Restore them via registration instead.");
+        Status = UserStatus.Active;
     }
 }
