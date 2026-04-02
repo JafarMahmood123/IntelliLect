@@ -1,20 +1,24 @@
 using System.Text;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Infrastructure.Authentication;
+using UserManagementService.Infrastructure.BackgroundJobs;
 using UserManagementService.Infrastructure.Hashing;
 using UserManagementService.Infrastructure.Persistence;
 using UserManagementService.Infrastructure.Persistence.Repositories;
+using UserManagementService.Infrastructure.Services;
 
 namespace UserManagementService.Infrastructure;
 
 public static class DependencyInjection
 {
+    public static object MassTransitLicense { get; private set; }
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -65,6 +69,29 @@ public static class DependencyInjection
 
         services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
         services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
+
+        // Inside AddInfrastructure method:
+        services.AddScoped<IEmailService, EmailService>();
+
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<SendResetCodeConsumer>();
+
+            // Configure the Transactional Outbox
+            x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
+            {
+                o.UsePostgres();
+                o.UseBusOutbox(); // Automatically move messages to RabbitMQ after DB Save
+            });
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host("rabbitmq"); // Match docker-compose name
+                cfg.ConfigureEndpoints(context);
+            });
+        });
+
+        services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
 
         return services;
     }

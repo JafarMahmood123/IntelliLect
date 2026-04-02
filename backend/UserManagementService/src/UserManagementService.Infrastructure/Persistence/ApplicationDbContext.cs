@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using UserManagementService.Domain.Entities;
 
@@ -11,4 +12,12 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ResetPasswordToken> ResetPasswordTokens => Set<ResetPasswordToken>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Add MassTransit Outbox tables
+        modelBuilder.AddTransactionalOutboxEntities();
+    }
 }

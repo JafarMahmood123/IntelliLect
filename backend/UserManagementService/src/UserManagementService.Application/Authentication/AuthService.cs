@@ -1,5 +1,7 @@
 using AutoMapper;
+using MassTransit;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Application.DTOs.User;
@@ -16,6 +18,7 @@ public sealed class AuthService : IAuthService
     private readonly IRepository<RefreshToken> _refreshTokenRepository;
     private readonly IResetTokenRepository _resetPasswordRepository;
     private readonly IResetPasswordTokenGenerator _resetPasswordTokenGenerator;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly IMapper _mapper;
 
 
@@ -27,7 +30,8 @@ public sealed class AuthService : IAuthService
         IRepository<RefreshToken> refreshTokenRepository,
         IResetTokenRepository resetPasswordRepository,
         IResetPasswordTokenGenerator resetPasswordTokenGenerator,
-        IMapper mapper)
+        IMapper mapper,
+        IPublishEndpoint publishEndpoint)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
@@ -37,6 +41,7 @@ public sealed class AuthService : IAuthService
         _resetPasswordRepository = resetPasswordRepository;
         _resetPasswordTokenGenerator = resetPasswordTokenGenerator;
         _mapper = mapper;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
@@ -182,7 +187,6 @@ public sealed class AuthService : IAuthService
             };
 
             await _resetPasswordRepository.AddAsync(resetPasswordToken, ct);
-            await _resetPasswordRepository.SaveChangesAsync(ct);
         }
         else
         {
@@ -195,14 +199,13 @@ public sealed class AuthService : IAuthService
                 throw new InvalidOperationException("Daily limit reached. Please try again in 24 hours.");
             }
 
-            resetPasswordToken.Token = _hasher.Hash(code);
-            resetPasswordToken.RequestCount++;
-            resetPasswordToken.LastRequestedAtUtc = DateTime.UtcNow;
-            resetPasswordToken.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+            resetPasswordToken.UpdateToken(_hasher.Hash(code));
 
             await _resetPasswordRepository.UpdateAsync(resetPasswordToken, ct);
-            await _resetPasswordRepository.SaveChangesAsync(ct);
         }
+
+        await _publishEndpoint.Publish(new SendResetCodeMessage(email, code), ct);
+        await _resetPasswordRepository.SaveChangesAsync(ct);
 
         // Logging the result
         Console.WriteLine($"[AUTH] Reset code for {email}: {code} (Attempt {resetPasswordToken.RequestCount}/5)");
@@ -210,10 +213,22 @@ public sealed class AuthService : IAuthService
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
     {
-        var user = await _userRepository.FindByResetToken(request.Token, ct);
+        var user = await _userRepository.FindByEmail(request.Email, ct);
 
-        if (user == null || user.ResetPasswordToken!.IsExpired)
+        if (user == null)
+            throw new ArgumentException("User not found.");
+
+        var resetPasswordToken = await _resetPasswordRepository.FindResetPasswordTokenByUserId(user.Id);
+
+        if (resetPasswordToken == null)
+            throw new InvalidOperationException("Token not found.");
+
+        if (resetPasswordToken.IsExpired || !_hasher.Verify(request.Token, resetPasswordToken.Token))
             throw new InvalidOperationException("Invalid or expired reset token.");
+
+        await _resetPasswordRepository.DeleteAsync(resetPasswordToken.Id);
+
+        await _resetPasswordRepository.SaveChangesAsync(ct);
 
         user.PasswordHash = _hasher.Hash(request.NewPassword);
 

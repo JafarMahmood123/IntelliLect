@@ -13,11 +13,13 @@
   <ItemGroup>
     <Folder Include="Common/" />
     <Folder Include="Common/Mappings/" />
+    <Folder Include="Common/Messages/" />
     <Folder Include="Manamgenet/" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit.Abstractions" Version="8.1.3" />
   </ItemGroup>
 
 </Project>

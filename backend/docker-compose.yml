@@ -8,8 +8,9 @@ services:
       - POSTGRES_DB=users_db
     ports:
       - "5432:5432"
-    healthcheck: # ADD THIS
-      test: ["CMD-SHELL", "pg_isready -U postgres -d users_db"]
+    healthcheck:
+      # ADD THIS
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,6 +42,13 @@ services:
       - "80:80"
     depends_on:
       - user-service
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: intellilect-mq
+    ports:
+      - "5672:5672" # RabbitMQ port
+      - "15672:15672" # Management UI (guest/guest)
 
 volumes:
   user_db_data_v2:
