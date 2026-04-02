@@ -11,6 +11,8 @@ public sealed class User
     public DateTime CreatedAtUtc { get; set; }
     public UserStatus Status { get; private set; } = UserStatus.Pending;
     public string? Bio { get; set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAtUtc { get; private set; }
 
     // Foreign Keys
     public Guid RoleId { get; set; }
@@ -48,5 +50,20 @@ public sealed class User
     public void UpdatePassword(string newHash)
     {
         PasswordHash = newHash;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAtUtc = DateTime.UtcNow;
+        Status = UserStatus.Deactivated; 
+    }
+
+    public void Restore(Guid newRoleId)
+    {
+        IsDeleted = false;
+        DeletedAtUtc = null;
+        Status = UserStatus.Pending;
+        RoleId = newRoleId;
     }
 }

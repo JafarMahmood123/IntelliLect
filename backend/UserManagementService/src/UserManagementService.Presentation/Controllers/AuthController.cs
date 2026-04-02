@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UserManagementService.Application.Abstractions;
@@ -40,5 +41,27 @@ public sealed class AuthController : ControllerBase
         // The service now handles the Status check
         var response = await _authService.LoginAsync(request, cancellationToken);
         return Ok(response);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken ct)
+    {
+        var response = await _authService.RefreshAsync(request, ct);
+        return Ok(response);
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] string email, CancellationToken ct)
+    {
+        // Note: For security, usually returns 200 OK even if email doesn't exist
+        await _authService.ForgotPasswordAsync(email, ct);
+        return Ok(new { Message = "If an account exists, a reset token has been generated." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
+    {
+        await _authService.ResetPasswordAsync(request, ct);
+        return Ok(new { Message = "Password has been reset successfully." });
     }
 }

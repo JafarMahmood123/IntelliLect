@@ -44,4 +44,20 @@ public sealed class UsersController : ControllerBase
         }
         return userId;
     }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _managementService.ChangePasswordAsync(userId, request, ct);
+        return Ok(new { Message = "Password changed successfully." });
+    }
+
+    [HttpPost("deactivate")]
+    public async Task<IActionResult> DeactivateSelf(CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _managementService.DeactivateUserAsync(userId, ct);
+        return Ok(new { Message = "Account deactivated successfully." });
+    }
 }

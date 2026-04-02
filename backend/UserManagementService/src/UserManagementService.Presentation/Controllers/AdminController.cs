@@ -37,12 +37,26 @@ public sealed class AdminController : ControllerBase
 
     [HttpGet("users")]
     public async Task<IActionResult> GetAllUsers(
-    [FromQuery] Guid? roleId, 
+    [FromQuery] Guid? roleId,
     [FromQuery] int page = 1,
     [FromQuery] int pageSize = 10,
     CancellationToken ct = default)
     {
         var result = await _managementService.GetAllUsersAsync(roleId, page, pageSize, ct);
         return Ok(result);
+    }
+
+    [HttpPut("users/{id}/deactivate")]
+    public async Task<IActionResult> DeactivateUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.DeactivateUserAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("users/{id}")]
+    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.DeleteUserAsync(id, ct);
+        return NoContent();
     }
 }

@@ -36,28 +36,38 @@ public sealed class AuthService : IAuthService
         _mapper = mapper;
     }
 
-    public async Task<Guid> RegisterAsync(
-    RegisterRequest request,
-    CancellationToken cancellationToken = default)
+    public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
-        // 1. Check if email exists
-        var existingUser = await _userRepository.FindByEmail(request.Email, cancellationToken);
+        // 1. Check for existing user (including deleted ones) 
+        var existingUser = await _userRepository.FindByEmail(request.Email);
+
         if (existingUser != null)
-            throw new InvalidOperationException("A user with this email already exists.");
+        {
+            // CASE A: User exists and is NOT deleted -> Block registration
+            if (!existingUser.IsDeleted)
+                throw new InvalidOperationException("A user with this email already exists.");
 
-        // 2. Validate that the Role selected by the user actually exists
-        var role = await _roleRepository.GetByIdAsync(request.RoleId, cancellationToken);
-        if (role == null)
-            throw new ArgumentException("The selected role is invalid.");
+            // CASE B: User exists but IS soft-deleted -> Restore them (The logic you wanted in the service)
+            existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
+            existingUser.UpdatePassword(_hasher.HashPassword(request.Password));
 
-        // 4. Use Mapping
+            // Custom Domain logic to reset flags
+            existingUser.Restore(request.RoleId);
+
+            await _userRepository.UpdateAsync(existingUser, ct);
+            await _userRepository.SaveChangesAsync(ct);
+            return existingUser.Id;
+        }
+
+        // CASE C: Brand new user logic
+        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
+        if (role == null) throw new ArgumentException("The selected role is invalid.");
+
         var user = _mapper.Map<User>(request);
-
-        // 5. Set the hashed password (which requires the _hasher service)
         user.UpdatePassword(_hasher.HashPassword(request.Password));
 
-        await _userRepository.AddAsync(user, cancellationToken);
-        await _userRepository.SaveChangesAsync(cancellationToken);
+        await _userRepository.AddAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
 
         return user.Id;
     }

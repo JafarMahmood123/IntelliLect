@@ -26,13 +26,18 @@ public sealed class UserRepository : IUserRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {
-        var user = await GetByIdAsync(id, ct);
-        if (user != null) _context.Users.Remove(user);
+        var user = await _context.Users.FindAsync(new object[] { id }, ct);
+        if (user != null)
+        {
+            user.SoftDelete();
+            _context.Users.Update(user);
+        }
     }
 
     public async Task<User?> FindByRefreshToken(string token, CancellationToken ct)
     {
         return await _context.Users
+            .Include(u => u.Role)
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.Token == token && !rt.IsRevoked), ct);
     }
@@ -40,6 +45,7 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> FindByResetToken(string token, CancellationToken ct)
     {
         return await _context.Users
+            .Include(u => u.Role)
             .Include(u => u.ResetPasswordToken)
             .FirstOrDefaultAsync(u => u.ResetPasswordToken != null && u.ResetPasswordToken.Token == token, ct);
     }

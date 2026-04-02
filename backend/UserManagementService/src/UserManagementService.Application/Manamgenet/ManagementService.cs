@@ -47,13 +47,11 @@ public sealed class ManagementService : IManagementService
     public async Task DeactivateUserAsync(Guid userId, CancellationToken ct)
     {
         var user = await _userRepository.GetByIdAsync(userId, ct);
-        if (user != null)
-        {
-            user.Deactivate();
-            await _userRepository.UpdateAsync(user, ct);
+        if (user == null) throw new ArgumentException("User not found."); // Add this throw
 
-            await _userRepository.SaveChangesAsync(ct);
-        }
+        user.Deactivate();
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
     }
 
     public async Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct)
