@@ -48,4 +48,12 @@ public sealed class UserRepository : IUserRepository
     {
         return await _context.SaveChangesAsync(ct);
     }
+
+    public async Task<List<User>?> GetPendingUsrs(CancellationToken ct)
+    {
+        return await _context.Users
+        .Where(u => u.Status == UserStatus.Pending)
+        .Include(u => u.Role)
+        .ToListAsync(ct);
+    }
 }

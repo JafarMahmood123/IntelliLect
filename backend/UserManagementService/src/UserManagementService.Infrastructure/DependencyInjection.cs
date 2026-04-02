@@ -1,6 +1,9 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Infrastructure.Authentication;
 using UserManagementService.Infrastructure.Hashing;
@@ -12,7 +15,7 @@ namespace UserManagementService.Infrastructure;
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         // 1. Database Configuration
@@ -20,21 +23,44 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));
 
-        // 2. Authentication & Hashing
+        // 2. Hashing
         services.AddSingleton<IHasher, Hasher>();
-        
-        var jwtSettings = configuration.GetSection("Jwt");
-        services.AddSingleton<IJwtProvider>(_ => 
-            new JwtProvider(
-                jwtSettings["SecretKey"]!, 
-                jwtSettings["Issuer"]!, 
-                jwtSettings["Audience"]!));
 
         // 3. Repositories
         services.AddScoped<IUserRepository, UserRepository>();
-        
-        // This line is the "magic" that fixes the IRepository<Role> error:
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+
+        // 4. JWT Provider Setup (FIXED)
+        var jwtSettings = configuration.GetSection("Jwt");
+        var secretKey = jwtSettings["SecretKey"]!;
+        var issuer = jwtSettings["Issuer"]!;
+        var audience = jwtSettings["Audience"]!;
+
+        // Manually instantiate JwtProvider with config values
+        services.AddSingleton<IJwtProvider>(_ =>
+            new JwtProvider(secretKey, issuer, audience));
+
+        // 5. Authentication & JWT Bearer Setup
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = issuer,
+                ValidAudience = audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+            };
+        });
+
+        services.AddAuthorization();
 
         return services;
     }

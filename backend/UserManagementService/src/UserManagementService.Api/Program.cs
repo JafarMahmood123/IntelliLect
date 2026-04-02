@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -7,7 +8,11 @@ using UserManagementService.Application;
 using UserManagementService.Domain.Entities;
 using UserManagementService.Infrastructure;
 using UserManagementService.Infrastructure.Persistence;
+using UserManagementService.Infrastructure.Persistence.Seeder;
 using UserManagementService.Presentation;
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -48,18 +53,9 @@ try
                 logger.LogInformation("Attempting to apply migrations... (Retries left: {Retries})", retries);
                 context.Database.Migrate();
 
-                // If we reach here, migration succeeded
-                if (!context.Roles.Any())
-                {
-                    logger.LogInformation("Seeding database with roles...");
-                    context.Roles.AddRange(
-                        Role.Create(RoleName.Admin),
-                        Role.Create(RoleName.Teacher),
-                        Role.Create(RoleName.Student)
-                    );
-                    context.SaveChanges();
-                }
-                break; // Exit the retry loop
+                await DatabaseSeeder.SeedAsync(services); 
+
+                break;
             }
             catch (Exception ex)
             {
@@ -91,6 +87,9 @@ try
 
     app.UseHttpsRedirection();
     app.MapControllers();
+
+    app.UseAuthentication(); // Must be before UseAuthorization
+    app.UseAuthorization();
 
     app.Run();
 }

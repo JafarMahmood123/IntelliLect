@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 
@@ -33,10 +34,11 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(
-        [FromBody] LoginRequest request,
-        CancellationToken cancellationToken)
+    [FromBody] LoginRequest request,
+    CancellationToken cancellationToken)
     {
-        var response = await _authService.AuthenticateAsync(request, cancellationToken);
+        // The service now handles the Status check
+        var response = await _authService.LoginAsync(request, cancellationToken);
         return Ok(response);
     }
 }

@@ -2,6 +2,7 @@ using AutoMapper;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
+using UserManagementService.Application.DTOs.User;
 using UserManagementService.Domain.Entities;
 
 namespace UserManagementService.Application.Authentication;
@@ -60,30 +61,59 @@ public sealed class AuthService : IAuthService
 
         return user.Id;
     }
-    public async Task<AuthResponse> AuthenticateAsync(LoginRequest request, CancellationToken ct = default)
+
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
+        // 1. Find the user (Ensure the repository includes the Role entity)
         var user = await _userRepository.FindByEmail(request.Email, ct);
+
+        // 2. Check credentials first (to prevent account enumeration attacks)
         if (user == null || !_hasher.VerifyPassword(request.Password, user.PasswordHash))
             throw new UnauthorizedAccessException("Invalid credentials.");
 
-        var accessToken = _jwtProvider.GenerateAccessToken(user.Id, user.RoleId);
+        // 3. Check Account Status
+        // We use the UserStatus enum we created earlier
+        switch (user.Status)
+        {
+            case UserStatus.Pending:
+                throw new UnauthorizedAccessException("Account pending approval. Please wait for an administrator to activate your account.");
+
+            case UserStatus.Rejected:
+                throw new UnauthorizedAccessException("Your registration request was rejected.");
+
+            case UserStatus.Deactivated:
+                throw new UnauthorizedAccessException("This account has been deactivated.");
+
+            case UserStatus.Active:
+                break; // Proceed to token generation
+
+            default:
+                throw new UnauthorizedAccessException("Account is in an invalid state.");
+        }
+
+        // 4. Generate Tokens
+        // We pass the Role Name (string) as well if your JwtProvider supports it
+        var accessToken = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
         var refreshToken = _jwtProvider.GenerateRefreshToken();
 
+        // 5. Store Refresh Token
         await _refreshTokenRepository.AddAsync(new RefreshToken()
         {
             Id = Guid.NewGuid(),
             Token = refreshToken,
             IsRevoked = false,
             ExpiresAtUtc = DateTime.UtcNow.AddDays(30),
-            User = user
-        });
+            UserId = user.Id // Explicitly set UserId
+        }, ct);
 
-        await _refreshTokenRepository.SaveChangesAsync();
+        await _refreshTokenRepository.SaveChangesAsync(ct);
 
-        return new AuthResponse(accessToken, refreshToken, user.Id);
+        var response = _mapper.Map<UserResponse>(user);
+
+        return new LoginResponse(accessToken, refreshToken, response);
     }
 
-    public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct)
+    public async Task<LoginResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct)
     {
         var user = await _userRepository.FindByRefreshToken(request.RefreshToken, ct);
 
@@ -96,7 +126,7 @@ public sealed class AuthService : IAuthService
         // Revoke the old token (Token Rotation)
         tokenRecord.Revoke();
 
-        var newAccess = _jwtProvider.GenerateAccessToken(user.Id, user.RoleId);
+        var newAccess = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
         var newRefresh = _jwtProvider.GenerateRefreshToken();
 
         await _refreshTokenRepository.AddAsync(new RefreshToken()
@@ -110,7 +140,9 @@ public sealed class AuthService : IAuthService
 
         await _refreshTokenRepository.SaveChangesAsync();
 
-        return new AuthResponse(newAccess, newRefresh, user.Id);
+        var response = _mapper.Map<UserResponse>(user);
+
+        return new LoginResponse(newAccess, newRefresh, response);
     }
 
     public async Task ForgotPasswordAsync(string email, CancellationToken ct)

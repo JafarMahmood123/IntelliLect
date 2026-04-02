@@ -2,8 +2,8 @@ namespace UserManagementService.Domain.Entities;
 
 public enum UserStatus
 {
-    Pending = 1,
-    Active = 2,
-    Rejected = 3,
-    Deactivated = 4
+    Pending = 0,
+    Active = 1,
+    Rejected = 2,
+    Deactivated = 3
 }

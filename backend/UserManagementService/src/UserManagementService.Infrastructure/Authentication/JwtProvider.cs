@@ -30,33 +30,24 @@ public sealed class JwtProvider : IJwtProvider
         _audience = audience ?? string.Empty;
     }
 
-    public string GenerateToken(Guid userId, Guid roleId, DateTime expiresUtc)
+    public string GenerateAccessToken(Guid userId, string roleName)
     {
-        if (userId == Guid.Empty)
-            throw new ArgumentException("UserId is required.", nameof(userId));
-        if (roleId == Guid.Empty)
-            throw new ArgumentException("RoleId is required.", nameof(roleId));
-        if (expiresUtc.Kind != DateTimeKind.Utc)
-            expiresUtc = expiresUtc.ToUniversalTime();
-        if (expiresUtc <= DateTime.UtcNow)
-            throw new ArgumentException("Token expiry must be in the future.", nameof(expiresUtc));
-
         var signingKey = new SymmetricSecurityKey(_signingKey);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
-            new Claim(UserIdClaim, userId.ToString("D")),
-            new Claim(RoleIdClaim, roleId.ToString("D")),
-        };
+        new Claim("uid", userId.ToString()),
+        new Claim(ClaimTypes.Role, roleName) // Standard ASP.NET Role Claim
+    };
 
         var token = new JwtSecurityToken(
-            issuer: string.IsNullOrWhiteSpace(_issuer) ? null : _issuer,
-            audience: string.IsNullOrWhiteSpace(_audience) ? null : _audience,
-            claims: claims,
-            notBefore: DateTime.UtcNow,
-            expires: expiresUtc,
-            signingCredentials: credentials);
+            _issuer,
+            _audience,
+            claims,
+            null,
+            DateTime.UtcNow.AddMinutes(15),
+            credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
@@ -121,9 +112,6 @@ public sealed class JwtProvider : IJwtProvider
             return null;
         }
     }
-
-    public string GenerateAccessToken(Guid userId, Guid roleId)
-    => GenerateToken(userId, roleId, DateTime.UtcNow.AddMinutes(15)); 
 
     public string GenerateRefreshToken()
     {

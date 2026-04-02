@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Authentication;
 
 namespace UserManagementService.Application;

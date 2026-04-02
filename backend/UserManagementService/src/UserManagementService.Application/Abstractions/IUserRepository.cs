@@ -1,11 +1,11 @@
 using UserManagementService.Domain.Entities;
 
-namespace UserManagementService.Application.Abstractions
+namespace UserManagementService.Application.Abstractions;
+
+public interface IUserRepository : IRepository<User>
 {
-    public interface IUserRepository : IRepository<User>
-    {
-        Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default);
-        Task<User?> FindByRefreshToken(string token, CancellationToken ct);
-        Task<User?> FindByResetToken(string token, CancellationToken ct);
-    }
+    Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default);
+    Task<User?> FindByRefreshToken(string token, CancellationToken ct);
+    Task<User?> FindByResetToken(string token, CancellationToken ct);
+    Task<List<User>?> GetPendingUsrs(CancellationToken ct);
 }
