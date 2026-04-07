@@ -9,4 +9,5 @@ public record UserResponse(
     string RoleName,
     string Status,
     string? Bio,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    Guid Version);

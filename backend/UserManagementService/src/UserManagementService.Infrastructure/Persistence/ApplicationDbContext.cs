@@ -17,7 +17,10 @@ public sealed class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Add MassTransit Outbox tables
+        modelBuilder.Entity<User>()
+            .Property(u => u.Version)
+            .IsConcurrencyToken();
+
         modelBuilder.AddTransactionalOutboxEntities();
     }
 }

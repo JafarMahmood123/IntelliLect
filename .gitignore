@@ -12,6 +12,7 @@ Thumbs.db
 *.suo
 *.userosscache
 *.sln.docstates
+*.txt
 
 bin/
 obj/
