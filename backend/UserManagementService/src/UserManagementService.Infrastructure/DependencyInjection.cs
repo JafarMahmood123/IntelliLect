@@ -23,29 +23,23 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // 1. Database Configuration
         var connectionString = configuration.GetConnectionString("Database");
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));
 
-        // 2. Hashing
         services.AddSingleton<IHasher, Hasher>();
 
-        // 3. Repositories
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
 
-        // 4. JWT Provider Setup (FIXED)
         var jwtSettings = configuration.GetSection("Jwt");
         var secretKey = jwtSettings["SecretKey"]!;
         var issuer = jwtSettings["Issuer"]!;
         var audience = jwtSettings["Audience"]!;
 
-        // Manually instantiate JwtProvider with config values
         services.AddSingleton<IJwtProvider>(_ =>
             new JwtProvider(secretKey, issuer, audience));
 
-        // 5. Authentication & JWT Bearer Setup
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -70,26 +64,27 @@ public static class DependencyInjection
         services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
         services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
 
-        // Inside AddInfrastructure method:
         services.AddScoped<IEmailService, EmailService>();
 
         services.AddMassTransit(x =>
-        {
-            x.AddConsumer<SendResetCodeConsumer>();
-
-            // Configure the Transactional Outbox
-            x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
             {
-                o.UsePostgres();
-                o.UseBusOutbox(); // Automatically move messages to RabbitMQ after DB Save
-            });
+                x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
 
-            x.UsingRabbitMq((context, cfg) =>
-            {
-                cfg.Host("rabbitmq"); // Match docker-compose name
-                cfg.ConfigureEndpoints(context);
+                x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
+                {
+                    o.UsePostgres();
+                    o.UseBusOutbox();
+
+                    o.QueryDelay = TimeSpan.FromSeconds(1);
+                });
+
+                x.UsingRabbitMq((context, cfg) =>
+                {
+                    cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
+
+                    cfg.ConfigureEndpoints(context);
+                });
             });
-        });
 
         services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
 

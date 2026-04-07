@@ -9,13 +9,12 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      # ADD THIS
       test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
     volumes:
-      - user_db_data_v2:/var/lib/postgresql/data
+      - user_db_data:/var/lib/postgresql/data
 
   user-service:
     build:
@@ -25,13 +24,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      # SYNCED PASSWORD HERE:
       - ConnectionStrings__Database=Host=db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
       - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   gateway:
     image: nginx:latest
@@ -47,8 +48,16 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: intellilect-mq
     ports:
-      - "5672:5672" # RabbitMQ port
-      - "15672:15672" # Management UI (guest/guest)
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
 volumes:
-  user_db_data_v2:
+  user_db_data:
+  rabbitmq_data:

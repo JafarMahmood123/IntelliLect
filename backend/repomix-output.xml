@@ -1,0 +1,3533 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+UserManagementService/
+  src/
+    UserManagementService.Api/
+      Middleware/
+        GlobalExceptionHandler.cs
+      Properties/
+        launchSettings.json
+      appsettings.Development.json
+      appsettings.json
+      Program.cs
+      UserManagementService.Api.csproj
+      UserManagementService.Api.http
+    UserManagementService.Application/
+      Abstractions/
+        IAuthService.cs
+        IEmailBodyFactory.cs
+        IEmailService.cs
+        IHasher.cs
+        IJwtProvider.cs
+        IManagementService.cs
+        IRepository.cs
+        IResetPasswordTokenGenerator.cs
+        IResetTokenRepository.cs
+        IUserRepository.cs
+      Authentication/
+        AuthService.cs
+      Common/
+        Mappings/
+          UserProfile.cs
+        Messages/
+          SendResetCodeMessage.cs
+        PagedResponse.cs
+      DTOs/
+        Auth/
+          ChangePasswordRequest.cs
+          LoginRequest.cs
+          LoginResponse.cs
+          RefreshTokenRequest.cs
+          RegisterRequest.cs
+          ResetPasswordRequest.cs
+        User/
+          UpdateUserRequest.cs
+          UserResponse.cs
+      Manamgenet/
+        ManagementService.cs
+      DependencyInjection.cs
+      UserManagementService.Application.csproj
+    UserManagementService.Domain/
+      Entities/
+        RefreshToken.cs
+        ResetPasswordToken.cs
+        Role.cs
+        RoleName.cs
+        User.cs
+        UserStatus.cs
+      UserManagementService.Domain.csproj
+    UserManagementService.Infrastructure/
+      Authentication/
+        JwtProvider.cs
+        ResetPasswordTokenGenerator.cs
+      BackgroundJobs/
+        SendResetCodeConsumer.cs
+        SendResetCodeConsumerDefinition.cs
+      Hashing/
+        Hasher.cs
+      Persistence/
+        Migrations/
+          20260407064626_InitialMigration.cs
+          20260407064626_InitialMigration.Designer.cs
+          ApplicationDbContextModelSnapshot.cs
+        Repositories/
+          GenericRepository.cs
+          ResetTokenRepository.cs
+          UserRepository.cs
+        Seeder/
+          DatabaseSeeder.cs
+        ApplicationDbContext.cs
+      Services/
+        EmailBodyFactory.cs
+        EmailService.cs
+      DependencyInjection.cs
+      UserManagementService.Infrastructure.csproj
+    UserManagementService.Presentation/
+      Controllers/
+        AdminController.cs
+        AuthController.cs
+        UsersController.cs
+      DependencyInjection.cs
+      UserManagementService.Presentation.csproj
+  tests/
+    UserManagementService.IntegrationTests/
+      UserManagementService.IntegrationTests.csproj
+    UserManagementService.UnitTests/
+      UserManagementService.UnitTests.csproj
+  Dockerfile
+  UserManagementService.slnx
+docker-compose.yml
+nginx.conf
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="UserManagementService/src/UserManagementService.Api/Middleware/GlobalExceptionHandler.cs">
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace UserManagementService.Api.Middleware;
+
+public sealed class GlobalExceptionHandler : IExceptionHandler
+{
+    private readonly ILogger<GlobalExceptionHandler> _logger;
+
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    {
+        _logger = logger;
+    }
+
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
+
+        // Map specific exceptions to HTTP Status Codes
+        var (statusCode, title) = exception switch
+        {
+            ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
+            DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Data Conflict"),
+            InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
+            _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
+        };
+
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = title,
+            Detail = exception.Message,
+            Instance = httpContext.Request.Path
+        };
+
+        httpContext.Response.StatusCode = statusCode;
+
+        await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+
+        return true; // Indicates we handled the exception
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/Properties/launchSettings.json">
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5118",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7016;http://localhost:5118",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/appsettings.Development.json">
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "Jwt": {
+    "SecretKey": "MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY",
+    "Issuer": "IntelliLect",
+    "Audience": "IntelliLect"
+  },
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.Console",
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "Console"
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "Logs/log-.txt",
+          "rollingInterval": "Day",
+          "formatter": "Serilog.Formatting.Json.JsonFormatter, Serilog"
+        }
+      }
+    ],
+    "Enrich": [
+      "FromLogContext",
+      "WithMachineName",
+      "WithThreadId"
+    ]
+  },
+  "ConnectionStrings": {
+    "Database": "Host=localhost;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!"
+  },
+  "EmailSettings": {
+    "SenderEmail": "bolmangosy@gmail.com",
+    "AppPassword": "iqfjjwgmrqezbshi"
+  }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/appsettings.json">
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "Jwt": {
+    "SecretKey": "",
+    "Issuer": "",
+    "Audience": ""
+  },
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.Console",
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "Console"
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "Logs/log-.txt",
+          "rollingInterval": "Day",
+          "formatter": "Serilog.Formatting.Json.JsonFormatter, Serilog"
+        }
+      }
+    ],
+    "Enrich": [
+      "FromLogContext",
+      "WithMachineName",
+      "WithThreadId"
+    ]
+  },
+  "EmailSettings": {
+    "SenderEmail": "",
+    "AppPassword": ""
+  }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/Program.cs">
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
+using Serilog;
+using UserManagementService.Api.Middleware;
+using UserManagementService.Application;
+using UserManagementService.Domain.Entities;
+using UserManagementService.Infrastructure;
+using UserManagementService.Infrastructure.Persistence;
+using UserManagementService.Infrastructure.Persistence.Seeder;
+using UserManagementService.Presentation;
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
+
+try
+{
+    Log.Information("Starting web application");
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services));
+
+    builder.Services
+        .AddApplication()
+        .AddInfrastructure(builder.Configuration)
+        .AddPresentation();
+
+    builder.Services.AddOpenApi();
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddProblemDetails();
+
+    var app = builder.Build();
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+
+        // Retry policy: Try 5 times with a 2-second gap
+        int retries = 5;
+        while (retries > 0)
+        {
+            try
+            {
+                logger.LogInformation("Attempting to apply migrations... (Retries left: {Retries})", retries);
+                context.Database.Migrate();
+
+                await DatabaseSeeder.SeedAsync(services); 
+
+                break;
+            }
+            catch (Exception ex)
+            {
+                retries--;
+                if (retries == 0)
+                {
+                    logger.LogCritical(ex, "Could not apply migrations after multiple attempts. Shutting down.");
+                    throw; // Crash the app so Docker restarts it
+                }
+                logger.LogWarning("Database not ready yet. Retrying in 2 seconds...");
+                Thread.Sleep(2000);
+            }
+        }
+    }
+
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
+    app.UseSerilogRequestLogging();
+    app.UseExceptionHandler();
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.MapOpenApi();
+        app.MapScalarApiReference();
+    }
+
+    app.UseHttpsRedirection();
+    app.MapControllers();
+
+    app.UseAuthentication(); // Must be before UseAuthorization
+    app.UseAuthorization();
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/UserManagementService.Api.csproj">
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.13.17" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../UserManagementService.Application/UserManagementService.Application.csproj" />
+    <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
+    <ProjectReference Include="../UserManagementService.Infrastructure/UserManagementService.Infrastructure.csproj" />
+    <ProjectReference Include="../UserManagementService.Presentation/UserManagementService.Presentation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Logs/" />
+    <Folder Include="Middleware/" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Api/UserManagementService.Api.http">
+@UserManagementService.Api_HostAddress = http://localhost:5118
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IAuthService.cs">
+using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
+
+namespace UserManagementService.Application.Abstractions;
+
+public interface IAuthService
+{
+    Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
+    Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    Task<LoginResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct = default);
+    Task ForgotPasswordAsync(string email, CancellationToken ct = default);
+    Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IEmailBodyFactory.cs">
+namespace UserManagementService.Application.Abstractions;
+
+public interface IEmailBodyFactory
+{
+    string CreatePasswordResetBody(string code);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IEmailService.cs">
+namespace UserManagementService.Application.Abstractions;
+public interface IEmailService { Task SendResetCodeAsync(string email, string code); }
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IHasher.cs">
+namespace UserManagementService.Application.Abstractions;
+
+public interface IHasher
+{
+    string Hash(string code);
+    bool Verify(string oldCode, string codeHash);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IJwtProvider.cs">
+namespace UserManagementService.Application.Abstractions;
+
+public interface IJwtProvider
+{
+    string GenerateAccessToken(Guid userId, string roleName); // Changed Guid roleId to string roleName
+    string GenerateRefreshToken();
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IManagementService.cs">
+using UserManagementService.Application.Common;
+using UserManagementService.Application.DTOs.User;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Application.Abstractions;
+
+public interface IManagementService
+{
+    Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct = default); // NEW
+    Task<List<UserResponse>> GetPendingUsersAsync(CancellationToken ct = default);
+    Task ChangeUserStatus(Guid userId, UserStatus newStatus, CancellationToken ct = default);
+    Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct = default);
+    Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct = default);
+    Task DeactivateUserAsync(Guid userId, CancellationToken ct = default);
+    Task<PagedResponse<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct = default);
+    Task DeleteUserAsync(Guid userId, CancellationToken ct = default);
+    Task ReactivateUserAsync(Guid userId, CancellationToken ct = default);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IRepository.cs">
+namespace UserManagementService.Application.Abstractions;
+
+public interface IRepository<T> where T : class
+{
+    Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task AddAsync(T entity, CancellationToken cancellationToken = default);
+    Task UpdateAsync(T entity, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IResetPasswordTokenGenerator.cs">
+namespace UserManagementService.Application.Abstractions;
+
+public interface IResetPasswordTokenGenerator
+{
+    string Generate();
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IResetTokenRepository.cs">
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Application.Abstractions;
+
+public interface IResetTokenRepository : IRepository<ResetPasswordToken>
+{
+    Task<ResetPasswordToken?> FindResetPasswordTokenByUserId(Guid userId);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Abstractions/IUserRepository.cs">
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Application.Abstractions;
+
+public interface IUserRepository : IRepository<User>
+{
+    Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default);
+    Task<User?> FindByRefreshToken(string token, CancellationToken ct);
+    Task<User?> FindByResetToken(string token, CancellationToken ct);
+    Task<List<User>?> GetPendingUsrs(CancellationToken ct);
+    Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Authentication/AuthService.cs">
+using AutoMapper;
+using MassTransit;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common.Messages;
+using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
+using UserManagementService.Application.DTOs.User;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Application.Authentication;
+
+public sealed class AuthService : IAuthService
+{
+    private readonly IUserRepository _userRepository;
+    private readonly IRepository<Role> _roleRepository;
+    private readonly IHasher _hasher;
+    private readonly IJwtProvider _jwtProvider;
+    private readonly IRepository<RefreshToken> _refreshTokenRepository;
+    private readonly IResetTokenRepository _resetPasswordRepository;
+    private readonly IResetPasswordTokenGenerator _resetPasswordTokenGenerator;
+    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IMapper _mapper;
+
+
+    public AuthService(
+        IUserRepository userRepository,
+        IRepository<Role> roleRepository,
+        IHasher hasher,
+        IJwtProvider jwtProvider,
+        IRepository<RefreshToken> refreshTokenRepository,
+        IResetTokenRepository resetPasswordRepository,
+        IResetPasswordTokenGenerator resetPasswordTokenGenerator,
+        IMapper mapper,
+        IPublishEndpoint publishEndpoint)
+    {
+        _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+        _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
+        _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
+        _jwtProvider = jwtProvider ?? throw new ArgumentNullException(nameof(jwtProvider));
+        _refreshTokenRepository = refreshTokenRepository;
+        _resetPasswordRepository = resetPasswordRepository;
+        _resetPasswordTokenGenerator = resetPasswordTokenGenerator;
+        _mapper = mapper;
+        _publishEndpoint = publishEndpoint;
+    }
+
+    public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
+    {
+        // 1. Check for existing user (including deleted ones) 
+        var existingUser = await _userRepository.FindByEmail(request.Email);
+
+        if (existingUser != null)
+        {
+            // CASE A: User exists and is NOT deleted -> Block registration
+            if (!existingUser.IsDeleted)
+                throw new InvalidOperationException("A user with this email already exists.");
+
+            // CASE B: User exists but IS soft-deleted -> Restore them (The logic you wanted in the service)
+            existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
+            existingUser.UpdatePassword(_hasher.Hash(request.Password));
+
+            // Custom Domain logic to reset flags
+            existingUser.Restore(request.RoleId);
+
+            await _userRepository.UpdateAsync(existingUser, ct);
+            await _userRepository.SaveChangesAsync(ct);
+            return existingUser.Id;
+        }
+
+        // CASE C: Brand new user logic
+        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
+        if (role == null) throw new ArgumentException("The selected role is invalid.");
+
+        var user = _mapper.Map<User>(request);
+        user.UpdatePassword(_hasher.Hash(request.Password));
+
+        await _userRepository.AddAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+
+        return user.Id;
+    }
+
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
+    {
+        // 1. Find the user (Ensure the repository includes the Role entity)
+        var user = await _userRepository.FindByEmail(request.Email, ct);
+
+        // 2. Check credentials first (to prevent account enumeration attacks)
+        if (user == null || !_hasher.Verify(request.Password, user.PasswordHash))
+            throw new UnauthorizedAccessException("Invalid credentials.");
+
+        // 3. Check Account Status
+        // We use the UserStatus enum we created earlier
+        switch (user.Status)
+        {
+            case UserStatus.Pending:
+                throw new UnauthorizedAccessException("Account pending approval. Please wait for an administrator to activate your account.");
+
+            case UserStatus.Rejected:
+                throw new UnauthorizedAccessException("Your registration request was rejected.");
+
+            case UserStatus.Deactivated:
+                throw new UnauthorizedAccessException("This account has been deactivated.");
+
+            case UserStatus.Active:
+                break; // Proceed to token generation
+
+            default:
+                throw new UnauthorizedAccessException("Account is in an invalid state.");
+        }
+
+        // 4. Generate Tokens
+        // We pass the Role Name (string) as well if your JwtProvider supports it
+        var accessToken = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
+        var refreshToken = _jwtProvider.GenerateRefreshToken();
+
+        // 5. Store Refresh Token
+        await _refreshTokenRepository.AddAsync(new RefreshToken()
+        {
+            Id = Guid.NewGuid(),
+            Token = refreshToken,
+            IsRevoked = false,
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(30),
+            UserId = user.Id // Explicitly set UserId
+        }, ct);
+
+        await _refreshTokenRepository.SaveChangesAsync(ct);
+
+        var response = _mapper.Map<UserResponse>(user);
+
+        return new LoginResponse(accessToken, refreshToken, response);
+    }
+
+    public async Task<LoginResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct)
+    {
+        var user = await _userRepository.FindByRefreshToken(request.RefreshToken, ct);
+
+        // Find the specific token record in the user's collection
+        var tokenRecord = user?.RefreshTokens.FirstOrDefault(rt => rt.Token == request.RefreshToken);
+
+        if (user == null || tokenRecord == null || !tokenRecord.IsActive)
+            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+
+        // Revoke the old token (Token Rotation)
+        tokenRecord.Revoke();
+
+        var newAccess = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
+        var newRefresh = _jwtProvider.GenerateRefreshToken();
+
+        await _refreshTokenRepository.AddAsync(new RefreshToken()
+        {
+            Id = Guid.NewGuid(),
+            Token = newRefresh,
+            IsRevoked = false,
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(30),
+            User = user
+        });
+
+        await _refreshTokenRepository.SaveChangesAsync(ct);
+
+        var response = _mapper.Map<UserResponse>(user);
+
+        return new LoginResponse(newAccess, newRefresh, response);
+    }
+
+    public async Task ForgotPasswordAsync(string email, CancellationToken ct)
+    {
+        var user = await _userRepository.FindByEmail(email, ct);
+
+        if (user == null) return;
+
+        var resetPasswordToken = await _resetPasswordRepository.FindResetPasswordTokenByUserId(user.Id);
+
+        var code = _resetPasswordTokenGenerator.Generate();
+
+        if (resetPasswordToken == null)
+        {
+            resetPasswordToken = new ResetPasswordToken()
+            {
+                Id = Guid.NewGuid(),
+                ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
+                Token = _hasher.Hash(code),
+                RequestCount = 1,
+                LastRequestedAtUtc = DateTime.UtcNow,
+                UserId = user.Id,
+                User = user
+            };
+
+            await _resetPasswordRepository.AddAsync(resetPasswordToken, ct);
+        }
+        else
+        {
+            var isCurrentlyBlocked = resetPasswordToken.LastRequestedAtUtc.HasValue &&
+                                 resetPasswordToken.LastRequestedAtUtc.Value.AddDays(1) > DateTime.UtcNow &&
+                                 resetPasswordToken.RequestCount >= 5;
+
+            if (isCurrentlyBlocked)
+            {
+                throw new InvalidOperationException("Daily limit reached. Please try again in 24 hours.");
+            }
+
+            resetPasswordToken.UpdateToken(_hasher.Hash(code));
+
+            await _resetPasswordRepository.UpdateAsync(resetPasswordToken, ct);
+        }
+
+        await _publishEndpoint.Publish(new SendResetCodeMessage(email, code), ct);
+        await _resetPasswordRepository.SaveChangesAsync(ct);
+
+        // Logging the result
+        Console.WriteLine($"[AUTH] Reset code for {email}: {code} (Attempt {resetPasswordToken.RequestCount}/5)");
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
+    {
+        var user = await _userRepository.FindByEmail(request.Email, ct);
+
+        if (user == null)
+            throw new ArgumentException("User not found.");
+
+        var resetPasswordToken = await _resetPasswordRepository.FindResetPasswordTokenByUserId(user.Id);
+
+        if (resetPasswordToken == null)
+            throw new InvalidOperationException("Token not found.");
+
+        if (resetPasswordToken.IsExpired || !_hasher.Verify(request.Token, resetPasswordToken.Token))
+            throw new InvalidOperationException("Invalid or expired reset token.");
+
+        await _resetPasswordRepository.DeleteAsync(resetPasswordToken.Id);
+
+        await _resetPasswordRepository.SaveChangesAsync(ct);
+
+        user.PasswordHash = _hasher.Hash(request.NewPassword);
+
+        await _userRepository.UpdateAsync(user, ct);
+
+        await _userRepository.SaveChangesAsync(ct);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Common/Mappings/UserProfile.cs">
+using AutoMapper;
+using UserManagementService.Application.DTOs.Auth;
+using UserManagementService.Application.DTOs.User;
+using UserManagementService.Domain.Entities;
+
+public sealed class UserProfile : Profile
+{
+    public UserProfile()
+    {
+        // Entity -> DTO
+        CreateMap<User, UserResponse>()
+            .ForMember(dest => dest.RoleName, 
+                opt => opt.MapFrom(src => src.Role.Name.ToString()))
+            .ForMember(dest => dest.Status, 
+                opt => opt.MapFrom(src => src.Status.ToString()));
+
+        // DTO -> Entity (NEW)
+        CreateMap<RegisterRequest, User>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(_ => Guid.NewGuid()))
+            .ForMember(dest => dest.CreatedAtUtc, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.PasswordHash, opt => opt.Ignore()); // Handled by Hasher in service
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Common/Messages/SendResetCodeMessage.cs">
+namespace UserManagementService.Application.Common.Messages;
+
+public record SendResetCodeMessage(string Email, string Code);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Common/PagedResponse.cs">
+namespace UserManagementService.Application.Common;
+
+public record PagedResponse<T>(
+    List<T> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize)
+{
+    public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public bool HasPreviousPage => PageNumber > 1;
+    public bool HasNextPage => PageNumber < TotalPages;
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/ChangePasswordRequest.cs">
+public record ChangePasswordRequest(string OldPassword, string NewPassword);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/LoginRequest.cs">
+namespace UserManagementService.Application.DTOs;
+
+public record LoginRequest(
+    string Email, 
+    string Password);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/LoginResponse.cs">
+using UserManagementService.Application.DTOs.User;
+
+namespace UserManagementService.Application.DTOs.Auth
+{
+    public record LoginResponse(
+    string AccessToken,
+    string RefreshToken,
+    UserResponse Response);
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/RefreshTokenRequest.cs">
+public record RefreshTokenRequest(string RefreshToken);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/RegisterRequest.cs">
+namespace UserManagementService.Application.DTOs.Auth;
+
+public record RegisterRequest(
+    string UserName,
+    string Email,
+    string FirstName,
+    string LastName,
+    Guid RoleId,
+    string Password);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/Auth/ResetPasswordRequest.cs">
+public record ResetPasswordRequest(string Email, string Token, string NewPassword);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/User/UpdateUserRequest.cs">
+namespace UserManagementService.Application.DTOs.User;
+
+public record UpdateUserRequest(string FirstName, string LastName, string UserName, string? Bio, Guid Version);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DTOs/User/UserResponse.cs">
+namespace UserManagementService.Application.DTOs.User;
+
+public record UserResponse(
+    Guid Id,
+    string UserName,
+    string Email,
+    string FirstName,
+    string LastName,
+    string RoleName,
+    string Status,
+    string? Bio,
+    DateTime CreatedAtUtc,
+    Guid Version);
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/Manamgenet/ManagementService.cs">
+using AutoMapper;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
+using UserManagementService.Application.DTOs.User;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Application.Authentication;
+
+public sealed class ManagementService : IManagementService
+{
+    private readonly IUserRepository _userRepository;
+    private readonly IHasher _hasher;
+    private readonly IMapper _mapper;
+
+    public ManagementService(IUserRepository userRepository, IHasher hasher, IMapper mapper)
+    {
+        _userRepository = userRepository;
+        _hasher = hasher;
+        _mapper = mapper;
+    }
+
+    public async Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct = default)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        user.UpdateInfo(request.FirstName, request.LastName, request.UserName, request.Bio);
+
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        if (!_hasher.Verify(request.OldPassword, user.PasswordHash))
+            throw new UnauthorizedAccessException("Old password is incorrect.");
+
+        user.UpdatePassword(_hasher.Hash(request.NewPassword));
+        await _userRepository.UpdateAsync(user, ct);
+
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task DeactivateUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found."); // Add this throw
+
+        user.Deactivate();
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        return _mapper.Map<UserResponse>(user);
+    }
+
+    public async Task<List<UserResponse>> GetPendingUsersAsync(CancellationToken ct)
+    {
+        var users = await _userRepository.GetPendingUsrs(ct);
+
+        return _mapper.Map<List<UserResponse>>(users);
+    }
+
+    public async Task ChangeUserStatus(Guid userId, UserStatus newStatus, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        if (newStatus == UserStatus.Active) user.Approve();
+        else if (newStatus == UserStatus.Rejected) user.Reject();
+        else throw new ArgumentException("Invalid status update.");
+
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task<PagedResponse<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    {
+        // Call the specialized repository method
+        var (users, totalCount) = await _userRepository.GetPaginatedUsersAsync(roleId, page, pageSize, ct);
+
+        // Map to Response DTOs
+        var mappedUsers = _mapper.Map<List<UserResponse>>(users);
+
+        return new PagedResponse<UserResponse>(mappedUsers, totalCount, page, pageSize);
+    }
+
+    public async Task DeleteUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        await _userRepository.DeleteAsync(userId, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task ReactivateUserAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        user.Reactivate();
+        await _userRepository.UpdateAsync(user, ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/DependencyInjection.cs">
+using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Authentication;
+
+namespace UserManagementService.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplication(this IServiceCollection services)
+    {
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IManagementService, ManagementService>();
+        services.AddAutoMapper(Assembly.GetExecutingAssembly());
+
+        return services;
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Application/UserManagementService.Application.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Common/" />
+    <Folder Include="Common/Mappings/" />
+    <Folder Include="Common/Messages/" />
+    <Folder Include="Manamgenet/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit.Abstractions" Version="8.1.3" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/RefreshToken.cs">
+namespace UserManagementService.Domain.Entities;
+
+public sealed class RefreshToken
+{
+    // Main Properties
+    public Guid Id { get; set; }
+    public string Token { get; set; }
+    public DateTime ExpiresAtUtc { get; set; }
+    public bool IsRevoked { get; set; }
+
+    // Foreign Keys
+    public Guid UserId { get; set; }
+
+    // Navigation Properties
+    public User User { get; set; } = null!;
+
+    public RefreshToken() { } 
+
+    public bool IsExpired => DateTime.UtcNow >= ExpiresAtUtc;
+    public bool IsActive => !IsRevoked && !IsExpired;
+    public void Revoke() => IsRevoked = true;
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/ResetPasswordToken.cs">
+namespace UserManagementService.Domain.Entities;
+
+public sealed class ResetPasswordToken
+{
+    // Main Properties
+    public Guid Id { get; set; }
+    public string Token { get; set; }
+    public DateTime ExpiresAtUtc { get; set; }
+    public int RequestCount { get; set; } = 0;
+    public DateTime? LastRequestedAtUtc { get; set; }
+
+    // Foreign Keys
+    public Guid UserId { get; set; }
+
+    // Navigation Properties
+    public User User { get; set; } = null!;
+
+    public ResetPasswordToken() { }
+
+    public bool IsExpired => DateTime.UtcNow >= ExpiresAtUtc;
+
+    public void UpdateToken(string newToken)
+    {
+        if (LastRequestedAtUtc.HasValue && LastRequestedAtUtc.Value.AddDays(1) < DateTime.UtcNow)
+        {
+            RequestCount = 0;
+        }
+
+        Token = newToken;
+        ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+        LastRequestedAtUtc = DateTime.UtcNow;
+        RequestCount++;
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/Role.cs">
+namespace UserManagementService.Domain.Entities;
+
+public sealed class Role
+{
+    // Main Properties
+    public Guid Id { get; set; }
+    public RoleName Name { get; set; }
+
+    // Foreign Keys
+
+    // Navigation Properties
+    public ICollection<User> Users { get; set; } = new List<User>();
+
+    public Role() { }
+
+    public static Role Create(RoleName name)
+    {
+        return new Role
+        {
+            Id = Guid.NewGuid(),
+            Name = name
+        };
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/RoleName.cs">
+namespace UserManagementService.Domain.Entities;
+
+public enum RoleName
+{
+    Student = 1,
+    Teacher = 2,
+    Admin = 3
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/User.cs">
+namespace UserManagementService.Domain.Entities;
+
+public sealed class User
+{
+    public Guid Id { get; set; }
+    public string UserName { get; set; }
+    public string Email { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public string PasswordHash { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public UserStatus Status { get; private set; } = UserStatus.Pending;
+    public string? Bio { get; set; }
+    public bool IsDeleted { get; private set; }
+    public DateTime? DeletedAtUtc { get; private set; }
+    public Guid Version { get; private set; } = Guid.NewGuid();
+
+    // Foreign Keys
+    public Guid RoleId { get; set; }
+
+    // Navigation Properties 
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ResetPasswordToken? ResetPasswordToken { get; set; }
+    public Role Role { get; set; }
+
+    public User() { }
+
+    public void UpdateInfo(string firstName, string lastName, string userName, string? bio)
+    {
+        FirstName = firstName;
+        LastName = lastName;
+        UserName = userName;
+        Bio = bio;
+        Version = Guid.NewGuid();
+    }
+
+    public void Approve()
+    {
+        Status = UserStatus.Active;
+        Version = Guid.NewGuid();
+    }
+
+    public void Reject()
+    {
+        Status = UserStatus.Rejected;
+        Version = Guid.NewGuid();
+    }
+
+    public void Deactivate()
+    {
+        Status = UserStatus.Deactivated;
+        Version = Guid.NewGuid();
+    }
+
+    public void UpdatePassword(string newHash)
+    {
+        PasswordHash = newHash;
+    }
+
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        DeletedAtUtc = DateTime.UtcNow;
+        Status = UserStatus.Deactivated;
+        Version = Guid.NewGuid();
+    }
+
+    public void Restore(Guid newRoleId)
+    {
+        IsDeleted = false;
+        DeletedAtUtc = null;
+        Status = UserStatus.Pending;
+        RoleId = newRoleId;
+        Version = Guid.NewGuid();
+    }
+
+    public void Reactivate()
+    {
+        if (IsDeleted) throw new InvalidOperationException("Cannot reactivate a deleted user. Restore them via registration instead.");
+        Status = UserStatus.Active;
+        Version = Guid.NewGuid();
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/Entities/UserStatus.cs">
+namespace UserManagementService.Domain.Entities;
+
+public enum UserStatus
+{
+    Pending = 0,
+    Active = 1,
+    Rejected = 2,
+    Deactivated = 3
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Domain/UserManagementService.Domain.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Authentication/JwtProvider.cs">
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Authentication;
+
+public sealed class JwtProvider : IJwtProvider
+{
+    private const string UserIdClaim = "uid";
+    private const string RoleIdClaim = "roleId";
+
+    private readonly string _issuer;
+    private readonly string _audience;
+    private readonly byte[] _signingKey;
+
+    public JwtProvider(string secretKey, string issuer = "", string audience = "")
+    {
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new ArgumentException("Secret key is required.", nameof(secretKey));
+
+        // Accept either raw text or base64-encoded keys.
+        _signingKey = TryDecodeBase64(secretKey) ?? Encoding.UTF8.GetBytes(secretKey);
+        if (_signingKey.Length < 32)
+            throw new ArgumentException("Secret key must be at least 32 bytes.", nameof(secretKey));
+
+        _issuer = issuer ?? string.Empty;
+        _audience = audience ?? string.Empty;
+    }
+
+    public string GenerateAccessToken(Guid userId, string roleName)
+    {
+        var signingKey = new SymmetricSecurityKey(_signingKey);
+        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+        new Claim("uid", userId.ToString()),
+        new Claim(ClaimTypes.Role, roleName) // Standard ASP.NET Role Claim
+    };
+
+        var token = new JwtSecurityToken(
+            _issuer,
+            _audience,
+            claims,
+            null,
+            DateTime.UtcNow.AddMinutes(15),
+            credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public bool TryValidateToken(string token, out Guid userId, out Guid roleId)
+    {
+        userId = Guid.Empty;
+        roleId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var signingKey = new SymmetricSecurityKey(_signingKey);
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = signingKey,
+
+            ValidateIssuer = !string.IsNullOrWhiteSpace(_issuer),
+            ValidIssuer = string.IsNullOrWhiteSpace(_issuer) ? null : _issuer,
+
+            ValidateAudience = !string.IsNullOrWhiteSpace(_audience),
+            ValidAudience = string.IsNullOrWhiteSpace(_audience) ? null : _audience,
+
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            ClockSkew = TimeSpan.FromMinutes(2),
+        };
+
+        try
+        {
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
+
+            var uidRaw = principal.FindFirst(UserIdClaim)?.Value;
+            var ridRaw = principal.FindFirst(RoleIdClaim)?.Value;
+            if (!Guid.TryParse(uidRaw, out var parsedUserId))
+                return false;
+            if (!Guid.TryParse(ridRaw, out var parsedRoleId))
+                return false;
+
+            userId = parsedUserId;
+            roleId = parsedRoleId;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static byte[]? TryDecodeBase64(string input)
+    {
+        // Avoid throwing on invalid base64; treat it as raw text instead.
+        try
+        {
+            return Convert.FromBase64String(input);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Authentication/ResetPasswordTokenGenerator.cs">
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Authentication;
+
+public class ResetPasswordTokenGenerator : IResetPasswordTokenGenerator
+{
+    public string Generate()
+    {
+        var random = new Random();
+        var code = string.Empty;
+        for (int i = 0; i < 6; i++)
+        {
+            code += random.Next(10).ToString();
+        }
+
+        return code;
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/BackgroundJobs/SendResetCodeConsumer.cs">
+using MassTransit;
+using Microsoft.Extensions.Logging;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common.Messages;
+
+namespace UserManagementService.Infrastructure.BackgroundJobs;
+
+public class SendResetCodeConsumer : IConsumer<SendResetCodeMessage>
+{
+    private readonly IEmailService _emailService;
+    private readonly ILogger<SendResetCodeConsumer> _logger;
+    public SendResetCodeConsumer(IEmailService emailService, ILogger<SendResetCodeConsumer> logger)
+    {
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    public async Task Consume(ConsumeContext<SendResetCodeMessage> context)
+    {
+        _logger.LogInformation("Attempting to send reset email to {Email}", context.Message.Email);
+
+        try
+        {
+            await _emailService.SendResetCodeAsync(context.Message.Email, context.Message.Code);
+            _logger.LogInformation("Email successfully sent to {Email}", context.Message.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send email to {Email}. MassTransit will retry.", context.Message.Email);
+            throw; // Re-throw so MassTransit retries
+        }
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/BackgroundJobs/SendResetCodeConsumerDefinition.cs">
+using MassTransit;
+using UserManagementService.Infrastructure.Persistence;
+
+namespace UserManagementService.Infrastructure.BackgroundJobs;
+
+public class SendResetCodeConsumerDefinition : ConsumerDefinition<SendResetCodeConsumer>
+{
+    protected override void ConfigureConsumer(
+        IReceiveEndpointConfigurator endpointConfigurator,
+        IConsumerConfigurator<SendResetCodeConsumer> consumerConfigurator,
+        IRegistrationContext context)
+    {
+        endpointConfigurator.UseMessageRetry(r => r.Exponential(
+            5,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromMinutes(2),
+            TimeSpan.FromSeconds(5)));
+
+        endpointConfigurator.UseEntityFrameworkOutbox<ApplicationDbContext>(context);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Hashing/Hasher.cs">
+using System.Security.Cryptography;
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Hashing;
+
+public sealed class Hasher : IHasher
+{
+    // PBKDF2 parameters. Adjust iterations higher for stronger hashes if needed.
+    private const int Iterations = 100_000;
+    private const int SaltSizeBytes = 16;
+    private const int HashSizeBytes = 32;
+
+    // Format: v1:iterations:saltBase64:hashBase64
+    private const string Version = "v1";
+
+    public string Hash(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password is required.", nameof(password));
+
+        byte[] salt = new byte[SaltSizeBytes];
+        RandomNumberGenerator.Fill(salt);
+
+        byte[] hash = DeriveHash(password, salt, Iterations);
+
+        return string.Join(
+            ":",
+            Version,
+            Iterations.ToString(),
+            Convert.ToBase64String(salt),
+            Convert.ToBase64String(hash));
+    }
+
+    public bool Verify(string password, string passwordHash)
+    {
+        if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(passwordHash))
+            return false;
+
+        try
+        {
+            // Expected: v1:iterations:saltBase64:hashBase64
+            string[] parts = passwordHash.Split(':', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 4)
+                return false;
+
+            if (!string.Equals(parts[0], Version, StringComparison.Ordinal))
+                return false;
+
+            if (!int.TryParse(parts[1], out int iterations) || iterations <= 0)
+                return false;
+
+            byte[] salt = Convert.FromBase64String(parts[2]);
+            byte[] expectedHash = Convert.FromBase64String(parts[3]);
+
+            byte[] actualHash = DeriveHash(password, salt, iterations);
+
+            return actualHash.Length == expectedHash.Length &&
+                   CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+        }
+        catch
+        {
+            // Any parsing/decoding errors should be treated as verification failure.
+            return false;
+        }
+    }
+
+    private static byte[] DeriveHash(string password, byte[] salt, int iterations)
+    {
+        // SHA256-based PBKDF2.
+        return Rfc2898DeriveBytes.Pbkdf2(
+            password,
+            salt,
+            iterations,
+            HashAlgorithmName.SHA256,
+            HashSizeBytes);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Migrations/20260407064626_InitialMigration.cs">
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+
+#nullable disable
+
+namespace UserManagementService.Infrastructure.Persistence.Migrations
+{
+    /// <inheritdoc />
+    public partial class InitialMigration : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "InboxState",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    MessageId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ConsumerId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LockId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true),
+                    Received = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ReceiveCount = table.Column<int>(type: "integer", nullable: false),
+                    ExpirationTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Consumed = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Delivered = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastSequenceNumber = table.Column<long>(type: "bigint", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_InboxState", x => x.Id);
+                    table.UniqueConstraint("AK_InboxState_MessageId_ConsumerId", x => new { x.MessageId, x.ConsumerId });
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OutboxMessage",
+                columns: table => new
+                {
+                    SequenceNumber = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    EnqueueTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    SentTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Headers = table.Column<string>(type: "text", nullable: true),
+                    Properties = table.Column<string>(type: "text", nullable: true),
+                    InboxMessageId = table.Column<Guid>(type: "uuid", nullable: true),
+                    InboxConsumerId = table.Column<Guid>(type: "uuid", nullable: true),
+                    OutboxId = table.Column<Guid>(type: "uuid", nullable: true),
+                    MessageId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ContentType = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
+                    MessageType = table.Column<string>(type: "text", nullable: false),
+                    Body = table.Column<string>(type: "text", nullable: false),
+                    ConversationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CorrelationId = table.Column<Guid>(type: "uuid", nullable: true),
+                    InitiatorId = table.Column<Guid>(type: "uuid", nullable: true),
+                    RequestId = table.Column<Guid>(type: "uuid", nullable: true),
+                    SourceAddress = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    DestinationAddress = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    ResponseAddress = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    FaultAddress = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    ExpirationTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OutboxMessage", x => x.SequenceNumber);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OutboxState",
+                columns: table => new
+                {
+                    OutboxId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LockId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true),
+                    Created = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Delivered = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastSequenceNumber = table.Column<long>(type: "bigint", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OutboxState", x => x.OutboxId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Roles",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Roles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserName = table.Column<string>(type: "text", nullable: false),
+                    Email = table.Column<string>(type: "text", nullable: false),
+                    FirstName = table.Column<string>(type: "text", nullable: false),
+                    LastName = table.Column<string>(type: "text", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    Bio = table.Column<string>(type: "text", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Version = table.Column<Guid>(type: "uuid", nullable: false),
+                    RoleId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Users_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Token = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ResetPasswordTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Token = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    RequestCount = table.Column<int>(type: "integer", nullable: false),
+                    LastRequestedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ResetPasswordTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ResetPasswordTokens_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InboxState_Delivered",
+                table: "InboxState",
+                column: "Delivered");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessage_EnqueueTime",
+                table: "OutboxMessage",
+                column: "EnqueueTime");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessage_ExpirationTime",
+                table: "OutboxMessage",
+                column: "ExpirationTime");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessage_InboxMessageId_InboxConsumerId_SequenceNumber",
+                table: "OutboxMessage",
+                columns: new[] { "InboxMessageId", "InboxConsumerId", "SequenceNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxMessage_OutboxId_SequenceNumber",
+                table: "OutboxMessage",
+                columns: new[] { "OutboxId", "SequenceNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OutboxState_Created",
+                table: "OutboxState",
+                column: "Created");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UserId",
+                table: "RefreshTokens",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ResetPasswordTokens_UserId",
+                table: "ResetPasswordTokens",
+                column: "UserId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_RoleId",
+                table: "Users",
+                column: "RoleId");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "InboxState");
+
+            migrationBuilder.DropTable(
+                name: "OutboxMessage");
+
+            migrationBuilder.DropTable(
+                name: "OutboxState");
+
+            migrationBuilder.DropTable(
+                name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
+                name: "ResetPasswordTokens");
+
+            migrationBuilder.DropTable(
+                name: "Users");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
+        }
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Migrations/20260407064626_InitialMigration.Designer.cs">
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using UserManagementService.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace UserManagementService.Infrastructure.Persistence.Migrations
+{
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260407064626_InitialMigration")]
+    partial class InitialMigration
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("Consumed")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ConsumerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("Delivered")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpirationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastSequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("LockId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReceiveCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Received")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("MessageId", "ConsumerId");
+
+                    b.HasIndex("Delivered");
+
+                    b.ToTable("InboxState");
+                });
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
+                {
+                    b.Property<long>("SequenceNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("SequenceNumber"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("EnqueueTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpirationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FaultAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("InboxConsumerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InboxMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InitiatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OutboxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResponseAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("SentTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("SequenceNumber");
+
+                    b.HasIndex("EnqueueTime");
+
+                    b.HasIndex("ExpirationTime");
+
+                    b.HasIndex("OutboxId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("OutboxMessage");
+                });
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
+                {
+                    b.Property<Guid>("OutboxId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("Delivered")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastSequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("LockId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("OutboxId");
+
+                    b.HasIndex("Created");
+
+                    b.ToTable("OutboxState");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.ResetPasswordToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RequestCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("ResetPasswordTokens");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Name")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.ResetPasswordToken", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.User", "User")
+                        .WithOne("ResetPasswordToken")
+                        .HasForeignKey("UserManagementService.Domain.Entities.ResetPasswordToken", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.Role", "Role")
+                        .WithMany("Users")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.Role", b =>
+                {
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("ResetPasswordToken");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Migrations/ApplicationDbContextModelSnapshot.cs">
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using UserManagementService.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace UserManagementService.Infrastructure.Persistence.Migrations
+{
+    [DbContext(typeof(ApplicationDbContext))]
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("Consumed")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ConsumerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("Delivered")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpirationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastSequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("LockId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ReceiveCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("Received")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("MessageId", "ConsumerId");
+
+                    b.HasIndex("Delivered");
+
+                    b.ToTable("InboxState");
+                });
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
+                {
+                    b.Property<long>("SequenceNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("SequenceNumber"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("ConversationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("EnqueueTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpirationTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FaultAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("InboxConsumerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InboxMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InitiatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("OutboxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResponseAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("SentTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("SequenceNumber");
+
+                    b.HasIndex("EnqueueTime");
+
+                    b.HasIndex("ExpirationTime");
+
+                    b.HasIndex("OutboxId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("OutboxMessage");
+                });
+
+            modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
+                {
+                    b.Property<Guid>("OutboxId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Created")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("Delivered")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("LastSequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("LockId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("OutboxId");
+
+                    b.HasIndex("Created");
+
+                    b.ToTable("OutboxState");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.ResetPasswordToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RequestCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("ResetPasswordTokens");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Name")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.ResetPasswordToken", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.User", "User")
+                        .WithOne("ResetPasswordToken")
+                        .HasForeignKey("UserManagementService.Domain.Entities.ResetPasswordToken", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.Role", "Role")
+                        .WithMany("Users")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.Role", b =>
+                {
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
+                {
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("ResetPasswordToken");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Repositories/GenericRepository.cs">
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Persistence.Repositories;
+
+public class GenericRepository<T> : IRepository<T> where T : class
+{
+    protected readonly ApplicationDbContext _context;
+
+    public GenericRepository(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        return await _context.Set<T>().FindAsync(new object[] { id }, ct);
+    }
+
+    public async Task AddAsync(T entity, CancellationToken ct = default)
+    {
+        await _context.Set<T>().AddAsync(entity, ct);
+    }
+
+    public Task UpdateAsync(T entity, CancellationToken ct = default)
+    {
+        _context.Set<T>().Update(entity);
+        return Task.CompletedTask;
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await GetByIdAsync(id, ct);
+        if (entity != null)
+        {
+            _context.Set<T>().Remove(entity);
+        }
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        return await _context.SaveChangesAsync(ct);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Repositories/ResetTokenRepository.cs">
+using Microsoft.EntityFrameworkCore;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Infrastructure.Persistence.Repositories;
+
+public sealed class ResetTokenRepository : GenericRepository<ResetPasswordToken>, IResetTokenRepository
+{
+    public ResetTokenRepository(ApplicationDbContext context) : base(context)
+    {
+    }
+
+    public async Task<ResetPasswordToken?> FindResetPasswordTokenByUserId(Guid userId)
+    {
+        return await _context.ResetPasswordTokens
+            .FirstOrDefaultAsync(rt => rt.UserId == userId);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Repositories/UserRepository.cs">
+using Microsoft.EntityFrameworkCore;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Infrastructure.Persistence.Repositories;
+
+public sealed class UserRepository : IUserRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public UserRepository(ApplicationDbContext context) => _context = context;
+
+    public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct) =>
+        await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, ct);
+
+    public async Task<User?> FindByEmail(string email, CancellationToken ct) =>
+        await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email, ct);
+
+    public async Task AddAsync(User user, CancellationToken ct) => await _context.Users.AddAsync(user, ct);
+
+    public Task UpdateAsync(User user, CancellationToken ct)
+    {
+        _context.Users.Update(user);
+        return Task.CompletedTask;
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var user = await _context.Users.FindAsync(new object[] { id }, ct);
+        if (user != null)
+        {
+            user.SoftDelete();
+            _context.Users.Update(user);
+        }
+    }
+
+    public async Task<User?> FindByRefreshToken(string token, CancellationToken ct)
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.RefreshTokens.Any(rt => rt.Token == token && !rt.IsRevoked), ct);
+    }
+
+    public async Task<User?> FindByResetToken(string token, CancellationToken ct)
+    {
+        return await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.ResetPasswordToken)
+            .FirstOrDefaultAsync(u => u.ResetPasswordToken != null && u.ResetPasswordToken.Token == token, ct);
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        return await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task<List<User>?> GetPendingUsrs(CancellationToken ct)
+    {
+        return await _context.Users
+        .Where(u => u.Status == UserStatus.Pending)
+        .Include(u => u.Role)
+        .ToListAsync(ct);
+    }
+
+    public async Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    {
+        var query = _context.Users.Include(u => u.Role).AsQueryable();
+
+        // 1. Filter by Role ID
+        if (roleId.HasValue && roleId.Value != Guid.Empty)
+        {
+            query = query.Where(u => u.RoleId == roleId.Value);
+        }
+
+        // 2. Count Total
+        int totalCount = await query.CountAsync(ct);
+
+        // 3. Paginate and Fetch
+        var items = await query
+            .OrderByDescending(u => u.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/Seeder/DatabaseSeeder.cs">
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Infrastructure.Persistence.Seeder;
+
+public static class DatabaseSeeder
+{
+    public static async Task SeedAsync(IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<IHasher>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
+
+        try
+        {
+            // 1. Seed Roles
+            if (!await context.Roles.AnyAsync())
+            {
+                logger.LogInformation("Roles table is empty. Seeding Roles...");
+                context.Roles.AddRange(
+                    Role.Create(RoleName.Admin),
+                    Role.Create(RoleName.Teacher),
+                    Role.Create(RoleName.Student)
+                );
+                await context.SaveChangesAsync();
+            }
+
+            // 2. Resolve Admin Role
+            var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == RoleName.Admin);
+            if (adminRole == null)
+            {
+                logger.LogError("Admin role not found in database. Seeding failed.");
+                return;
+            }
+
+            // 3. Seed Default Admin User (Check by Email)
+            const string adminEmail = "admin@intellilect.com";
+            var adminExists = await context.Users.AnyAsync(u => u.Email == adminEmail);
+
+            if (!adminExists)
+            {
+                logger.LogInformation("Admin user missing. Seeding admin@intellilect.com...");
+
+                var adminUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = "admin",
+                    Email = adminEmail,
+                    FirstName = "System",
+                    LastName = "Administrator",
+                    PasswordHash = hasher.Hash("Admin123!"),
+                    CreatedAtUtc = DateTime.UtcNow,
+                    RoleId = adminRole.Id,
+                    Bio = "Default system administrator account."
+                };
+
+                adminUser.Approve(); // Set status to Active
+
+                await context.Users.AddAsync(adminUser);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("Admin user seeded successfully.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while seeding the database.");
+        }
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Persistence/ApplicationDbContext.cs">
+using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Infrastructure.Persistence;
+
+public sealed class ApplicationDbContext : DbContext
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ResetPasswordToken> ResetPasswordTokens => Set<ResetPasswordToken>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.Version)
+            .IsConcurrencyToken();
+
+        modelBuilder.AddTransactionalOutboxEntities();
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Services/EmailBodyFactory.cs">
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Services;
+
+public sealed class EmailBodyFactory : IEmailBodyFactory
+{
+    public string CreatePasswordResetBody(string code)
+    {
+        return $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e4e7; border-radius: 8px; padding: 20px;'>
+            <div style='text-align: center; margin-bottom: 20px;'>
+                <h1 style='color: #08060d;'>IntelliLect</h1>
+            </div>
+            <div style='color: #6b6375; line-height: 1.6;'>
+                <p>Hello,</p>
+                <p>We received a request to reset your password. Use the verification code below to proceed:</p>
+                <div style='text-align: center; margin: 30px 0;'>
+                    <span style='background-color: #f4f3ec; color: #aa3bff; font-size: 32px; font-weight: bold; letter-spacing: 5px; padding: 10px 20px; border-radius: 4px; border: 2px dashed #aa3bff;'>
+                        {code}
+                    </span>
+                </div>
+                <p>This code is valid for <b>15 minutes</b>. If you did not request a password reset, please ignore this email.</p>
+            </div>
+            <hr style='border: 0; border-top: 1px solid #e5e4e7; margin: 20px 0;' />
+            <div style='text-align: center; font-size: 12px; color: #9ca3af;'>
+                <p>&copy; {DateTime.UtcNow.Year} IntelliLect Graduation Project. All rights reserved.</p>
+            </div>
+        </div>";
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/Services/EmailService.cs">
+using MailKit.Net.Smtp;
+using MimeKit;
+using Microsoft.Extensions.Configuration;
+using UserManagementService.Application.Abstractions;
+
+namespace UserManagementService.Infrastructure.Services;
+
+public sealed class EmailService : IEmailService
+{
+    private readonly IConfiguration _config;
+    private readonly IEmailBodyFactory _bodyFactory;
+    public EmailService(IConfiguration config, IEmailBodyFactory bodyFactory)
+    {
+        _config = config;
+        _bodyFactory = bodyFactory;
+    }
+
+    public async Task SendResetCodeAsync(string email, string code)
+    {
+        var settings = _config.GetSection("EmailSettings");
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress("IntelliLect", settings["SenderEmail"]));
+        message.To.Add(new MailboxAddress("", email));
+        message.Subject = "Your Password Reset Code";
+        var htmlBody = _bodyFactory.CreatePasswordResetBody(code);
+
+        message.Body = new TextPart("html") { Text = htmlBody };
+        using var client = new SmtpClient();
+        await client.ConnectAsync("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(settings["SenderEmail"], settings["AppPassword"]);
+        await client.SendAsync(message);
+        await client.DisconnectAsync(true);
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/DependencyInjection.cs">
+using System.Text;
+using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Infrastructure.Authentication;
+using UserManagementService.Infrastructure.BackgroundJobs;
+using UserManagementService.Infrastructure.Hashing;
+using UserManagementService.Infrastructure.Persistence;
+using UserManagementService.Infrastructure.Persistence.Repositories;
+using UserManagementService.Infrastructure.Services;
+
+namespace UserManagementService.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static object MassTransitLicense { get; private set; }
+
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("Database");
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseNpgsql(connectionString));
+
+        services.AddSingleton<IHasher, Hasher>();
+
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+
+        var jwtSettings = configuration.GetSection("Jwt");
+        var secretKey = jwtSettings["SecretKey"]!;
+        var issuer = jwtSettings["Issuer"]!;
+        var audience = jwtSettings["Audience"]!;
+
+        services.AddSingleton<IJwtProvider>(_ =>
+            new JwtProvider(secretKey, issuer, audience));
+
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = issuer,
+                ValidAudience = audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+            };
+        });
+
+        services.AddAuthorization();
+
+        services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
+        services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
+
+        services.AddScoped<IEmailService, EmailService>();
+
+        services.AddMassTransit(x =>
+            {
+                x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
+
+                x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
+                {
+                    o.UsePostgres();
+                    o.UseBusOutbox();
+
+                    o.QueryDelay = TimeSpan.FromSeconds(1);
+                });
+
+                x.UsingRabbitMq((context, cfg) =>
+                {
+                    cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
+
+                    cfg.ConfigureEndpoints(context);
+                });
+            });
+
+        services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
+
+        return services;
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Infrastructure/UserManagementService.Infrastructure.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../UserManagementService.Application/UserManagementService.Application.csproj" />
+    <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.15.1" />
+    <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.1.3" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.1.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="BackgroundJobs/" />
+    <Folder Include="Persistence/Repositories/" />
+    <Folder Include="Persistence/Seeder/" />
+    <Folder Include="Services/" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Presentation/Controllers/AdminController.cs">
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Domain.Entities;
+
+namespace UserManagementService.Presentation.Controllers;
+
+[Authorize(Roles = "Admin")]
+[ApiController]
+[Route("api/admin")]
+public sealed class AdminController : ControllerBase
+{
+    private readonly IManagementService _managementService;
+
+    public AdminController(IManagementService managementService)
+    {
+        _managementService = managementService;
+    }
+
+    [HttpGet("requests")]
+    public async Task<IActionResult> GetPendingRequests(CancellationToken ct)
+    {
+        var requests = await _managementService.GetPendingUsersAsync(ct);
+        return Ok(requests);
+    }
+
+    [HttpPut("requests/{id}/status")]
+    public async Task<IActionResult> HandleRequest(Guid id, [FromBody] string status, CancellationToken ct)
+    {
+        // Parse string to Enum (Expect "Active" or "Rejected")
+        if (!Enum.TryParse<UserStatus>(status, true, out var newStatus))
+            return BadRequest("Invalid status.");
+
+        await _managementService.ChangeUserStatus(id, newStatus, ct);
+        return NoContent();
+    }
+
+    [HttpGet("users")]
+    public async Task<IActionResult> GetAllUsers(
+    [FromQuery] Guid? roleId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    CancellationToken ct = default)
+    {
+        var result = await _managementService.GetAllUsersAsync(roleId, page, pageSize, ct);
+        return Ok(result);
+    }
+
+    [HttpPut("users/{id}/deactivate")]
+    public async Task<IActionResult> DeactivateUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.DeactivateUserAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpDelete("users/{id}")]
+    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.DeleteUserAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpPut("users/{id}/reactivate")]
+    public async Task<IActionResult> ReactivateUser(Guid id, CancellationToken ct)
+    {
+        await _managementService.ReactivateUserAsync(id, ct);
+        return NoContent();
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Presentation/Controllers/AuthController.cs">
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.DTOs;
+using UserManagementService.Application.DTOs.Auth;
+
+namespace UserManagementService.Presentation.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController : ControllerBase
+{
+    private readonly IAuthService _authService;
+
+    public AuthController(IAuthService authService)
+    {
+        _authService = authService;
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(
+    [FromBody] RegisterRequest request,
+    CancellationToken cancellationToken)
+    {
+        var userId = await _authService.RegisterAsync(request, cancellationToken);
+
+        // Return 201 Created with the specific blueprint message
+        return StatusCode(StatusCodes.Status201Created, new
+        {
+            Message = "Registration request submitted. Please wait for Admin approval.",
+            UserId = userId
+        });
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login(
+    [FromBody] LoginRequest request,
+    CancellationToken cancellationToken)
+    {
+        // The service now handles the Status check
+        var response = await _authService.LoginAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request, CancellationToken ct)
+    {
+        var response = await _authService.RefreshAsync(request, ct);
+        return Ok(response);
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] string email, CancellationToken ct)
+    {
+        // Note: For security, usually returns 200 OK even if email doesn't exist
+        await _authService.ForgotPasswordAsync(email, ct);
+        return Ok(new { Message = "If an account exists, a reset token has been generated." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
+    {
+        await _authService.ResetPasswordAsync(request, ct);
+        return Ok(new { Message = "Password has been reset successfully." });
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Presentation/Controllers/UsersController.cs">
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.DTOs.User;
+
+namespace UserManagementService.Presentation.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/users")]
+public sealed class UsersController : ControllerBase
+{
+    private readonly IManagementService _managementService;
+
+    public UsersController(IManagementService managementService)
+    {
+        _managementService = managementService;
+    }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMe(CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        var profile = await _managementService.GetUserProfileAsync(userId, ct);
+        return Ok(profile);
+    }
+
+    [HttpPut("me")]
+    public async Task<IActionResult> UpdateMe([FromBody] UpdateUserRequest request, CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _managementService.UpdateUserAsync(userId, request, ct);
+        return NoContent(); // 204 Success
+    }
+
+    // Helper method to extract the User ID from the JWT token claims
+    private Guid GetUserIdFromClaims()
+    {
+        // "uid" is the claim name defined in your JwtProvider
+        var userIdClaim = User.FindFirst("uid")?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new UnauthorizedAccessException("Invalid user claims.");
+        }
+        return userId;
+    }
+
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _managementService.ChangePasswordAsync(userId, request, ct);
+        return Ok(new { Message = "Password changed successfully." });
+    }
+
+    [HttpPost("deactivate")]
+    public async Task<IActionResult> DeactivateSelf(CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _managementService.DeactivateUserAsync(userId, ct);
+        return Ok(new { Message = "Account deactivated successfully." });
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Presentation/DependencyInjection.cs">
+using Microsoft.Extensions.DependencyInjection;
+
+namespace UserManagementService.Presentation;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddPresentation(this IServiceCollection services)
+    {
+        services.AddControllers()
+            .AddApplicationPart(typeof(DependencyInjection).Assembly);
+
+        return services;
+    }
+}
+</file>
+
+<file path="UserManagementService/src/UserManagementService.Presentation/UserManagementService.Presentation.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../UserManagementService.Application/UserManagementService.Application.csproj" />
+    <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Controllers/" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/tests/UserManagementService.IntegrationTests/UserManagementService.IntegrationTests.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/tests/UserManagementService.UnitTests/UserManagementService.UnitTests.csproj">
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
+</file>
+
+<file path="UserManagementService/Dockerfile">
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy all csproj files to restore dependencies (for layer caching)
+COPY ["src/UserManagementService.Api/UserManagementService.Api.csproj", "UserManagementService.Api/"]
+COPY ["src/UserManagementService.Application/UserManagementService.Application.csproj", "UserManagementService.Application/"]
+COPY ["src/UserManagementService.Domain/UserManagementService.Domain.csproj", "UserManagementService.Domain/"]
+COPY ["src/UserManagementService.Infrastructure/UserManagementService.Infrastructure.csproj", "UserManagementService.Infrastructure/"]
+COPY ["src/UserManagementService.Presentation/UserManagementService.Presentation.csproj", "UserManagementService.Presentation/"]
+
+RUN dotnet restore "UserManagementService.Api/UserManagementService.Api.csproj"
+
+# Copy the rest of the source code
+COPY . .
+
+# Build and Publish
+WORKDIR "/src/src/UserManagementService.Api"
+RUN dotnet publish "UserManagementService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y libgssapi-krb5-2 && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/publish .
+
+# Create the Logs directory and give permissions (Important for Ubuntu/Linux)
+RUN mkdir -p Logs && chmod 777 Logs
+
+ENTRYPOINT ["dotnet", "UserManagementService.Api.dll"]
+</file>
+
+<file path="UserManagementService/UserManagementService.slnx">
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/UserManagementService.IntegrationTests/UserManagementService.IntegrationTests.csproj" />
+    <Project Path="tests/UserManagementService.UnitTests/UserManagementService.UnitTests.csproj" />
+  </Folder>
+  <Project Path="src/UserManagementService.Api/UserManagementService.Api.csproj" />
+  <Project Path="src/UserManagementService.Application/UserManagementService.Application.csproj" />
+  <Project Path="src/UserManagementService.Domain/UserManagementService.Domain.csproj" />
+  <Project Path="src/UserManagementService.Infrastructure/UserManagementService.Infrastructure.csproj" />
+  <Project Path="src/UserManagementService.Presentation/UserManagementService.Presentation.csproj" />
+</Solution>
+</file>
+
+<file path="docker-compose.yml">
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: user-management-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_DB=users_db
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+
+  user-service:
+    build:
+      context: ./UserManagementService
+      dockerfile: Dockerfile
+    container_name: user-management-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Database=Host=db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
+      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      - Jwt__Issuer=IntelliLect
+      - Jwt__Audience=IntelliLect
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:latest
+    container_name: intellilect-gateway
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - user-service
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: intellilect-mq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  user_db_data:
+  rabbitmq_data:
+</file>
+
+<file path="nginx.conf">
+worker_processes 1;
+
+events { 
+    worker_connections 1024; 
+}
+
+http {
+    sendfile on;
+
+    upstream user_service {
+        server user-service:8080;
+    }
+
+    server {
+        listen 80;
+
+        # Unified API Route
+        # This will now cover /api/auth, /api/users, and /api/admin
+        location /api/ {
+            proxy_pass         http://user_service/api/;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+        }
+
+        # 2. Scalar UI
+        location /scalar {
+            proxy_pass         http://user_service;
+            proxy_set_header   Host $host;
+        }
+
+        # 3. OpenAPI Docs
+        location /openapi {
+            proxy_pass         http://user_service;
+            proxy_set_header   Host $host;
+        }
+
+        # 4. Gateway Health
+        location /health {
+            return 200 'Gateway is alive';
+            add_header Content-Type text/plain;
+        }
+    }
+}
+</file>
+
+</files>
