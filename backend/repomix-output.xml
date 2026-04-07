@@ -140,6 +140,7 @@ UserManagementService/
       UserManagementService.IntegrationTests.csproj
     UserManagementService.UnitTests/
       UserManagementService.UnitTests.csproj
+  docker-compose.unit.yml
   Dockerfile
   repomix-output.xml
   UserManagementService.slnx
@@ -555,13 +556,14 @@ namespace UserManagementService.Application.Abstractions;
 
 public interface IManagementService
 {
-    Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct = default); // NEW
-    Task<PagedResult<UserResponse>> GetPendingUsersAsync(CancellationToken ct = default);
+    Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct = default);
+    Task<PagedResult<UserResponse>> GetPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct = default);
+    Task<PagedResult<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct = default);
+
     Task ChangeUserStatus(Guid userId, UserStatus newStatus, CancellationToken ct = default);
     Task UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken ct = default);
     Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct = default);
     Task DeactivateUserAsync(Guid userId, CancellationToken ct = default);
-    Task<PagedResult<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct = default);
     Task DeleteUserAsync(Guid userId, CancellationToken ct = default);
     Task ReactivateUserAsync(Guid userId, CancellationToken ct = default);
 }
@@ -611,8 +613,8 @@ public interface IUserRepository : IRepository<User>
     Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default);
     Task<User?> FindByRefreshToken(string token, CancellationToken ct);
     Task<User?> FindByResetToken(string token, CancellationToken ct);
-    Task<List<User>?> GetPendingUsrs(Guid? roleId, int page, int pageSize, CancellationToken ct);
-    Task<List<User>> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct);
+    Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct);
+    Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct);
 }
 </file>
 
@@ -1071,11 +1073,20 @@ public sealed class ManagementService : IManagementService
 
     public async Task<PagedResult<UserResponse>> GetPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
     {
-        var users = await _userRepository.GetPendingUsrs(roleId, page, pageSize, ct);
+        var (users, totalCount) = await _userRepository.GetPaginatedPendingUsersAsync(roleId, page, pageSize, ct);
 
-        var pendingUsers = _mapper.Map<List<UserResponse>>(users);
+        var mappedItems = _mapper.Map<List<UserResponse>>(users);
 
-        return new PagedResult<UserResponse>(pendingUsers, );
+        return new PagedResult<UserResponse>(mappedItems, totalCount, page, pageSize);
+    }
+
+    public async Task<PagedResult<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    {
+        var (users, totalCount) = await _userRepository.GetPaginatedUsersAsync(roleId, page, pageSize, ct);
+
+        var mappedItems = _mapper.Map<List<UserResponse>>(users);
+
+        return new PagedResult<UserResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     public async Task ChangeUserStatus(Guid userId, UserStatus newStatus, CancellationToken ct)
@@ -1092,17 +1103,6 @@ public sealed class ManagementService : IManagementService
         await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, newStatus), ct);
 
         await _userRepository.SaveChangesAsync(ct);
-    }
-
-    public async Task<PagedResult<UserResponse>> GetAllUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
-    {
-        // Call the specialized repository method
-        var (users, totalCount) = await _userRepository.GetPaginatedUsersAsync(roleId, page, pageSize, ct);
-
-        // Map to Response DTOs
-        var mappedUsers = _mapper.Map<List<UserResponse>>(users);
-
-        return new PagedResponse<UserResponse>(mappedUsers, totalCount, page, pageSize);
     }
 
     public async Task DeleteUserAsync(Guid userId, CancellationToken ct)
@@ -2853,9 +2853,11 @@ public sealed class UserRepository : IUserRepository
         return await _context.SaveChangesAsync(ct);
     }
 
-    public async Task<List<User>?> GetPendingUsrs(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    public async Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
     {
-        var query = _context.Users.Include(u => u.Role).AsQueryable().Where(x => x.Status == UserStatus.Pending);
+        var query = _context.Users
+            .Include(u => u.Role)
+            .Where(u => u.Status == UserStatus.Pending && !u.IsDeleted);
 
         if (roleId.HasValue && roleId.Value != Guid.Empty)
         {
@@ -2870,10 +2872,10 @@ public sealed class UserRepository : IUserRepository
             .Take(pageSize)
             .ToListAsync(ct);
 
-        return items;
+        return (items, totalCount);
     }
 
-    public async Task<List<User>> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
+    public async Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
     {
         var query = _context.Users.Include(u => u.Role).AsQueryable();
 
@@ -2890,7 +2892,7 @@ public sealed class UserRepository : IUserRepository
             .Take(pageSize)
             .ToListAsync(ct);
 
-        return items;
+        return (items, totalCount);
     }
 }
 </file>
@@ -3271,13 +3273,6 @@ public sealed class AdminController : ControllerBase
         _managementService = managementService;
     }
 
-    [HttpGet("requests")]
-    public async Task<IActionResult> GetPendingRequests(CancellationToken ct)
-    {
-        var requests = await _managementService.GetPendingUsersAsync(ct);
-        return Ok(requests);
-    }
-
     [HttpPut("requests/{id}/status")]
     public async Task<IActionResult> HandleRequest(Guid id, [FromBody] string status, CancellationToken ct)
     {
@@ -3289,12 +3284,23 @@ public sealed class AdminController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("requests")]
+    public async Task<IActionResult> GetPendingRequests(
+        [FromQuery] Guid? roleId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
+    {
+        var result = await _managementService.GetPendingUsersAsync(roleId, page, pageSize, ct);
+        return Ok(result);
+    }
+
     [HttpGet("users")]
     public async Task<IActionResult> GetAllUsers(
-    [FromQuery] Guid? roleId,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 10,
-    CancellationToken ct = default)
+        [FromQuery] Guid? roleId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
     {
         var result = await _managementService.GetAllUsersAsync(roleId, page, pageSize, ct);
         return Ok(result);
@@ -3429,10 +3435,8 @@ public sealed class UsersController : ControllerBase
         return NoContent(); // 204 Success
     }
 
-    // Helper method to extract the User ID from the JWT token claims
     private Guid GetUserIdFromClaims()
     {
-        // "uid" is the claim name defined in your JwtProvider
         var userIdClaim = User.FindFirst("uid")?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
@@ -3547,6 +3551,49 @@ public static class DependencyInjection
   </ItemGroup>
 
 </Project>
+</file>
+
+<file path="UserManagementService/docker-compose.unit.yml">
+services:
+  user-db:
+    image: postgres:17-alpine
+    container_name: user-management-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_DB=users_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intellilect-net
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-management-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Database=Host=user-db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
+      - RabbitMq__Host=rabbitmq
+      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+    depends_on:
+      user-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - intellilect-net
+
+networks:
+  intellilect-net:
+    external: true
 </file>
 
 <file path="UserManagementService/Dockerfile">
@@ -7083,52 +7130,12 @@ ENTRYPOINT ["dotnet", "UserManagementService.Api.dll"]
 </file>
 
 <file path="docker-compose.yml">
+name: intellilect-platform
+
+include:
+  - path: ./UserManagementService/docker-compose.unit.yml
+
 services:
-  db:
-    image: postgres:17-alpine
-    container_name: user-management-db
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Jafar123!
-      - POSTGRES_DB=users_db
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - user_db_data:/var/lib/postgresql/data
-
-  user-service:
-    build:
-      context: ./UserManagementService
-      dockerfile: Dockerfile
-    container_name: user-management-service
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__Database=Host=db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
-      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
-      - Jwt__Issuer=IntelliLect
-      - Jwt__Audience=IntelliLect
-    depends_on:
-      db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  gateway:
-    image: nginx:latest
-    container_name: intellilect-gateway
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "80:80"
-    depends_on:
-      - user-service
-
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: intellilect-mq
@@ -7140,12 +7147,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - intellilect-net
+
+  gateway:
+    image: nginx:latest
+    container_name: intellilect-gateway
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - user-service
+    networks:
+      - intellilect-net
+
+networks:
+  intellilect-net:
+    driver: bridge
 
 volumes:
   user_db_data:
-  rabbitmq_data:
 </file>
 
 <file path="nginx.conf">

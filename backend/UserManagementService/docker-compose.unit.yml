@@ -1,0 +1,38 @@
+services:
+  user-db:
+    image: postgres:17-alpine
+    container_name: user-management-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_DB=users_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # ports:
+    #   - "5432:5432"
+    networks:
+      - intellilect-net
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-management-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Database=Host=user-management-db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
+      - RabbitMq__Host=intellilect-mq
+      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+    depends_on:
+      user-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - intellilect-net
