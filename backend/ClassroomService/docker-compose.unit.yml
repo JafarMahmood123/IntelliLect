@@ -1,0 +1,37 @@
+services:
+  classroom-db:
+    image: postgres:17-alpine
+    container_name: classroom-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_DB=classroom_db
+    ports:
+      - "5433:5432"
+    networks:
+      - intellilect-net
+    volumes:
+      - classroom_db_data:/var/lib/postgresql/data
+
+  classroom-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: classroom-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Database=Host=classroom-db;Port=5432;Database=classroom_db;Username=postgres;Password=Jafar123!
+      - RabbitMq__Host=intellilect-mq
+      - S3Settings__BucketName=intellilect-files
+      - S3Settings__ServiceUrl=http://localstack:4566
+    depends_on:
+      classroom-db:
+        condition: service_healthy
+      intellilect-mq:
+        condition: service_healthy
+    networks:
+      - intellilect-net
+
+volumes:
+  classroom_db_data:
