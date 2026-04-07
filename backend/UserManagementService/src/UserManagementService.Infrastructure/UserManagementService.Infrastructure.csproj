@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <Folder Include="BackgroundJobs/" />
+    <Folder Include="Messaging/" />
     <Folder Include="Persistence/Repositories/" />
     <Folder Include="Persistence/Seeder/" />
     <Folder Include="Services/" />

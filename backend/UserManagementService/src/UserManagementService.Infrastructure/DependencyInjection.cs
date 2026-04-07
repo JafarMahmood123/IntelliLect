@@ -9,6 +9,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Infrastructure.Authentication;
 using UserManagementService.Infrastructure.BackgroundJobs;
 using UserManagementService.Infrastructure.Hashing;
+using UserManagementService.Infrastructure.Messaging;
 using UserManagementService.Infrastructure.Persistence;
 using UserManagementService.Infrastructure.Persistence.Repositories;
 using UserManagementService.Infrastructure.Services;
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddMassTransit(x =>
             {
                 x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
+                x.AddConsumer<UserStatusChangedConsumer>();
 
                 x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
                 {
@@ -87,6 +89,8 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
+        services.AddScoped<IEventBus, MassTransitEventBus>();
+
 
         return services;
     }

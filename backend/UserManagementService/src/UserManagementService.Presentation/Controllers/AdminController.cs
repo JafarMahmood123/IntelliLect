@@ -17,13 +17,6 @@ public sealed class AdminController : ControllerBase
         _managementService = managementService;
     }
 
-    [HttpGet("requests")]
-    public async Task<IActionResult> GetPendingRequests(CancellationToken ct)
-    {
-        var requests = await _managementService.GetPendingUsersAsync(ct);
-        return Ok(requests);
-    }
-
     [HttpPut("requests/{id}/status")]
     public async Task<IActionResult> HandleRequest(Guid id, [FromBody] string status, CancellationToken ct)
     {
@@ -35,12 +28,23 @@ public sealed class AdminController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("requests")]
+    public async Task<IActionResult> GetPendingRequests(
+        [FromQuery] Guid? roleId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
+    {
+        var result = await _managementService.GetPendingUsersAsync(roleId, page, pageSize, ct);
+        return Ok(result);
+    }
+
     [HttpGet("users")]
     public async Task<IActionResult> GetAllUsers(
-    [FromQuery] Guid? roleId,
-    [FromQuery] int page = 1,
-    [FromQuery] int pageSize = 10,
-    CancellationToken ct = default)
+        [FromQuery] Guid? roleId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
     {
         var result = await _managementService.GetAllUsersAsync(roleId, page, pageSize, ct);
         return Ok(result);

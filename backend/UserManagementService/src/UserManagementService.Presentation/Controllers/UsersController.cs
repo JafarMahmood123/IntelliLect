@@ -33,10 +33,8 @@ public sealed class UsersController : ControllerBase
         return NoContent(); // 204 Success
     }
 
-    // Helper method to extract the User ID from the JWT token claims
     private Guid GetUserIdFromClaims()
     {
-        // "uid" is the claim name defined in your JwtProvider
         var userIdClaim = User.FindFirst("uid")?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {

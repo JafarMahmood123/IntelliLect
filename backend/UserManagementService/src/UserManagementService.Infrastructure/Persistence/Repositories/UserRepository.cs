@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
 using UserManagementService.Domain.Entities;
 
 namespace UserManagementService.Infrastructure.Persistence.Repositories;
@@ -55,28 +56,39 @@ public sealed class UserRepository : IUserRepository
         return await _context.SaveChangesAsync(ct);
     }
 
-    public async Task<List<User>?> GetPendingUsrs(CancellationToken ct)
+    public async Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
     {
-        return await _context.Users
-        .Where(u => u.Status == UserStatus.Pending)
-        .Include(u => u.Role)
-        .ToListAsync(ct);
+        var query = _context.Users
+            .Include(u => u.Role)
+            .Where(u => u.Status == UserStatus.Pending && !u.IsDeleted);
+
+        if (roleId.HasValue && roleId.Value != Guid.Empty)
+        {
+            query = query.Where(u => u.RoleId == roleId.Value);
+        }
+
+        int totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(u => u.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
     }
 
     public async Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct)
     {
         var query = _context.Users.Include(u => u.Role).AsQueryable();
 
-        // 1. Filter by Role ID
         if (roleId.HasValue && roleId.Value != Guid.Empty)
         {
             query = query.Where(u => u.RoleId == roleId.Value);
         }
 
-        // 2. Count Total
         int totalCount = await query.CountAsync(ct);
 
-        // 3. Paginate and Fetch
         var items = await query
             .OrderByDescending(u => u.CreatedAtUtc)
             .Skip((page - 1) * pageSize)

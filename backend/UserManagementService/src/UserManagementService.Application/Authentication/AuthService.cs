@@ -1,5 +1,4 @@
 using AutoMapper;
-using MassTransit;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.DTOs;
@@ -18,7 +17,7 @@ public sealed class AuthService : IAuthService
     private readonly IRepository<RefreshToken> _refreshTokenRepository;
     private readonly IResetTokenRepository _resetPasswordRepository;
     private readonly IResetPasswordTokenGenerator _resetPasswordTokenGenerator;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IEventBus _eventBus;
     private readonly IMapper _mapper;
 
 
@@ -31,7 +30,7 @@ public sealed class AuthService : IAuthService
         IResetTokenRepository resetPasswordRepository,
         IResetPasswordTokenGenerator resetPasswordTokenGenerator,
         IMapper mapper,
-        IPublishEndpoint publishEndpoint)
+        IEventBus eventBus)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
@@ -41,33 +40,30 @@ public sealed class AuthService : IAuthService
         _resetPasswordRepository = resetPasswordRepository;
         _resetPasswordTokenGenerator = resetPasswordTokenGenerator;
         _mapper = mapper;
-        _publishEndpoint = publishEndpoint;
+        _eventBus = eventBus;
     }
 
     public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
-        // 1. Check for existing user (including deleted ones) 
         var existingUser = await _userRepository.FindByEmail(request.Email);
 
         if (existingUser != null)
         {
-            // CASE A: User exists and is NOT deleted -> Block registration
             if (!existingUser.IsDeleted)
                 throw new InvalidOperationException("A user with this email already exists.");
 
-            // CASE B: User exists but IS soft-deleted -> Restore them (The logic you wanted in the service)
             existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
             existingUser.UpdatePassword(_hasher.Hash(request.Password));
 
-            // Custom Domain logic to reset flags
             existingUser.Restore(request.RoleId);
+
+            await _eventBus.PublishAsync(new UserStatusChangedMessage(existingUser.Email, existingUser.FirstName, UserStatus.Pending), ct);
 
             await _userRepository.UpdateAsync(existingUser, ct);
             await _userRepository.SaveChangesAsync(ct);
             return existingUser.Id;
         }
 
-        // CASE C: Brand new user logic
         var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
         if (role == null) throw new ArgumentException("The selected role is invalid.");
 
@@ -75,6 +71,8 @@ public sealed class AuthService : IAuthService
         user.UpdatePassword(_hasher.Hash(request.Password));
 
         await _userRepository.AddAsync(user, ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Pending), ct);
+
         await _userRepository.SaveChangesAsync(ct);
 
         return user.Id;
@@ -204,7 +202,7 @@ public sealed class AuthService : IAuthService
             await _resetPasswordRepository.UpdateAsync(resetPasswordToken, ct);
         }
 
-        await _publishEndpoint.Publish(new SendResetCodeMessage(email, code), ct);
+        await _eventBus.PublishAsync(new SendResetCodeMessage(email, code), ct);
         await _resetPasswordRepository.SaveChangesAsync(ct);
 
         // Logging the result

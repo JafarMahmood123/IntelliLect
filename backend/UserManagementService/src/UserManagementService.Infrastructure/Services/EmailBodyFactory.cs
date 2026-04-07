@@ -1,4 +1,5 @@
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Domain.Entities;
 
 namespace UserManagementService.Infrastructure.Services;
 
@@ -25,6 +26,28 @@ public sealed class EmailBodyFactory : IEmailBodyFactory
             <div style='text-align: center; font-size: 12px; color: #9ca3af;'>
                 <p>&copy; {DateTime.UtcNow.Year} IntelliLect Graduation Project. All rights reserved.</p>
             </div>
+        </div>";
+    }
+
+    public string CreateStatusChangedBody(string firstName, UserStatus status)
+    {
+        var (title, message) = status switch
+        {
+            UserStatus.Pending => ("Welcome!", "We have received your registration request. An administrator will review your details shortly."),
+            UserStatus.Active => ("Account Approved!", "Great news! Your account has been approved. You can now log in and access all features."),
+            UserStatus.Rejected => ("Request Update", "After reviewing your registration request, we are unable to approve your account at this time."),
+            UserStatus.Deactivated => ("Account Deactivated", "Your account has been deactivated. If you believe this is a mistake, please contact support."),
+            _ => ("Account Update", "There has been an update to your account status.")
+        };
+
+        return $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e4e7; border-radius: 8px; padding: 20px;'>
+            <h1 style='color: #08060d;'>IntelliLect</h1>
+            <h2 style='color: #aa3bff;'>{title}</h2>
+            <p>Hello {firstName},</p>
+            <p>{message}</p>
+            <hr style='border: 0; border-top: 1px solid #e5e4e7; margin: 20px 0;' />
+            <p style='font-size: 12px; color: #9ca3af;'>&copy; {DateTime.UtcNow.Year} IntelliLect Team</p>
         </div>";
     }
 }

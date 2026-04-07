@@ -27,7 +27,7 @@ public class SendResetCodeConsumer : IConsumer<SendResetCodeMessage>
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send email to {Email}. MassTransit will retry.", context.Message.Email);
-            throw; // Re-throw so MassTransit retries
+            throw;
         }
     }
 }
