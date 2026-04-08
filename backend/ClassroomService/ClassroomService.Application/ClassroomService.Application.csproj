@@ -6,6 +6,12 @@
 
   <ItemGroup>
     <Folder Include="Abstractions/" />
+    <Folder Include="DTOs/Classroom/" />
+    <Folder Include="DTOs/Membership/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
   </ItemGroup>
 
   <PropertyGroup>

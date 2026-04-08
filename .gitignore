@@ -14,6 +14,8 @@ Thumbs.db
 *.sln.docstates
 *.txt
 
+appsettings.Development.json
+
 bin/
 obj/
 [Dd]ebug/

@@ -7,5 +7,7 @@ public sealed class Classroom
     public string Description { get; set; } = null!;
     public Guid TeacherId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+
     public ICollection<ClassroomFile> Files { get; set; } = new List<ClassroomFile>();
+    public ICollection<ClassroomMembership> Memberships { get; set; } = new List<ClassroomMembership>();
 }

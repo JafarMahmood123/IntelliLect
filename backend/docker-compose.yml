@@ -2,6 +2,7 @@ name: intellilect-platform
 
 include:
   - path: ./UserManagementService/docker-compose.unit.yml
+  - path: ./ClassroomService/docker-compose.unit.yml
 
 services:
   rabbitmq:
@@ -18,6 +19,16 @@ services:
     networks:
       - intellilect-net
 
+  localstack:
+    image: localstack/localstack:latest
+    container_name: intellilect-s3
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+    networks:
+      - intellilect-net
+
   gateway:
     image: nginx:latest
     container_name: intellilect-gateway
@@ -27,6 +38,7 @@ services:
       - "80:80"
     depends_on:
       - user-service
+      - classroom-service
     networks:
       - intellilect-net
 
@@ -36,3 +48,4 @@ networks:
 
 volumes:
   user_db_data:
+  classroom_db_data:
