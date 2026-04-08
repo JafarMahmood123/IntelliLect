@@ -6,8 +6,11 @@
 
   <ItemGroup>
     <Folder Include="Abstractions/" />
+    <Folder Include="Common/" />
+    <Folder Include="Common/Mappings/" />
     <Folder Include="DTOs/Classroom/" />
     <Folder Include="DTOs/Membership/" />
+    <Folder Include="Services/" />
   </ItemGroup>
 
   <ItemGroup>

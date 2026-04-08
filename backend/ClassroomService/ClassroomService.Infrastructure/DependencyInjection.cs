@@ -1,7 +1,11 @@
 using System.Text;
+using Amazon.S3;
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Application.Services;
+using ClassroomService.Infrastructure.Configuration;
 using ClassroomService.Infrastructure.Persistence;
 using ClassroomService.Infrastructure.Persistence.Repositories;
+using ClassroomService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +18,34 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<IClassroomRepository, ClassroomRepository>();
+        services.AddScoped<IMembershipRepository, MembershipRepository>();
+        services.AddScoped<IClassroomManagementService, ClassroomManagementService>();
+        services.AddScoped<IClassroomFileService, ClassroomFileService>();
+        services.AddScoped<IMembershipService, MembershipService>();
+
+        var s3Section = configuration.GetSection(S3Settings.SectionName);
+        services.Configure<S3Settings>(s3Section);
+        var s3Settings = s3Section.Get<S3Settings>();
+
+        services.AddSingleton<IAmazonS3>(sp =>
+        {
+            var config = new AmazonS3Config
+            {
+                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Settings!.Region),
+                ForcePathStyle = true
+            };
+
+            if (!string.IsNullOrEmpty(s3Settings.ServiceUrl))
+            {
+                config.ServiceURL = s3Settings.ServiceUrl;
+            }
+
+            return new AmazonS3Client("test", "test", config);
+        });
+
+        services.AddScoped<IFileStorageService, S3FileStorageService>();
+
         // 1. Database Configuration
         var connectionString = configuration.GetConnectionString("Database");
         services.AddDbContext<ApplicationDbContext>(options =>

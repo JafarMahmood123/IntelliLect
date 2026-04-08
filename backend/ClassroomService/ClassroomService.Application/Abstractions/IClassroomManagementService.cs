@@ -2,7 +2,7 @@ using ClassroomService.Application.DTOs.Classroom;
 
 namespace ClassroomService.Application.Abstractions;
 
-public interface IClassroomService
+public interface IClassroomManagementService
 {
     Task<ClassroomResponse> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IEnumerable<ClassroomResponse>> GetByTeacherIdAsync(Guid teacherId, CancellationToken ct = default);

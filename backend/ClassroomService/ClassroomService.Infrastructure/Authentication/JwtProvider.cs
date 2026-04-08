@@ -2,10 +2,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using ClassroomService.Application.Abstractions;
 using Microsoft.IdentityModel.Tokens;
-using UserManagementService.Application.Abstractions;
 
-namespace UserManagementService.Infrastructure.Authentication;
+namespace ClassroomService.Infrastructure.Authentication;
 
 public sealed class JwtProvider : IJwtProvider
 {

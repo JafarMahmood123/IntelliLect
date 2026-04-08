@@ -9,4 +9,5 @@ public sealed class ApplicationDbContext : DbContext
 
     public DbSet<Classroom> Classrooms => Set<Classroom>();
     public DbSet<ClassroomFile> ClassroomFiles => Set<ClassroomFile>();
+    public DbSet<ClassroomMembership> ClassroomMemberships => Set<ClassroomMembership>();
 }

@@ -1,4 +1,4 @@
-namespace UserManagementService.Application.Abstractions;
+namespace ClassroomService.Application.Abstractions;
 
 public interface IJwtProvider
 {
