@@ -57,13 +57,6 @@ public sealed class AdminController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("users/{id}")]
-    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken ct)
-    {
-        await _managementService.DeleteUserAsync(id, ct);
-        return NoContent();
-    }
-
     [HttpPut("users/{id}/reactivate")]
     public async Task<IActionResult> ReactivateUser(Guid id, CancellationToken ct)
     {

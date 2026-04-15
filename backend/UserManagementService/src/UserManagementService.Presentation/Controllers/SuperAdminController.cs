@@ -55,10 +55,17 @@ public sealed class SuperAdminController : ControllerBase
         });
     }
 
-    [HttpDelete("admins/{id:guid}")]
-    public async Task<IActionResult> DeleteAdmin(Guid id, CancellationToken ct)
+    [HttpPut("admins/{id:guid}/deactivate")]
+    public async Task<IActionResult> DeactivateAdmin(Guid id, CancellationToken ct)
     {
-        await _superAdminService.DeleteAdminAsync(id, ct);
+        await _superAdminService.DeactivateAdminAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpPut("admins/{id:guid}/reactivate")]
+    public async Task<IActionResult> ReactivateAdmin(Guid id, CancellationToken ct)
+    {
+        await _superAdminService.ReactivateAdminAsync(id, ct);
         return NoContent();
     }
 }

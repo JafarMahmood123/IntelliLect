@@ -43,7 +43,7 @@ public sealed class AdminRepository : IAdminRepository
     {
         return _context.Users
             .Include(user => user.Role)
-            .Where(user => !user.IsDeleted && user.Role.Name == RoleName.Admin);
+            .Where(user => user.Role.Name == RoleName.Admin);
     }
 
     private static IQueryable<User> ApplyFilters(

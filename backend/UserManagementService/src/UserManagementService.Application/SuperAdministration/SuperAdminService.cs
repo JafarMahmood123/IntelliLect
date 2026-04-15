@@ -1,6 +1,7 @@
 using AutoMapper;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
+using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Domain.Entities;
@@ -13,17 +14,20 @@ public sealed class SuperAdminService : ISuperAdminService
     private readonly IUserRepository _userRepository;
     private readonly IHasher _hasher;
     private readonly IMapper _mapper;
+    private readonly IEventBus _eventBus;
 
     public SuperAdminService(
         IAdminRepository adminRepository,
         IUserRepository userRepository,
         IHasher hasher,
-        IMapper mapper)
+        IMapper mapper,
+        IEventBus eventBus)
     {
         _adminRepository = adminRepository;
         _userRepository = userRepository;
         _hasher = hasher;
         _mapper = mapper;
+        _eventBus = eventBus;
     }
 
     public async Task<PagedResult<AdminQueryResult>> GetAdminsAsync(GetAdminsRequest request, CancellationToken ct = default)
@@ -94,7 +98,7 @@ public sealed class SuperAdminService : ISuperAdminService
         return user.Id;
     }
 
-    public async Task DeleteAdminAsync(Guid adminId, CancellationToken ct = default)
+    public async Task DeactivateAdminAsync(Guid adminId, CancellationToken ct = default)
     {
         var admin = await _adminRepository.GetAdminByIdAsync(adminId, ct);
         if (admin == null)
@@ -102,7 +106,23 @@ public sealed class SuperAdminService : ISuperAdminService
             throw new ArgumentException("Admin not found.");
         }
 
-        await _userRepository.DeleteAsync(adminId, ct);
+        admin.Deactivate();
+        await _userRepository.UpdateAsync(admin, ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Deactivated), ct);
+        await _userRepository.SaveChangesAsync(ct);
+    }
+
+    public async Task ReactivateAdminAsync(Guid adminId, CancellationToken ct = default)
+    {
+        var admin = await _adminRepository.GetAdminByIdAsync(adminId, ct);
+        if (admin == null)
+        {
+            throw new ArgumentException("Admin not found.");
+        }
+
+        admin.Reactivate();
+        await _userRepository.UpdateAsync(admin, ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Active), ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 }

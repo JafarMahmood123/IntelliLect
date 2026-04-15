@@ -54,19 +54,7 @@ public sealed class AuthService : IAuthService
 
         if (existingUser != null)
         {
-            if (!existingUser.IsDeleted)
-                throw new InvalidOperationException("A user with this email already exists.");
-
-            existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
-            existingUser.UpdatePassword(_hasher.Hash(request.Password));
-
-            existingUser.Restore(request.RoleId);
-
-            await _eventBus.PublishAsync(new UserStatusChangedMessage(existingUser.Email, existingUser.FirstName, UserStatus.Pending), ct);
-
-            await _userRepository.UpdateAsync(existingUser, ct);
-            await _userRepository.SaveChangesAsync(ct);
-            return existingUser.Id;
+            throw new InvalidOperationException("A user with this email already exists.");
         }
 
         var user = _mapper.Map<User>(request);

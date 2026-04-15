@@ -11,8 +11,6 @@ public sealed class User
     public DateTime CreatedAtUtc { get; set; }
     public UserStatus Status { get; private set; } = UserStatus.Pending;
     public string? Bio { get; set; }
-    public bool IsDeleted { get; private set; }
-    public DateTime? DeletedAtUtc { get; private set; }
     public Guid Version { get; private set; } = Guid.NewGuid();
 
     // Foreign Keys
@@ -57,26 +55,8 @@ public sealed class User
         PasswordHash = newHash;
     }
 
-    public void SoftDelete()
-    {
-        IsDeleted = true;
-        DeletedAtUtc = DateTime.UtcNow;
-        Status = UserStatus.Deactivated;
-        Version = Guid.NewGuid();
-    }
-
-    public void Restore(Guid newRoleId)
-    {
-        IsDeleted = false;
-        DeletedAtUtc = null;
-        Status = UserStatus.Pending;
-        RoleId = newRoleId;
-        Version = Guid.NewGuid();
-    }
-
     public void Reactivate()
     {
-        if (IsDeleted) throw new InvalidOperationException("Cannot reactivate a deleted user. Restore them via registration instead.");
         Status = UserStatus.Active;
         Version = Guid.NewGuid();
     }

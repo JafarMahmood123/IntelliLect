@@ -30,8 +30,7 @@ public sealed class UserRepository : IUserRepository
         var user = await _context.Users.FindAsync(new object[] { id }, ct);
         if (user != null)
         {
-            user.SoftDelete();
-            _context.Users.Update(user);
+            _context.Users.Remove(user);
         }
     }
 
@@ -60,7 +59,7 @@ public sealed class UserRepository : IUserRepository
     {
         var query = _context.Users
             .Include(u => u.Role)
-            .Where(u => u.Status == UserStatus.Pending && !u.IsDeleted);
+            .Where(u => u.Status == UserStatus.Pending);
 
         if (roleId.HasValue && roleId.Value != Guid.Empty)
         {
