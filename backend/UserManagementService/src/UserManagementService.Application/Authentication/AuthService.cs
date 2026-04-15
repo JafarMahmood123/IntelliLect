@@ -45,7 +45,12 @@ public sealed class AuthService : IAuthService
 
     public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
-        var existingUser = await _userRepository.FindByEmail(request.Email);
+        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
+        if (role == null) throw new ArgumentException("The selected role is invalid.");
+        if (role.Name is RoleName.Admin or RoleName.SuperAdmin)
+            throw new ArgumentException("The selected role is not available for self-registration.");
+
+        var existingUser = await _userRepository.FindByEmail(request.Email, ct);
 
         if (existingUser != null)
         {
@@ -63,9 +68,6 @@ public sealed class AuthService : IAuthService
             await _userRepository.SaveChangesAsync(ct);
             return existingUser.Id;
         }
-
-        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
-        if (role == null) throw new ArgumentException("The selected role is invalid.");
 
         var user = _mapper.Map<User>(request);
         user.UpdatePassword(_hasher.Hash(request.Password));
