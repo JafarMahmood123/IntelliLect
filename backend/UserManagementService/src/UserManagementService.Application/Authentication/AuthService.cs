@@ -45,27 +45,17 @@ public sealed class AuthService : IAuthService
 
     public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
-        var existingUser = await _userRepository.FindByEmail(request.Email);
+        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
+        if (role == null) throw new ArgumentException("The selected role is invalid.");
+        if (role.Name is RoleName.Admin or RoleName.SuperAdmin)
+            throw new ArgumentException("The selected role is not available for self-registration.");
+
+        var existingUser = await _userRepository.FindByEmail(request.Email, ct);
 
         if (existingUser != null)
         {
-            if (!existingUser.IsDeleted)
-                throw new InvalidOperationException("A user with this email already exists.");
-
-            existingUser.UpdateInfo(request.FirstName, request.LastName, request.UserName, null);
-            existingUser.UpdatePassword(_hasher.Hash(request.Password));
-
-            existingUser.Restore(request.RoleId);
-
-            await _eventBus.PublishAsync(new UserStatusChangedMessage(existingUser.Email, existingUser.FirstName, UserStatus.Pending), ct);
-
-            await _userRepository.UpdateAsync(existingUser, ct);
-            await _userRepository.SaveChangesAsync(ct);
-            return existingUser.Id;
+            throw new InvalidOperationException("A user with this email already exists.");
         }
-
-        var role = await _roleRepository.GetByIdAsync(request.RoleId, ct);
-        if (role == null) throw new ArgumentException("The selected role is invalid.");
 
         var user = _mapper.Map<User>(request);
         user.UpdatePassword(_hasher.Hash(request.Password));

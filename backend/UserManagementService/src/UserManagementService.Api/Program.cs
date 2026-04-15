@@ -86,10 +86,9 @@ try
     }
 
     app.UseHttpsRedirection();
-    app.MapControllers();
-
-    app.UseAuthentication(); // Must be before UseAuthorization
+    app.UseAuthentication();
     app.UseAuthorization();
+    app.MapControllers();
 
     app.Run();
 }

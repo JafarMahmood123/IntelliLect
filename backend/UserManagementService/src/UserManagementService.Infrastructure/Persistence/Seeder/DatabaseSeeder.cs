@@ -17,19 +17,11 @@ public static class DatabaseSeeder
 
         try
         {
-            // 1. Seed Roles
-            if (!await context.Roles.AnyAsync())
-            {
-                logger.LogInformation("Roles table is empty. Seeding Roles...");
-                context.Roles.AddRange(
-                    Role.Create(RoleName.Admin),
-                    Role.Create(RoleName.Teacher),
-                    Role.Create(RoleName.Student)
-                );
-                await context.SaveChangesAsync();
-            }
+            await EnsureRoleExistsAsync(context, logger, RoleName.Admin);
+            await EnsureRoleExistsAsync(context, logger, RoleName.Teacher);
+            await EnsureRoleExistsAsync(context, logger, RoleName.Student);
+            await EnsureRoleExistsAsync(context, logger, RoleName.SuperAdmin);
 
-            // 2. Resolve Admin Role
             var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == RoleName.Admin);
             if (adminRole == null)
             {
@@ -37,7 +29,13 @@ public static class DatabaseSeeder
                 return;
             }
 
-            // 3. Seed Default Admin User (Check by Email)
+            var superAdminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == RoleName.SuperAdmin);
+            if (superAdminRole == null)
+            {
+                logger.LogError("SuperAdmin role not found in database. Seeding failed.");
+                return;
+            }
+
             const string adminEmail = "admin@intellilect.com";
             var adminExists = await context.Users.AnyAsync(u => u.Email == adminEmail);
 
@@ -65,10 +63,54 @@ public static class DatabaseSeeder
 
                 logger.LogInformation("Admin user seeded successfully.");
             }
+
+            const string superAdminEmail = "superadmin@intellilect.com";
+            var superAdminExists = await context.Users.AnyAsync(u => u.Email == superAdminEmail);
+
+            if (!superAdminExists)
+            {
+                logger.LogInformation("Super admin user missing. Seeding superadmin@intellilect.com...");
+
+                var superAdminUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = "superadmin",
+                    Email = superAdminEmail,
+                    FirstName = "System",
+                    LastName = "Super Administrator",
+                    PasswordHash = hasher.Hash("SuperAdmin123!"),
+                    CreatedAtUtc = DateTime.UtcNow,
+                    RoleId = superAdminRole.Id,
+                    Bio = "Default system super administrator account."
+                };
+
+                superAdminUser.Approve();
+
+                await context.Users.AddAsync(superAdminUser);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("Super admin user seeded successfully.");
+            }
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred while seeding the database.");
         }
+    }
+
+    private static async Task EnsureRoleExistsAsync(
+        ApplicationDbContext context,
+        ILogger logger,
+        RoleName roleName)
+    {
+        var exists = await context.Roles.AnyAsync(r => r.Name == roleName);
+        if (exists)
+        {
+            return;
+        }
+
+        logger.LogInformation("Role {RoleName} is missing. Seeding it now...", roleName);
+        context.Roles.Add(Role.Create(roleName));
+        await context.SaveChangesAsync();
     }
 }
