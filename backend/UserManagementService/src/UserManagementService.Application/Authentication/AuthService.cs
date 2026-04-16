@@ -1,6 +1,6 @@
 using AutoMapper;
+using EmailService.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
-using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Application.DTOs.User;
@@ -57,7 +57,7 @@ public sealed class AuthService : IAuthService
 
             existingUser.Restore(request.RoleId);
 
-            await _eventBus.PublishAsync(new UserStatusChangedMessage(existingUser.Email, existingUser.FirstName, UserStatus.Pending), ct);
+            await _eventBus.PublishAsync(new UserStatusChangedMessage(existingUser.Email, existingUser.FirstName, UserStatus.Pending.ToString()), ct);
 
             await _userRepository.UpdateAsync(existingUser, ct);
             await _userRepository.SaveChangesAsync(ct);
@@ -71,7 +71,7 @@ public sealed class AuthService : IAuthService
         user.UpdatePassword(_hasher.Hash(request.Password));
 
         await _userRepository.AddAsync(user, ct);
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Pending), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Pending.ToString()), ct);
 
         await _userRepository.SaveChangesAsync(ct);
 

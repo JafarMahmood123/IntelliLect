@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EmailService.Api/EmailService.Api.csproj" />
+    <Project Path="src/EmailService.Application/EmailService.Application.csproj" />
+    <Project Path="src/EmailService.Contracts/EmailService.Contracts.csproj" />
+    <Project Path="src/EmailService.Infrastructure/EmailService.Infrastructure.csproj" />
+  </Folder>
+</Solution>

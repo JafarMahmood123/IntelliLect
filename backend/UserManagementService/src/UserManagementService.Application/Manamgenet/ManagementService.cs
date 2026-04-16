@@ -1,7 +1,7 @@
 using AutoMapper;
+using EmailService.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
-using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.DTOs.User;
 using UserManagementService.Domain.Entities;
 
@@ -56,7 +56,7 @@ public sealed class ManagementService : IManagementService
         await _userRepository.UpdateAsync(user, ct);
         await _userRepository.SaveChangesAsync(ct);
 
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Deactivated), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Deactivated.ToString()), ct);
     }
 
     public async Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct)
@@ -96,7 +96,7 @@ public sealed class ManagementService : IManagementService
 
         await _userRepository.UpdateAsync(user, ct);
 
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, newStatus), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, newStatus.ToString()), ct);
 
         await _userRepository.SaveChangesAsync(ct);
     }
@@ -117,7 +117,7 @@ public sealed class ManagementService : IManagementService
 
         user.Reactivate();
         await _userRepository.UpdateAsync(user, ct);
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Active), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Active.ToString()), ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 }
