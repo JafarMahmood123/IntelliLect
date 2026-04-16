@@ -7,12 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Infrastructure.Authentication;
-using UserManagementService.Infrastructure.BackgroundJobs;
 using UserManagementService.Infrastructure.Hashing;
 using UserManagementService.Infrastructure.Messaging;
 using UserManagementService.Infrastructure.Persistence;
 using UserManagementService.Infrastructure.Persistence.Repositories;
-using UserManagementService.Infrastructure.Services;
 
 namespace UserManagementService.Infrastructure;
 
@@ -65,13 +63,8 @@ public static class DependencyInjection
         services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
         services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
 
-        services.AddScoped<IEmailService, EmailService>();
-
         services.AddMassTransit(x =>
             {
-                x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
-                x.AddConsumer<UserStatusChangedConsumer>();
-
                 x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
                 {
                     o.UsePostgres();
@@ -88,7 +81,6 @@ public static class DependencyInjection
                 });
             });
 
-        services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
         services.AddScoped<IEventBus, MassTransitEventBus>();
 
 

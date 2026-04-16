@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
+    <ProjectReference Include="../../../EmailService/src/EmailService.Contracts/EmailService.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
