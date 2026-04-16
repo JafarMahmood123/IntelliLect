@@ -21,4 +21,8 @@
     <ProjectReference Include="..\StreamingService.Presentation\StreamingService.Presentation.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Middleware/" />
+  </ItemGroup>
+
 </Project>
