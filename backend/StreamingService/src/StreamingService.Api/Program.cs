@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using StreamingService.Api.Middleware;
+using StreamingService.Application;
 using StreamingService.Infrastructure;
 using StreamingService.Infrastructure.Persistence;
+using StreamingService.Presentation;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddPresentation();
+builder.Services.AddApplication();
 builder.Services.AddOpenApi();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
