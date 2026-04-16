@@ -30,9 +30,10 @@ public sealed class SessionService : ISessionService
         session.StartedAtUtc = DateTime.UtcNow;
 
         await _sessionRepository.UpdateAsync(session);
-        await _sessionRepository.SaveChangesAsync();
 
         await _eventBus.PublishAsync(new SessionStartedMessage(session.Id, session.ClassroomId));
+
+        await _sessionRepository.SaveChangesAsync();
     }
 
     public async Task<Guid> ScheduleSessionAsync(Guid teacherId, Guid classroomId, CreateSessionRequest request)

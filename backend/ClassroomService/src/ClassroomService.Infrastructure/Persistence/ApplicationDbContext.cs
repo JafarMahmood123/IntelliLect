@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ClassroomService.Domain.Entities;
+using MassTransit;
 
 namespace ClassroomService.Infrastructure.Persistence;
 
@@ -11,4 +12,11 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<ClassroomFile> ClassroomFiles => Set<ClassroomFile>();
     public DbSet<ClassroomMembership> ClassroomMemberships => Set<ClassroomMembership>();
     public DbSet<LearningSession> Sessions => Set<LearningSession>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.AddTransactionalOutboxEntities();
+    }
 }

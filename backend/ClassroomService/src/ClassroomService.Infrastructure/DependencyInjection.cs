@@ -91,6 +91,13 @@ public static class DependencyInjection
 
         services.AddMassTransit(x =>
         {
+            x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>
+            {
+                o.UsePostgres();
+                o.UseBusOutbox();
+
+                o.QueryDelay = TimeSpan.FromSeconds(1);
+            });
             x.UsingRabbitMq((context, cfg) =>
             {
                 cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
