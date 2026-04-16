@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.AddSingleton<IHasher, Hasher>();
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAdminRepository, AdminRepository>();
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
 
         var jwtSettings = configuration.GetSection("Jwt");
