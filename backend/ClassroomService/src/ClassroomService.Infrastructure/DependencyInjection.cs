@@ -3,9 +3,11 @@ using Amazon.S3;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.Services;
 using ClassroomService.Infrastructure.Configuration;
+using ClassroomService.Infrastructure.Messaging;
 using ClassroomService.Infrastructure.Persistence;
 using ClassroomService.Infrastructure.Persistence.Repositories;
 using ClassroomService.Infrastructure.Services;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -82,6 +84,19 @@ public static class DependencyInjection
         });
 
         services.AddAuthorization();
+
+        services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<ISessionService, SessionService>();
+        services.AddScoped<IEventBus, MassTransitEventBus>();
+
+        services.AddMassTransit(x =>
+        {
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
+                cfg.ConfigureEndpoints(context);
+            });
+        });
 
         return services;
     }

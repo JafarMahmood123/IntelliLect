@@ -1,10 +1,12 @@
 using ClassroomService.Infrastructure;
+using ClassroomService.Application;
 using Microsoft.EntityFrameworkCore;
 using ClassroomService.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
