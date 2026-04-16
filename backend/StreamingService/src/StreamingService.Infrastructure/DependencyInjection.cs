@@ -4,12 +4,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using StreamingService.Application.Abstractions;
 using StreamingService.Infrastructure.Authentication;
+using StreamingService.Infrastructure.Configuration;
 using StreamingService.Infrastructure.Consumers;
 using StreamingService.Infrastructure.Persistence;
 using StreamingService.Infrastructure.Persistence.Repositories;
+using StreamingService.Infrastructure.Services;
 
 namespace StreamingService.Infrastructure;
 
@@ -72,6 +75,11 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IStreamRepository, StreamRepository>();
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
+        services.Configure<LiveKitSettings>(configuration.GetSection(LiveKitSettings.SectionName));
+        services.AddSingleton<IStreamSettings>(sp =>
+            sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
+        services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
+
 
         return services;
     }

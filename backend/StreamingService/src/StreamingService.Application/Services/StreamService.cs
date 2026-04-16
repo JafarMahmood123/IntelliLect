@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using StreamingService.Application.Abstractions;
 using StreamingService.Application.DTOs;
 using StreamingService.Domain.Entities;
@@ -8,21 +9,39 @@ public sealed class StreamService : IStreamService
 {
     private readonly IStreamRepository _streamRepository;
     private readonly IParticipantRepository _participantRepository;
+    private readonly IStreamHubContext _hubContext;
+    private readonly IMediaProvider _mediaProvider;
+    private readonly IStreamSettings _settings;
 
-    public StreamService(IStreamRepository streamRepository, IParticipantRepository participantRepository)
+    public StreamService(
+        IStreamRepository streamRepository,
+        IParticipantRepository participantRepository,
+        IStreamHubContext hubContext,
+        IMediaProvider mediaProvider,
+        IStreamSettings settings)
     {
         _streamRepository = streamRepository;
         _participantRepository = participantRepository;
+        _hubContext = hubContext;
+        _mediaProvider = mediaProvider;
+        _settings = settings;
     }
 
-    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, CancellationToken ct)
+    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, CancellationToken ct)
     {
-        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, includeParticipants: true, ct);
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null) throw new KeyNotFoundException("Stream not found.");
 
+        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, role);
+
         return new StreamResponse(
-            stream.Id, stream.SessionId, stream.StreamKey,
-            stream.Status.ToString(), stream.Participants.Count, stream.StartedAtUtc);
+            stream.Id,
+            stream.SessionId,
+            stream.Status.ToString(),
+            stream.Participants.Count,
+            stream.StartedAtUtc,
+            joinToken,
+            _settings.LiveKitHost);
     }
 
     public async Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

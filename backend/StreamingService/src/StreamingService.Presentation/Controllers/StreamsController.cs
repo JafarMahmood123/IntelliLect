@@ -18,7 +18,9 @@ public sealed class StreamsController : ApiBaseController
     [HttpGet("{sessionId:guid}")]
     public async Task<IActionResult> GetStream(Guid sessionId, CancellationToken ct)
     {
-        var response = await _streamService.GetStreamBySessionIdAsync(sessionId, ct);
+        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Student";
+
+        var response = await _streamService.GetStreamBySessionIdAsync(sessionId, UserId, role, ct);
         return Ok(response);
     }
 
