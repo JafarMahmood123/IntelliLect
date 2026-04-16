@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using StreamingService.Application.Abstractions;
 using StreamingService.Infrastructure.Consumers;
 using StreamingService.Infrastructure.Persistence;
+using StreamingService.Infrastructure.Persistence.Repositories;
 
 namespace StreamingService.Infrastructure;
 
@@ -61,6 +63,11 @@ public static class DependencyInjection
                 cfg.ConfigureEndpoints(context);
             });
         });
+
+        services.AddScoped<DbContext>(sp => sp.GetRequiredService<StreamingDbContext>());
+        services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+        services.AddScoped<IStreamRepository, StreamRepository>();
+        services.AddScoped<IParticipantRepository, ParticipantRepository>();
 
         return services;
     }

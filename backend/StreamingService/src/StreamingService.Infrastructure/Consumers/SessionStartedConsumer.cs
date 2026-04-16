@@ -1,20 +1,19 @@
 using MassTransit;
 using StreamingService.Domain.Entities;
-using StreamingService.Infrastructure.Persistence;
+using StreamingService.Application.Abstractions;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using StreamingService.Application.Messages;
 
 namespace StreamingService.Infrastructure.Consumers;
 
 public sealed class SessionStartedConsumer : IConsumer<SessionStartedMessage>
 {
-    private readonly StreamingDbContext _context;
+    private readonly IStreamRepository _streamRepository;
     private readonly ILogger<SessionStartedConsumer> _logger;
 
-    public SessionStartedConsumer(StreamingDbContext context, ILogger<SessionStartedConsumer> logger)
+    public SessionStartedConsumer(IStreamRepository streamRepository, ILogger<SessionStartedConsumer> logger)
     {
-        _context = context;
+        _streamRepository = streamRepository;
         _logger = logger;
     }
 
@@ -22,10 +21,10 @@ public sealed class SessionStartedConsumer : IConsumer<SessionStartedMessage>
     {
         _logger.LogInformation("Processing SessionStarted for Session: {SessionId}", context.Message.SessionId);
 
-        var existingStream = await _context.Streams
-            .AnyAsync(s => s.SessionId == context.Message.SessionId);
+        // Using the repository abstraction instead of the context
+        var exists = await _streamRepository.ExistsAsync(context.Message.SessionId);
 
-        if (existingStream)
+        if (exists)
         {
             _logger.LogWarning("Stream already exists for Session: {SessionId}", context.Message.SessionId);
             return;
@@ -41,10 +40,10 @@ public sealed class SessionStartedConsumer : IConsumer<SessionStartedMessage>
             StreamKey = Guid.NewGuid().ToString("N")
         };
 
-        _context.Streams.Add(stream);
-        await _context.SaveChangesAsync();
+        await _streamRepository.AddAsync(stream);
+        await _streamRepository.SaveChangesAsync();
 
-        _logger.LogInformation("LiveStream created for Session: {SessionId} with Key: {StreamKey}",
+        _logger.LogInformation("LiveStream created via Repository for Session: {SessionId} with Key: {StreamKey}",
             stream.SessionId, stream.StreamKey);
     }
 }
