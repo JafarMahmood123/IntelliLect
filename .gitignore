@@ -13,6 +13,7 @@ Thumbs.db
 *.userosscache
 *.sln.docstates
 *.txt
+*.sln merge=union
 
 appsettings.Development.json
 
