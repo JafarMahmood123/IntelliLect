@@ -1,9 +1,11 @@
 using System.Text;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using StreamingService.Infrastructure.Consumers;
 using StreamingService.Infrastructure.Persistence;
 
 namespace StreamingService.Infrastructure;
@@ -41,6 +43,24 @@ public static class DependencyInjection
         });
 
         services.AddAuthorization();
+
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<SessionStartedConsumer>();
+
+            x.AddEntityFrameworkOutbox<StreamingDbContext>(o =>
+            {
+                o.UsePostgres();
+                o.UseBusOutbox();
+                o.QueryDelay = TimeSpan.FromSeconds(1);
+            });
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
+                cfg.ConfigureEndpoints(context);
+            });
+        });
 
         return services;
     }
