@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using StreamingService.Infrastructure.Persistence;
 
 namespace StreamingService.Infrastructure;
 
@@ -11,9 +12,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // 1. JWT Authentication
+        var connectionString = configuration.GetConnectionString("Database");
+        services.AddDbContext<StreamingDbContext>(options =>
+            options.UseNpgsql(connectionString));
+
         var jwtSettings = configuration.GetSection("Jwt");
-        var secretKey = jwtSettings["SecretKey"] ?? "YOUR_TEMPORARY_SECRET_FOR_DEVELOPMENT";
+        var secretKey = jwtSettings["SecretKey"] ?? "MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY";
         var issuer = jwtSettings["Issuer"] ?? "IntelliLect";
         var audience = jwtSettings["Audience"] ?? "IntelliLect";
 

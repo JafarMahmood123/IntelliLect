@@ -17,7 +17,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Streaming Service Error: {Message}", exception.Message);
+        _logger.LogError(exception, "Streaming Service Exception: {Message}", exception.Message);
 
         var (statusCode, title) = exception switch
         {
