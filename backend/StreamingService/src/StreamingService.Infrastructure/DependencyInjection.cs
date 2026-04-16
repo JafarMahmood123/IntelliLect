@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using StreamingService.Application.Abstractions;
+using StreamingService.Infrastructure.Authentication;
 using StreamingService.Infrastructure.Consumers;
 using StreamingService.Infrastructure.Persistence;
 using StreamingService.Infrastructure.Persistence.Repositories;
@@ -43,6 +44,9 @@ public static class DependencyInjection
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
             };
         });
+
+        services.AddSingleton<IJwtProvider>(_ =>
+            new JwtProvider(secretKey, issuer, audience));
 
         services.AddAuthorization();
 
