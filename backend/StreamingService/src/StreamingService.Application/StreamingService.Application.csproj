@@ -10,7 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTOs/" />
+    <Folder Include="DTOs/Question/" />
+    <Folder Include="DTOs/Reaction/" />
     <Folder Include="Messages/" />
     <Folder Include="Services/" />
   </ItemGroup>

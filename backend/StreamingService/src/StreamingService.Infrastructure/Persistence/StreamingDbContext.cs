@@ -10,6 +10,9 @@ public sealed class StreamingDbContext : DbContext
 
     public DbSet<LiveStream> Streams => Set<LiveStream>();
     public DbSet<StreamParticipant> Participants => Set<StreamParticipant>();
+    public DbSet<StreamChatMessage> ChatMessages => Set<StreamChatMessage>();
+    public DbSet<StreamReaction> Reactions => Set<StreamReaction>();
+    public DbSet<StreamQuestion> Questions => Set<StreamQuestion>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

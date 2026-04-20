@@ -1,21 +1,24 @@
 using StreamingService.Application.Abstractions;
+using StreamingService.Application.DTOs;
+using StreamingService.Application.DTOs.Chat;
+using StreamingService.Application.DTOs.Question;
 using StreamingService.Domain.Entities;
 
 namespace StreamingService.Application.Services;
 
 public sealed class InteractionService : IInteractionService
 {
-    private readonly IRepository<StreamChatMessage> _chatRepository;
+    private readonly IStreamChatMessageRepository _chatRepository;
     private readonly IRepository<StreamReaction> _reactionRepository;
-    private readonly IRepository<StreamQuestion> _questionRepository;
+    private readonly IStreamQuestionRepository _questionRepository;
     private readonly IParticipantRepository _participantRepository;
     private readonly IStreamRepository _streamRepository;
     private readonly IStreamHubContext _hubContext;
 
     public InteractionService(
-        IRepository<StreamChatMessage> chatRepository,
+        IStreamChatMessageRepository chatRepository,
         IRepository<StreamReaction> reactionRepository,
-        IRepository<StreamQuestion> questionRepository,
+        IStreamQuestionRepository questionRepository,
         IParticipantRepository participantRepository,
         IStreamRepository streamRepository,
         IStreamHubContext hubContext)
@@ -126,5 +129,44 @@ public sealed class InteractionService : IInteractionService
         await _participantRepository.SaveChangesAsync(ct);
 
         await _hubContext.NotifyHandRaisedAsync(sessionId, userId, isRaised);
+    }
+
+    public async Task<PagedResult<ChatMessageResponse>> GetChatHistoryPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
+    {
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
+        if (stream == null) throw new KeyNotFoundException("Stream not found.");
+
+        var (items, totalCount) = await _chatRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
+
+        var responses = items.Select(m => new ChatMessageResponse(
+            m.Id,
+            m.UserId,
+            m.UserName,
+            m.Message,
+            m.SentAtUtc
+        )).ToList();
+
+        return new PagedResult<ChatMessageResponse>(responses, totalCount, page, pageSize);
+    }
+
+    public async Task<PagedResult<QuestionResponse>> GetQuestionsPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
+    {
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
+        if (stream == null) throw new KeyNotFoundException("Stream not found.");
+
+        var (items, totalCount) = await _questionRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
+
+        var responses = items.Select(q => new QuestionResponse(
+            q.Id,
+            q.UserId,
+            q.UserName,
+            q.QuestionText,
+            q.AnswerText,
+            q.IsAnswered,
+            q.AskedAtUtc,
+            q.AnsweredAtUtc
+        )).ToList();
+
+        return new PagedResult<QuestionResponse>(responses, totalCount, page, pageSize);
     }
 }

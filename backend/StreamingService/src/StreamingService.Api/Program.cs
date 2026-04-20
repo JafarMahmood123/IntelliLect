@@ -4,6 +4,7 @@ using StreamingService.Application;
 using StreamingService.Infrastructure;
 using StreamingService.Infrastructure.Persistence;
 using StreamingService.Presentation;
+using StreamingService.Presentation.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,3 +30,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+app.MapHub<StreamHub>("/hubs/stream");
+
+app.Run();

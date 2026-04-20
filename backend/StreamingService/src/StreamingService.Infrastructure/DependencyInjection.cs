@@ -79,6 +79,8 @@ public static class DependencyInjection
         services.AddSingleton<IStreamSettings>(sp =>
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
         services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
+        services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
+        services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 
 
         return services;

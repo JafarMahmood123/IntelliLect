@@ -10,6 +10,8 @@ public static class DependencyInjection
     {
         services.AddControllers();
 
+        services.AddSignalR();
+
         services.AddScoped<IStreamHubContext, StreamHubContext>();
 
         return services;
