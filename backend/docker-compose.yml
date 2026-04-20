@@ -3,6 +3,7 @@ name: intellilect-platform
 include:
   - path: ./UserManagementService/docker-compose.unit.yml
   - path: ./ClassroomService/docker-compose.unit.yml
+  - path: ./StreamingService/docker-compose.unit.yml
 
 services:
   rabbitmq:

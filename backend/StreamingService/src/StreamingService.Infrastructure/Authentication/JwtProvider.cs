@@ -3,14 +3,13 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using UserManagementService.Application.Abstractions;
+using StreamingService.Application.Abstractions;
 
-namespace UserManagementService.Infrastructure.Authentication;
+namespace StreamingService.Infrastructure.Authentication;
 
 public sealed class JwtProvider : IJwtProvider
 {
     private const string UserIdClaim = "uid";
-    private const string RoleIdClaim = "roleId";
 
     private readonly string _issuer;
     private readonly string _audience;
@@ -23,6 +22,7 @@ public sealed class JwtProvider : IJwtProvider
 
         // Accept either raw text or base64-encoded keys.
         _signingKey = TryDecodeBase64(secretKey) ?? Encoding.UTF8.GetBytes(secretKey);
+
         if (_signingKey.Length < 32)
             throw new ArgumentException("Secret key must be at least 32 bytes.", nameof(secretKey));
 
@@ -37,9 +37,9 @@ public sealed class JwtProvider : IJwtProvider
 
         var claims = new[]
         {
-        new Claim("uid", userId.ToString()),
-        new Claim(ClaimTypes.Role, roleName)
-    };
+            new Claim(UserIdClaim, userId.ToString()),
+            new Claim(ClaimTypes.Role, roleName)
+        };
 
         var token = new JwtSecurityToken(
             _issuer,
@@ -50,6 +50,14 @@ public sealed class JwtProvider : IJwtProvider
             credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 
     private static byte[]? TryDecodeBase64(string input)
@@ -63,13 +71,4 @@ public sealed class JwtProvider : IJwtProvider
             return null;
         }
     }
-
-    public string GenerateRefreshToken()
-    {
-        var randomNumber = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
-    }
 }
-

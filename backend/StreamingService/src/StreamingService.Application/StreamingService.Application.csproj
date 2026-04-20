@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\StreamingService.Domain\StreamingService.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="MassTransit.Abstractions" Version="8.1.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="DTOs/Question/" />
+    <Folder Include="DTOs/Reaction/" />
+    <Folder Include="Messages/" />
+    <Folder Include="Services/" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

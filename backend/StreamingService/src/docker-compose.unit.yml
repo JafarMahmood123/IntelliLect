@@ -1,0 +1,36 @@
+services:
+  streaming-db:
+    image: postgres:17-alpine
+    container_name: streaming-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_DB=streaming_db
+    ports:
+      - "5435:5432"
+    networks:
+      - intellilect-net
+    volumes:
+      - streaming_db_data:/var/lib/postgresql/data
+
+  streaming-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streaming-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Database=Host=streaming-db;Port=5432;Database=streaming_db;Username=postgres;Password=Jafar123!
+      - RabbitMq__Host=intellilect-mq
+      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      - Jwt__Issuer=IntelliLect
+      - Jwt__Audience=IntelliLect
+    depends_on:
+      - streaming-db
+      - rabbitmq
+    networks:
+      - intellilect-net
+
+volumes:
+  streaming_db_data:
