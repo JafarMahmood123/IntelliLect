@@ -46,7 +46,7 @@ public sealed class StreamService : IStreamService
 
     public async Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)
     {
-        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
             throw new InvalidOperationException("Stream is not active.");
 
@@ -63,6 +63,8 @@ public sealed class StreamService : IStreamService
 
             await _participantRepository.SaveChangesAsync(ct);
         }
+
+        await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + 1);
     }
 
     public async Task ToggleHandRaiseAsync(Guid sessionId, Guid userId, bool isRaised, CancellationToken ct)
