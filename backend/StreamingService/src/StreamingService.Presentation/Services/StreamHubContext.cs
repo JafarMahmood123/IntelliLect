@@ -30,4 +30,16 @@ public sealed class StreamHubContext : IStreamHubContext
         await _hubContext.Clients.Group(sessionId.ToString())
             .StreamStatusChanged(status);
     }
+
+    public async Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message)
+    {
+        await _hubContext.Clients.Group(sessionId.ToString())
+            .ReceiveChatMessage(userId, userName, message);
+    }
+
+    public async Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji)
+    {
+        await _hubContext.Clients.Group(sessionId.ToString())
+            .ReceiveReaction(userId, emoji);
+    }
 }

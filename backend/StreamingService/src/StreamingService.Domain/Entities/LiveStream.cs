@@ -13,4 +13,7 @@ public sealed class LiveStream
 
     // Navigation
     public ICollection<StreamParticipant> Participants { get; set; } = new List<StreamParticipant>();
+    public ICollection<StreamChatMessage> ChatMessages { get; set; } = new List<StreamChatMessage>();
+    public ICollection<StreamReaction> Reactions { get; set; } = new List<StreamReaction>();
+    public ICollection<StreamQuestion> Questions { get; set; } = new List<StreamQuestion>();
 }

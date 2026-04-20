@@ -73,6 +73,8 @@ public sealed class StreamService : IStreamService
         participant.IsHandRaised = isRaised;
         await _participantRepository.UpdateAsync(participant, ct);
         await _participantRepository.SaveChangesAsync(ct);
+
+        await _hubContext.NotifyHandRaisedAsync(sessionId, userId, isRaised);
     }
 
     public async Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

@@ -38,7 +38,7 @@ public sealed class JwtProvider : IJwtProvider
         var claims = new[]
         {
         new Claim("uid", userId.ToString()),
-        new Claim(ClaimTypes.Role, roleName) // Standard ASP.NET Role Claim
+        new Claim(ClaimTypes.Role, roleName)
     };
 
         var token = new JwtSecurityToken(
@@ -52,57 +52,8 @@ public sealed class JwtProvider : IJwtProvider
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public bool TryValidateToken(string token, out Guid userId, out Guid roleId)
-    {
-        userId = Guid.Empty;
-        roleId = Guid.Empty;
-
-        if (string.IsNullOrWhiteSpace(token))
-            return false;
-
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var signingKey = new SymmetricSecurityKey(_signingKey);
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = signingKey,
-
-            ValidateIssuer = !string.IsNullOrWhiteSpace(_issuer),
-            ValidIssuer = string.IsNullOrWhiteSpace(_issuer) ? null : _issuer,
-
-            ValidateAudience = !string.IsNullOrWhiteSpace(_audience),
-            ValidAudience = string.IsNullOrWhiteSpace(_audience) ? null : _audience,
-
-            ValidateLifetime = true,
-            RequireExpirationTime = true,
-            ClockSkew = TimeSpan.FromMinutes(2),
-        };
-
-        try
-        {
-            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
-
-            var uidRaw = principal.FindFirst(UserIdClaim)?.Value;
-            var ridRaw = principal.FindFirst(RoleIdClaim)?.Value;
-            if (!Guid.TryParse(uidRaw, out var parsedUserId))
-                return false;
-            if (!Guid.TryParse(ridRaw, out var parsedRoleId))
-                return false;
-
-            userId = parsedUserId;
-            roleId = parsedRoleId;
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private static byte[]? TryDecodeBase64(string input)
     {
-        // Avoid throwing on invalid base64; treat it as raw text instead.
         try
         {
             return Convert.FromBase64String(input);

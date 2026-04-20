@@ -5,4 +5,6 @@ public interface IStreamHubContext
     Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised);
     Task NotifyParticipantCountAsync(Guid sessionId, int count);
     Task NotifyStreamStatusChangedAsync(Guid sessionId, string status);
+    Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message);
+    Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji);
 }

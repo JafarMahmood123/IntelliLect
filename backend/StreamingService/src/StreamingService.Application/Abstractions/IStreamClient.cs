@@ -6,4 +6,5 @@ public interface IStreamClient
     Task UpdateParticipantCount(int count);
     Task StreamStatusChanged(string status);
     Task ReceiveChatMessage(Guid userId, string userName, string message);
+    Task ReceiveReaction(Guid userId, string emoji);
 }
