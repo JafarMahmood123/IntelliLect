@@ -1,22 +1,21 @@
 services:
   classroom-db:
-    image: postgres:17-alpine
-    container_name: classroom-db
+    image: postgres:latest
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Jafar123!
-      - POSTGRES_DB=classroom_db
-    ports:
-      - "5433:5432"
-    networks:
-      - intellilect-net
-    volumes:
-      - classroom_db_data:/var/lib/postgresql/data
+      POSTGRES_DB: classroomdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d classroomdb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   classroom-service:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ClassroomService/Dockerfile
     container_name: classroom-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Development

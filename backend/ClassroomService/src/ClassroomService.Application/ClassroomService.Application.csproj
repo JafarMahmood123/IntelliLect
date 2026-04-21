@@ -10,12 +10,12 @@
     <Folder Include="Common/Mappings/" />
     <Folder Include="DTOs/Classroom/" />
     <Folder Include="DTOs/Membership/" />
-    <Folder Include="Messages/" />
     <Folder Include="Services/" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="IntelliLect.Contracts" Version="1.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

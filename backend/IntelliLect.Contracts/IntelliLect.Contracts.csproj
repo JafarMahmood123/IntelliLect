@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>IntelliLect.Contracts</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Jafar</Authors>
+    <Description>Shared message contracts for IntelliLect Microservices</Description>
+  </PropertyGroup>
+
+</Project>

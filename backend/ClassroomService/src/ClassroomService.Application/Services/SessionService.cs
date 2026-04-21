@@ -1,7 +1,7 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
-using ClassroomService.Application.Messages;
 using ClassroomService.Domain.Entities;
+using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.Application.Services;
 

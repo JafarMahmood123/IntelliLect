@@ -1,5 +1,5 @@
 using AutoMapper;
-using EmailService.Contracts.Messages;
+using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Application.DTOs.User;

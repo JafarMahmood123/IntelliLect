@@ -1,14 +1,19 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY ["ClassroomService.Api/ClassroomService.Api.csproj", "ClassroomService.Api/"]
-COPY ["ClassroomService.Application/ClassroomService.Application.csproj", "ClassroomService.Application/"]
-COPY ["ClassroomService.Domain/ClassroomService.Domain.csproj", "ClassroomService.Domain/"]
-COPY ["ClassroomService.Infrastructure/ClassroomService.Infrastructure.csproj", "ClassroomService.Infrastructure/"]
-COPY ["ClassroomService.Presentation/ClassroomService.Presentation.csproj", "ClassroomService.Presentation/"]
+COPY ["nuget.config", "."]
+COPY ["LocalPackages/", "LocalPackages/"]
+
+COPY ["ClassroomService/src/ClassroomService.Api/ClassroomService.Api.csproj", "ClassroomService.Api/"]
+COPY ["ClassroomService/src/ClassroomService.Application/ClassroomService.Application.csproj", "ClassroomService.Application/"]
+COPY ["ClassroomService/src/ClassroomService.Domain/ClassroomService.Domain.csproj", "ClassroomService.Domain/"]
+COPY ["ClassroomService/src/ClassroomService.Infrastructure/ClassroomService.Infrastructure.csproj", "ClassroomService.Infrastructure/"]
+COPY ["ClassroomService/src/ClassroomService.Presentation/ClassroomService.Presentation.csproj", "ClassroomService.Presentation/"]
 
 RUN dotnet restore "ClassroomService.Api/ClassroomService.Api.csproj"
-COPY . .
+
+COPY ClassroomService/src/. .
+
 WORKDIR "/src/ClassroomService.Api"
 RUN dotnet publish "ClassroomService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 

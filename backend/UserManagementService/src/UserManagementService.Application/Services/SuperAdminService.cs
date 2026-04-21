@@ -1,7 +1,7 @@
 using AutoMapper;
+using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
-using UserManagementService.Application.Common.Messages;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Domain.Entities;
@@ -108,7 +108,7 @@ public sealed class SuperAdminService : ISuperAdminService
 
         admin.Deactivate();
         await _userRepository.UpdateAsync(admin, ct);
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Deactivated), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Deactivated.ToString()), ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 
@@ -122,7 +122,7 @@ public sealed class SuperAdminService : ISuperAdminService
 
         admin.Reactivate();
         await _userRepository.UpdateAsync(admin, ct);
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Active), ct);
+        await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Active.ToString()), ct);
         await _userRepository.SaveChangesAsync(ct);
     }
 }

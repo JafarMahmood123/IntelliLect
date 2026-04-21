@@ -20,8 +20,8 @@ services:
 
   user-service:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: UserManagementService/Dockerfile
     container_name: user-management-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -32,7 +32,7 @@ services:
     depends_on:
       user-db:
         condition: service_healthy
-      rabbitmq:
+      intellilect-mq:
         condition: service_healthy
     networks:
       - intellilect-net

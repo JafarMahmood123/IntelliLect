@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../UserManagementService.Domain/UserManagementService.Domain.csproj" />
-    <ProjectReference Include="../../../EmailService/src/EmailService.Contracts/EmailService.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="IntelliLect.Contracts" Version="1.0.0" />
     <PackageReference Include="MassTransit.Abstractions" Version="8.1.3" />
   </ItemGroup>
 

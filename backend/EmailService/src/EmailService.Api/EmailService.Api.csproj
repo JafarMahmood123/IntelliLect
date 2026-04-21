@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../EmailService.Infrastructure/EmailService.Infrastructure.csproj" />
-    <ProjectReference Include="../EmailService.Contracts/EmailService.Contracts.csproj" />
   </ItemGroup>
 </Project>

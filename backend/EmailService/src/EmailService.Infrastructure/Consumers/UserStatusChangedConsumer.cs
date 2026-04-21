@@ -1,6 +1,6 @@
 using EmailService.Application.Abstractions;
 using EmailService.Application.Common;
-using EmailService.Contracts.Messages;
+using IntelliLect.Contracts.Messages;
 using MassTransit;
 
 namespace EmailService.Infrastructure.Consumers;

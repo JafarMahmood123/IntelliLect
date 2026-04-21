@@ -15,8 +15,8 @@ services:
 
   streaming-service:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: StreamingService/Dockerfile
     container_name: streaming-service
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -28,7 +28,7 @@ services:
       - Jwt__Audience=IntelliLect
     depends_on:
       - streaming-db
-      - rabbitmq
+      - intellilect-mq
     networks:
       - intellilect-net
 

@@ -6,7 +6,6 @@
 
   <ItemGroup>
     <Folder Include="Configuration/" />
-    <Folder Include="Messaging/" />
     <Folder Include="Persistence/" />
     <Folder Include="Persistence/Repositories/" />
   </ItemGroup>

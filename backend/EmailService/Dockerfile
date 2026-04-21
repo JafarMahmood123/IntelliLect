@@ -1,6 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY ["nuget.config", "."]
+COPY ["LocalPackages/", "LocalPackages/"]
+
 COPY ["src/EmailService.Api/EmailService.Api.csproj", "EmailService.Api/"]
 COPY ["src/EmailService.Application/EmailService.Application.csproj", "EmailService.Application/"]
 COPY ["src/EmailService.Infrastructure/EmailService.Infrastructure.csproj", "EmailService.Infrastructure/"]
