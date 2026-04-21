@@ -1,121 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ProtectedRoute } from './routes/ProtectedRoute';
+import { PublicRoute } from './routes/PublicRoute';
+import { useAuthStore } from './store/useAuthStore';
+import { LoginForm } from './features/auth/components/LoginForm';
+import { RegisterForm } from './features/auth/components/RegisterForm';
+import { ThemeProvider } from './components/ui/ThemeProvider';
+import { ThemeToggle } from './components/ui/ThemeToggle';
+
+const PendingApprovalPage = () => (
+  <div className="flex h-screen items-center justify-center">
+    <div className="text-center p-8 bg-white dark:bg-gray-900 border dark:border-gray-800 rounded-lg shadow-lg">
+      <h1 className="text-2xl font-bold mb-2">Account Pending</h1>
+      <p className="text-gray-600 dark:text-gray-400">Your account is currently waiting for administrator approval.</p>
+      <button onClick={() => useAuthStore.getState().logout()} className="mt-4 text-purple-600 hover:underline">
+        Log out
+      </button>
+    </div>
+  </div>
+);
+
+const DashboardPage = () => {
+  const { user, logout } = useAuthStore();
+  return (
+    <div className="p-8 w-full max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Welcome, {user?.firstName}!</h1>
+      <div className="bg-white dark:bg-gray-900 border dark:border-gray-800 p-6 rounded-lg shadow-lg max-w-md text-left">
+        <p className="mb-2"><strong>Email:</strong> {user?.email}</p>
+        <p className="mb-2"><strong>Role:</strong> {user?.roleName}</p>
+        <p className="mb-4"><strong>Status:</strong> <span className="text-green-500 font-medium">{user?.status}</span></p>
+        <button onClick={logout} className="mt-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors">
+          Log out
+        </button>
+      </div>
+    </div>
+  );
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <ThemeProvider>
+      <BrowserRouter>
+        {/* Global UI */}
+        <ThemeToggle />
+        
+        {/* We moved the background colors to index.css, so we can clean up this wrapper */}
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <Routes>
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<LoginForm />} />
+              <Route path="/register" element={<RegisterForm />} />
+            </Route>
 
-      <div className="ticks"></div>
+            <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<DashboardPage />} />
+            </Route>
+          </Routes>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      </BrowserRouter>
+    </ThemeProvider>
+  );
 }
 
-export default App
+export default App;
