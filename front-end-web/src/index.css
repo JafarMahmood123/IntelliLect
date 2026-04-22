@@ -1,13 +1,12 @@
 @import "tailwindcss";
 
-/* Enable class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Add a smooth transition when switching themes */
 html {
-    @apply transition-colors duration-300;
+  @apply transition-colors duration-300;
 }
 
 body {
-    @apply bg-gray-50 text-gray-900 dark:bg-[#16171d] dark:text-white;
+  /* Switched to slate for a more premium modern look */
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
 }

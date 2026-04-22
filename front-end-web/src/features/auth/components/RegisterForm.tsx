@@ -19,29 +19,38 @@ const schema = z.object({
 type RegisterFormData = z.infer<typeof schema>;
 
 export const RegisterForm = () => {
-  const[serverError, setServerError] = useState('');
+  const [serverError, setServerError] = useState('');
   const navigate = useNavigate();
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterFormData>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
     resolver: zodResolver(schema),
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setServerError('');
+
     try {
       await registerUser(data);
-      // Wait a moment so the user reads the success state (optional, or just redirect)
-      alert("Registration request submitted! Please wait for Admin approval.");
+      alert('Registration request submitted! Please wait for Admin approval.');
       navigate('/login');
     } catch (error: any) {
-      setServerError(error.response?.data?.detail || 'Registration failed. Please try again.');
+      setServerError(
+        error.response?.data?.detail ||
+          'Registration failed. Please try again.'
+      );
     }
   };
 
   return (
-    <div className="max-w-md w-full mx-auto p-8 bg-white dark:bg-gray-900 border dark:border-gray-800 shadow-lg rounded-lg">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">Create an Account</h2>
-      
+    <div className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-2xl">
+      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">
+        Create an Account
+      </h2>
+
       {serverError && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
           {serverError}
@@ -50,26 +59,53 @@ export const RegisterForm = () => {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="First Name" {...register('firstName')} error={errors.firstName?.message} />
-          <Input label="Last Name" {...register('lastName')} error={errors.lastName?.message} />
+          <Input
+            label="First Name"
+            {...register('firstName')}
+            error={errors.firstName?.message}
+          />
+          <Input
+            label="Last Name"
+            {...register('lastName')}
+            error={errors.lastName?.message}
+          />
         </div>
-        <Input label="Username" {...register('userName')} error={errors.userName?.message} />
-        <Input label="Email Address" type="email" {...register('email')} error={errors.email?.message} />
-        <Input label="Password" type="password" {...register('password')} error={errors.password?.message} />
-        
-        {/* Temporary: Hardcoded role input because there is no API to fetch roles */}
-        <Input 
-          label="Role ID (Get from DB for now)" 
-          placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
-          {...register('roleId')} 
-          error={errors.roleId?.message} 
+
+        <Input
+          label="Username"
+          {...register('userName')}
+          error={errors.userName?.message}
+        />
+        <Input
+          label="Email Address"
+          type="email"
+          {...register('email')}
+          error={errors.email?.message}
+        />
+        <Input
+          label="Password"
+          type="password"
+          {...register('password')}
+          error={errors.password?.message}
         />
 
-        <Button type="submit" isLoading={isSubmitting}>Register</Button>
+        <Input
+          label="Role ID (Get from DB for now)"
+          placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+          {...register('roleId')}
+          error={errors.roleId?.message}
+        />
+
+        <Button type="submit" isLoading={isSubmitting} fullWidth>
+          Register
+        </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-        Already have an account? <Link to="/login" className="text-purple-600 hover:underline">Sign In</Link>
+        Already have an account?{' '}
+        <Link to="/login" className="text-purple-600 hover:underline">
+          Sign In
+        </Link>
       </p>
     </div>
   );

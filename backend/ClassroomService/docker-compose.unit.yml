@@ -1,10 +1,11 @@
 services:
   classroom-db:
     image: postgres:latest
+    container_name: classroom-db
     environment:
       POSTGRES_DB: classroomdb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: Jafar123!
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d classroomdb" ]
       interval: 10s
