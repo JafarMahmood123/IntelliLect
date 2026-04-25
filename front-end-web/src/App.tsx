@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './components/ui/ThemeProvider';
-import { ThemeToggle } from './components/ui/ThemeToggle';
+import { AppControls } from './components/ui/AppControls';
 import { SuperAdminDashboard } from './features/admin/components/SuperAdminDashboard';
 import { LoginForm } from './features/auth/components/LoginForm';
 import { RegisterForm } from './features/auth/components/RegisterForm';
@@ -16,7 +16,7 @@ function App() {
     <ThemeProvider>
       <BrowserRouter>
         <div className="min-h-screen w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-          <ThemeToggle />
+          <AppControls />
 
           <Routes>
             <Route element={<AuthLayout />}>

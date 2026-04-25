@@ -1,0 +1,35 @@
+{
+  "buttons": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "create": "Create",
+    "createAdmin": "Create Admin",
+    "signIn": "Sign In",
+    "register": "Register",
+    "logout": "Log out",
+    "loading": "Loading..."
+  },
+  "theme": {
+    "light": "Light mode",
+    "system": "System preference",
+    "dark": "Dark mode"
+  },
+  "language": {
+    "english": "English",
+    "arabic": "Arabic",
+    "switchToEnglish": "Switch to English",
+    "switchToArabic": "Switch to Arabic"
+  },
+  "dashboard": {
+    "welcome": "Welcome, {{name}}!",
+    "description": "This is your main dashboard.",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "openSuperAdmin": "Open Super Admin Dashboard"
+  },
+  "pendingApproval": {
+    "title": "Account Pending",
+    "description": "Your account is currently waiting for administrator approval."
+  }
+}

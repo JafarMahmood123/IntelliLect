@@ -1,0 +1,35 @@
+{
+  "buttons": {
+    "cancel": "إلغاء",
+    "close": "إغلاق",
+    "create": "إنشاء",
+    "createAdmin": "إنشاء مسؤول",
+    "signIn": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "loading": "جارٍ التحميل..."
+  },
+  "theme": {
+    "light": "الوضع الفاتح",
+    "system": "تفضيل النظام",
+    "dark": "الوضع الداكن"
+  },
+  "language": {
+    "english": "الإنجليزية",
+    "arabic": "العربية",
+    "switchToEnglish": "التبديل إلى الإنجليزية",
+    "switchToArabic": "التبديل إلى العربية"
+  },
+  "dashboard": {
+    "welcome": "مرحبًا، {{name}}!",
+    "description": "هذه هي لوحة التحكم الرئيسية الخاصة بك.",
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "status": "الحالة",
+    "openSuperAdmin": "فتح لوحة المسؤول الأعلى"
+  },
+  "pendingApproval": {
+    "title": "الحساب قيد الانتظار",
+    "description": "حسابك ينتظر موافقة المسؤول حاليًا."
+  }
+}

@@ -1,29 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { ShieldPlus } from 'lucide-react';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
 import { createAdmin } from '../api/superAdmin';
 import type { CreateAdminRequest } from '../types';
 
-const createAdminSchema = z
-  .object({
-    firstName: z.string().min(2, 'First name must be at least 2 characters'),
-    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    userName: z.string().min(3, 'Username must be at least 3 characters'),
-    email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string().min(8, 'Please confirm the password'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  });
+const buildSchema = (t: (key: string) => string) =>
+  z
+    .object({
+      firstName: z.string().min(2, t('drawer.validation.firstNameMin')),
+      lastName: z.string().min(2, t('drawer.validation.lastNameMin')),
+      userName: z.string().min(3, t('drawer.validation.userNameMin')),
+      email: z.string().email(t('drawer.validation.invalidEmail')),
+      password: z.string().min(8, t('drawer.validation.passwordMin')),
+      confirmPassword: z
+        .string()
+        .min(8, t('drawer.validation.confirmPasswordMin')),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      path: ['confirmPassword'],
+      message: t('drawer.validation.passwordMismatch'),
+    });
 
-type CreateAdminFormValues = z.infer<typeof createAdminSchema>;
+type CreateAdminFormValues = z.infer<ReturnType<typeof buildSchema>>;
 
 interface CreateAdminDrawerProps {
   isOpen: boolean;
@@ -36,7 +40,10 @@ export const CreateAdminDrawer = ({
   onClose,
   onCreated,
 }: CreateAdminDrawerProps) => {
+  const { t } = useTranslation('admin');
   const [serverError, setServerError] = useState('');
+
+  const schema = useMemo(() => buildSchema(t), [t]);
 
   const {
     register,
@@ -44,7 +51,7 @@ export const CreateAdminDrawer = ({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<CreateAdminFormValues>({
-    resolver: zodResolver(createAdminSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -88,7 +95,7 @@ export const CreateAdminDrawer = ({
       setServerError(
         error?.response?.data?.detail ||
           error?.response?.data?.title ||
-          'Failed to create admin. Please review the data and try again.'
+          t('drawer.fallbackError')
       );
     }
   };
@@ -97,8 +104,8 @@ export const CreateAdminDrawer = ({
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New Admin"
-      description="Add a new administrator account. The new admin will be created as an active account automatically."
+      title={t('drawer.title')}
+      description={t('drawer.description')}
       icon={<ShieldPlus size={22} />}
       footer={
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -106,20 +113,20 @@ export const CreateAdminDrawer = ({
             type="button"
             onClick={onClose}
             disabled={isSubmitting || createAdminMutation.isPending}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900 cursor-pointer"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
           >
-            Cancel
+            {t('common:buttons.cancel')}
           </button>
 
           <button
             type="submit"
             form="create-admin-form"
             disabled={isSubmitting || createAdminMutation.isPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting || createAdminMutation.isPending
-              ? 'Creating Admin...'
-              : 'Create Admin'}
+              ? t('drawer.submitting')
+              : t('drawer.submit')}
           </button>
         </div>
       }
@@ -138,24 +145,24 @@ export const CreateAdminDrawer = ({
         <section>
           <div className="mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Identity
+              {t('drawer.sections.identity')}
             </h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Basic information about the new administrator.
+              {t('drawer.sectionDescriptions.identity')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-              label="First Name"
-              placeholder="Enter first name"
+              label={t('drawer.fields.firstName.label')}
+              placeholder={t('drawer.fields.firstName.placeholder')}
               {...register('firstName')}
               error={errors.firstName?.message}
             />
 
             <Input
-              label="Last Name"
-              placeholder="Enter last name"
+              label={t('drawer.fields.lastName.label')}
+              placeholder={t('drawer.fields.lastName.placeholder')}
               {...register('lastName')}
               error={errors.lastName?.message}
             />
@@ -165,24 +172,24 @@ export const CreateAdminDrawer = ({
         <section>
           <div className="mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Account
+              {t('drawer.sections.account')}
             </h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Login details used to identify the administrator.
+              {t('drawer.sectionDescriptions.account')}
             </p>
           </div>
 
           <Input
-            label="Username"
-            placeholder="Enter username"
+            label={t('drawer.fields.userName.label')}
+            placeholder={t('drawer.fields.userName.placeholder')}
             {...register('userName')}
             error={errors.userName?.message}
           />
 
           <Input
-            label="Email Address"
+            label={t('drawer.fields.email.label')}
             type="email"
-            placeholder="admin@example.com"
+            placeholder={t('drawer.fields.email.placeholder')}
             {...register('email')}
             error={errors.email?.message}
           />
@@ -191,26 +198,25 @@ export const CreateAdminDrawer = ({
         <section>
           <div className="mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Security
+              {t('drawer.sections.security')}
             </h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Set a temporary password for the admin. They should change it
-              after first login.
+              {t('drawer.sectionDescriptions.security')}
             </p>
           </div>
 
           <Input
-            label="Temporary Password"
+            label={t('drawer.fields.password.label')}
             type="password"
-            placeholder="Enter temporary password"
+            placeholder={t('drawer.fields.password.placeholder')}
             {...register('password')}
             error={errors.password?.message}
           />
 
           <Input
-            label="Confirm Password"
+            label={t('drawer.fields.confirmPassword.label')}
             type="password"
-            placeholder="Re-enter the password"
+            placeholder={t('drawer.fields.confirmPassword.placeholder')}
             {...register('confirmPassword')}
             error={errors.confirmPassword?.message}
           />

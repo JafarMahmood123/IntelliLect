@@ -1,26 +1,31 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { register as registerUser } from '../api/auth';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 
-const schema = z.object({
-  firstName: z.string().min(2, 'First name is required'),
-  lastName: z.string().min(2, 'Last name is required'),
-  userName: z.string().min(3, 'Username must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  roleId: z.string().uuid('Must be a valid GUID'),
-});
+const buildSchema = (t: (key: string) => string) =>
+  z.object({
+    firstName: z.string().min(2, t('validation.firstNameRequired')),
+    lastName: z.string().min(2, t('validation.lastNameRequired')),
+    userName: z.string().min(3, t('validation.userNameMin')),
+    email: z.string().email(t('validation.invalidEmail')),
+    password: z.string().min(6, t('validation.passwordMin')),
+    roleId: z.string().uuid(t('validation.roleIdInvalid')),
+  });
 
-type RegisterFormData = z.infer<typeof schema>;
+type RegisterFormData = z.infer<ReturnType<typeof buildSchema>>;
 
 export const RegisterForm = () => {
+  const { t } = useTranslation('auth');
   const [serverError, setServerError] = useState('');
   const navigate = useNavigate();
+
+  const schema = useMemo(() => buildSchema(t), [t]);
 
   const {
     register,
@@ -35,24 +40,21 @@ export const RegisterForm = () => {
 
     try {
       await registerUser(data);
-      alert('Registration request submitted! Please wait for Admin approval.');
+      alert(t('register.success'));
       navigate('/login');
     } catch (error: any) {
-      setServerError(
-        error.response?.data?.detail ||
-          'Registration failed. Please try again.'
-      );
+      setServerError(error.response?.data?.detail || t('register.fallbackError'));
     }
   };
 
   return (
-    <div className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-2xl">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">
-        Create an Account
+    <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
+        {t('register.title')}
       </h2>
 
       {serverError && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
+        <div className="mb-4 rounded-md bg-red-100 p-3 text-sm text-red-700">
           {serverError}
         </div>
       )}
@@ -60,51 +62,54 @@ export const RegisterForm = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid grid-cols-2 gap-4">
           <Input
-            label="First Name"
+            label={t('register.firstNameLabel')}
             {...register('firstName')}
             error={errors.firstName?.message}
           />
+
           <Input
-            label="Last Name"
+            label={t('register.lastNameLabel')}
             {...register('lastName')}
             error={errors.lastName?.message}
           />
         </div>
 
         <Input
-          label="Username"
+          label={t('register.userNameLabel')}
           {...register('userName')}
           error={errors.userName?.message}
         />
+
         <Input
-          label="Email Address"
+          label={t('register.emailLabel')}
           type="email"
           {...register('email')}
           error={errors.email?.message}
         />
+
         <Input
-          label="Password"
+          label={t('register.passwordLabel')}
           type="password"
           {...register('password')}
           error={errors.password?.message}
         />
 
         <Input
-          label="Role ID (Get from DB for now)"
-          placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+          label={t('register.roleIdLabel')}
+          placeholder={t('register.roleIdPlaceholder')}
           {...register('roleId')}
           error={errors.roleId?.message}
         />
 
         <Button type="submit" isLoading={isSubmitting} fullWidth>
-          Register
+          {t('register.submit')}
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-        Already have an account?{' '}
+        {t('register.hasAccount')}{' '}
         <Link to="/login" className="text-purple-600 hover:underline">
-          Sign In
+          {t('register.loginLink')}
         </Link>
       </p>
     </div>

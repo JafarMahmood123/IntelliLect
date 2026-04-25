@@ -1,25 +1,30 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { login } from '../api/auth';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { getDefaultRoute } from '../../../utils/getDefaultRoute';
 
-const schema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+const buildSchema = (t: (key: string) => string) =>
+  z.object({
+    email: z.string().email(t('validation.invalidEmail')),
+    password: z.string().min(6, t('validation.passwordMin')),
+  });
 
-type LoginFormData = z.infer<typeof schema>;
+type LoginFormData = z.infer<ReturnType<typeof buildSchema>>;
 
 export const LoginForm = () => {
+  const { t } = useTranslation('auth');
   const [serverError, setServerError] = useState('');
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
+
+  const schema = useMemo(() => buildSchema(t), [t]);
 
   const {
     register,
@@ -37,46 +42,46 @@ export const LoginForm = () => {
       setAuth(result.response, result.accessToken, result.refreshToken);
       navigate(getDefaultRoute(result.response), { replace: true });
     } catch (error: any) {
-      setServerError(
-        error.response?.data?.detail || 'Login failed. Please try again.'
-      );
+      setServerError(error.response?.data?.detail || t('login.fallbackError'));
     }
   };
 
   return (
-    <div className="max-w-md w-full mx-auto p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-2xl">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">
-        Welcome Back
+    <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+      <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
+        {t('login.title')}
       </h2>
 
       {serverError && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
+        <div className="mb-4 rounded-md bg-red-100 p-3 text-sm text-red-700">
           {serverError}
         </div>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Input
-          label="Email Address"
+          label={t('login.emailLabel')}
           type="email"
           {...register('email')}
           error={errors.email?.message}
         />
+
         <Input
-          label="Password"
+          label={t('login.passwordLabel')}
           type="password"
           {...register('password')}
           error={errors.password?.message}
         />
+
         <Button type="submit" isLoading={isSubmitting} fullWidth>
-          Sign In
+          {t('login.submit')}
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-        Don't have an account?{' '}
+        {t('login.noAccount')}{' '}
         <Link to="/register" className="text-purple-600 hover:underline">
-          Register here
+          {t('login.registerLink')}
         </Link>
       </p>
     </div>
