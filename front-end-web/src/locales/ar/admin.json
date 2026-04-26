@@ -5,20 +5,55 @@
     "loading": "جارٍ تحميل المسؤولين...",
     "loadError": "فشل تحميل المسؤولين.",
     "successCreated": "تم إنشاء حساب المسؤول {{name}} بنجاح.",
+    "searchByLabel": "البحث حسب",
     "searchLabel": "بحث",
     "searchPlaceholder": "ابحث بالاسم أو اسم المستخدم أو البريد الإلكتروني أو الحالة",
+    "clearSearch": "مسح البحث",
+    "updatingResults": "جارٍ تحديث النتائج...",
+    "searchGroupingNotice": "البحث من الخادم مفعّل. يتم تعطيل التجميع تلقائيًا لأن الخادم الحالي لا يعيد نتائج بحث مجمعة.",
+    "searchFields": {
+      "userName": "اسم المستخدم",
+      "email": "البريد الإلكتروني",
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "status": "الحالة"
+    },
+    "placeholders": {
+      "userName": "ابحث باسم المستخدم",
+      "email": "ابحث بالبريد الإلكتروني",
+      "firstName": "ابحث بالاسم الأول",
+      "lastName": "ابحث باسم العائلة",
+      "status": "اختر حالة"
+    },
+    "statuses": {
+      "active": "نشط",
+      "pending": "قيد الانتظار",
+      "rejected": "مرفوض",
+      "deactivated": "معطل"
+    },
     "sortLabel": "الترتيب حسب",
     "groupLabel": "التجميع حسب",
     "sortOptions": {
       "joinedDesc": "الأحدث انضمامًا",
       "joinedAsc": "الأقدم انضمامًا",
+      "usernameAsc": "اسم المستخدم أ-ي",
+      "usernameDesc": "اسم المستخدم ي-أ",
+      "emailAsc": "البريد الإلكتروني أ-ي",
+      "emailDesc": "البريد الإلكتروني ي-أ",
+      "firstNameAsc": "الاسم الأول أ-ي",
+      "firstNameDesc": "الاسم الأول ي-أ",
+      "lastNameAsc": "اسم العائلة أ-ي",
+      "lastNameDesc": "اسم العائلة ي-أ",
+      "statusAsc": "الحالة أ-ي",
+      "statusDesc": "الحالة ي-أ",
       "nameAsc": "الاسم أ-ي",
       "nameDesc": "الاسم ي-أ",
       "status": "الحالة"
     },
     "groupOptions": {
       "none": "بدون",
-      "status": "الحالة"
+      "status": "الحالة",
+      "statusDisabled": "الحالة (امسح البحث أولًا)"
     },
     "groupCount_zero": "لا يوجد مسؤولون",
     "groupCount_one": "مسؤول واحد",

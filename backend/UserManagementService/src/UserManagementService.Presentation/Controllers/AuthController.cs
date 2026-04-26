@@ -64,4 +64,12 @@ public sealed class AuthController : ControllerBase
         await _authService.ResetPasswordAsync(request, ct);
         return Ok(new { Message = "Password has been reset successfully." });
     }
+
+    [HttpGet("registration-roles")]
+    [ProducesResponseType(typeof(IReadOnlyList<RegistrationRoleResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRegistrationRoles(CancellationToken cancellationToken)
+    {
+        var roles = await _authService.GetRegistrationRolesAsync(cancellationToken);
+        return Ok(roles);
+    }
 }

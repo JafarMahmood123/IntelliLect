@@ -20,6 +20,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
         <input
           id={inputId}
+          name={name} 
           ref={ref}
           className={`rounded-lg border px-4 py-2.5 outline-none transition-all dark:bg-slate-950/50 dark:text-slate-100
             focus:border-violet-500 focus:ring-2 focus:ring-violet-500/50

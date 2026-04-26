@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
 import { ShieldPlus } from 'lucide-react';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
-import { createAdmin } from '../api/superAdmin';
+import { useCreateAdmin } from '../hooks/useAdminQueries';
 import type { CreateAdminRequest } from '../types';
 
 const buildSchema = (t: (key: string) => string) =>
@@ -41,7 +40,7 @@ export const CreateAdminDrawer = ({
   onCreated,
 }: CreateAdminDrawerProps) => {
   const { t } = useTranslation('admin');
-  const [serverError, setServerError] = useState('');
+  const[serverError, setServerError] = useState('');
 
   const schema = useMemo(() => buildSchema(t), [t]);
 
@@ -62,17 +61,20 @@ export const CreateAdminDrawer = ({
     },
   });
 
-  const createAdminMutation = useMutation({
-    mutationFn: (data: CreateAdminRequest) => createAdmin(data),
-  });
+  // Replaced direct useMutation with our custom Application Layer hook
+  const {
+    mutateAsync: submitCreateAdmin,
+    isPending,
+    reset: resetCreateAdminMutation,
+  } = useCreateAdmin();
 
   useEffect(() => {
     if (!isOpen) {
       reset();
       setServerError('');
-      createAdminMutation.reset();
+      resetCreateAdminMutation();
     }
-  }, [isOpen, reset, createAdminMutation]);
+  }, [isOpen, reset, resetCreateAdminMutation]);
 
   const onSubmit = async (values: CreateAdminFormValues) => {
     setServerError('');
@@ -86,7 +88,7 @@ export const CreateAdminDrawer = ({
         password: values.password,
       };
 
-      await createAdminMutation.mutateAsync(payload);
+      await submitCreateAdmin(payload);
 
       const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
       reset();
@@ -95,7 +97,7 @@ export const CreateAdminDrawer = ({
       setServerError(
         error?.response?.data?.detail ||
           error?.response?.data?.title ||
-          t('drawer.fallbackError')
+          t('drawer.fallbackError'),
       );
     }
   };
@@ -112,7 +114,7 @@ export const CreateAdminDrawer = ({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting || createAdminMutation.isPending}
+            disabled={isSubmitting || isPending}
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
           >
             {t('common:buttons.cancel')}
@@ -121,10 +123,10 @@ export const CreateAdminDrawer = ({
           <button
             type="submit"
             form="create-admin-form"
-            disabled={isSubmitting || createAdminMutation.isPending}
+            disabled={isSubmitting || isPending}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting || createAdminMutation.isPending
+            {isSubmitting || isPending
               ? t('drawer.submitting')
               : t('drawer.submit')}
           </button>

@@ -5,6 +5,7 @@ namespace UserManagementService.Application.Abstractions;
 
 public interface IAuthService
 {
+    Task<IReadOnlyList<RegistrationRoleResponse>> GetRegistrationRolesAsync(CancellationToken ct = default);
     Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
     Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
     Task<LoginResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct = default);

@@ -1,39 +1,85 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { register as registerUser } from '../api/auth';
+import { register as registerUser, getRegistrationRoles } from '../api/auth';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 
 const buildSchema = (t: (key: string) => string) =>
   z.object({
-    firstName: z.string().min(2, t('validation.firstNameRequired')),
-    lastName: z.string().min(2, t('validation.lastNameRequired')),
-    userName: z.string().min(3, t('validation.userNameMin')),
-    email: z.string().email(t('validation.invalidEmail')),
+    firstName: z.string().trim().min(1, t('validation.firstNameRequired')),
+    lastName: z.string().trim().min(1, t('validation.lastNameRequired')),
+    userName: z.string().trim().min(3, t('validation.userNameMin')),
+    email: z.string().trim().email(t('validation.invalidEmail')),
     password: z.string().min(6, t('validation.passwordMin')),
-    roleId: z.string().uuid(t('validation.roleIdInvalid')),
+    roleId: z.string().min(1, t('validation.roleRequired')),
   });
 
 type RegisterFormData = z.infer<ReturnType<typeof buildSchema>>;
 
 export const RegisterForm = () => {
-  const { t } = useTranslation('auth');
+  const { t, i18n } = useTranslation('auth');
   const [serverError, setServerError] = useState('');
   const navigate = useNavigate();
 
-  const schema = useMemo(() => buildSchema(t), [t]);
+  const hasMountedRef = useRef(false);
+  const shouldRefreshErrorsOnLanguageChangeRef = useRef(false);
+
+  const schema = useMemo(() => buildSchema(t), [t, i18n.language]);
+  const resolver = useMemo(() => zodResolver(schema), [schema]);
+
+  const {
+    data: roles = [],
+    isLoading: isLoadingRoles,
+    isError: isRolesError,
+  } = useQuery({
+    queryKey: ['registration-roles'],
+    queryFn: getRegistrationRoles,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    trigger,
+    formState: { errors, isSubmitting, isSubmitted, touchedFields },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(schema),
+    resolver,
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      userName: '',
+      email: '',
+      password: '',
+      roleId: '',
+    },
   });
+
+  useEffect(() => {
+    const hasTouchedFields = Object.keys(touchedFields).length > 0;
+    const hasVisibleErrors = Object.keys(errors).length > 0;
+
+    shouldRefreshErrorsOnLanguageChangeRef.current =
+      isSubmitted || hasTouchedFields || hasVisibleErrors;
+  }, [isSubmitted, touchedFields, errors]);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+
+    if (shouldRefreshErrorsOnLanguageChangeRef.current) {
+      void trigger(undefined, { shouldFocus: false });
+    }
+  }, [i18n.language, trigger]);
 
   const onSubmit = async (data: RegisterFormData) => {
     setServerError('');
@@ -47,6 +93,8 @@ export const RegisterForm = () => {
     }
   };
 
+  const isSubmitDisabled = isSubmitting || isLoadingRoles || isRolesError;
+
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
       <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-white">
@@ -59,7 +107,13 @@ export const RegisterForm = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      {isRolesError && (
+        <div className="mb-4 rounded-md bg-red-100 p-3 text-sm text-red-700">
+          {t('register.rolesLoadError')}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <div className="grid grid-cols-2 gap-4">
           <Input
             label={t('register.firstNameLabel')}
@@ -94,14 +148,53 @@ export const RegisterForm = () => {
           error={errors.password?.message}
         />
 
-        <Input
-          label={t('register.roleIdLabel')}
-          placeholder={t('register.roleIdPlaceholder')}
-          {...register('roleId')}
-          error={errors.roleId?.message}
-        />
+        <div className="mb-4 flex w-full flex-col gap-1 text-start">
+          <label
+            htmlFor="roleId"
+            className="text-sm font-medium text-slate-700 dark:text-slate-300"
+          >
+            {t('register.roleLabel')}
+          </label>
 
-        <Button type="submit" isLoading={isSubmitting} fullWidth>
+          <select
+            id="roleId"
+            {...register('roleId')}
+            disabled={isLoadingRoles || isRolesError}
+            className={`rounded-lg border px-4 py-2.5 outline-none transition-all dark:bg-slate-950/50 dark:text-slate-100
+              focus:border-violet-500 focus:ring-2 focus:ring-violet-500/50
+              ${
+                errors.roleId?.message
+                  ? 'border-red-500/80 focus:border-red-500 focus:ring-red-500/50'
+                  : 'border-slate-200 bg-slate-50 dark:border-slate-800'
+              }
+              disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            <option value="">
+              {isLoadingRoles
+                ? t('register.rolesLoading')
+                : t('register.rolePlaceholder')}
+            </option>
+
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+
+          {errors.roleId?.message && (
+            <span className="text-xs font-medium text-red-500">
+              {errors.roleId.message}
+            </span>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          isLoading={isSubmitting}
+          fullWidth
+          disabled={isSubmitDisabled}
+        >
           {t('register.submit')}
         </Button>
       </form>
