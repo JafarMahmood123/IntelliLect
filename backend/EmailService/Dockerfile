@@ -7,7 +7,6 @@ COPY ["LocalPackages/", "LocalPackages/"]
 COPY ["src/EmailService.Api/EmailService.Api.csproj", "EmailService.Api/"]
 COPY ["src/EmailService.Application/EmailService.Application.csproj", "EmailService.Application/"]
 COPY ["src/EmailService.Infrastructure/EmailService.Infrastructure.csproj", "EmailService.Infrastructure/"]
-COPY ["src/EmailService.Contracts/EmailService.Contracts.csproj", "EmailService.Contracts/"]
 
 RUN dotnet restore "EmailService.Api/EmailService.Api.csproj"
 COPY src/. .

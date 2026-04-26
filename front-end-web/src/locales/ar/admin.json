@@ -1,0 +1,129 @@
+{
+  "dashboard": {
+    "title": "لوحة المسؤول الأعلى",
+    "createNewAdmin": "إنشاء مسؤول جديد",
+    "loading": "جارٍ تحميل المسؤولين...",
+    "loadError": "فشل تحميل المسؤولين.",
+    "successCreated": "تم إنشاء حساب المسؤول {{name}} بنجاح.",
+    "searchByLabel": "البحث حسب",
+    "searchLabel": "بحث",
+    "searchPlaceholder": "ابحث بالاسم أو اسم المستخدم أو البريد الإلكتروني أو الحالة",
+    "clearSearch": "مسح البحث",
+    "updatingResults": "جارٍ تحديث النتائج...",
+    "searchGroupingNotice": "البحث من الخادم مفعّل. يتم تعطيل التجميع تلقائيًا لأن الخادم الحالي لا يعيد نتائج بحث مجمعة.",
+    "searchFields": {
+      "userName": "اسم المستخدم",
+      "email": "البريد الإلكتروني",
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "status": "الحالة"
+    },
+    "placeholders": {
+      "userName": "ابحث باسم المستخدم",
+      "email": "ابحث بالبريد الإلكتروني",
+      "firstName": "ابحث بالاسم الأول",
+      "lastName": "ابحث باسم العائلة",
+      "status": "اختر حالة"
+    },
+    "statuses": {
+      "active": "نشط",
+      "pending": "قيد الانتظار",
+      "rejected": "مرفوض",
+      "deactivated": "معطل"
+    },
+    "sortLabel": "الترتيب حسب",
+    "groupLabel": "التجميع حسب",
+    "sortOptions": {
+      "joinedDesc": "الأحدث انضمامًا",
+      "joinedAsc": "الأقدم انضمامًا",
+      "usernameAsc": "اسم المستخدم أ-ي",
+      "usernameDesc": "اسم المستخدم ي-أ",
+      "emailAsc": "البريد الإلكتروني أ-ي",
+      "emailDesc": "البريد الإلكتروني ي-أ",
+      "firstNameAsc": "الاسم الأول أ-ي",
+      "firstNameDesc": "الاسم الأول ي-أ",
+      "lastNameAsc": "اسم العائلة أ-ي",
+      "lastNameDesc": "اسم العائلة ي-أ",
+      "statusAsc": "الحالة أ-ي",
+      "statusDesc": "الحالة ي-أ",
+      "nameAsc": "الاسم أ-ي",
+      "nameDesc": "الاسم ي-أ",
+      "status": "الحالة"
+    },
+    "groupOptions": {
+      "none": "بدون",
+      "status": "الحالة",
+      "statusDisabled": "الحالة (امسح البحث أولًا)"
+    },
+    "groupCount_zero": "لا يوجد مسؤولون",
+    "groupCount_one": "مسؤول واحد",
+    "groupCount_two": "مسؤولان",
+    "groupCount_few": "{{count}} مسؤولين",
+    "groupCount_many": "{{count}} مسؤولًا",
+    "groupCount_other": "{{count}} مسؤول",
+    "empty": "لا يوجد مسؤولون مطابقون.",
+    "table": {
+      "name": "الاسم",
+      "email": "البريد الإلكتروني",
+      "status": "الحالة",
+      "joined": "تاريخ الانضمام",
+      "actions": "الإجراءات"
+    },
+    "actions": {
+      "deactivate": "تعطيل",
+      "reactivate": "إعادة التفعيل"
+    }
+  },
+  "drawer": {
+    "title": "إنشاء مسؤول جديد",
+    "description": "أضف حساب مسؤول جديد. سيتم إنشاء الحساب الجديد بحالة نشطة تلقائيًا.",
+    "sections": {
+      "identity": "الهوية",
+      "account": "الحساب",
+      "security": "الأمان"
+    },
+    "sectionDescriptions": {
+      "identity": "المعلومات الأساسية الخاصة بالمسؤول الجديد.",
+      "account": "بيانات الدخول المستخدمة للتعرّف على المسؤول.",
+      "security": "عيّن كلمة مرور مؤقتة للمسؤول. يجب عليه تغييرها بعد أول تسجيل دخول."
+    },
+    "fields": {
+      "firstName": {
+        "label": "الاسم الأول",
+        "placeholder": "أدخل الاسم الأول"
+      },
+      "lastName": {
+        "label": "اسم العائلة",
+        "placeholder": "أدخل اسم العائلة"
+      },
+      "userName": {
+        "label": "اسم المستخدم",
+        "placeholder": "أدخل اسم المستخدم"
+      },
+      "email": {
+        "label": "البريد الإلكتروني",
+        "placeholder": "admin@example.com"
+      },
+      "password": {
+        "label": "كلمة المرور المؤقتة",
+        "placeholder": "أدخل كلمة المرور المؤقتة"
+      },
+      "confirmPassword": {
+        "label": "تأكيد كلمة المرور",
+        "placeholder": "أعد إدخال كلمة المرور"
+      }
+    },
+    "submit": "إنشاء المسؤول",
+    "submitting": "جارٍ إنشاء المسؤول...",
+    "fallbackError": "فشل إنشاء المسؤول. راجع البيانات ثم حاول مرة أخرى.",
+    "validation": {
+      "firstNameMin": "يجب أن يتكون الاسم الأول من حرفين على الأقل",
+      "lastNameMin": "يجب أن يتكون اسم العائلة من حرفين على الأقل",
+      "userNameMin": "يجب أن يتكون اسم المستخدم من 3 أحرف على الأقل",
+      "invalidEmail": "يرجى إدخال بريد إلكتروني صالح",
+      "passwordMin": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
+      "confirmPasswordMin": "يرجى تأكيد كلمة المرور",
+      "passwordMismatch": "كلمتا المرور غير متطابقتين"
+    }
+  }
+}

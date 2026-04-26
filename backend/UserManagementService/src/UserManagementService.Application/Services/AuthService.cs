@@ -19,21 +19,24 @@ public sealed class AuthService : IAuthService
     private readonly IResetPasswordTokenGenerator _resetPasswordTokenGenerator;
     private readonly IEventBus _eventBus;
     private readonly IMapper _mapper;
+    private readonly IRoleRepository _roleQueryRepository;
 
 
     public AuthService(
-        IUserRepository userRepository,
-        IRepository<Role> roleRepository,
-        IHasher hasher,
-        IJwtProvider jwtProvider,
-        IRepository<RefreshToken> refreshTokenRepository,
-        IResetTokenRepository resetPasswordRepository,
-        IResetPasswordTokenGenerator resetPasswordTokenGenerator,
-        IMapper mapper,
-        IEventBus eventBus)
+    IUserRepository userRepository,
+    IRepository<Role> roleRepository,
+    IRoleRepository roleQueryRepository,
+    IHasher hasher,
+    IJwtProvider jwtProvider,
+    IRepository<RefreshToken> refreshTokenRepository,
+    IResetTokenRepository resetPasswordRepository,
+    IResetPasswordTokenGenerator resetPasswordTokenGenerator,
+    IMapper mapper,
+    IEventBus eventBus)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
+        _roleQueryRepository = roleQueryRepository ?? throw new ArgumentNullException(nameof(roleQueryRepository));
         _hasher = hasher ?? throw new ArgumentNullException(nameof(hasher));
         _jwtProvider = jwtProvider ?? throw new ArgumentNullException(nameof(jwtProvider));
         _refreshTokenRepository = refreshTokenRepository;
@@ -223,5 +226,15 @@ public sealed class AuthService : IAuthService
         await _userRepository.UpdateAsync(user, ct);
 
         await _userRepository.SaveChangesAsync(ct);
+    }
+    public async Task<IReadOnlyList<RegistrationRoleResponse>> GetRegistrationRolesAsync(CancellationToken ct = default)
+    {
+        var roles = await _roleQueryRepository.GetSelfRegistrationRolesAsync(ct);
+
+        return roles
+            .Select(role => new RegistrationRoleResponse(
+                role.Id,
+                role.Name.ToString()))
+            .ToList();
     }
 }

@@ -83,6 +83,7 @@ public static class DependencyInjection
             });
 
         services.AddScoped<IEventBus, MassTransitEventBus>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
 
 
         return services;
