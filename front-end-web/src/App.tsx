@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './components/ui/ThemeProvider';
 import { AppControls } from './components/ui/AppControls';
-import { SuperAdminDashboard } from './features/admin/components/SuperAdminDashboard';
+import { SuperAdminDashboard } from './features/superAdmin/components/SuperAdminDashboard';
 import { LoginForm } from './features/auth/components/LoginForm';
 import { RegisterForm } from './features/auth/components/RegisterForm';
 import { AuthLayout } from './layouts/AuthLayout';

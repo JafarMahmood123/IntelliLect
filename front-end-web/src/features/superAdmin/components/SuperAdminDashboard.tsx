@@ -12,7 +12,7 @@ import {
   useAdmins,
   useToggleAdminStatus,
   type AdminsQueryData,
-} from '../hooks/useAdminQueries';
+} from '../hooks/useSuperAdminQueries';
 import type {
   AdminQueryResult,
   AdminSortField,

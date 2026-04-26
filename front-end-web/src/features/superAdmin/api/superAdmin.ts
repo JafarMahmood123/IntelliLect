@@ -1,4 +1,4 @@
-import { apiClient } from '../../../lib/axios';
+import { apiClient } from '../../lib/axios';
 import type {
   AdminQueryResult,
   CreateAdminRequest,
@@ -6,7 +6,7 @@ import type {
   GroupedAdminsResponse,
   PagedResult,
   SearchAdminsParams,
-} from '../types';
+} from './types';
 
 export const getAdmins = async (
   params: GetAdminsParams = {},
