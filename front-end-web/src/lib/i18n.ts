@@ -5,10 +5,12 @@ import { initReactI18next } from 'react-i18next';
 import enCommon from '../locales/en/common.json';
 import enAuth from '../locales/en/auth.json';
 import enAdmin from '../locales/en/admin.json';
+import enSuperAdmin from '../locales/en/superAdmin.json'; 
 
 import arCommon from '../locales/ar/common.json';
 import arAuth from '../locales/ar/auth.json';
 import arAdmin from '../locales/ar/admin.json';
+import arSuperAdmin from '../locales/ar/superAdmin.json'; 
 
 const resolveLanguage = (language?: string) => {
   return language?.startsWith('ar') ? 'ar' : 'en';
@@ -34,16 +36,18 @@ void i18n
         common: enCommon,
         auth: enAuth,
         admin: enAdmin,
+        superAdmin: enSuperAdmin, 
       },
       ar: {
         common: arCommon,
         auth: arAuth,
         admin: arAdmin,
+        superAdmin: arSuperAdmin, 
       },
     },
     fallbackLng: 'en',
-    supportedLngs: ['en', 'ar'],
-    ns: ['common', 'auth', 'admin'],
+    supportedLngs:['en', 'ar'],
+    ns: ['common', 'auth', 'admin', 'superAdmin'], 
     defaultNS: 'common',
     load: 'languageOnly',
     detection: {

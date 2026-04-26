@@ -39,7 +39,7 @@ export const CreateAdminDrawer = ({
   onClose,
   onCreated,
 }: CreateAdminDrawerProps) => {
-  const { t } = useTranslation('admin');
+  const { t } = useTranslation('superAdmin');
   const[serverError, setServerError] = useState('');
 
   const schema = useMemo(() => buildSchema(t), [t]);

@@ -10,6 +10,8 @@ import { PendingApprovalPage } from './pages/PendingApprovalPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { PublicRoute } from './routes/PublicRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
+import { AdminDashboard } from './features/admin/components/AdminDashboard'; 
+
 
 function App() {
   return (
@@ -28,13 +30,15 @@ function App() {
 
             <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
-            <Route element={<ProtectedRoute />}>
+           <Route element={<ProtectedRoute />}>
               <Route path="/" element={<DashboardPage />} />
 
-              <Route
-                element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}
-              >
+              <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
                 <Route path="/super-admin" element={<SuperAdminDashboard />} />
+              </Route>
+
+              <Route element={<RoleProtectedRoute allowedRoles={['Admin']} />}>
+                <Route path="/admin" element={<AdminDashboard />} />
               </Route>
             </Route>
           </Routes>

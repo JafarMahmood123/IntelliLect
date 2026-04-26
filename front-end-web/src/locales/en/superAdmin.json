@@ -1,0 +1,126 @@
+{
+  "dashboard": {
+    "title": "Super Admin Dashboard",
+    "createNewAdmin": "Create New Admin",
+    "loading": "Loading admins...",
+    "loadError": "Failed to load admins.",
+    "successCreated": "Admin account for {{name}} was created successfully.",
+    "searchByLabel": "Search by",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by name, username, email, or status",
+    "clearSearch": "Clear search",
+    "updatingResults": "Updating results...",
+    "searchGroupingNotice": "Backend search is active. Grouping is automatically disabled because the current backend does not return grouped search results.",
+    "searchFields": {
+      "userName": "Username",
+      "email": "Email",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "status": "Status"
+    },
+    "placeholders": {
+      "userName": "Search by username",
+      "email": "Search by email",
+      "firstName": "Search by first name",
+      "lastName": "Search by last name",
+      "status": "Select a status"
+    },
+    "statuses": {
+      "active": "Active",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "deactivated": "Deactivated"
+    },
+    "sortLabel": "Sort by",
+    "groupLabel": "Group by",
+    "sortOptions": {
+      "joinedDesc": "Newest joined",
+      "joinedAsc": "Oldest joined",
+      "usernameAsc": "Username A-Z",
+      "usernameDesc": "Username Z-A",
+      "emailAsc": "Email A-Z",
+      "emailDesc": "Email Z-A",
+      "firstNameAsc": "First name A-Z",
+      "firstNameDesc": "First name Z-A",
+      "lastNameAsc": "Last name A-Z",
+      "lastNameDesc": "Last name Z-A",
+      "statusAsc": "Status A-Z",
+      "statusDesc": "Status Z-A",
+      "nameAsc": "Name A-Z",
+      "nameDesc": "Name Z-A",
+      "status": "Status"
+    },
+    "groupOptions": {
+      "none": "None",
+      "status": "Status",
+      "statusDisabled": "Status (clear search first)"
+    },
+    "groupCount_zero": "0 admins",
+    "groupCount_one": "{{count}} admin",
+    "groupCount_other": "{{count}} admins",
+    "empty": "No matching admins found.",
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "status": "Status",
+      "joined": "Joined",
+      "actions": "Actions"
+    },
+    "actions": {
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate"
+    }
+  },
+  "drawer": {
+    "title": "Create New Admin",
+    "description": "Add a new administrator account. The new admin will be created as an active account automatically.",
+    "sections": {
+      "identity": "Identity",
+      "account": "Account",
+      "security": "Security"
+    },
+    "sectionDescriptions": {
+      "identity": "Basic information about the new administrator.",
+      "account": "Login details used to identify the administrator.",
+      "security": "Set a temporary password for the admin. They should change it after first login."
+    },
+    "fields": {
+      "firstName": {
+        "label": "First Name",
+        "placeholder": "Enter first name"
+      },
+      "lastName": {
+        "label": "Last Name",
+        "placeholder": "Enter last name"
+      },
+      "userName": {
+        "label": "Username",
+        "placeholder": "Enter username"
+      },
+      "email": {
+        "label": "Email Address",
+        "placeholder": "admin@example.com"
+      },
+      "password": {
+        "label": "Temporary Password",
+        "placeholder": "Enter temporary password"
+      },
+      "confirmPassword": {
+        "label": "Confirm Password",
+        "placeholder": "Re-enter the password"
+      }
+    },
+    "submit": "Create Admin",
+    "submitting": "Creating Admin...",
+    "fallbackError": "Failed to create admin. Please review the data and try again.",
+    "validation": {
+      "firstNameMin": "First name must be at least 2 characters",
+      "lastNameMin": "Last name must be at least 2 characters",
+      "userNameMin": "Username must be at least 3 characters",
+      "invalidEmail": "Please enter a valid email address",
+      "passwordMin": "Password must be at least 8 characters",
+      "confirmPasswordMin": "Please confirm the password",
+      "passwordMismatch": "Passwords do not match"
+    }
+  }
+}

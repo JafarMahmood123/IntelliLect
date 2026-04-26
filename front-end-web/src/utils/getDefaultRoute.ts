@@ -11,5 +11,9 @@ export const getDefaultRoute = (user: User | null | undefined) => {
     return '/super-admin';
   }
 
+  if (user.roleName === 'Admin') {
+    return '/admin';
+  }
+
   return '/';
 };
