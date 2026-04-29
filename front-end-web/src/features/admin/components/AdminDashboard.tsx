@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldAlert, ShieldCheck, UserCheck, UserX, Users, Clock } from 'lucide-react';
+import {
+  Clock,
+  ShieldAlert,
+  ShieldCheck,
+  UserCheck,
+  UserX,
+  Users,
+} from 'lucide-react';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
 import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
@@ -9,6 +16,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { useToast } from '../../../components/ui/ToastProvider';
 import { useRegistrationRoles } from '../../roles/hooks/useRolesQueries';
 import { AdminRoleFilter } from './AdminRoleFilter';
+import { UserDetailsDrawer } from './UserDetailsDrawer';
 import { UsersTable } from './UsersTable';
 import {
   usePendingUsers,
@@ -60,6 +68,9 @@ export const AdminDashboard = () => {
 
   const [pendingPage, setPendingPage] = useState(1);
   const [allUsersPage, setAllUsersPage] = useState(1);
+
+  const [detailsUser, setDetailsUser] = useState<User | null>(null);
+  const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
 
   const [modal, setModal] = useState<{ isOpen: boolean; type: ActionType; user: User | null }>({
     isOpen: false,
@@ -154,7 +165,17 @@ export const AdminDashboard = () => {
     }
   };
 
-  const openModal = (type: ActionType, user: User) => {
+  const openDetailsDrawer = (user: User) => {
+    setDetailsUser(user);
+    setIsDetailsDrawerOpen(true);
+  };
+
+  const closeDetailsDrawer = () => {
+    setIsDetailsDrawerOpen(false);
+  };
+
+  const openActionModal = (type: ActionType, user: User) => {
+    setIsDetailsDrawerOpen(false);
     setModal({ isOpen: true, type, user });
   };
 
@@ -163,11 +184,11 @@ export const AdminDashboard = () => {
   };
 
   const renderPendingActions = (user: User) => (
-    <div className="flex justify-center gap-2">
+    <div className="flex flex-wrap justify-center gap-2">
       <Button
         variant="ghost"
-        className="w-32 border border-red-200 bg-red-50 !text-red-600 hover:border-red-300 hover:!bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:!text-red-400 dark:hover:!bg-red-950/50"
-        onClick={() => openModal('reject', user)}
+        className="w-28 border border-red-200 bg-red-50 !text-red-600 hover:border-red-300 hover:!bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:!text-red-400 dark:hover:!bg-red-950/50"
+        onClick={() => openActionModal('reject', user)}
       >
         <UserX size={16} />
         {t('actions.reject')}
@@ -175,8 +196,8 @@ export const AdminDashboard = () => {
 
       <Button
         variant="ghost"
-        className="w-32 border border-green-200 bg-green-50 !text-green-600 shadow-none hover:border-green-300 hover:!bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:!text-green-400 dark:hover:!bg-green-950/50"
-        onClick={() => openModal('approve', user)}
+        className="w-28 border border-green-200 bg-green-50 !text-green-600 shadow-none hover:border-green-300 hover:!bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:!text-green-400 dark:hover:!bg-green-950/50"
+        onClick={() => openActionModal('approve', user)}
       >
         <UserCheck size={16} />
         {t('actions.approve')}
@@ -191,12 +212,12 @@ export const AdminDashboard = () => {
     if (isPending) return null;
 
     return (
-      <div className="flex justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         {isActive ? (
           <Button
             variant="ghost"
             className="w-36 border border-red-200 bg-red-50 !text-red-600 hover:border-red-300 hover:!bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:!text-red-400 dark:hover:!bg-red-950/50"
-            onClick={() => openModal('deactivate', user)}
+            onClick={() => openActionModal('deactivate', user)}
           >
             <ShieldAlert size={16} />
             {t('actions.deactivate')}
@@ -205,7 +226,7 @@ export const AdminDashboard = () => {
           <Button
             variant="ghost"
             className="w-36 border border-green-200 bg-green-50 !text-green-600 hover:border-green-300 hover:!bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:!text-green-400 dark:hover:!bg-green-950/50"
-            onClick={() => openModal('reactivate', user)}
+            onClick={() => openActionModal('reactivate', user)}
           >
             <ShieldCheck size={16} />
             {t('actions.reactivate')}
@@ -262,6 +283,7 @@ export const AdminDashboard = () => {
             isLoading={pendingQuery.isLoading}
             isError={pendingQuery.isError}
             renderActions={renderPendingActions}
+            onUserClick={openDetailsDrawer}
           />
 
           {pendingQuery.data && (
@@ -283,6 +305,7 @@ export const AdminDashboard = () => {
             isLoading={allUsersQuery.isLoading}
             isError={allUsersQuery.isError}
             renderActions={renderAllUsersActions}
+            onUserClick={openDetailsDrawer}
           />
 
           {allUsersQuery.data && (
@@ -298,6 +321,18 @@ export const AdminDashboard = () => {
           )}
         </>
       )}
+
+      <UserDetailsDrawer
+        user={detailsUser}
+        isOpen={isDetailsDrawerOpen}
+        activeTab={activeTab}
+        isMutating={isMutating}
+        onClose={closeDetailsDrawer}
+        onApprove={(user) => openActionModal('approve', user)}
+        onReject={(user) => openActionModal('reject', user)}
+        onDeactivate={(user) => openActionModal('deactivate', user)}
+        onReactivate={(user) => openActionModal('reactivate', user)}
+      />
 
       <ConfirmationModal
         isOpen={modal.isOpen}

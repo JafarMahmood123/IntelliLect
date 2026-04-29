@@ -20,6 +20,7 @@ interface TableProps<T> {
   containerClassName?: string;
   tableClassName?: string;
   rowClassName?: (row: T, index: number) => string;
+  onRowClick?: (row: T, index: number) => void;
 }
 
 export const Table = <T,>({
@@ -34,6 +35,7 @@ export const Table = <T,>({
   containerClassName = '',
   tableClassName = '',
   rowClassName,
+  onRowClick,
 }: TableProps<T>) => {
   const resolvedContainerClassName = [
     'bg-white dark:bg-gray-900 border dark:border-gray-800 rounded-lg shadow overflow-hidden',
@@ -45,6 +47,19 @@ export const Table = <T,>({
   const resolvedTableClassName = ['min-w-full text-left text-sm', tableClassName]
     .filter(Boolean)
     .join(' ');
+
+  const handleRowKeyDown = (
+    event: React.KeyboardEvent<HTMLTableRowElement>,
+    row: T,
+    index: number,
+  ) => {
+    if (!onRowClick) return;
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onRowClick(row, index);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -95,29 +110,44 @@ export const Table = <T,>({
                 </td>
               </tr>
             ) : (
-              data.map((row, index) => (
-                <tr
-                  key={rowKey(row, index)}
-                  className={
-                    rowClassName?.(row, index) ??
-                    'border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                  }
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={[
-                        'p-4 align-middle',
-                        column.cellClassName ?? '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      {column.render(row, index)}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              data.map((row, index) => {
+                const customRowClassName = rowClassName?.(row, index);
+
+                const resolvedRowClassName = [
+                  customRowClassName ??
+                    'border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50',
+                  onRowClick
+                    ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-inset'
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <tr
+                    key={rowKey(row, index)}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? 'button' : undefined}
+                    onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+                    onKeyDown={(event) => handleRowKeyDown(event, row, index)}
+                    className={resolvedRowClassName}
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={[
+                          'p-4 align-middle',
+                          column.cellClassName ?? '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        {column.render(row, index)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

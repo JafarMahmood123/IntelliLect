@@ -8,17 +8,24 @@ interface UsersTableProps {
   isLoading: boolean;
   isError: boolean;
   renderActions: (user: User) => React.ReactNode;
+  onUserClick?: (user: User) => void;
 }
 
-export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTableProps) => {
+export const UsersTable = ({
+  users,
+  isLoading,
+  isError,
+  renderActions,
+  onUserClick,
+}: UsersTableProps) => {
   const { t } = useTranslation('admin');
 
-  const columns: TableColumn<User>[] =[
+  const columns: TableColumn<User>[] = [
     {
       key: 'name',
       header: t('table.name'),
-      headerClassName: 'w-[24%] text-center', 
-      cellClassName: 'text-left', 
+      headerClassName: 'w-[20%] text-center',
+      cellClassName: 'text-left',
       render: (user) => (
         <div>
           <div className="truncate font-medium text-slate-900 dark:text-slate-100">
@@ -33,10 +40,12 @@ export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTa
     {
       key: 'email',
       header: t('table.email'),
-      headerClassName: 'w-[22%] text-center', 
-      cellClassName: 'text-left', 
+      headerClassName: 'w-[22%] text-center',
+      cellClassName: 'text-left',
       render: (user) => (
-        <div className="truncate text-slate-600 dark:text-slate-400">{user.email}</div>
+        <div className="truncate text-slate-600 dark:text-slate-400">
+          {user.email}
+        </div>
       ),
     },
     {
@@ -64,10 +73,11 @@ export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTa
     {
       key: 'joined',
       header: t('table.joined'),
-      headerClassName: 'w-[15%] text-center',
+      headerClassName: 'w-[14%] text-center',
       cellClassName: 'text-center',
       render: (user) => {
         const joinedDate = new Date(user.createdAtUtc);
+
         return (
           <div className="flex flex-col items-center justify-center">
             <div className="text-slate-600 dark:text-slate-400">
@@ -77,7 +87,6 @@ export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTa
               {joinedDate.toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
-                second: '2-digit',
               })}
             </div>
           </div>
@@ -87,10 +96,14 @@ export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTa
     {
       key: 'actions',
       header: t('table.actions'),
-      headerClassName: 'w-[15%] text-center',
+      headerClassName: 'w-[20%] text-center',
       cellClassName: 'text-center',
       render: (user) => (
-        <div className="flex justify-center">
+        <div
+          className="flex justify-center"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           {renderActions(user)}
         </div>
       ),
@@ -108,6 +121,7 @@ export const UsersTable = ({ users, isLoading, isError, renderActions }: UsersTa
       loadingText={t('loading')}
       errorText={t('loadError')}
       emptyText={t('empty')}
+      onRowClick={onUserClick ? (user) => onUserClick(user) : undefined}
     />
   );
 };

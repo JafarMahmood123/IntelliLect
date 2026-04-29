@@ -68,6 +68,26 @@
   },
   "roles": {
     "Teacher": "Teacher",
-    "Student": "Student"
+    "Student": "Student",
+    "Admin": "Admin",
+    "SuperAdmin": "Super Admin"
+  },
+  "drawer": {
+    "title": "User Details",
+    "description": "Inspect the selected user account and available admin actions.",
+    "sections": {
+      "identity": "Identity",
+      "access": "Access"
+    },
+    "fields": {
+      "fullName": "Full name",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "joinedAt": "Joined date"
+    },
+    "empty": "No user selected.",
+    "noActions": "No actions available for this user."
   }
 }
