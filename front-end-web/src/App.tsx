@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './components/ui/ThemeProvider';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { AppControls } from './components/ui/AppControls';
 import { SuperAdminDashboard } from './features/superAdmin/components/SuperAdminDashboard';
 import { LoginForm } from './features/auth/components/LoginForm';
@@ -10,44 +11,45 @@ import { PendingApprovalPage } from './pages/PendingApprovalPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { PublicRoute } from './routes/PublicRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
-import { AdminDashboard } from './features/admin/components/AdminDashboard'; 
+import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { ForgotPasswordForm } from './features/auth/components/ForgotPasswordForm';
 import { ResetPasswordForm } from './features/auth/components/ResetPasswordForm';
-
 
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <div className="min-h-screen w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-          <AppControls />
+      <ToastProvider>
+        <BrowserRouter>
+          <div className="min-h-screen w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+            <AppControls />
 
-          <Routes>
-            <Route element={<AuthLayout />}>
-              <Route element={<PublicRoute />}>
-                <Route path="/login" element={<LoginForm />} />
-                <Route path="/register" element={<RegisterForm />} />
-                <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-                <Route path="/reset-password" element={<ResetPasswordForm />} />
-              </Route>
-            </Route>
-
-            <Route path="/pending-approval" element={<PendingApprovalPage />} />
-
-           <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<DashboardPage />} />
-
-              <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
-                <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Routes>
+              <Route element={<AuthLayout />}>
+                <Route element={<PublicRoute />}>
+                  <Route path="/login" element={<LoginForm />} />
+                  <Route path="/register" element={<RegisterForm />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+                  <Route path="/reset-password" element={<ResetPasswordForm />} />
+                </Route>
               </Route>
 
-              <Route element={<RoleProtectedRoute allowedRoles={['Admin']} />}>
-                <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/pending-approval" element={<PendingApprovalPage />} />
+
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<DashboardPage />} />
+
+                <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
+                  <Route path="/super-admin" element={<SuperAdminDashboard />} />
+                </Route>
+
+                <Route element={<RoleProtectedRoute allowedRoles={['Admin']} />}>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
-        </div>
-      </BrowserRouter>
+            </Routes>
+          </div>
+        </BrowserRouter>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

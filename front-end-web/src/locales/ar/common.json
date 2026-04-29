@@ -31,5 +31,14 @@
   "pendingApproval": {
     "title": "الحساب قيد الانتظار",
     "description": "حسابك ينتظر موافقة المسؤول حاليًا."
+  },
+  "pagination": {
+    "previous": "السابق",
+    "next": "التالي",
+    "pageOf": "الصفحة {{page}} من {{totalPages}}",
+    "showing": "عرض {{from}}-{{to}} من {{total}}"
+  },
+  "toast": {
+    "close": "إغلاق الإشعار"
   }
 }

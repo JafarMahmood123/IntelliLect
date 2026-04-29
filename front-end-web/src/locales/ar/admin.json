@@ -42,5 +42,17 @@
       "description": "هل أنت متأكد أنك تريد إعادة تفعيل حساب {{name}}؟ ستتم استعادة صلاحية دخوله.",
       "confirm": "نعم، إعادة التفعيل"
     }
+  },
+  "feedback": {
+    "approveSuccessTitle": "تم قبول المستخدم",
+    "approveSuccessMessage": "تم قبول {{name}} بنجاح.",
+    "rejectSuccessTitle": "تم رفض المستخدم",
+    "rejectSuccessMessage": "تم رفض {{name}} بنجاح.",
+    "deactivateSuccessTitle": "تم تعطيل المستخدم",
+    "deactivateSuccessMessage": "تم تعطيل {{name}} بنجاح.",
+    "reactivateSuccessTitle": "تم إعادة تفعيل المستخدم",
+    "reactivateSuccessMessage": "تم إعادة تفعيل {{name}} بنجاح.",
+    "actionFailedTitle": "فشلت العملية",
+    "fallbackError": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
   }
 }

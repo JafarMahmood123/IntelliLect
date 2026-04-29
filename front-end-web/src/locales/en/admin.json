@@ -42,5 +42,17 @@
       "description": "Are you sure you want to reactivate {{name}}'s account? Their access will be restored.",
       "confirm": "Yes, Reactivate"
     }
+  },
+  "feedback": {
+    "approveSuccessTitle": "User approved",
+    "approveSuccessMessage": "{{name}} has been approved successfully.",
+    "rejectSuccessTitle": "User rejected",
+    "rejectSuccessMessage": "{{name}} has been rejected successfully.",
+    "deactivateSuccessTitle": "User deactivated",
+    "deactivateSuccessMessage": "{{name}} has been deactivated successfully.",
+    "reactivateSuccessTitle": "User reactivated",
+    "reactivateSuccessMessage": "{{name}} has been reactivated successfully.",
+    "actionFailedTitle": "Action failed",
+    "fallbackError": "Something went wrong. Please try again."
   }
 }

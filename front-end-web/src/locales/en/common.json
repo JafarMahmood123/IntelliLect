@@ -31,5 +31,14 @@
   "pendingApproval": {
     "title": "Account Pending",
     "description": "Your account is currently waiting for administrator approval."
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{totalPages}}",
+    "showing": "Showing {{from}}-{{to}} of {{total}}"
+  },
+  "toast": {
+    "close": "Close notification"
   }
 }
