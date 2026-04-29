@@ -11,6 +11,8 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { PublicRoute } from './routes/PublicRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
 import { AdminDashboard } from './features/admin/components/AdminDashboard'; 
+import { ForgotPasswordForm } from './features/auth/components/ForgotPasswordForm';
+import { ResetPasswordForm } from './features/auth/components/ResetPasswordForm';
 
 
 function App() {
@@ -25,6 +27,8 @@ function App() {
               <Route element={<PublicRoute />}>
                 <Route path="/login" element={<LoginForm />} />
                 <Route path="/register" element={<RegisterForm />} />
+                <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+                <Route path="/reset-password" element={<ResetPasswordForm />} />
               </Route>
             </Route>
 

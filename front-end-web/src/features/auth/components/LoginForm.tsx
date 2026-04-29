@@ -66,12 +66,23 @@ export const LoginForm = () => {
           error={errors.email?.message}
         />
 
-        <Input
-          label={t('login.passwordLabel')}
-          type="password"
-          {...register('password')}
-          error={errors.password?.message}
-        />
+        <div className="relative">
+          <div className="absolute right-0 top-0 flex h-6 items-center">
+            <Link 
+              to="/forgot-password" 
+              tabIndex={-1}
+              className="text-xs font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 hover:underline"
+            >
+              {t('forgotPassword.title')} {/* Uses the title we created earlier */}
+            </Link>
+          </div>
+          <Input
+            label={t('login.passwordLabel')}
+            type="password"
+            {...register('password')}
+            error={errors.password?.message}
+          />
+        </div>
 
         <Button type="submit" isLoading={isSubmitting} fullWidth>
           {t('login.submit')}

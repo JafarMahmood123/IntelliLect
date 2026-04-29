@@ -2,12 +2,16 @@ name: intellilect-platform
 
 include:
   - path: ./UserManagementService/docker-compose.unit.yml
+  - path: ./EmailService/docker-compose.unit.yml
   - path: ./ClassroomService/docker-compose.unit.yml
   - path: ./StreamingService/docker-compose.unit.yml
 
 services:
   intellilect-mq:
     image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=jafar.mahmood
+      - RABBITMQ_DEFAULT_PASS=Jafar123!
     container_name: intellilect-mq
     ports:
       - "5672:5672"
@@ -16,7 +20,7 @@ services:
       test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - intellilect-net
 

@@ -4,12 +4,12 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["LocalPackages/", "LocalPackages/"]
 
-COPY ["src/EmailService.Api/EmailService.Api.csproj", "EmailService.Api/"]
-COPY ["src/EmailService.Application/EmailService.Application.csproj", "EmailService.Application/"]
-COPY ["src/EmailService.Infrastructure/EmailService.Infrastructure.csproj", "EmailService.Infrastructure/"]
+COPY ["EmailService/src/EmailService.Api/EmailService.Api.csproj", "EmailService.Api/"]
+COPY ["EmailService/src/EmailService.Application/EmailService.Application.csproj", "EmailService.Application/"]
+COPY ["EmailService/src/EmailService.Infrastructure/EmailService.Infrastructure.csproj", "EmailService.Infrastructure/"]
 
 RUN dotnet restore "EmailService.Api/EmailService.Api.csproj"
-COPY src/. .
+COPY EmailService/src/. .
 WORKDIR "/src/EmailService.Api"
 RUN dotnet publish "EmailService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 

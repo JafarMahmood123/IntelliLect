@@ -21,7 +21,11 @@ public static class DependencyInjection
 
             x.UsingRabbitMq((context, cfg) =>
             {
-                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
+                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
+                {
+                    h.Username("jafar.mahmood");
+                    h.Password("Jafar123!");
+                });
                 cfg.ConfigureEndpoints(context);
             });
         });

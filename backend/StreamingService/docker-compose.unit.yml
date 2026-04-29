@@ -6,6 +6,11 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=Jafar123!
       - POSTGRES_DB=streaming_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d streaming_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - "5435:5432"
     networks:
@@ -27,8 +32,10 @@ services:
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
     depends_on:
-      - streaming-db
-      - intellilect-mq
+      streaming-db:
+        condition: service_healthy
+      intellilect-mq:
+        condition: service_healthy
     networks:
       - intellilect-net
 

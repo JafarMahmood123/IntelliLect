@@ -24,3 +24,9 @@ export interface RegistrationRole {
   id: string;
   name: string;
 }
+
+export interface ResetPasswordRequest {
+  email: string;
+  token: string;
+  newPassword: string;
+}
