@@ -54,5 +54,20 @@
     "reactivateSuccessMessage": "{{name}} has been reactivated successfully.",
     "actionFailedTitle": "Action failed",
     "fallbackError": "Something went wrong. Please try again."
+  },
+  "filters": {
+    "title": "Filters",
+    "descriptionPending": "Filter pending registration requests by role.",
+    "descriptionAll": "Filter all users by role.",
+    "role": {
+      "label": "Role",
+      "all": "All roles",
+      "loading": "Loading roles...",
+      "error": "Could not load roles"
+    }
+  },
+  "roles": {
+    "Teacher": "Teacher",
+    "Student": "Student"
   }
 }

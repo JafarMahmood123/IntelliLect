@@ -54,5 +54,20 @@
     "reactivateSuccessMessage": "تم إعادة تفعيل {{name}} بنجاح.",
     "actionFailedTitle": "فشلت العملية",
     "fallbackError": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  },
+  "filters": {
+    "title": "الفلاتر",
+    "descriptionPending": "تصفية طلبات التسجيل المعلقة حسب الدور.",
+    "descriptionAll": "تصفية جميع المستخدمين حسب الدور.",
+    "role": {
+      "label": "الدور",
+      "all": "كل الأدوار",
+      "loading": "جاري تحميل الأدوار...",
+      "error": "تعذر تحميل الأدوار"
+    }
+  },
+  "roles": {
+    "Teacher": "معلم",
+    "Student": "طالب"
   }
 }

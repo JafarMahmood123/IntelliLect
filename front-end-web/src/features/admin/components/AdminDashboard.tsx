@@ -7,6 +7,8 @@ import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
 import { useToast } from '../../../components/ui/ToastProvider';
+import { useRegistrationRoles } from '../../roles/hooks/useRolesQueries';
+import { AdminRoleFilter } from './AdminRoleFilter';
 import { UsersTable } from './UsersTable';
 import {
   usePendingUsers,
@@ -54,6 +56,7 @@ export const AdminDashboard = () => {
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('pending');
+  const [selectedRoleId, setSelectedRoleId] = useState('');
 
   const [pendingPage, setPendingPage] = useState(1);
   const [allUsersPage, setAllUsersPage] = useState(1);
@@ -64,14 +67,24 @@ export const AdminDashboard = () => {
     user: null,
   });
 
+  const {
+    data: roles = [],
+    isLoading: isLoadingRoles,
+    isError: isRolesError,
+  } = useRegistrationRoles();
+
+  const selectedRoleFilter = selectedRoleId || undefined;
+
   const pendingQuery = usePendingUsers({
     page: pendingPage,
     pageSize: FIXED_PAGE_SIZE,
+    roleId: selectedRoleFilter,
   });
 
   const allUsersQuery = useAllUsers({
     page: allUsersPage,
     pageSize: FIXED_PAGE_SIZE,
+    roleId: selectedRoleFilter,
   });
 
   const updateStatusMutation = useUpdateUserStatus();
@@ -98,6 +111,12 @@ export const AdminDashboard = () => {
       setAllUsersPage(totalPages);
     }
   }, [allUsersPage, allUsersQuery.data?.totalPages]);
+
+  const handleRoleChange = (roleId: string) => {
+    setSelectedRoleId(roleId);
+    setPendingPage(1);
+    setAllUsersPage(1);
+  };
 
   const handleConfirmAction = async () => {
     if (!modal.user || !modal.type) return;
@@ -201,6 +220,11 @@ export const AdminDashboard = () => {
     { id: 'all', label: t('tabs.all'), icon: <Users size={18} /> },
   ];
 
+  const filterDescription =
+    activeTab === 'pending'
+      ? t('filters.descriptionPending')
+      : t('filters.descriptionAll');
+
   const modalUserName = modal.user
     ? `${modal.user.firstName} ${modal.user.lastName}`
     : '';
@@ -216,6 +240,15 @@ export const AdminDashboard = () => {
       <PageHeader
         title={t('management.title')}
         description={t('management.description')}
+      />
+
+      <AdminRoleFilter
+        roles={roles}
+        selectedRoleId={selectedRoleId}
+        description={filterDescription}
+        isLoading={isLoadingRoles}
+        isError={isRolesError}
+        onChange={handleRoleChange}
       />
 
       <div className="mb-6">

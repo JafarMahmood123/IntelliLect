@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { register as registerUser, getRegistrationRoles } from '../api/auth';
+import { register as registerUser } from '../api/auth';
+import { useRegistrationRoles } from '../../roles/hooks/useRolesQueries';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 
@@ -36,12 +36,7 @@ export const RegisterForm = () => {
     data: roles = [],
     isLoading: isLoadingRoles,
     isError: isRolesError,
-  } = useQuery({
-    queryKey: ['registration-roles'],
-    queryFn: getRegistrationRoles,
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
+  } = useRegistrationRoles();
 
   const {
     register,
