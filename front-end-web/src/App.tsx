@@ -12,6 +12,7 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { PublicRoute } from './routes/PublicRoute';
 import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
+import { UserProfilePage } from './features/users/components/UserProfilePage';
 import { ForgotPasswordForm } from './features/auth/components/ForgotPasswordForm';
 import { ResetPasswordForm } from './features/auth/components/ResetPasswordForm';
 
@@ -37,6 +38,7 @@ function App() {
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/profile" element={<UserProfilePage />} />
 
                 <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
                   <Route path="/super-admin" element={<SuperAdminDashboard />} />

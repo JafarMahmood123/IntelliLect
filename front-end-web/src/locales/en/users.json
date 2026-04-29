@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "Profile Settings",
+    "description": "Manage your account information and password."
+  },
+  "loading": "Loading profile...",
+  "loadError": "Could not load your profile.",
+  "summary": {
+    "email": "Email",
+    "role": "Role",
+    "joinedAt": "Joined"
+  },
+  "profileInfo": {
+    "title": "Profile Information",
+    "description": "View and update your personal information.",
+    "fullNameLabel": "Full name",
+    "firstNameLabel": "First name",
+    "lastNameLabel": "Last name",
+    "userNameLabel": "Username",
+    "bioLabel": "Bio",
+    "emptyBio": "No bio added yet.",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "submit": "Save changes"
+  },
+  "changePassword": {
+    "title": "Change Password",
+    "description": "Update your password using your current password.",
+    "oldPasswordLabel": "Current password",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "submit": "Change password"
+  },
+  "validation": {
+    "firstNameRequired": "First name is required.",
+    "lastNameRequired": "Last name is required.",
+    "userNameMin": "Username must be at least 3 characters.",
+    "bioMax": "Bio must be 500 characters or less.",
+    "oldPasswordRequired": "Current password is required.",
+    "newPasswordMin": "New password must be at least 6 characters.",
+    "confirmPasswordRequired": "Please confirm your new password.",
+    "passwordMismatch": "Passwords do not match."
+  },
+  "feedback": {
+    "profileUpdatedTitle": "Profile updated",
+    "profileUpdatedMessage": "Your profile information has been updated successfully.",
+    "passwordChangedTitle": "Password changed",
+    "passwordChangedMessage": "Your password has been changed successfully.",
+    "actionFailedTitle": "Action failed",
+    "fallbackError": "Something went wrong. Please try again."
+  },
+  "roles": {
+    "Student": "Student",
+    "Teacher": "Teacher",
+    "Admin": "Admin",
+    "SuperAdmin": "Super Admin"
+  },
+  "navigation": {
+    "title": "Account actions",
+    "description": "Choose what you want to manage.",
+    "profileInfo": "Profile information",
+    "profileInfoDescription": "Update your name, username, and bio.",
+    "changePassword": "Change password",
+    "changePasswordDescription": "Update your account password."
+  }
+}

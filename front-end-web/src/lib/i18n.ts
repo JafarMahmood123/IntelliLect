@@ -5,12 +5,14 @@ import { initReactI18next } from 'react-i18next';
 import enCommon from '../locales/en/common.json';
 import enAuth from '../locales/en/auth.json';
 import enAdmin from '../locales/en/admin.json';
-import enSuperAdmin from '../locales/en/superAdmin.json'; 
+import enSuperAdmin from '../locales/en/superAdmin.json';
+import enUsers from '../locales/en/users.json';
 
 import arCommon from '../locales/ar/common.json';
 import arAuth from '../locales/ar/auth.json';
 import arAdmin from '../locales/ar/admin.json';
-import arSuperAdmin from '../locales/ar/superAdmin.json'; 
+import arSuperAdmin from '../locales/ar/superAdmin.json';
+import arUsers from '../locales/ar/users.json';
 
 const resolveLanguage = (language?: string) => {
   return language?.startsWith('ar') ? 'ar' : 'en';
@@ -36,18 +38,20 @@ void i18n
         common: enCommon,
         auth: enAuth,
         admin: enAdmin,
-        superAdmin: enSuperAdmin, 
+        superAdmin: enSuperAdmin,
+        users: enUsers,
       },
       ar: {
         common: arCommon,
         auth: arAuth,
         admin: arAdmin,
-        superAdmin: arSuperAdmin, 
+        superAdmin: arSuperAdmin,
+        users: arUsers,
       },
     },
     fallbackLng: 'en',
-    supportedLngs:['en', 'ar'],
-    ns: ['common', 'auth', 'admin', 'superAdmin'], 
+    supportedLngs: ['en', 'ar'],
+    ns: ['common', 'auth', 'admin', 'superAdmin', 'users'],
     defaultNS: 'common',
     load: 'languageOnly',
     detection: {

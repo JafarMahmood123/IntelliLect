@@ -7,7 +7,8 @@
     "signIn": "Sign In",
     "register": "Register",
     "logout": "Log out",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "profile": "Profile"
   },
   "theme": {
     "light": "Light mode",
