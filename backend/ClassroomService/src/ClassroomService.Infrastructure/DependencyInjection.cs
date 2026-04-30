@@ -43,7 +43,7 @@ public static class DependencyInjection
                 config.ServiceURL = s3Settings.ServiceUrl;
             }
 
-            return new AmazonS3Client("test", "test", config);
+            return new AmazonS3Client("testuser", "testpassword123!", config);
         });
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();

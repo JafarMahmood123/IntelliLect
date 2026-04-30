@@ -50,3 +50,7 @@ export const createSession = async (classroomId: string, data: CreateSessionRequ
 export const startSession = async (classroomId: string, sessionId: string): Promise<void> => {
   await apiClient.post(`/classrooms/${classroomId}/sessions/${sessionId}/start`);
 };
+
+export const deleteFile = async (classroomId: string, fileId: string): Promise<void> => {
+  await apiClient.delete(`/classrooms/${classroomId}/files/${fileId}`);
+};

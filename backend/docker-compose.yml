@@ -24,15 +24,20 @@ services:
     networks:
       - intellilect-net
 
-  localstack:
-    image: localstack/localstack:latest
+  intellilect-s3:
+    image: minio/minio:latest
     container_name: intellilect-s3
-    ports:
-      - "4566:4566"
     environment:
-      - SERVICES=s3
+      - MINIO_ROOT_USER=testuser
+      - MINIO_ROOT_PASSWORD=testpassword123!
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
     networks:
       - intellilect-net
+    volumes:
+      - s3_data:/data
 
   gateway:
     image: nginx:latest
@@ -54,3 +59,4 @@ networks:
 volumes:
   user_db_data:
   classroom_db_data:
+  s3_data:

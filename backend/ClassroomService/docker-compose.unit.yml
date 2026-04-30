@@ -26,7 +26,7 @@ services:
       - ConnectionStrings__Database=Host=classroom-db;Port=5432;Database=classroomdb;Username=postgres;Password=Jafar123!
       - RabbitMq__Host=intellilect-mq
       - S3Settings__BucketName=intellilect-files
-      - S3Settings__ServiceUrl=http://localstack:4566
+      - S3Settings__ServiceUrl=http://intellilect-s3:9000
       - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect

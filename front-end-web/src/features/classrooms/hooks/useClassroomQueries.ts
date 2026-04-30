@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeacherClassrooms, createClassroom, startSession, getSessions, getClassroomFiles, getClassroomById } from '../api/classrooms';
+import { getTeacherClassrooms, createClassroom, startSession, getSessions, getClassroomFiles, getClassroomById, uploadFile, deleteFile } from '../api/classrooms';
 import type { CreateClassroomRequest } from '../types';
 
 export const classroomKeys = {
@@ -54,6 +54,26 @@ export const useStartSession = (classroomId: string) => {
     mutationFn: (sessionId: string) => startSession(classroomId, sessionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'sessions'] });
+    }
+  });
+};
+
+export const useUploadClassroomFile = (classroomId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadFile(classroomId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'files'] });
+    }
+  });
+};
+
+export const useDeleteClassroomFile = (classroomId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) => deleteFile(classroomId, fileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'files'] });
     }
   });
 };
