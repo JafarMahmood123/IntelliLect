@@ -15,5 +15,10 @@ export const getDefaultRoute = (user: User | null | undefined) => {
     return '/admin';
   }
 
+  // Add Teacher-specific redirection
+  if (user.roleName === 'Teacher') {
+    return '/classrooms';
+  }
+
   return '/';
 };
