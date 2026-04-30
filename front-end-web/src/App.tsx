@@ -15,7 +15,7 @@ import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { UserProfilePage } from './features/users/components/UserProfilePage';
 import { ForgotPasswordForm } from './features/auth/components/ForgotPasswordForm';
 import { ResetPasswordForm } from './features/auth/components/ResetPasswordForm';
-import { TeacherClassroomDashboard } from './features/classrooms';
+import { TeacherClassroomDashboard, ClassroomDetailsPage } from './features/classrooms';
 
 function App() {
   return (
@@ -44,6 +44,8 @@ function App() {
                 <Route element={<RoleProtectedRoute allowedRoles={['Teacher']} />}>
                   <Route path="/classrooms" element={<TeacherClassroomDashboard />} />
                 </Route>
+
+                <Route path="/classrooms/:id" element={<ClassroomDetailsPage />} />
 
                 <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
                   <Route path="/super-admin" element={<SuperAdminDashboard />} />
