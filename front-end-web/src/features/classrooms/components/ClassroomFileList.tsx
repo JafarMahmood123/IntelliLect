@@ -100,10 +100,6 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
             <button
               onClick={() => setFileToDelete(file)}
               disabled={deleteMutation.isPending}
-              /*
-                --- FIX 2: ENHANCED DELETE BUTTON UX ---
-                Explicitly adding cursor pointers and press feedback classes.
-              */
               className={`inline-flex h-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 text-red-600 transition-all hover:bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-950/50 ${
                 deleteMutation.isPending ? 'cursor-not-allowed opacity-60' : 'cursor-pointer active:scale-[0.98]'
               }`}

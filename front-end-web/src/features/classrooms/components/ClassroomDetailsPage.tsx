@@ -5,7 +5,8 @@ import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
 import { useClassroomDetails } from '../hooks/useClassroomQueries';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { ClassroomFileList } from './ClassroomFileList'; // Import our new component
+import { ClassroomFileList } from './ClassroomFileList';
+import { ClassroomSessionList } from './ClassroomSessionList';
 
 type ClassroomTab = 'files' | 'sessions';
 
@@ -13,17 +14,32 @@ export const ClassroomDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<ClassroomTab>('files');
   
+  // Check if the current user is a teacher to show/hide management actions
   const { user } = useAuthStore();
   const isTeacher = user?.roleName === 'Teacher';
   
+  // Fetch classroom metadata (name, description, etc.)
   const { data: classroom, isLoading, isError } = useClassroomDetails(id!);
 
   if (isLoading) {
-    return <div className="p-8 text-center text-slate-500">Loading classroom details...</div>;
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-slate-500 animate-pulse font-medium">
+          Loading classroom details...
+        </div>
+      </div>
+    );
   }
 
   if (isError || !classroom) {
-    return <div className="p-8 text-center text-red-500">Failed to load classroom.</div>;
+    return (
+      <div className="mx-auto max-w-6xl p-6">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+          <p className="font-bold text-lg">Failed to load classroom</p>
+          <p className="text-sm mt-1">The classroom might have been deleted or you don't have access.</p>
+        </div>
+      </div>
+    );
   }
 
   const tabs = [
@@ -48,13 +64,17 @@ export const ClassroomDetailsPage = () => {
       
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         {activeTab === 'files' && (
-          <ClassroomFileList classroomId={classroom.id} isTeacher={isTeacher} />
+          <ClassroomFileList 
+            classroomId={classroom.id} 
+            isTeacher={isTeacher} 
+          />
         )}
         
         {activeTab === 'sessions' && (
-          <p className="py-8 text-center text-slate-500 dark:text-slate-400">
-            The Live Sessions scheduler will go here next!
-          </p>
+          <ClassroomSessionList 
+            classroomId={classroom.id} 
+            isTeacher={isTeacher} 
+          />
         )}
       </div>
     </div>

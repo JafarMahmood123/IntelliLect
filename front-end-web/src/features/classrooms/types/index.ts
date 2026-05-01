@@ -41,3 +41,19 @@ export interface CreateSessionRequest {
   description: string;
   scheduledAtUtc: string;
 }
+
+export interface Session {
+  id: string;
+  classroomId: string;
+  title: string;
+  description: string;
+  scheduledAt: string; 
+  isLive: boolean;
+  status: 'Scheduled' | 'Live' | 'Ended';
+}
+
+export interface CreateSessionRequest {
+  title: string;
+  description: string;
+  scheduledAtUtc: string; 
+}

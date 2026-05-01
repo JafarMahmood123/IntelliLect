@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, LearningSession, UpdateClassroomRequest } from '../types';
+import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, LearningSession, Session, UpdateClassroomRequest } from '../types';
 
 export const getTeacherClassrooms = async (): Promise<Classroom[]> => {
   const response = await apiClient.get<Classroom[]>('/classrooms/teacher');
@@ -42,15 +42,20 @@ export const getSessions = async (classroomId: string): Promise<LearningSession[
   return response.data;
 };
 
-export const createSession = async (classroomId: string, data: CreateSessionRequest): Promise<{ sessionId: string }> => {
-  const response = await apiClient.post<{ sessionId: string }>(`/classrooms/${classroomId}/sessions`, data);
-  return response.data;
-};
-
 export const startSession = async (classroomId: string, sessionId: string): Promise<void> => {
   await apiClient.post(`/classrooms/${classroomId}/sessions/${sessionId}/start`);
 };
 
 export const deleteFile = async (classroomId: string, fileId: string): Promise<void> => {
   await apiClient.delete(`/classrooms/${classroomId}/files/${fileId}`);
+};
+
+export const getClassroomSessions = async (classroomId: string): Promise<Session[]> => {
+  const { data } = await apiClient.get<Session[]>(`/classrooms/${classroomId}/sessions`);
+  return data;
+};
+
+export const createSession = async (classroomId: string, request: CreateSessionRequest): Promise<Session> => {
+  const { data } = await apiClient.post<Session>(`/classrooms/${classroomId}/sessions`, request);
+  return data;
 };

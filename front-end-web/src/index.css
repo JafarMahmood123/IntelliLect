@@ -6,7 +6,113 @@ html {
   @apply transition-colors duration-300;
 }
 
-body {
-  /* Switched to slate for a more premium modern look */
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+/* --- Consolidated High-Specificity Dark Theme --- */
+
+/* 1. Main Calendar Container */
+.react-datepicker {
+  background-color: #0f172a !important;
+  /* slate-900 */
+  border: 1px solid #1e293b !important;
+  /* slate-800 */
+  border-radius: 1rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  font-family: ui-sans-serif, system-ui, sans-serif !important;
+  display: flex !important;
+}
+
+/* 2. Header (Month/Year & Day Names) */
+.react-datepicker__header {
+  background-color: #1e293b !important;
+  /* slate-800 */
+  border-bottom: 1px solid #334155 !important;
+  /* slate-700 */
+  padding-top: 1rem !important;
+  border-top-left-radius: 1rem !important;
+  border-top-right-radius: 1rem !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: #f1f5f9 !important;
+  /* slate-100 */
+}
+
+/* 3. Individual Days */
+.react-datepicker__day {
+  color: #94a3b8 !important;
+  /* slate-400 */
+  transition: all 0.2s !important;
+  margin: 0.2rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: rgba(124, 58, 237, 0.2) !important;
+  color: #a78bfa !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: #7c3aed !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* 4. Time Column Container */
+.react-datepicker__time-container {
+  height: 100% !important;
+  width: 100px !important;
+  background-color: #0f172a !important;
+  border-left: 1px solid #1e293b !important;
+}
+
+/* --- THE FIX: Targeting the exact class from the inspector --- */
+.react-datepicker-time__header {
+  color: #ffffff !important;
+  /* Pure White */
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Let's also keep the old one just in case the library updates later */
+.react-datepicker__time-header {
+  color: #ffffff !important;
+}
+
+/* 5. Time List & Items (Keeping them Gray/Slate-400) */
+.react-datepicker__time-box,
+.react-datepicker__time-list {
+  height: 235px !important;
+  background-color: #0f172a !important;
+  overflow-y: auto !important;
+}
+
+.react-datepicker__time-list-item {
+  color: #94a3b8 !important;
+  /* RESTORED TO SLATE-400 */
+  background-color: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 40px !important;
+  margin: 4px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: rgba(124, 58, 237, 0.15) !important;
+  color: #a78bfa !important;
+}
+
+.react-datepicker__time-list-item--selected {
+  background-color: #7c3aed !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Triangle/Arrow Fix */
+.react-datepicker__triangle::before,
+.react-datepicker__triangle::after {
+  border-bottom-color: #1e293b !important;
 }

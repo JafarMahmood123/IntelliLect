@@ -1,69 +1,43 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Domain.Entities;
-using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.Application.Services;
 
-public sealed class SessionService : ISessionService
+public class SessionService : ISessionService
 {
     private readonly ISessionRepository _sessionRepository;
-    private readonly IClassroomRepository _classroomRepository;
-    private readonly IEventBus _eventBus;
 
-    public SessionService(ISessionRepository sessionRepository, IClassroomRepository classroomRepository, IEventBus eventBus)
+    public SessionService(ISessionRepository sessionRepository)
     {
         _sessionRepository = sessionRepository;
-        _classroomRepository = classroomRepository;
-        _eventBus = eventBus;
     }
 
-    public async Task StartSessionAsync(Guid teacherId, Guid sessionId)
+    public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null) throw new KeyNotFoundException();
-
-        var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId);
-        if (classroom!.TeacherId != teacherId) throw new UnauthorizedAccessException();
-
-        session.Status = SessionStatus.Live;
-        session.StartedAtUtc = DateTime.UtcNow;
-
-        await _sessionRepository.UpdateAsync(session);
-
-        await _eventBus.PublishAsync(new SessionStartedMessage(session.Id, session.ClassroomId));
-
-        await _sessionRepository.SaveChangesAsync();
+        return await _sessionRepository.GetByClassroomIdAsync(classroomId, ct);
     }
 
-    public async Task<Guid> ScheduleSessionAsync(Guid teacherId, Guid classroomId, CreateSessionRequest request)
+    public async Task<Session> CreateSessionAsync(Guid classroomId, CreateSessionRequest request, CancellationToken ct = default)
     {
-        var classroom = await _classroomRepository.GetByIdAsync(classroomId);
-        if (classroom == null || classroom.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Only the teacher can create sessions.");
-
-        var session = new LearningSession
+        var session = new Session
         {
             Id = Guid.NewGuid(),
+            ClassroomId = classroomId,
             Title = request.Title,
             Description = request.Description,
-            ClassroomId = classroomId,
-
-            CreatedAtUtc = DateTime.UtcNow,
-
             ScheduledAtUtc = request.ScheduledAtUtc,
 
-            Status = SessionStatus.Scheduled
+            // Backend-managed lifecycle fields
+            CreatedAtUtc = DateTime.UtcNow,
+            Status = SessionStatus.Scheduled,
+            StartedAtUtc = null,
+            EndedAtUtc = null
         };
 
-        await _sessionRepository.AddAsync(session);
-        await _sessionRepository.SaveChangesAsync();
+        await _sessionRepository.AddAsync(session, ct);
+        await _sessionRepository.SaveChangesAsync(ct);
 
-        return session.Id;
-    }
-
-    public Task EndSessionAsync(Guid teacherId, Guid sessionId)
-    {
-        throw new NotImplementedException();
+        return session;
     }
 }

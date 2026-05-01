@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeacherClassrooms, createClassroom, startSession, getSessions, getClassroomFiles, getClassroomById, uploadFile, deleteFile } from '../api/classrooms';
-import type { CreateClassroomRequest } from '../types';
+import { getTeacherClassrooms, createClassroom, startSession, getSessions, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions } from '../api/classrooms';
+import type { CreateClassroomRequest, CreateSessionRequest } from '../types';
 
 export const classroomKeys = {
   all: ['classrooms'] as const,
@@ -41,13 +41,6 @@ export const useClassroomFiles = (classroomId: string) => {
   });
 };
 
-export const useClassroomSessions = (classroomId: string) => {
-  return useQuery({
-    queryKey: [...classroomKeys.detail(classroomId), 'sessions'],
-    queryFn: () => getSessions(classroomId),
-  });
-};
-
 export const useStartSession = (classroomId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -75,5 +68,22 @@ export const useDeleteClassroomFile = (classroomId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'files'] });
     }
+  });
+};
+
+export const useClassroomSessions = (classroomId: string) => {
+  return useQuery({
+    queryKey: [...classroomKeys.detail(classroomId), 'sessions'],
+    queryFn: () => getClassroomSessions(classroomId),
+  });
+};
+
+export const useCreateSession = (classroomId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: CreateSessionRequest) => createSession(classroomId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'sessions'] });
+    },
   });
 };

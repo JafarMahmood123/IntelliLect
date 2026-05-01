@@ -2,7 +2,11 @@ using ClassroomService.Domain.Entities;
 
 namespace ClassroomService.Application.Abstractions;
 
-public interface ISessionRepository : IRepository<LearningSession>
+public interface ISessionRepository
 {
-    Task<IEnumerable<LearningSession>> GetSessionsByClassroomAsync(Guid classroomId);
+    Task<Session?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default);
+    Task AddAsync(Session session, CancellationToken ct = default);
+    Task UpdateAsync(Session session, CancellationToken ct = default);
+    Task SaveChangesAsync(CancellationToken ct = default);
 }
