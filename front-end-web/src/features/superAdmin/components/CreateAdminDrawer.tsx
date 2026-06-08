@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
-import { useCreateAdmin } from '../hooks/useAdminQueries';
+import { useCreateAdmin } from '../hooks/useSuperAdminQueries';
 import type { CreateAdminRequest } from '../types';
 
 const buildSchema = (t: (key: string) => string) =>
@@ -39,7 +39,7 @@ export const CreateAdminDrawer = ({
   onClose,
   onCreated,
 }: CreateAdminDrawerProps) => {
-  const { t } = useTranslation('admin');
+  const { t } = useTranslation('superAdmin');
   const[serverError, setServerError] = useState('');
 
   const schema = useMemo(() => buildSchema(t), [t]);

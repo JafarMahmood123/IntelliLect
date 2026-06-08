@@ -1,26 +1,34 @@
 using Livekit.Server.Sdk.Dotnet;
 using LiveKit.Authentication;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StreamingService.Application.Abstractions;
 using StreamingService.Infrastructure.Configuration;
+
 namespace StreamingService.Infrastructure.Services;
 
 public sealed class LiveKitMediaProvider : IMediaProvider
 {
     private readonly LiveKitSettings _settings;
+    private readonly ILogger<LiveKitMediaProvider> _logger;
 
-    public LiveKitMediaProvider(IOptions<LiveKitSettings> settings)
+    public LiveKitMediaProvider(IOptions<LiveKitSettings> settings, ILogger<LiveKitMediaProvider> logger)
     {
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public string GenerateJoinToken(Guid sessionId, Guid userId, string roleName)
     {
+        bool isTeacher = roleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
+
+        _logger.LogDebug(
+            "Generating LiveKit join token. SessionId: {SessionId}, UserId: {UserId}, Role: {Role}, CanPublish: {CanPublish}",
+            sessionId, userId, roleName, isTeacher);
+
         var token = new AccessToken(_settings.ApiKey, _settings.ApiSecret)
             .WithIdentity(userId.ToString())
             .WithName(userId.ToString());
-
-        bool isTeacher = roleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
 
         var grant = new VideoGrants
         {

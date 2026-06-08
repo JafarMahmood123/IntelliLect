@@ -5,65 +5,62 @@ using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.Application.Services;
 
-public sealed class SessionService : ISessionService
+public class SessionService : ISessionService
 {
     private readonly ISessionRepository _sessionRepository;
-    private readonly IClassroomRepository _classroomRepository;
     private readonly IEventBus _eventBus;
 
-    public SessionService(ISessionRepository sessionRepository, IClassroomRepository classroomRepository, IEventBus eventBus)
+    public SessionService(ISessionRepository sessionRepository, IEventBus eventBus)
     {
         _sessionRepository = sessionRepository;
-        _classroomRepository = classroomRepository;
         _eventBus = eventBus;
     }
 
-    public async Task StartSessionAsync(Guid teacherId, Guid sessionId)
+    public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId);
-        if (session == null) throw new KeyNotFoundException();
+        return await _sessionRepository.GetByClassroomIdAsync(classroomId, ct);
+    }
 
-        var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId);
-        if (classroom!.TeacherId != teacherId) throw new UnauthorizedAccessException();
+    public async Task<Session> CreateSessionAsync(Guid classroomId, CreateSessionRequest request, CancellationToken ct = default)
+    {
+        var session = new Session
+        {
+            Id = Guid.NewGuid(),
+            ClassroomId = classroomId,
+            Title = request.Title,
+            Description = request.Description,
+            ScheduledAtUtc = request.ScheduledAtUtc,
 
+            // Backend-managed lifecycle fields
+            CreatedAtUtc = DateTime.UtcNow,
+            Status = SessionStatus.Scheduled,
+            StartedAtUtc = null,
+            EndedAtUtc = null
+        };
+
+        await _sessionRepository.AddAsync(session, ct);
+        await _sessionRepository.SaveChangesAsync(ct);
+
+        return session;
+    }
+
+    public async Task StartSessionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+
+        if (session == null) throw new KeyNotFoundException("Session not found.");
+        if (session.Status != SessionStatus.Scheduled)
+            throw new InvalidOperationException("Only scheduled sessions can be started.");
+
+        // Update Lifecycle
         session.Status = SessionStatus.Live;
         session.StartedAtUtc = DateTime.UtcNow;
 
-        await _sessionRepository.UpdateAsync(session);
+        await _sessionRepository.UpdateAsync(session, ct);
 
-        await _eventBus.PublishAsync(new SessionStartedMessage(session.Id, session.ClassroomId));
+        // Notify StreamingService via RabbitMQ
+        await _eventBus.PublishAsync(new SessionStartedMessage(session.Id, session.ClassroomId), ct);
 
-        await _sessionRepository.SaveChangesAsync();
-    }
-
-    public async Task<Guid> ScheduleSessionAsync(Guid teacherId, Guid classroomId, CreateSessionRequest request)
-    {
-        var classroom = await _classroomRepository.GetByIdAsync(classroomId);
-        if (classroom == null || classroom.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Only the teacher can create sessions.");
-
-        var session = new LearningSession
-        {
-            Id = Guid.NewGuid(),
-            Title = request.Title,
-            Description = request.Description,
-            ClassroomId = classroomId,
-
-            CreatedAtUtc = DateTime.UtcNow,
-
-            ScheduledAtUtc = request.ScheduledAtUtc,
-
-            Status = SessionStatus.Scheduled
-        };
-
-        await _sessionRepository.AddAsync(session);
-        await _sessionRepository.SaveChangesAsync();
-
-        return session.Id;
-    }
-
-    public Task EndSessionAsync(Guid teacherId, Guid sessionId)
-    {
-        throw new NotImplementedException();
+        await _sessionRepository.SaveChangesAsync(ct);
     }
 }

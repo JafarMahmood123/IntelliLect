@@ -12,7 +12,7 @@ import {
   useAdmins,
   useToggleAdminStatus,
   type AdminsQueryData,
-} from '../hooks/useAdminQueries';
+} from '../hooks/useSuperAdminQueries';
 import type {
   AdminQueryResult,
   AdminSortField,
@@ -120,7 +120,7 @@ const getPagedItems = (result: AdminsQueryData | undefined) => {
 };
 
 export const SuperAdminDashboard = () => {
-  const { t } = useTranslation('admin');
+  const { t } = useTranslation('superAdmin');
   const queryClient = useQueryClient();
 
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);

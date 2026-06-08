@@ -5,10 +5,16 @@ import { initReactI18next } from 'react-i18next';
 import enCommon from '../locales/en/common.json';
 import enAuth from '../locales/en/auth.json';
 import enAdmin from '../locales/en/admin.json';
+import enSuperAdmin from '../locales/en/superAdmin.json';
+import enUsers from '../locales/en/users.json';
+import enStreaming from '../locales/en/streaming.json';
 
 import arCommon from '../locales/ar/common.json';
 import arAuth from '../locales/ar/auth.json';
 import arAdmin from '../locales/ar/admin.json';
+import arSuperAdmin from '../locales/ar/superAdmin.json';
+import arUsers from '../locales/ar/users.json';
+import arStreaming from '../locales/ar/streaming.json';
 
 const resolveLanguage = (language?: string) => {
   return language?.startsWith('ar') ? 'ar' : 'en';
@@ -34,16 +40,22 @@ void i18n
         common: enCommon,
         auth: enAuth,
         admin: enAdmin,
+        superAdmin: enSuperAdmin,
+        users: enUsers,
+        streaming: enStreaming,
       },
       ar: {
         common: arCommon,
         auth: arAuth,
         admin: arAdmin,
+        superAdmin: arSuperAdmin,
+        users: arUsers,
+        streaming: arStreaming,
       },
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'ar'],
-    ns: ['common', 'auth', 'admin'],
+    ns: ['common', 'auth', 'admin', 'superAdmin', 'users', 'streaming'],
     defaultNS: 'common',
     load: 'languageOnly',
     detection: {

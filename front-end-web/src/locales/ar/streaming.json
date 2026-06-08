@@ -1,0 +1,24 @@
+{
+  "page": {
+    "title": "جلسة مباشرة",
+    "description": "الفيديو والصوت يعملان عبر LiveKit.",
+    "loadingDescription": "جاري تجهيز الغرفة المباشرة…"
+  },
+  "states": {
+    "loading": "جاري تحميل تفاصيل البث…"
+  },
+  "errors": {
+    "generic": "حدث خطأ ما.",
+    "loadFailedDescription": "تعذر تحميل هذا البث. تحقق من الاتصال وحاول مرة أخرى.",
+    "missingSessionTitle": "جلسة غير موجودة",
+    "missingSessionDescription": "لم يُمرَّر معرف جلسة في الرابط."
+  },
+  "actions": {
+    "retry": "إعادة المحاولة",
+    "back": "العودة إلى الصف الدراسي"
+  },
+  "sidebar": {
+    "ariaLabel": "الدردشة والأسئلة",
+    "placeholder": "الدردشة والأسئلة والأجوبة (قريباً)"
+  }
+}

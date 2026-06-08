@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using StreamingService.Application.Abstractions;
 using StreamingService.Application.DTOs.Question;
 
@@ -11,11 +12,16 @@ public sealed class StreamsController : ApiBaseController
 {
     private readonly IStreamService _streamService;
     private readonly IInteractionService _interactionService;
+    private readonly ILogger<StreamsController> _logger;
 
-    public StreamsController(IStreamService streamService, IInteractionService interactionService)
+    public StreamsController(
+        IStreamService streamService,
+        IInteractionService interactionService,
+        ILogger<StreamsController> logger)
     {
         _streamService = streamService;
         _interactionService = interactionService;
+        _logger = logger;
     }
 
     [HttpGet("{sessionId:guid}")]
@@ -29,6 +35,7 @@ public sealed class StreamsController : ApiBaseController
     [HttpPost("{sessionId:guid}/join")]
     public async Task<IActionResult> Join(Guid sessionId, CancellationToken ct)
     {
+        _logger.LogDebug("Join stream requested. SessionId: {SessionId}, UserId: {UserId}", sessionId, UserId);
         await _streamService.JoinStreamAsync(sessionId, UserId, ct);
         return NoContent();
     }
@@ -36,6 +43,7 @@ public sealed class StreamsController : ApiBaseController
     [HttpDelete("{sessionId:guid}/leave")]
     public async Task<IActionResult> Leave(Guid sessionId, CancellationToken ct)
     {
+        _logger.LogDebug("Leave stream requested. SessionId: {SessionId}, UserId: {UserId}", sessionId, UserId);
         await _streamService.LeaveStreamAsync(sessionId, UserId, ct);
         return NoContent();
     }
@@ -43,6 +51,9 @@ public sealed class StreamsController : ApiBaseController
     [HttpPut("{sessionId:guid}/hand-raise")]
     public async Task<IActionResult> ToggleHandRaise(Guid sessionId, [FromQuery] bool isRaised, CancellationToken ct)
     {
+        _logger.LogDebug(
+            "Hand raise toggle requested. SessionId: {SessionId}, UserId: {UserId}, IsRaised: {IsRaised}",
+            sessionId, UserId, isRaised);
         await _interactionService.ToggleHandRaiseAsync(sessionId, UserId, isRaised, ct);
         return Ok(new { Message = isRaised ? "Hand raised." : "Hand lowered." });
     }
@@ -75,6 +86,7 @@ public sealed class StreamsController : ApiBaseController
         [FromBody] AskQuestionRequest request,
         CancellationToken ct)
     {
+        _logger.LogDebug("Ask question requested. SessionId: {SessionId}, UserId: {UserId}", sessionId, UserId);
         var userName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Anonymous";
         await _interactionService.AskQuestionAsync(sessionId, UserId, userName, request.QuestionText, ct);
         return Ok(new { Message = "Question submitted successfully." });
@@ -88,6 +100,9 @@ public sealed class StreamsController : ApiBaseController
         [FromBody] AnswerQuestionRequest request,
         CancellationToken ct)
     {
+        _logger.LogDebug(
+            "Answer question requested. SessionId: {SessionId}, QuestionId: {QuestionId}, UserId: {UserId}",
+            sessionId, questionId, UserId);
         await _interactionService.AnswerQuestionAsync(questionId, UserId, request.AnswerText, ct);
         return Ok(new { Message = "Question answered successfully." });
     }

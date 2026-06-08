@@ -43,7 +43,7 @@ public static class DependencyInjection
                 config.ServiceURL = s3Settings.ServiceUrl;
             }
 
-            return new AmazonS3Client("test", "test", config);
+            return new AmazonS3Client("testuser", "testpassword123!", config);
         });
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();
@@ -98,11 +98,16 @@ public static class DependencyInjection
 
                 o.QueryDelay = TimeSpan.FromSeconds(1);
             });
+
             x.UsingRabbitMq((context, cfg) =>
-            {
-                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
-                cfg.ConfigureEndpoints(context);
-            });
+                {
+                    cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
+                    {
+                        h.Username("jafar.mahmood");
+                        h.Password("Jafar123!");
+                    });
+                    cfg.ConfigureEndpoints(context);
+                });
         });
 
         return services;

@@ -3,7 +3,7 @@ import type {
   LoginRequest,
   LoginResponse,
   RegisterRequest,
-  RegistrationRole,
+  ResetPasswordRequest,
 } from '../types';
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
@@ -15,7 +15,10 @@ export const register = async (data: RegisterRequest): Promise<void> => {
   await apiClient.post('/auth/register', data);
 };
 
-export const getRegistrationRoles = async (): Promise<RegistrationRole[]> => {
-  const response = await apiClient.get<RegistrationRole[]>('/auth/registration-roles');
-  return response.data;
+export const forgotPassword = async (email: string): Promise<void> => {
+  await apiClient.post('/auth/forgot-password', { email });
+};
+
+export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
+  await apiClient.post('/auth/reset-password', data);
 };

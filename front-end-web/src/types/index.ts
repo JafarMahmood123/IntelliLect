@@ -6,6 +6,7 @@ export interface User {
   lastName: string;
   roleName: 'Student' | 'Teacher' | 'Admin' | 'SuperAdmin';
   status: 'Pending' | 'Active' | 'Rejected' | 'Deactivated';
-  bio?: string;
+  bio?: string | null;
   createdAtUtc: string;
+  version: string;
 }

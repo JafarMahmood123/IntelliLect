@@ -51,10 +51,9 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpPost("forgot-password")]
-    public async Task<IActionResult> ForgotPassword([FromBody] string email, CancellationToken ct)
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
     {
-        // Note: For security, usually returns 200 OK even if email doesn't exist
-        await _authService.ForgotPasswordAsync(email, ct);
+        await _authService.ForgotPasswordAsync(request.Email, ct);
         return Ok(new { Message = "If an account exists, a reset token has been generated." });
     }
 

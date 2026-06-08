@@ -100,7 +100,7 @@ namespace ClassroomService.Infrastructure.Migrations
                     b.ToTable("ClassroomMemberships");
                 });
 
-            modelBuilder.Entity("ClassroomService.Domain.Entities.LearningSession", b =>
+            modelBuilder.Entity("ClassroomService.Domain.Entities.Session", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -133,8 +133,6 @@ namespace ClassroomService.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ClassroomId");
 
                     b.ToTable("Sessions");
                 });
@@ -324,17 +322,6 @@ namespace ClassroomService.Infrastructure.Migrations
                 {
                     b.HasOne("ClassroomService.Domain.Entities.Classroom", "Classroom")
                         .WithMany("Memberships")
-                        .HasForeignKey("ClassroomId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Classroom");
-                });
-
-            modelBuilder.Entity("ClassroomService.Domain.Entities.LearningSession", b =>
-                {
-                    b.HasOne("ClassroomService.Domain.Entities.Classroom", "Classroom")
-                        .WithMany()
                         .HasForeignKey("ClassroomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

@@ -23,7 +23,9 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthRequest = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
       originalRequest._retry = true;
 
       try {
@@ -52,9 +54,9 @@ apiClient.interceptors.response.use(
         // If refresh fails, log the user out
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('auth-storage'); // Our future Zustand store
+        localStorage.removeItem('auth-storage');
         
-        // Redirect to login (we will handle this gracefully later)
+        // Redirect to login
         window.location.href = '/login';
         
         return Promise.reject(refreshError);

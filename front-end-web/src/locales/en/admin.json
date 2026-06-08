@@ -1,126 +1,93 @@
 {
-  "dashboard": {
-    "title": "Super Admin Dashboard",
-    "createNewAdmin": "Create New Admin",
-    "loading": "Loading admins...",
-    "loadError": "Failed to load admins.",
-    "successCreated": "Admin account for {{name}} was created successfully.",
-    "searchByLabel": "Search by",
-    "searchLabel": "Search",
-    "searchPlaceholder": "Search by name, username, email, or status",
-    "clearSearch": "Clear search",
-    "updatingResults": "Updating results...",
-    "searchGroupingNotice": "Backend search is active. Grouping is automatically disabled because the current backend does not return grouped search results.",
-    "searchFields": {
-      "userName": "Username",
-      "email": "Email",
-      "firstName": "First name",
-      "lastName": "Last name",
-      "status": "Status"
+  "table": {
+    "name": "Name",
+    "email": "Email",
+    "status": "Status",
+    "joined": "Joined",
+    "role": "Role",
+    "actions": "Actions"
+  },
+  "management": {
+    "title": "User Management",
+    "description": "Approve new registrations and manage existing users."
+  },
+  "tabs": {
+    "pending": "Pending Requests",
+    "all": "All Users"
+  },
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate"
+  },
+  "modals": {
+    "approve": {
+      "title": "Approve User",
+      "description": "Are you sure you want to approve the registration for {{name}}? They will be granted access to the platform.",
+      "confirm": "Yes, Approve"
     },
-    "placeholders": {
-      "userName": "Search by username",
-      "email": "Search by email",
-      "firstName": "Search by first name",
-      "lastName": "Search by last name",
-      "status": "Select a status"
+    "reject": {
+      "title": "Reject User",
+      "description": "Are you sure you want to reject the registration for {{name}}? This cannot be undone.",
+      "confirm": "Yes, Reject"
     },
-    "statuses": {
-      "active": "Active",
-      "pending": "Pending",
-      "rejected": "Rejected",
-      "deactivated": "Deactivated"
+    "deactivate": {
+      "title": "Deactivate User",
+      "description": "Are you sure you want to deactivate {{name}}'s account? They will no longer be able to log in.",
+      "confirm": "Yes, Deactivate"
     },
-    "sortLabel": "Sort by",
-    "groupLabel": "Group by",
-    "sortOptions": {
-      "joinedDesc": "Newest joined",
-      "joinedAsc": "Oldest joined",
-      "usernameAsc": "Username A-Z",
-      "usernameDesc": "Username Z-A",
-      "emailAsc": "Email A-Z",
-      "emailDesc": "Email Z-A",
-      "firstNameAsc": "First name A-Z",
-      "firstNameDesc": "First name Z-A",
-      "lastNameAsc": "Last name A-Z",
-      "lastNameDesc": "Last name Z-A",
-      "statusAsc": "Status A-Z",
-      "statusDesc": "Status Z-A",
-      "nameAsc": "Name A-Z",
-      "nameDesc": "Name Z-A",
-      "status": "Status"
-    },
-    "groupOptions": {
-      "none": "None",
-      "status": "Status",
-      "statusDisabled": "Status (clear search first)"
-    },
-    "groupCount_zero": "0 admins",
-    "groupCount_one": "{{count}} admin",
-    "groupCount_other": "{{count}} admins",
-    "empty": "No matching admins found.",
-    "table": {
-      "name": "Name",
-      "email": "Email",
-      "status": "Status",
-      "joined": "Joined",
-      "actions": "Actions"
-    },
-    "actions": {
-      "deactivate": "Deactivate",
-      "reactivate": "Reactivate"
+    "reactivate": {
+      "title": "Reactivate User",
+      "description": "Are you sure you want to reactivate {{name}}'s account? Their access will be restored.",
+      "confirm": "Yes, Reactivate"
     }
   },
+  "feedback": {
+    "approveSuccessTitle": "User approved",
+    "approveSuccessMessage": "{{name}} has been approved successfully.",
+    "rejectSuccessTitle": "User rejected",
+    "rejectSuccessMessage": "{{name}} has been rejected successfully.",
+    "deactivateSuccessTitle": "User deactivated",
+    "deactivateSuccessMessage": "{{name}} has been deactivated successfully.",
+    "reactivateSuccessTitle": "User reactivated",
+    "reactivateSuccessMessage": "{{name}} has been reactivated successfully.",
+    "actionFailedTitle": "Action failed",
+    "fallbackError": "Something went wrong. Please try again."
+  },
+  "filters": {
+    "title": "Filters",
+    "descriptionPending": "Filter pending registration requests by role.",
+    "descriptionAll": "Filter all users by role.",
+    "role": {
+      "label": "Role",
+      "all": "All roles",
+      "loading": "Loading roles...",
+      "error": "Could not load roles"
+    }
+  },
+  "roles": {
+    "Teacher": "Teacher",
+    "Student": "Student",
+    "Admin": "Admin",
+    "SuperAdmin": "Super Admin"
+  },
   "drawer": {
-    "title": "Create New Admin",
-    "description": "Add a new administrator account. The new admin will be created as an active account automatically.",
+    "title": "User Details",
+    "description": "Inspect the selected user account and available admin actions.",
     "sections": {
       "identity": "Identity",
-      "account": "Account",
-      "security": "Security"
-    },
-    "sectionDescriptions": {
-      "identity": "Basic information about the new administrator.",
-      "account": "Login details used to identify the administrator.",
-      "security": "Set a temporary password for the admin. They should change it after first login."
+      "access": "Access"
     },
     "fields": {
-      "firstName": {
-        "label": "First Name",
-        "placeholder": "Enter first name"
-      },
-      "lastName": {
-        "label": "Last Name",
-        "placeholder": "Enter last name"
-      },
-      "userName": {
-        "label": "Username",
-        "placeholder": "Enter username"
-      },
-      "email": {
-        "label": "Email Address",
-        "placeholder": "admin@example.com"
-      },
-      "password": {
-        "label": "Temporary Password",
-        "placeholder": "Enter temporary password"
-      },
-      "confirmPassword": {
-        "label": "Confirm Password",
-        "placeholder": "Re-enter the password"
-      }
+      "fullName": "Full name",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "joinedAt": "Joined date"
     },
-    "submit": "Create Admin",
-    "submitting": "Creating Admin...",
-    "fallbackError": "Failed to create admin. Please review the data and try again.",
-    "validation": {
-      "firstNameMin": "First name must be at least 2 characters",
-      "lastNameMin": "Last name must be at least 2 characters",
-      "userNameMin": "Username must be at least 3 characters",
-      "invalidEmail": "Please enter a valid email address",
-      "passwordMin": "Password must be at least 8 characters",
-      "confirmPasswordMin": "Please confirm the password",
-      "passwordMismatch": "Passwords do not match"
-    }
+    "empty": "No user selected.",
+    "noActions": "No actions available for this user."
   }
 }

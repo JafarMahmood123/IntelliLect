@@ -1,0 +1,66 @@
+{
+  "page": {
+    "title": "إعدادات الملف الشخصي",
+    "description": "إدارة معلومات حسابك وكلمة المرور."
+  },
+  "loading": "جاري تحميل الملف الشخصي...",
+  "loadError": "تعذر تحميل ملفك الشخصي.",
+  "summary": {
+    "email": "البريد الإلكتروني",
+    "role": "الدور",
+    "joinedAt": "تاريخ الانضمام"
+  },
+  "profileInfo": {
+    "title": "معلومات الملف الشخصي",
+    "description": "عرض وتحديث معلوماتك الشخصية.",
+    "fullNameLabel": "الاسم الكامل",
+    "firstNameLabel": "الاسم الأول",
+    "lastNameLabel": "اسم العائلة",
+    "userNameLabel": "اسم المستخدم",
+    "bioLabel": "نبذة",
+    "emptyBio": "لم تتم إضافة نبذة بعد.",
+    "edit": "تعديل",
+    "cancel": "إلغاء",
+    "submit": "حفظ التغييرات"
+  },
+  "changePassword": {
+    "title": "تغيير كلمة المرور",
+    "description": "تحديث كلمة المرور باستخدام كلمة المرور الحالية.",
+    "oldPasswordLabel": "كلمة المرور الحالية",
+    "newPasswordLabel": "كلمة المرور الجديدة",
+    "confirmPasswordLabel": "تأكيد كلمة المرور الجديدة",
+    "submit": "تغيير كلمة المرور"
+  },
+  "validation": {
+    "firstNameRequired": "الاسم الأول مطلوب.",
+    "lastNameRequired": "اسم العائلة مطلوب.",
+    "userNameMin": "يجب أن يكون اسم المستخدم 3 أحرف على الأقل.",
+    "bioMax": "يجب ألا تتجاوز النبذة 500 حرف.",
+    "oldPasswordRequired": "كلمة المرور الحالية مطلوبة.",
+    "newPasswordMin": "يجب أن تكون كلمة المرور الجديدة 6 أحرف على الأقل.",
+    "confirmPasswordRequired": "يرجى تأكيد كلمة المرور الجديدة.",
+    "passwordMismatch": "كلمتا المرور غير متطابقتين."
+  },
+  "feedback": {
+    "profileUpdatedTitle": "تم تحديث الملف الشخصي",
+    "profileUpdatedMessage": "تم تحديث معلومات ملفك الشخصي بنجاح.",
+    "passwordChangedTitle": "تم تغيير كلمة المرور",
+    "passwordChangedMessage": "تم تغيير كلمة المرور بنجاح.",
+    "actionFailedTitle": "فشلت العملية",
+    "fallbackError": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  },
+  "roles": {
+    "Student": "طالب",
+    "Teacher": "معلم",
+    "Admin": "مدير",
+    "SuperAdmin": "مدير عام"
+  },
+  "navigation": {
+    "title": "إجراءات الحساب",
+    "description": "اختر ما تريد إدارته.",
+    "profileInfo": "معلومات الملف الشخصي",
+    "profileInfoDescription": "تحديث الاسم واسم المستخدم والنبذة.",
+    "changePassword": "تغيير كلمة المرور",
+    "changePasswordDescription": "تحديث كلمة مرور الحساب."
+  }
+}

@@ -1,13 +1,11 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClassroomService.Presentation.Controllers;
 
-[Authorize]
 [Route("api/classrooms/{classroomId:guid}/sessions")]
-public sealed class SessionsController : ApiBaseController
+public class SessionsController : ControllerBase
 {
     private readonly ISessionService _sessionService;
 
@@ -16,19 +14,26 @@ public sealed class SessionsController : ApiBaseController
         _sessionService = sessionService;
     }
 
-    [HttpPost]
-    [Authorize(Roles = "Teacher")]
-    public async Task<IActionResult> Schedule(Guid classroomId, [FromBody] CreateSessionRequest request)
+    [HttpGet]
+    public async Task<IActionResult> GetSessions(Guid classroomId, CancellationToken ct)
     {
-        var id = await _sessionService.ScheduleSessionAsync(UserId, classroomId, request);
-        return Ok(new { SessionId = id });
+        var sessions = await _sessionService.GetSessionsByClassroomAsync(classroomId, ct);
+        return Ok(sessions);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateSession(Guid classroomId, [FromBody] CreateSessionRequest request, CancellationToken ct)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var session = await _sessionService.CreateSessionAsync(classroomId, request, ct);
+        return CreatedAtAction(nameof(GetSessions), new { classroomId }, session);
     }
 
     [HttpPost("{sessionId:guid}/start")]
-    [Authorize(Roles = "Teacher")]
-    public async Task<IActionResult> Start(Guid sessionId)
+    public async Task<IActionResult> StartSession(Guid sessionId, CancellationToken ct)
     {
-        await _sessionService.StartSessionAsync(UserId, sessionId);
+        await _sessionService.StartSessionAsync(sessionId, ct);
         return NoContent();
     }
 }

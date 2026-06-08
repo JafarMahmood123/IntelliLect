@@ -7,7 +7,8 @@
     "signIn": "تسجيل الدخول",
     "register": "إنشاء حساب",
     "logout": "تسجيل الخروج",
-    "loading": "جارٍ التحميل..."
+    "loading": "جارٍ التحميل...",
+    "profile": "الملف الشخصي"
   },
   "theme": {
     "light": "الوضع الفاتح",
@@ -31,5 +32,14 @@
   "pendingApproval": {
     "title": "الحساب قيد الانتظار",
     "description": "حسابك ينتظر موافقة المسؤول حاليًا."
+  },
+  "pagination": {
+    "previous": "السابق",
+    "next": "التالي",
+    "pageOf": "الصفحة {{page}} من {{totalPages}}",
+    "showing": "عرض {{from}}-{{to}} من {{total}}"
+  },
+  "toast": {
+    "close": "إغلاق الإشعار"
   }
 }
