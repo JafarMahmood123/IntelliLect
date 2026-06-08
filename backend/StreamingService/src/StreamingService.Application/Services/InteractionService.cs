@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using StreamingService.Application.Abstractions;
 using StreamingService.Application.DTOs;
 using StreamingService.Application.DTOs.Chat;
@@ -14,6 +15,7 @@ public sealed class InteractionService : IInteractionService
     private readonly IParticipantRepository _participantRepository;
     private readonly IStreamRepository _streamRepository;
     private readonly IStreamHubContext _hubContext;
+    private readonly ILogger<InteractionService> _logger;
 
     public InteractionService(
         IStreamChatMessageRepository chatRepository,
@@ -21,7 +23,8 @@ public sealed class InteractionService : IInteractionService
         IStreamQuestionRepository questionRepository,
         IParticipantRepository participantRepository,
         IStreamRepository streamRepository,
-        IStreamHubContext hubContext)
+        IStreamHubContext hubContext,
+        ILogger<InteractionService> logger)
     {
         _chatRepository = chatRepository;
         _reactionRepository = reactionRepository;
@@ -29,13 +32,19 @@ public sealed class InteractionService : IInteractionService
         _participantRepository = participantRepository;
         _streamRepository = streamRepository;
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     public async Task SendChatMessageAsync(Guid sessionId, Guid userId, string userName, string message, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
+        {
+            _logger.LogWarning(
+                "Chat message rejected: stream inactive or missing for SessionId: {SessionId}, UserId: {UserId}",
+                sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
+        }
 
         if (string.IsNullOrWhiteSpace(message))
             throw new ArgumentException("Message cannot be empty.");
@@ -52,6 +61,10 @@ public sealed class InteractionService : IInteractionService
         await _chatRepository.AddAsync(chat, ct);
         await _chatRepository.SaveChangesAsync(ct);
 
+        _logger.LogInformation(
+            "Chat message sent for SessionId: {SessionId}, UserId: {UserId}, MessageLength: {MessageLength}",
+            sessionId, userId, chat.Message.Length);
+
         await _hubContext.BroadcastChatMessageAsync(sessionId, chat.UserId, chat.UserName, chat.Message);
     }
 
@@ -59,7 +72,12 @@ public sealed class InteractionService : IInteractionService
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
+        {
+            _logger.LogWarning(
+                "Reaction rejected: stream inactive or missing for SessionId: {SessionId}, UserId: {UserId}",
+                sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
+        }
 
         if (string.IsNullOrWhiteSpace(emoji))
             throw new ArgumentException("Emoji cannot be empty.");
@@ -75,6 +93,10 @@ public sealed class InteractionService : IInteractionService
         await _reactionRepository.AddAsync(reaction, ct);
         await _reactionRepository.SaveChangesAsync(ct);
 
+        _logger.LogInformation(
+            "Reaction sent for SessionId: {SessionId}, UserId: {UserId}",
+            sessionId, userId);
+
         await _hubContext.BroadcastReactionAsync(sessionId, reaction.UserId, reaction.Emoji);
     }
 
@@ -82,7 +104,12 @@ public sealed class InteractionService : IInteractionService
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
+        {
+            _logger.LogWarning(
+                "Question rejected: stream inactive or missing for SessionId: {SessionId}, UserId: {UserId}",
+                sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
+        }
 
         if (string.IsNullOrWhiteSpace(questionText))
             throw new ArgumentException("Question text cannot be empty.");
@@ -98,17 +125,31 @@ public sealed class InteractionService : IInteractionService
 
         await _questionRepository.AddAsync(question, ct);
         await _questionRepository.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Question asked for SessionId: {SessionId}, UserId: {UserId}, QuestionId: {QuestionId}",
+            sessionId, userId, question.Id);
     }
 
     public async Task AnswerQuestionAsync(Guid questionId, Guid teacherId, string answerText, CancellationToken ct)
     {
         var question = await _questionRepository.GetByIdAsync(questionId, ct);
         if (question == null || question.IsAnswered)
+        {
+            _logger.LogWarning(
+                "Answer rejected: question not found or already answered. QuestionId: {QuestionId}",
+                questionId);
             throw new InvalidOperationException("Question not found or already answered.");
+        }
 
         var stream = await _streamRepository.GetByIdAsync(question.StreamId, ct);
         if (stream == null || stream.TeacherId != teacherId)
+        {
+            _logger.LogWarning(
+                "Answer rejected: unauthorized. QuestionId: {QuestionId}, TeacherId: {TeacherId}",
+                questionId, teacherId);
             throw new UnauthorizedAccessException("Only the teacher can answer questions.");
+        }
 
         question.AnswerText = answerText?.Trim();
         question.IsAnswered = true;
@@ -116,17 +157,30 @@ public sealed class InteractionService : IInteractionService
 
         await _questionRepository.UpdateAsync(question, ct);
         await _questionRepository.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Question answered. QuestionId: {QuestionId}, TeacherId: {TeacherId}, SessionId: {SessionId}",
+            questionId, teacherId, stream.SessionId);
     }
 
     public async Task ToggleHandRaiseAsync(Guid sessionId, Guid userId, bool isRaised, CancellationToken ct)
     {
         var participant = await _participantRepository.GetBySessionAndUserAsync(sessionId, userId, ct);
         if (participant == null)
+        {
+            _logger.LogWarning(
+                "Hand raise toggle failed: user not a participant. SessionId: {SessionId}, UserId: {UserId}",
+                sessionId, userId);
             throw new InvalidOperationException("Not a participant in this stream.");
+        }
 
         participant.IsHandRaised = isRaised;
         await _participantRepository.UpdateAsync(participant, ct);
         await _participantRepository.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Hand raise toggled for SessionId: {SessionId}, UserId: {UserId}, IsRaised: {IsRaised}",
+            sessionId, userId, isRaised);
 
         await _hubContext.NotifyHandRaisedAsync(sessionId, userId, isRaised);
     }
@@ -134,9 +188,17 @@ public sealed class InteractionService : IInteractionService
     public async Task<PagedResult<ChatMessageResponse>> GetChatHistoryPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
-        if (stream == null) throw new KeyNotFoundException("Stream not found.");
+        if (stream == null)
+        {
+            _logger.LogWarning("Chat history requested for missing stream. SessionId: {SessionId}", sessionId);
+            throw new KeyNotFoundException("Stream not found.");
+        }
 
         var (items, totalCount) = await _chatRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
+
+        _logger.LogDebug(
+            "Chat history fetched for SessionId: {SessionId}, Page: {Page}, PageSize: {PageSize}, TotalCount: {TotalCount}",
+            sessionId, page, pageSize, totalCount);
 
         var responses = items.Select(m => new ChatMessageResponse(
             m.Id,
@@ -152,9 +214,17 @@ public sealed class InteractionService : IInteractionService
     public async Task<PagedResult<QuestionResponse>> GetQuestionsPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
-        if (stream == null) throw new KeyNotFoundException("Stream not found.");
+        if (stream == null)
+        {
+            _logger.LogWarning("Questions requested for missing stream. SessionId: {SessionId}", sessionId);
+            throw new KeyNotFoundException("Stream not found.");
+        }
 
         var (items, totalCount) = await _questionRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
+
+        _logger.LogDebug(
+            "Questions fetched for SessionId: {SessionId}, Page: {Page}, PageSize: {PageSize}, TotalCount: {TotalCount}",
+            sessionId, page, pageSize, totalCount);
 
         var responses = items.Select(q => new QuestionResponse(
             q.Id,

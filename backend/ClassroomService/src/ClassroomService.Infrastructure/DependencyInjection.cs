@@ -98,11 +98,16 @@ public static class DependencyInjection
 
                 o.QueryDelay = TimeSpan.FromSeconds(1);
             });
+
             x.UsingRabbitMq((context, cfg) =>
-            {
-                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
-                cfg.ConfigureEndpoints(context);
-            });
+                {
+                    cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
+                    {
+                        h.Username("jafar.mahmood");
+                        h.Password("Jafar123!");
+                    });
+                    cfg.ConfigureEndpoints(context);
+                });
         });
 
         return services;

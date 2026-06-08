@@ -1,13 +1,12 @@
 import { useState, type SetStateAction } from "react";
 import { useForm } from "react-hook-form";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Button } from "../../../components/ui/Button";
 import { useToast } from "../../../components/ui/ToastProvider";
 import { useCreateSession } from "../hooks/useClassroomQueries";
-import type { CreateSessionRequest } from "../types";
 
 interface CreateSessionDrawerProps {
   isOpen: boolean;
@@ -30,7 +29,6 @@ export const CreateSessionDrawer = ({
     register,
     handleSubmit,
     reset,
-    formState: { errors },
   } = useForm<{ title: string; description: string }>();
 
   const onSubmit = async (data: { title: string; description: string }) => {

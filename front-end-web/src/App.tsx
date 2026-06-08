@@ -1,21 +1,27 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { ThemeProvider } from './components/ui/ThemeProvider';
-import { ToastProvider } from './components/ui/ToastProvider';
-import { AppControls } from './components/ui/AppControls';
-import { SuperAdminDashboard } from './features/superAdmin/components/SuperAdminDashboard';
-import { LoginForm } from './features/auth/components/LoginForm';
-import { RegisterForm } from './features/auth/components/RegisterForm';
-import { AuthLayout } from './layouts/AuthLayout';
-import { DashboardPage } from './pages/DashboardPage';
-import { PendingApprovalPage } from './pages/PendingApprovalPage';
-import { ProtectedRoute } from './routes/ProtectedRoute';
-import { PublicRoute } from './routes/PublicRoute';
-import { RoleProtectedRoute } from './routes/RoleProtectedRoute';
-import { AdminDashboard } from './features/admin/components/AdminDashboard';
-import { UserProfilePage } from './features/users/components/UserProfilePage';
-import { ForgotPasswordForm } from './features/auth/components/ForgotPasswordForm';
-import { ResetPasswordForm } from './features/auth/components/ResetPasswordForm';
-import { TeacherClassroomDashboard, ClassroomDetailsPage } from './features/classrooms';
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ThemeProvider } from "./components/ui/ThemeProvider";
+import { ToastProvider } from "./components/ui/ToastProvider";
+import { AppControls } from "./components/ui/AppControls";
+import { SuperAdminDashboard } from "./features/superAdmin/components/SuperAdminDashboard";
+import { LoginForm } from "./features/auth/components/LoginForm";
+import { RegisterForm } from "./features/auth/components/RegisterForm";
+import { AuthLayout } from "./layouts/AuthLayout";
+import { DashboardPage } from "./pages/DashboardPage";
+import { PendingApprovalPage } from "./pages/PendingApprovalPage";
+import { ProtectedRoute } from "./routes/ProtectedRoute";
+import { PublicRoute } from "./routes/PublicRoute";
+import { RoleProtectedRoute } from "./routes/RoleProtectedRoute";
+import { AdminDashboard } from "./features/admin/components/AdminDashboard";
+import { UserProfilePage } from "./features/users/components/UserProfilePage";
+import { ForgotPasswordForm } from "./features/auth/components/ForgotPasswordForm";
+import { ResetPasswordForm } from "./features/auth/components/ResetPasswordForm";
+import {
+  TeacherClassroomDashboard,
+  ClassroomDetailsPage,
+} from "./features/classrooms";
+import { StudentClassroomDashboard } from "./features/classrooms/components/StudentClassroomDashboard";
+import { ClassroomDiscoveryPage } from "./features/classrooms/components/ClassroomDiscoveryPage";
+import { LiveRoomPage } from "./features/streaming/components/LiveRoomPage";
 
 function App() {
   return (
@@ -30,37 +36,86 @@ function App() {
                 <Route element={<PublicRoute />}>
                   <Route path="/login" element={<LoginForm />} />
                   <Route path="/register" element={<RegisterForm />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-                  <Route path="/reset-password" element={<ResetPasswordForm />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordForm />}
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordForm />}
+                  />
                 </Route>
               </Route>
 
-              <Route path="/pending-approval" element={<PendingApprovalPage />} />
+              <Route
+                path="/pending-approval"
+                element={<PendingApprovalPage />}
+              />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/profile" element={<UserProfilePage />} />
 
-                <Route element={<RoleProtectedRoute allowedRoles={['Teacher']} />}>
-                  <Route path="/classrooms" element={<TeacherClassroomDashboard />} />
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["Teacher"]} />}
+                >
+                  <Route
+                    path="/classrooms"
+                    element={<TeacherClassroomDashboard />}
+                  />
                 </Route>
 
-                <Route path="/classrooms/:id" element={<ClassroomDetailsPage />} />
+                <Route
+                  path="/classrooms/:id"
+                  element={<ClassroomDetailsPage />}
+                />
 
-                <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
-                  <Route path="/super-admin" element={<SuperAdminDashboard />} />
+                <Route
+                  path="/classrooms/:classroomId/live/:sessionId"
+                  element={<LiveRoomPage />}
+                />
+
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["SuperAdmin"]} />}
+                >
+                  <Route
+                    path="/super-admin"
+                    element={<SuperAdminDashboard />}
+                  />
                 </Route>
 
-                <Route element={<RoleProtectedRoute allowedRoles={['Admin']} />}>
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["Admin"]} />}
+                >
                   <Route path="/admin" element={<AdminDashboard />} />
                 </Route>
 
-                <Route element={<RoleProtectedRoute allowedRoles={['SuperAdmin']} />}>
-                  <Route path="/super-admin" element={<SuperAdminDashboard />} />
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["SuperAdmin"]} />}
+                >
+                  <Route
+                    path="/super-admin"
+                    element={<SuperAdminDashboard />}
+                  />
                 </Route>
 
-                <Route element={<RoleProtectedRoute allowedRoles={['Admin']} />}>
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["Admin"]} />}
+                >
                   <Route path="/admin" element={<AdminDashboard />} />
+                </Route>
+
+                <Route
+                  element={<RoleProtectedRoute allowedRoles={["Student"]} />}
+                >
+                  <Route
+                    path="/classrooms"
+                    element={<StudentClassroomDashboard />}
+                  />
+                  <Route
+                    path="/classrooms/discover"
+                    element={<ClassroomDiscoveryPage />}
+                  />
                 </Route>
               </Route>
             </Routes>

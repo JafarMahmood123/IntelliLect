@@ -1,0 +1,24 @@
+{
+  "page": {
+    "title": "Live session",
+    "description": "Video and audio are powered by LiveKit.",
+    "loadingDescription": "Preparing the live room…"
+  },
+  "states": {
+    "loading": "Loading stream details…"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "loadFailedDescription": "We could not load this stream. Check your connection and try again.",
+    "missingSessionTitle": "Missing session",
+    "missingSessionDescription": "No session id was provided in the URL."
+  },
+  "actions": {
+    "retry": "Retry",
+    "back": "Back to classroom"
+  },
+  "sidebar": {
+    "ariaLabel": "Chat and Q&A",
+    "placeholder": "Chat & Q&A (Coming Soon)"
+  }
+}

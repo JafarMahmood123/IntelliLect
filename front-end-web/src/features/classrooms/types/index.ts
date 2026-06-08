@@ -42,18 +42,32 @@ export interface CreateSessionRequest {
   scheduledAtUtc: string;
 }
 
+export interface CreateSessionRequest {
+  title: string;
+  description: string;
+  scheduledAtUtc: string; 
+}
+
+export interface MemberResponse {
+  studentId: string;
+  fullName: string;
+  joinedAtUtc: string;
+}
+
+export interface EnrollmentResponse {
+  message: string;
+}
+
+export type SessionStatus = 'Scheduled' | 'Live' | 'Ended' | 0 | 1 | 2;
+
+
 export interface Session {
   id: string;
   classroomId: string;
   title: string;
   description: string;
-  scheduledAt: string; 
-  isLive: boolean;
-  status: 'Scheduled' | 'Live' | 'Ended';
-}
-
-export interface CreateSessionRequest {
-  title: string;
-  description: string;
-  scheduledAtUtc: string; 
+  scheduledAtUtc: string;
+  status: SessionStatus;
+  startedAtUtc?: string;
+  endedAtUtc?: string;
 }

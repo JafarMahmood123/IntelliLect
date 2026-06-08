@@ -29,4 +29,11 @@ public class SessionsController : ControllerBase
         var session = await _sessionService.CreateSessionAsync(classroomId, request, ct);
         return CreatedAtAction(nameof(GetSessions), new { classroomId }, session);
     }
+
+    [HttpPost("{sessionId:guid}/start")]
+    public async Task<IActionResult> StartSession(Guid sessionId, CancellationToken ct)
+    {
+        await _sessionService.StartSessionAsync(sessionId, ct);
+        return NoContent();
+    }
 }

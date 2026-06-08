@@ -7,4 +7,5 @@ public interface ISessionService
 {
     Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default);
     Task<Session> CreateSessionAsync(Guid classroomId, CreateSessionRequest request, CancellationToken ct = default);
+    Task StartSessionAsync(Guid sessionId, CancellationToken ct = default);
 }

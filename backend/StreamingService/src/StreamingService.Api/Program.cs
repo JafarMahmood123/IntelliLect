@@ -13,6 +13,8 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
+    Log.Information("Starting Streaming Service");
+
     var builder = WebApplication.CreateBuilder(args);
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -28,13 +30,27 @@ try
     builder.Services.AddProblemDetails();
 
     var app = builder.Build();
-    app.UseSerilogRequestLogging();
 
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<StreamingDbContext>();
-        context.Database.Migrate();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        try
+        {
+            logger.LogInformation("Applying database migrations...");
+            context.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Failed to apply database migrations.");
+            throw;
+        }
     }
+
+    app.UseExceptionHandler();
+    app.UseSerilogRequestLogging();
 
     if (app.Environment.IsDevelopment())
     {
@@ -50,7 +66,6 @@ try
     app.MapHub<StreamHub>("/hubs/stream");
 
     app.Run();
-
 }
 catch (Exception ex)
 {

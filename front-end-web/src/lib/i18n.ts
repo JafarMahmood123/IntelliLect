@@ -7,12 +7,14 @@ import enAuth from '../locales/en/auth.json';
 import enAdmin from '../locales/en/admin.json';
 import enSuperAdmin from '../locales/en/superAdmin.json';
 import enUsers from '../locales/en/users.json';
+import enStreaming from '../locales/en/streaming.json';
 
 import arCommon from '../locales/ar/common.json';
 import arAuth from '../locales/ar/auth.json';
 import arAdmin from '../locales/ar/admin.json';
 import arSuperAdmin from '../locales/ar/superAdmin.json';
 import arUsers from '../locales/ar/users.json';
+import arStreaming from '../locales/ar/streaming.json';
 
 const resolveLanguage = (language?: string) => {
   return language?.startsWith('ar') ? 'ar' : 'en';
@@ -40,6 +42,7 @@ void i18n
         admin: enAdmin,
         superAdmin: enSuperAdmin,
         users: enUsers,
+        streaming: enStreaming,
       },
       ar: {
         common: arCommon,
@@ -47,11 +50,12 @@ void i18n
         admin: arAdmin,
         superAdmin: arSuperAdmin,
         users: arUsers,
+        streaming: arStreaming,
       },
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'ar'],
-    ns: ['common', 'auth', 'admin', 'superAdmin', 'users'],
+    ns: ['common', 'auth', 'admin', 'superAdmin', 'users', 'streaming'],
     defaultNS: 'common',
     load: 'languageOnly',
     detection: {

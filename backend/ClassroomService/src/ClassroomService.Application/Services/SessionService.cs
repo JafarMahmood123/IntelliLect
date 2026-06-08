@@ -1,16 +1,19 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Domain.Entities;
+using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.Application.Services;
 
 public class SessionService : ISessionService
 {
     private readonly ISessionRepository _sessionRepository;
+    private readonly IEventBus _eventBus;
 
-    public SessionService(ISessionRepository sessionRepository)
+    public SessionService(ISessionRepository sessionRepository, IEventBus eventBus)
     {
         _sessionRepository = sessionRepository;
+        _eventBus = eventBus;
     }
 
     public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default)
@@ -39,5 +42,25 @@ public class SessionService : ISessionService
         await _sessionRepository.SaveChangesAsync(ct);
 
         return session;
+    }
+
+    public async Task StartSessionAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+
+        if (session == null) throw new KeyNotFoundException("Session not found.");
+        if (session.Status != SessionStatus.Scheduled)
+            throw new InvalidOperationException("Only scheduled sessions can be started.");
+
+        // Update Lifecycle
+        session.Status = SessionStatus.Live;
+        session.StartedAtUtc = DateTime.UtcNow;
+
+        await _sessionRepository.UpdateAsync(session, ct);
+
+        // Notify StreamingService via RabbitMQ
+        await _eventBus.PublishAsync(new SessionStartedMessage(session.Id, session.ClassroomId), ct);
+
+        await _sessionRepository.SaveChangesAsync(ct);
     }
 }

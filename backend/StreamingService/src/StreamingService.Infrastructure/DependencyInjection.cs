@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using StreamingService.Application.Abstractions;
@@ -59,6 +60,30 @@ public static class DependencyInjection
                         context.Token = accessToken;
                     }
                     return Task.CompletedTask;
+                },
+                OnAuthenticationFailed = context =>
+                {
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("JwtBearer");
+                    logger.LogWarning(
+                        context.Exception,
+                        "JWT authentication failed for {Path}: {Message}",
+                        context.Request.Path,
+                        context.Exception.Message);
+                    return Task.CompletedTask;
+                },
+                OnChallenge = context =>
+                {
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("JwtBearer");
+                    logger.LogDebug(
+                        "JWT challenge issued for {Path}, Error: {Error}, Description: {Description}",
+                        context.Request.Path,
+                        context.Error,
+                        context.ErrorDescription);
+                    return Task.CompletedTask;
                 }
             };
         });
@@ -80,10 +105,14 @@ public static class DependencyInjection
             });
 
             x.UsingRabbitMq((context, cfg) =>
-            {
-                cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq");
-                cfg.ConfigureEndpoints(context);
-            });
+                {
+                    cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
+                    {
+                        h.Username("jafar.mahmood");
+                        h.Password("Jafar123!");
+                    });
+                    cfg.ConfigureEndpoints(context);
+                });
         });
 
         services.AddScoped<DbContext>(sp => sp.GetRequiredService<StreamingDbContext>());

@@ -17,8 +17,6 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Streaming Service Exception: {Message}", exception.Message);
-
         var (statusCode, title) = exception switch
         {
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
@@ -27,6 +25,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
         };
+
+        _logger.LogError(
+            exception,
+            "Streaming Service Exception: {Message} | Path: {Path} | TraceId: {TraceId} | StatusCode: {StatusCode}",
+            exception.Message,
+            httpContext.Request.Path,
+            httpContext.TraceIdentifier,
+            statusCode);
 
         var problemDetails = new ProblemDetails
         {
