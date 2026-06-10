@@ -36,6 +36,7 @@ public sealed class SessionStartedConsumer : IConsumer<SessionStartedMessage>
                 Id = Guid.NewGuid(),
                 SessionId = context.Message.SessionId,
                 ClassroomId = context.Message.ClassroomId,
+                TeacherId = context.Message.TeacherId,
                 Status = StreamStatus.Live,
                 StartedAtUtc = DateTime.UtcNow,
                 StreamKey = Guid.NewGuid().ToString("N")
