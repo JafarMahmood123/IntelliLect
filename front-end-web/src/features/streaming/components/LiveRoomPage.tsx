@@ -11,7 +11,12 @@ import {
   useStreamDetails,
 } from "../hooks/useStreamingQueries";
 import { InteractionSidebar } from "./InteractionSidebar";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useStreamHub } from "../hooks/useStreamHub";
 
+/**
+ * Utility to ensure the host string is a valid WebSocket URL for LiveKit.
+ */
 const toLiveKitServerUrl = (host: string): string => {
   const trimmed = host.trim();
   if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) {
@@ -33,22 +38,31 @@ const toLiveKitServerUrl = (host: string): string => {
 
 export const LiveRoomPage = () => {
   const { t } = useTranslation("streaming");
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  
   const { classroomId, sessionId = "" } = useParams<{
     classroomId: string;
     sessionId: string;
   }>();
-  const navigate = useNavigate();
 
+  // 1. Fetch Stream Metadata and Join Token from API
   const { data, isPending, isError, error, refetch } =
     useStreamDetails(sessionId);
+
+  // 2. Connect to SignalR Hub for real-time classroom interactions
+  const { isConnected: isHubConnected } = useStreamHub(sessionId);
+
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
 
-  const hasJoinedRef = useRef(false);
+  const hasJoinedApiRef = useRef(false);
+
+  const isTeacher = user?.roleName === "Teacher";
 
   const serverUrl = useMemo(
     () => (data?.liveKitHost ? toLiveKitServerUrl(data.liveKitHost) : ""),
-    [data?.liveKitHost],
+    [data?.liveKitHost]
   );
 
   const token = data?.joinToken ?? "";
@@ -61,21 +75,25 @@ export const LiveRoomPage = () => {
     navigate(-1);
   }, [classroomId, navigate]);
 
+  /**
+   * Effect: Handles the REST API "Join/Leave" logic to track 
+   * participant presence in the database.
+   */
   useEffect(() => {
     if (!sessionId || !data?.joinToken) {
       return;
     }
 
-    if (!hasJoinedRef.current) {
-      hasJoinedRef.current = true;
+    if (!hasJoinedApiRef.current) {
+      hasJoinedApiRef.current = true;
       joinStreamAsync(sessionId).catch(() => {
-        /* join errors surface */
+        /* Error handling is managed by the mutation */
       });
     }
 
     return () => {
       leaveStreamAsync(sessionId).catch(() => {
-        /* best-effort leave */
+        /* Best-effort leave on component unmount */
       });
     };
   }, [sessionId, data?.joinToken, joinStreamAsync, leaveStreamAsync]);
@@ -97,7 +115,8 @@ export const LiveRoomPage = () => {
     );
   }
 
-  if (isPending && !data) {
+  // Loading state: Wait for both the API data and the SignalR connection
+  if ((isPending || !isHubConnected) && !data) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
         <PageHeader
@@ -105,9 +124,12 @@ export const LiveRoomPage = () => {
           description={t("page.loadingDescription")}
           action={headerAction}
         />
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          {t("states.loading")}
-        </p>
+        <div className="flex items-center gap-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-600 border-t-transparent"></div>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+            {t("states.loading")}
+            </p>
+        </div>
       </div>
     );
   }
@@ -152,8 +174,9 @@ export const LiveRoomPage = () => {
               serverUrl={serverUrl}
               token={token}
               connect={true}
-              audio={false}
-              video={false}
+              // Only trigger camera/mic hardware for the Teacher
+              video={isTeacher}
+              audio={isTeacher}
             >
               <div className="flex h-[min(70vh,720px)] min-h-[240px] w-full flex-1 flex-col lg:h-auto lg:min-h-0">
                 <VideoConference />
@@ -161,7 +184,10 @@ export const LiveRoomPage = () => {
             </LiveKitRoom>
           ) : (
             <div className="flex flex-1 items-center justify-center text-slate-500">
-              Initializing Secure Connection...
+              <div className="text-center">
+                <div className="mb-4 h-8 w-8 animate-spin mx-auto rounded-full border-4 border-violet-600 border-t-transparent"></div>
+                <p>Initializing Secure Media Connection...</p>
+              </div>
             </div>
           )}
         </main>
