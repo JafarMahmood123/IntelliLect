@@ -1,11 +1,17 @@
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import { 
+  LiveKitRoom, 
+  GridLayout, 
+  ParticipantTile, 
+  ControlBar, 
+  RoomAudioRenderer,
+  useTracks
+} from "@livekit/components-react";
+import { Track } from "livekit-client";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageHeader } from "../../../components/ui/PageHeader";
-import { Button } from "../../../components/ui/Button";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import { Users, ArrowLeft } from "lucide-react";
+import { Users } from "lucide-react";
 import {
   useJoinStream,
   useLeaveStream,
@@ -28,13 +34,49 @@ const toLiveKitServerUrl = (host: string): string => {
   }
 };
 
+/**
+ * Custom Video Layout to replace the default VideoConference
+ */
+const VideoLayout = () => {
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false },
+  );
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      <div className="flex-1 min-h-0 bg-slate-900">
+        <GridLayout tracks={tracks}>
+          <ParticipantTile />
+        </GridLayout>
+      </div>
+
+      <div className="h-20 bg-slate-950 border-t border-white/5 flex items-center justify-center">
+        <ControlBar 
+          variation="minimal" 
+          controls={{ 
+            chat: false, 
+            settings: false,
+            leave: true,
+            screenShare: true
+          }} 
+        />
+      </div>
+
+      <RoomAudioRenderer />
+    </div>
+  );
+};
+
 export const LiveRoomPage = () => {
   const { t } = useTranslation("streaming");
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { classroomId, sessionId = "" } = useParams<{ classroomId: string; sessionId: string }>();
 
-  // 1. All hooks at the top
   const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
   const { participantCount } = useStreamHub(sessionId);
   const { mutateAsync: joinStreamAsync } = useJoinStream();
@@ -48,35 +90,24 @@ export const LiveRoomPage = () => {
     [data?.liveKitHost]
   );
 
-  const handleBack = useCallback(() => {
-    if (classroomId) {
-      navigate(`/classrooms/${classroomId}`);
-    } else {
-      navigate(-1);
-    }
-  }, [classroomId, navigate]);
-
   useEffect(() => {
     if (!sessionId || !data?.joinToken) return;
-
     if (!hasJoinedApiRef.current) {
       hasJoinedApiRef.current = true;
       joinStreamAsync(sessionId).catch(console.error);
     }
-
     return () => {
       leaveStreamAsync(sessionId).catch(console.error);
     };
   }, [sessionId, data?.joinToken, joinStreamAsync, leaveStreamAsync]);
 
-  // 2. Conditional Rendering
   if (!sessionId) return null;
 
   if (isPending || (!data && !isError)) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-950 text-white">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-500 border-t-transparent mb-4"></div>
-        <p className="text-slate-400 font-medium tracking-wide">Connecting to classroom...</p>
+        <p className="text-slate-400 font-medium">Entering Live Classroom...</p>
       </div>
     );
   }
@@ -84,8 +115,7 @@ export const LiveRoomPage = () => {
   if (isError) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 p-6">
-        <div className="max-w-md w-full rounded-3xl bg-slate-900 border border-white/10 p-10 text-center shadow-2xl">
-          <h2 className="text-2xl font-bold text-white mb-2">Oops!</h2>
+        <div className="max-w-md w-full rounded-2xl bg-slate-900 border border-white/10 p-10 text-center shadow-2xl">
           <p className="text-slate-400 mb-8 text-sm">{error instanceof Error ? error.message : "Failed to load stream."}</p>
           <Button fullWidth onClick={() => refetch()}>Try Again</Button>
         </div>
@@ -95,23 +125,11 @@ export const LiveRoomPage = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-black">
-      {/* 
-          Header Fix: 
-          1. added pr-64 (right padding) to ensure no overlap with global controls.
-          2. lowered z-index slightly so global controls stay clickable on top if needed.
-      */}
-      <header className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-slate-900/80 backdrop-blur-md z-20 pr-64">
+      <header className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-slate-950 z-30 lg:px-6 pr-72">
         <div className="flex items-center gap-4 min-w-0">
-          <button 
-            onClick={handleBack}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          
           <div className="min-w-0 flex items-center gap-3">
-            <h1 className="text-sm font-bold text-white truncate sm:text-base">
-               {data.status === 'Live' ? "🔴 Session Live" : "Session Room"}
+            <h1 className="text-sm font-bold text-white truncate">
+               {isTeacher ? "Teacher Mode" : "Student Mode"} | {data.status === 'Live' ? "🔴 Session Live" : "Session Room"}
             </h1>
             <StatusBadge status={data.status} />
           </div>
@@ -119,15 +137,14 @@ export const LiveRoomPage = () => {
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest">
-            <div className="w-1 h-1 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-            {participantCount} Present
+            <Users size={12} className="text-violet-400" />
+            {participantCount} Online
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main Video Area */}
-        <main className="relative flex-1 bg-slate-950 overflow-hidden lk-video-container">
+        <main className="relative flex-1 bg-slate-950 overflow-hidden">
           {data.joinToken && serverUrl ? (
             <LiveKitRoom
               serverUrl={serverUrl}
@@ -135,19 +152,18 @@ export const LiveRoomPage = () => {
               connect={true}
               video={isTeacher}
               audio={isTeacher}
+              onDisconnected={() => navigate(`/classrooms/${classroomId}`)}
               className="flex flex-col h-full w-full"
             >
-              {/* This component will now be styled correctly thanks to the @livekit/components-styles import */}
-              <VideoConference />
+              <VideoLayout />
             </LiveKitRoom>
           ) : (
             <div className="flex h-full items-center justify-center text-slate-500 text-sm">
-               Securing media link...
+               Connecting...
             </div>
           )}
         </main>
         
-        {/* Interaction Sidebar */}
         <InteractionSidebar />
       </div>
     </div>

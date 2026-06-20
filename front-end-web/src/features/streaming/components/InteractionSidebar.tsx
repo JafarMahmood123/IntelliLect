@@ -17,13 +17,9 @@ export const InteractionSidebar = () => {
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Smooth scroll to bottom on new message
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, activeTab]);
 
@@ -40,35 +36,35 @@ export const InteractionSidebar = () => {
   ];
 
   return (
-    <aside className="flex h-full w-80 flex-col border-l border-white/10 bg-slate-900 shadow-2xl z-20">
-      {/* Tab Selection */}
-      <div className="p-2 border-b border-white/10 bg-slate-950/50">
+    <aside className="flex h-full w-80 flex-col border-l border-white/10 bg-slate-900 shadow-2xl z-20 overflow-hidden">
+      {/* Fixed Tab Area */}
+      <div className="p-2 border-b border-white/5 bg-slate-950/50 flex-shrink-0">
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 
-      {/* Scrollable Content Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 bg-slate-900/30">
+      {/* Scrollable Message List */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 bg-slate-900/20 custom-scrollbar">
         {activeTab === 'chat' ? (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-5">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-slate-600">
-                <MessageSquare size={40} className="opacity-10 mb-2" />
-                <p className="text-xs font-medium">Classroom is quiet... say hi!</p>
+              <div className="flex flex-col items-center justify-center h-40 text-slate-700">
+                <MessageSquare size={32} className="opacity-20 mb-2" />
+                <p className="text-[10px] uppercase font-bold tracking-tighter">No messages yet</p>
               </div>
             ) : (
               messages.map((m, index) => {
                 const isMe = m.userId === user?.id;
                 return (
                   <div key={index} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase px-1 mb-1 tracking-wider">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase px-1 mb-1">
                       {isMe ? 'You' : m.userName}
                     </span>
-                    <div className={`max-w-[90%] rounded-2xl p-3 shadow-md ${
+                    <div className={`max-w-[92%] rounded-2xl p-3 shadow-sm ${
                       isMe 
                         ? 'bg-violet-600 text-white rounded-tr-none' 
                         : 'bg-slate-800 text-slate-200 rounded-tl-none border border-white/5'
                     }`}>
-                      <p className="text-sm break-words leading-relaxed">{m.message}</p>
+                      <p className="text-sm break-words leading-tight">{m.message}</p>
                     </div>
                   </div>
                 );
@@ -77,26 +73,23 @@ export const InteractionSidebar = () => {
           </div>
         ) : (
           <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-            <HelpCircle className="text-slate-700 mb-4" size={48} />
-            <h3 className="text-sm font-bold text-white mb-1">Questions & Answers</h3>
-            <p className="text-xs text-slate-500 mb-6">Ask a question for the teacher to see.</p>
-            <Button variant="outline" className="w-full border-white/10 text-white hover:bg-white/5">
-                Ask a Question
-            </Button>
+            <HelpCircle className="text-slate-800 mb-4" size={48} />
+            <h3 className="text-sm font-bold text-slate-200 mb-1">Q&A</h3>
+            <p className="text-[11px] text-slate-500 mb-6">This feature is coming soon.</p>
           </div>
         )}
       </div>
 
-      {/* Fixed Chat Input Area */}
+      {/* Fixed Bottom Input */}
       {activeTab === 'chat' && (
-        <div className="p-4 border-t border-white/10 bg-slate-950">
+        <div className="p-4 border-t border-white/5 bg-slate-950 flex-shrink-0">
           <form onSubmit={handleSend} className="flex gap-2">
             <input
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={!isConnected}
-              placeholder={isConnected ? "Type message..." : "Connecting..."}
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+              placeholder={isConnected ? "Say something..." : "Reconnecting..."}
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-600 outline-none focus:border-violet-500 transition-all"
             />
             <Button 
                 type="submit" 
