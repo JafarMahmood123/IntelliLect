@@ -10,6 +10,11 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost',
         changeOrigin: true,
+      },
+      '/hubs': {
+        target: 'http://localhost',
+        ws: true,
+        changeOrigin: true,
       }
     }
   }

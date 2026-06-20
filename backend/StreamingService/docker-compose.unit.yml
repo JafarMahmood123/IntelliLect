@@ -22,7 +22,7 @@ services:
     image: livekit/livekit-server:latest
     container_name: livekit-server
     command:
-      ["--dev", "--keys", "devkey:super_secret_livekit_key_for_development"]
+      ["--dev", "--keys", "devkey: super_secret_livekit_key_for_development"]
     environment:
       - LIVEKIT_NODE_IP=127.0.0.1
       - LiveKit__ApiKey=devkey
