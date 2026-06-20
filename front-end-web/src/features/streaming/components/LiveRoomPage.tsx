@@ -1,10 +1,11 @@
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Button } from "../../../components/ui/Button";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { Users, ArrowLeft } from "lucide-react";
 import {
   useJoinStream,
   useLeaveStream,
@@ -14,23 +15,14 @@ import { InteractionSidebar } from "./InteractionSidebar";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useStreamHub } from "../hooks/useStreamHub";
 
-/**
- * Utility to ensure the host string is a valid WebSocket URL for LiveKit.
- */
 const toLiveKitServerUrl = (host: string): string => {
   const trimmed = host.trim();
-  if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) {
-    return trimmed;
-  }
-
+  if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) return trimmed;
   try {
-    const withProtocol = /^https?:\/\//i.test(trimmed)
-      ? trimmed
-      : `https://${trimmed}`;
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
     const url = new URL(withProtocol);
     const protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    const path = url.pathname === "/" ? "" : url.pathname;
-    return `${protocol}//${url.host}${path}${url.search}`;
+    return `${protocol}//${url.host}${url.pathname.replace(/\/$/, "")}${url.search}`;
   } catch {
     return trimmed;
   }
@@ -40,24 +32,15 @@ export const LiveRoomPage = () => {
   const { t } = useTranslation("streaming");
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
-  const { classroomId, sessionId = "" } = useParams<{
-    classroomId: string;
-    sessionId: string;
-  }>();
+  const { classroomId, sessionId = "" } = useParams<{ classroomId: string; sessionId: string }>();
 
-  // 1. Fetch Stream Metadata and Join Token from API
-  const { data, isPending, isError, error, refetch } =
-    useStreamDetails(sessionId);
-
-  // 2. Connect to SignalR Hub for real-time classroom interactions
-  const { isConnected: isHubConnected } = useStreamHub(sessionId);
-
+  // 1. All hooks at the top
+  const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
+  const { participantCount } = useStreamHub(sessionId);
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
-
+  
   const hasJoinedApiRef = useRef(false);
-
   const isTeacher = user?.roleName === "Teacher";
 
   const serverUrl = useMemo(
@@ -65,132 +48,106 @@ export const LiveRoomPage = () => {
     [data?.liveKitHost]
   );
 
-  const token = data?.joinToken ?? "";
-
   const handleBack = useCallback(() => {
     if (classroomId) {
       navigate(`/classrooms/${classroomId}`);
-      return;
+    } else {
+      navigate(-1);
     }
-    navigate(-1);
   }, [classroomId, navigate]);
 
-  /**
-   * Effect: Handles the REST API "Join/Leave" logic to track 
-   * participant presence in the database.
-   */
   useEffect(() => {
-    if (!sessionId || !data?.joinToken) {
-      return;
-    }
+    if (!sessionId || !data?.joinToken) return;
 
     if (!hasJoinedApiRef.current) {
       hasJoinedApiRef.current = true;
-      joinStreamAsync(sessionId).catch(() => {
-        /* Error handling is managed by the mutation */
-      });
+      joinStreamAsync(sessionId).catch(console.error);
     }
 
     return () => {
-      leaveStreamAsync(sessionId).catch(() => {
-        /* Best-effort leave on component unmount */
-      });
+      leaveStreamAsync(sessionId).catch(console.error);
     };
   }, [sessionId, data?.joinToken, joinStreamAsync, leaveStreamAsync]);
 
-  const headerAction = (
-    <Button type="button" variant="secondary" onClick={handleBack}>
-      {t("actions.back")}
-    </Button>
-  );
+  // 2. Conditional Rendering
+  if (!sessionId) return null;
 
-  if (!sessionId) {
+  if (isPending || (!data && !isError)) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <PageHeader
-          title={t("errors.missingSessionTitle")}
-          description={t("errors.missingSessionDescription")}
-        />
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-950 text-white">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-500 border-t-transparent mb-4"></div>
+        <p className="text-slate-400 font-medium tracking-wide">Connecting to classroom...</p>
       </div>
     );
   }
 
-  // Loading state: Wait for both the API data and the SignalR connection
-  if ((isPending || !isHubConnected) && !data) {
+  if (isError) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <PageHeader
-          title={t("page.title")}
-          description={t("page.loadingDescription")}
-          action={headerAction}
-        />
-        <div className="flex items-center gap-3">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-600 border-t-transparent"></div>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-            {t("states.loading")}
-            </p>
+      <div className="flex h-screen items-center justify-center bg-slate-950 p-6">
+        <div className="max-w-md w-full rounded-3xl bg-slate-900 border border-white/10 p-10 text-center shadow-2xl">
+          <h2 className="text-2xl font-bold text-white mb-2">Oops!</h2>
+          <p className="text-slate-400 mb-8 text-sm">{error instanceof Error ? error.message : "Failed to load stream."}</p>
+          <Button fullWidth onClick={() => refetch()}>Try Again</Button>
         </div>
       </div>
     );
   }
 
-  if (isError || !data) {
-    return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <PageHeader
-          title={t("page.title")}
-          description={t("errors.loadFailedDescription")}
-          action={headerAction}
-        />
-        <p className="mb-4 text-sm text-red-600 dark:text-red-400" role="alert">
-          {error instanceof Error ? error.message : t("errors.generic")}
-        </p>
-        <Button type="button" onClick={() => void refetch()}>
-          {t("actions.retry")}
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950 lg:px-8">
-        <PageHeader
-          title={t("page.title")}
-          description={t("page.description")}
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={data.status} />
-              {headerAction}
-            </div>
-          }
-        />
-      </div>
+    <div className="flex h-screen flex-col overflow-hidden bg-black">
+      {/* 
+          Header Fix: 
+          1. added pr-64 (right padding) to ensure no overlap with global controls.
+          2. lowered z-index slightly so global controls stay clickable on top if needed.
+      */}
+      <header className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-slate-900/80 backdrop-blur-md z-20 pr-64">
+        <div className="flex items-center gap-4 min-w-0">
+          <button 
+            onClick={handleBack}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          
+          <div className="min-w-0 flex items-center gap-3">
+            <h1 className="text-sm font-bold text-white truncate sm:text-base">
+               {data.status === 'Live' ? "🔴 Session Live" : "Session Room"}
+            </h1>
+            <StatusBadge status={data.status} />
+          </div>
+        </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
-        <main className="flex min-h-0 flex-1 flex-col bg-slate-950 p-2 lg:p-4">
-          {token && serverUrl ? (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest">
+            <div className="w-1 h-1 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+            {participantCount} Present
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main Video Area */}
+        <main className="relative flex-1 bg-slate-950 overflow-hidden lk-video-container">
+          {data.joinToken && serverUrl ? (
             <LiveKitRoom
               serverUrl={serverUrl}
-              token={token}
+              token={data.joinToken}
               connect={true}
-              // Only trigger camera/mic hardware for the Teacher
               video={isTeacher}
               audio={isTeacher}
+              className="flex flex-col h-full w-full"
             >
-              <div className="flex h-[min(70vh,720px)] min-h-[240px] w-full flex-1 flex-col lg:h-auto lg:min-h-0">
-                <VideoConference />
-              </div>
+              {/* This component will now be styled correctly thanks to the @livekit/components-styles import */}
+              <VideoConference />
             </LiveKitRoom>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-slate-500">
-              <div className="text-center">
-                <div className="mb-4 h-8 w-8 animate-spin mx-auto rounded-full border-4 border-violet-600 border-t-transparent"></div>
-                <p>Initializing Secure Media Connection...</p>
-              </div>
+            <div className="flex h-full items-center justify-center text-slate-500 text-sm">
+               Securing media link...
             </div>
           )}
         </main>
+        
+        {/* Interaction Sidebar */}
         <InteractionSidebar />
       </div>
     </div>
