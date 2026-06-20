@@ -1,21 +1,26 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Domain.Entities;
-using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.Application.Services;
 
 public class SessionService : ISessionService
 {
     private readonly ISessionRepository _sessionRepository;
-    private readonly IEventBus _eventBus;
     private readonly IClassroomRepository _classroomRepository;
+    private readonly IStreamingInternalClient _streamingClient;
+    private readonly IUnitOfWork _unitOfWork;
 
-    public SessionService(ISessionRepository sessionRepository, IEventBus eventBus, IClassroomRepository classroomRepository)
+    public SessionService(
+        ISessionRepository sessionRepository,
+        IClassroomRepository classroomRepository,
+        IStreamingInternalClient streamingClient,
+        IUnitOfWork unitOfWork)
     {
         _sessionRepository = sessionRepository;
-        _eventBus = eventBus;
         _classroomRepository = classroomRepository;
+        _streamingClient = streamingClient;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default)
@@ -32,44 +37,55 @@ public class SessionService : ISessionService
             Title = request.Title,
             Description = request.Description,
             ScheduledAtUtc = request.ScheduledAtUtc,
-
-            // Backend-managed lifecycle fields
             CreatedAtUtc = DateTime.UtcNow,
-            Status = SessionStatus.Scheduled,
-            StartedAtUtc = null,
-            EndedAtUtc = null
+            Status = SessionStatus.Scheduled
         };
 
         await _sessionRepository.AddAsync(session, ct);
-        await _sessionRepository.SaveChangesAsync(ct);
-
+        await _unitOfWork.SaveChangesAsync(ct);
         return session;
     }
 
     public async Task StartSessionAsync(Guid sessionId, CancellationToken ct = default)
     {
-        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+        // Start Distributed boundary via Unit of Work
+        await _unitOfWork.BeginTransactionAsync(ct);
 
-        if (session == null) throw new KeyNotFoundException("Session not found.");
-        if (session.Status != SessionStatus.Scheduled)
-            throw new InvalidOperationException("Only scheduled sessions can be started.");
+        try
+        {
+            var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+            if (session == null) throw new KeyNotFoundException("Session not found.");
 
-        // Fetch classroom to get the TeacherId
-        var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId, ct);
-        if (classroom == null) throw new KeyNotFoundException("Associated classroom not found.");
+            if (session.Status != SessionStatus.Scheduled)
+                throw new InvalidOperationException("Only scheduled sessions can be started.");
 
-        // Update Lifecycle
-        session.Status = SessionStatus.Live;
-        session.StartedAtUtc = DateTime.UtcNow;
+            var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId, ct);
+            if (classroom == null) throw new KeyNotFoundException("Associated classroom not found.");
 
-        await _sessionRepository.UpdateAsync(session, ct);
+            // Local State Change
+            session.Status = SessionStatus.Live;
+            session.StartedAtUtc = DateTime.UtcNow;
+            await _sessionRepository.UpdateAsync(session, ct);
 
-        // Notify StreamingService with TeacherId
-        await _eventBus.PublishAsync(new SessionStartedMessage(
-            session.Id,
-            session.ClassroomId,
-            classroom.TeacherId), ct);
+            // Synchronous cross-service call
+            var success = await _streamingClient.CreateStreamAsync(
+                session.Id,
+                session.ClassroomId,
+                classroom.TeacherId,
+                ct);
 
-        await _sessionRepository.SaveChangesAsync(ct);
+            if (!success)
+            {
+                throw new Exception("Media server failed to initialize. Rolling back.");
+            }
+
+            // Commit local DB changes only if remote service succeeded
+            await _unitOfWork.CommitAsync(ct);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackAsync(ct);
+            throw;
+        }
     }
 }

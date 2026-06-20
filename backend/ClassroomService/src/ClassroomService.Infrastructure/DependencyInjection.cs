@@ -26,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();
 
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
+
         var s3Section = configuration.GetSection(S3Settings.SectionName);
         services.Configure<S3Settings>(s3Section);
         var s3Settings = s3Section.Get<S3Settings>();
