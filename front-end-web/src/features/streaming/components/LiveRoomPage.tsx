@@ -20,6 +20,7 @@ import {
 import { InteractionSidebar } from "./InteractionSidebar";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useStreamHub } from "../hooks/useStreamHub";
+import { Button } from "../../../components/ui/Button";
 
 const toLiveKitServerUrl = (host: string): string => {
   const trimmed = host.trim();
