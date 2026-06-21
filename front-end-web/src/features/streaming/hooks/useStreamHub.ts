@@ -17,8 +17,9 @@ export const useStreamHub = (sessionId: string | undefined) => {
   const accessToken = localStorage.getItem('accessToken');
 
   useEffect(() => {
-    // If no session or token, we can't connect, but we must stay in the hook
     if (!sessionId || !accessToken) return;
+
+    let isMounted = true;
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`/hubs/stream?access_token=${accessToken}`, {
@@ -30,45 +31,56 @@ export const useStreamHub = (sessionId: string | undefined) => {
 
     connectionRef.current = connection;
 
-    // SignalR Listeners
     connection.on('ReceiveChatMessage', (userId: string, userName: string, message: string) => {
-      setMessages((prev) => [...prev, { userId, userName, message, timestamp: new Date() }]);
+      if (isMounted) setMessages((prev) => [...prev, { userId, userName, message, timestamp: new Date() }]);
     });
 
     connection.on('UpdateParticipantCount', (count: number) => {
-      setParticipantCount(count);
+      if (isMounted) setParticipantCount(count);
     });
 
     const startConnection = async () => {
       try {
         if (connection.state === signalR.HubConnectionState.Disconnected) {
           await connection.start();
-          console.log('SignalR: Connected to StreamHub');
+          
+          if (!isMounted) {
+            await connection.stop();
+            return;
+          }
+
+          console.log(`[SignalR] Connected for session: ${sessionId}`);
           await connection.invoke('JoinStreamRoom', sessionId);
-          setIsConnected(true);
+          if (isMounted) setIsConnected(true);
         }
       } catch (err) {
-        console.error('SignalR Connection Error: ', err);
+        if (isMounted) console.error('[SignalR] Connection Error: ', err);
       }
     };
 
     startConnection();
 
     return () => {
-      if (connectionRef.current) {
-        connectionRef.current.stop().catch(() => {});
+      isMounted = false;
+      const conn = connectionRef.current;
+      if (conn) {
+        if (conn.state !== signalR.HubConnectionState.Disconnected) {
+          console.log(`[SignalR] Stopping connection for session: ${sessionId}`);
+          conn.stop().catch(() => {});
+        }
         connectionRef.current = null;
-        setIsConnected(false);
       }
+      setIsConnected(false);
     };
   }, [sessionId, accessToken]);
 
   const sendMessage = useCallback(async (msg: string) => {
-    if (connectionRef.current && connectionRef.current.state === signalR.HubConnectionState.Connected && sessionId) {
+    const conn = connectionRef.current;
+    if (conn && conn.state === signalR.HubConnectionState.Connected && sessionId) {
       try {
-        await connectionRef.current.invoke('SendChatMessage', sessionId, msg);
+        await conn.invoke('SendChatMessage', sessionId, msg);
       } catch (err) {
-        console.error('SignalR: Failed to send message', err);
+        console.error('[SignalR] Failed to send message', err);
       }
     }
   }, [sessionId]);

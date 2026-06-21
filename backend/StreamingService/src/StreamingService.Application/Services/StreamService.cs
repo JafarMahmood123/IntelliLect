@@ -50,12 +50,14 @@ public sealed class StreamService : IStreamService
 
     public async Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)
     {
+        // Include participants to get an accurate count
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
             throw new InvalidOperationException("Stream is not active.");
 
-        var isJoined = await _participantRepository.IsUserInStreamAsync(stream.Id, userId, ct);
-        if (!isJoined)
+        var isAlreadyJoined = stream.Participants.Any(p => p.UserId == userId);
+
+        if (!isAlreadyJoined)
         {
             await _participantRepository.AddAsync(new StreamParticipant
             {
@@ -66,10 +68,10 @@ public sealed class StreamService : IStreamService
             }, ct);
 
             await _participantRepository.SaveChangesAsync(ct);
-        }
 
-        // Notify all clients of the new count
-        await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + (isJoined ? 0 : 1));
+            // Increment count for the broadcast
+            await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + 1);
+        }
     }
 
     public async Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

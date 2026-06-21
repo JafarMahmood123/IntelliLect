@@ -1,3 +1,4 @@
+using ClassroomService.Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,7 +25,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
-            InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
+            ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
         };
 

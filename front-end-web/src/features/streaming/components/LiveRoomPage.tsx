@@ -7,7 +7,7 @@ import {
   useTracks
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -35,10 +35,7 @@ const toLiveKitServerUrl = (host: string): string => {
   }
 };
 
-/**
- * Custom Video Layout to replace the default VideoConference
- */
-const VideoLayout = () => {
+const VideoLayout = ({ isTeacher }: { isTeacher: boolean }) => {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -62,7 +59,7 @@ const VideoLayout = () => {
             chat: false, 
             settings: false,
             leave: true,
-            screenShare: true
+            screenShare: isTeacher 
           }} 
         />
       </div>
@@ -83,8 +80,10 @@ export const LiveRoomPage = () => {
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
   
-  const hasJoinedApiRef = useRef(false);
   const isTeacher = user?.roleName === "Teacher";
+  
+  // Track status to prevent double-calls
+  const statusRef = useRef({ joined: false, cleaningUp: false });
 
   const serverUrl = useMemo(
     () => (data?.liveKitHost ? toLiveKitServerUrl(data.liveKitHost) : ""),
@@ -92,15 +91,37 @@ export const LiveRoomPage = () => {
   );
 
   useEffect(() => {
-    if (!sessionId || !data?.joinToken) return;
-    if (!hasJoinedApiRef.current) {
-      hasJoinedApiRef.current = true;
-      joinStreamAsync(sessionId).catch(console.error);
-    }
-    return () => {
-      leaveStreamAsync(sessionId).catch(console.error);
+    // Only proceed if we have a token and haven't successfully joined yet
+    if (!sessionId || !data?.joinToken || statusRef.current.joined) return;
+
+    const performJoin = async () => {
+      console.log(`[LiveRoom] Attempting API Join for session: ${sessionId}`);
+      try {
+        statusRef.current.joined = true;
+        await joinStreamAsync(sessionId);
+      } catch (err) {
+        console.error("[LiveRoom] API Join Error:", err);
+        statusRef.current.joined = false;
+      }
     };
-  }, [sessionId, data?.joinToken, joinStreamAsync, leaveStreamAsync]);
+
+    performJoin();
+
+    return () => {
+      // Logic to ensure leave is only called if we were actually joined
+      if (statusRef.current.joined && !statusRef.current.cleaningUp) {
+        console.log(`[LiveRoom] Cleaning up session: ${sessionId}`);
+        statusRef.current.cleaningUp = true;
+        leaveStreamAsync(sessionId)
+          .catch(console.error)
+          .finally(() => {
+            statusRef.current.joined = false;
+            statusRef.current.cleaningUp = false;
+          });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, data?.joinToken]);
 
   if (!sessionId) return null;
 
@@ -156,11 +177,11 @@ export const LiveRoomPage = () => {
               onDisconnected={() => navigate(`/classrooms/${classroomId}`)}
               className="flex flex-col h-full w-full"
             >
-              <VideoLayout />
+              <VideoLayout isTeacher={isTeacher} />
             </LiveKitRoom>
           ) : (
             <div className="flex h-full items-center justify-center text-slate-500 text-sm">
-               Connecting...
+               Connecting to media server...
             </div>
           )}
         </main>

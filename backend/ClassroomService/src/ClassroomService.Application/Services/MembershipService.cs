@@ -1,6 +1,7 @@
 using AutoMapper;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Membership;
+using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
 
 namespace ClassroomService.Application.Services;
@@ -29,7 +30,7 @@ public sealed class MembershipService : IMembershipService
 
         var isEnrolled = await _membershipRepository.IsEnrolledAsync(classroomId, studentId, ct);
         if (isEnrolled)
-            throw new InvalidOperationException("Student is already enrolled in this classroom.");
+            throw new ConflictException("Student is already enrolled in this classroom.");
 
         var membership = new ClassroomMembership
         {

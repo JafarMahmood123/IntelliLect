@@ -1,5 +1,6 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
+using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
 
 namespace ClassroomService.Application.Services;
@@ -57,7 +58,7 @@ public class SessionService : ISessionService
             if (session == null) throw new KeyNotFoundException("Session not found.");
 
             if (session.Status != SessionStatus.Scheduled)
-                throw new InvalidOperationException("Only scheduled sessions can be started.");
+                throw new ConflictException("Only scheduled sessions can be started.");
 
             var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId, ct);
             if (classroom == null) throw new KeyNotFoundException("Associated classroom not found.");
