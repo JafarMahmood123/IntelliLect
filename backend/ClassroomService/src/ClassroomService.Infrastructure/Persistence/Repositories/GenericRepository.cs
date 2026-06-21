@@ -12,6 +12,23 @@ public class GenericRepository<T> : IRepository<T> where T : class
     public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct) =>
         await _context.Set<T>().FindAsync(new object[] { id }, ct);
 
+    public async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct)
+    {
+        var query = _context.Set<T>().AsNoTracking();
+
+        var totalCount = await query.CountAsync(ct);
+
+        // OFFSET = (PageNumber - 1) * PageSize
+        // Example: Page 2, Size 10 -> Skip(10).Take(10)
+        var items = await query
+            .OrderBy(x => x) // EF requires an order for Skip/Take
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
     public async Task AddAsync(T entity, CancellationToken ct) =>
         await _context.Set<T>().AddAsync(entity, ct);
 

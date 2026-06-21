@@ -16,6 +16,18 @@ public sealed class ClassroomsController : ApiBaseController
         _classroomService = classroomService;
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAll(
+         [FromQuery] int page = 1,
+         [FromQuery] int pageSize = 10,
+         CancellationToken ct = default)
+    {
+        // page must be at least 1
+        var validPage = page < 1 ? 1 : page;
+        var response = await _classroomService.GetAllAsync(validPage, pageSize, ct);
+        return Ok(response);
+    }
+
     [HttpPost]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> Create([FromBody] CreateClassroomRequest request, CancellationToken ct)

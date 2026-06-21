@@ -1,5 +1,6 @@
 using AutoMapper;
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Application.DTOs;
 using ClassroomService.Application.DTOs.Classroom;
 using ClassroomService.Domain.Entities;
 
@@ -14,6 +15,15 @@ public sealed class ClassroomManagementService : IClassroomManagementService
     {
         _classroomRepository = classroomRepository;
         _mapper = mapper;
+    }
+
+    public async Task<PagedResult<ClassroomResponse>> GetAllAsync(int page, int pageSize, CancellationToken ct)
+    {
+        var (classrooms, totalCount) = await _classroomRepository.GetPagedAsync(page, pageSize, ct);
+
+        var mappedItems = _mapper.Map<List<ClassroomResponse>>(classrooms);
+
+        return new PagedResult<ClassroomResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     public async Task<Guid> CreateAsync(Guid teacherId, CreateClassroomRequest request, CancellationToken ct)

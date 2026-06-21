@@ -71,3 +71,14 @@ export interface Session {
   startedAtUtc?: string;
   endedAtUtc?: string;
 }
+
+// Add this to your existing types
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}

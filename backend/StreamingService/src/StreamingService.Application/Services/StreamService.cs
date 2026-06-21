@@ -33,16 +33,8 @@ public sealed class StreamService : IStreamService
 
     public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, CancellationToken ct)
     {
-        _logger.LogInformation(
-            "Fetching stream for SessionId: {SessionId}, UserId: {UserId}, Role: {Role}",
-            sessionId, userId, role);
-
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
-        if (stream == null)
-        {
-            _logger.LogWarning("Stream not found for SessionId: {SessionId}", sessionId);
-            throw new KeyNotFoundException("Stream not found.");
-        }
+        if (stream == null) throw new KeyNotFoundException("Stream not found.");
 
         var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, role);
 
@@ -60,12 +52,7 @@ public sealed class StreamService : IStreamService
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null || stream.Status != StreamStatus.Live)
-        {
-            _logger.LogWarning(
-                "Join rejected: stream inactive or missing for SessionId: {SessionId}, UserId: {UserId}",
-                sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
-        }
 
         var isJoined = await _participantRepository.IsUserInStreamAsync(stream.Id, userId, ct);
         if (!isJoined)
@@ -79,68 +66,37 @@ public sealed class StreamService : IStreamService
             }, ct);
 
             await _participantRepository.SaveChangesAsync(ct);
-
-            _logger.LogInformation(
-                "User {UserId} joined stream for SessionId: {SessionId}",
-                userId, sessionId);
         }
-        else
+
+        // Notify all clients of the new count
+        await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + (isJoined ? 0 : 1));
+    }
+
+    public async Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)
+    {
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
+        if (stream == null) return;
+
+        var participant = await _participantRepository.GetBySessionAndUserAsync(sessionId, userId, ct);
+        if (participant != null)
         {
-            _logger.LogInformation(
-                "User {UserId} already in stream for SessionId: {SessionId}",
-                userId, sessionId);
-        }
+            await _participantRepository.DeleteAsync(participant.Id, ct);
+            await _participantRepository.SaveChangesAsync(ct);
 
-        await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + 1);
+            // Notify all clients that count decreased
+            await _hubContext.NotifyParticipantCountAsync(sessionId, Math.Max(0, stream.Participants.Count - 1));
+        }
     }
 
     public async Task ToggleHandRaiseAsync(Guid sessionId, Guid userId, bool isRaised, CancellationToken ct)
     {
         var participant = await _participantRepository.GetBySessionAndUserAsync(sessionId, userId, ct);
-        if (participant == null)
-        {
-            _logger.LogWarning(
-                "Hand raise toggle failed: user not a participant. SessionId: {SessionId}, UserId: {UserId}",
-                sessionId, userId);
-            throw new InvalidOperationException("Not a participant.");
-        }
+        if (participant == null) throw new InvalidOperationException("Not a participant.");
 
         participant.IsHandRaised = isRaised;
         await _participantRepository.UpdateAsync(participant, ct);
         await _participantRepository.SaveChangesAsync(ct);
 
-        _logger.LogInformation(
-            "Hand raise toggled for SessionId: {SessionId}, UserId: {UserId}, IsRaised: {IsRaised}",
-            sessionId, userId, isRaised);
-
         await _hubContext.NotifyHandRaisedAsync(sessionId, userId, isRaised);
-    }
-
-    public async Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)
-    {
-        var participant = await _participantRepository.GetBySessionAndUserAsync(sessionId, userId, ct);
-        if (participant != null)
-        {
-            try
-            {
-                await _participantRepository.DeleteAsync(participant.Id, ct);
-                await _participantRepository.SaveChangesAsync(ct);
-
-                _logger.LogInformation(
-                    "User {UserId} left stream for SessionId: {SessionId}",
-                    userId, sessionId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Concurrency exception while leaving stream. Participant already removed.");
-                _logger.LogDebug(ex, "Concurrency exception details for ParticipantId: {ParticipantId}", participant.Id);
-            }
-        }
-        else
-        {
-            _logger.LogDebug(
-                "Leave called but user was not a participant. SessionId: {SessionId}, UserId: {UserId}",
-                sessionId, userId);
-        }
     }
 }

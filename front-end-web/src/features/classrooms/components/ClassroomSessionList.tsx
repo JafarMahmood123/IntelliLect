@@ -23,10 +23,7 @@ export const ClassroomSessionList = ({
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  // Fetch sessions for the specific classroom
   const { data: sessions = [], isLoading } = useClassroomSessions(classroomId);
-
-  // Mutation to transition session status from Scheduled to Live
   const startSessionMutation = useStartSession(classroomId);
 
   const handleStartSession = async (sessionId: string) => {
@@ -37,21 +34,17 @@ export const ClassroomSessionList = ({
         title: "Session Started",
         message: "The live stream is now active.",
       });
-      // Navigate to the live streaming interface
       navigate(`/classrooms/${classroomId}/live/${sessionId}`);
     } catch (error) {
       showToast({
         type: "error",
         title: "Launch Failed",
-        message: "Could not start the session. Please try again.",
+        message: "Could not start the session.",
       });
     }
   };
 
-  if (isLoading)
-    return (
-      <div className="p-8 text-center animate-pulse">Loading sessions...</div>
-    );
+  if (isLoading) return <div className="p-8 text-center animate-pulse">Loading sessions...</div>;
 
   return (
     <div className="space-y-6">
@@ -67,29 +60,30 @@ export const ClassroomSessionList = ({
       {sessions.length === 0 ? (
         <div className="py-12 text-center">
           <Calendar className="mx-auto mb-4 text-slate-300" size={48} />
-          <p className="text-slate-500">No sessions scheduled yet.</p>
+          <p className="text-slate-500 text-sm italic">No learning sessions found for this classroom.</p>
         </div>
       ) : (
         <div className="grid gap-4">
           {sessions.map((session) => {
-            // Fix: Handle both string and numeric statuses from backend enums
-            // Backend: 0 = Scheduled, 1 = Live, 2 = Ended
-            const isScheduled =
-              session.status === "Scheduled" || session.status === 0;
+            const isScheduled = session.status === "Scheduled" || session.status === 0;
             const isLive = session.status === "Live" || session.status === 1;
 
             return (
               <div
                 key={session.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-900/50 transition-all hover:bg-slate-100/50 dark:hover:bg-slate-800/80"
+                className={`flex items-center justify-between rounded-2xl border p-5 transition-all ${
+                    isLive 
+                    ? "border-red-500/20 bg-red-500/5 shadow-lg shadow-red-500/5" 
+                    : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50"
+                }`}
               >
                 <div className="flex items-start gap-4">
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
                       isLive
-                        ? "bg-red-100 text-red-600 animate-pulse"
-                        : "bg-indigo-100 text-indigo-600"
-                    } dark:bg-opacity-20`}
+                        ? "bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse"
+                        : "bg-slate-100 text-slate-400 dark:bg-slate-800"
+                    }`}
                   >
                     <Video size={24} />
                   </div>
@@ -100,44 +94,37 @@ export const ClassroomSessionList = ({
                       </h4>
                       <StatusBadge status={session.status} />
                     </div>
-                    <p className="text-sm text-slate-500 line-clamp-1">
-                      {session.description}
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                      {session.description || "No description provided."}
                     </p>
-                    <div className="mt-2 flex items-center gap-3 text-xs font-medium text-slate-600 dark:text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Clock size={14} />
-                        {new Date(session.scheduledAtUtc).toLocaleString()}
+                    <div className="mt-2 flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="flex items-center gap-1.5">
+                        <Clock size={12} />
+                        {new Date(session.scheduledAtUtc).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Teacher-only control to start a scheduled session */}
+                <div className="flex items-center gap-3">
                   {isTeacher && isScheduled && (
                     <Button
                       variant="primary"
                       onClick={() => handleStartSession(session.id)}
-                      isLoading={
-                        startSessionMutation.isPending &&
-                        startSessionMutation.variables === session.id
-                      }
+                      isLoading={startSessionMutation.isPending && startSessionMutation.variables === session.id}
                     >
                       <PlayCircle size={18} />
-                      Start Now
+                      Start Session
                     </Button>
                   )}
 
-                  {/* Join button: Only interactive if the session is currently Live */}
                   <Button
-                    variant={isLive ? "primary" : "secondary"}
+                    variant={isLive ? "danger" : "secondary"}
                     disabled={!isLive}
-                    onClick={() =>
-                      navigate(`/classrooms/${classroomId}/live/${session.id}`)
-                    }
-                    className="px-6"
+                    onClick={() => navigate(`/classrooms/${classroomId}/live/${session.id}`)}
+                    className={`px-8 ${isLive ? 'animate-bounce shadow-lg shadow-red-500/20' : ''}`}
                   >
-                    {isLive ? "Join Now" : "Join"}
+                    {isLive ? "Join Now" : "Locked"}
                   </Button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, LearningSession, Session } from '../types';
+import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, LearningSession, Session, PagedResult } from '../types';
 
 export const getTeacherClassrooms = async (): Promise<Classroom[]> => {
   const response = await apiClient.get<Classroom[]>('/classrooms/teacher');
@@ -60,8 +60,11 @@ export const createSession = async (classroomId: string, request: CreateSessionR
   return data;
 };
 
-export const getAllClassrooms = async (): Promise<Classroom[]> => {
-  const response = await apiClient.get<Classroom[]>('/classrooms'); 
+// UPDATED: Now accepts pagination parameters
+export const getAllClassrooms = async (page = 1, pageSize = 12): Promise<PagedResult<Classroom>> => {
+  const response = await apiClient.get<PagedResult<Classroom>>('/classrooms', {
+    params: { page, pageSize }
+  }); 
   return response.data;
 };
 
