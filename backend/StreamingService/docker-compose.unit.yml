@@ -31,11 +31,13 @@ services:
       - LIVEKIT_NODE_IP=192.168.1.104
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      - LiveKit__Host=ws://localhost:7880
+      - LiveKit__Host=ws://192.168.1.104:7880
+      - LOG_LEVEL=info,pion:warn,transport:warn
     ports:
-      - "7880:7880" # HTTP/Signal
-      - "7881:7881" # WebRTC over TCP
-      - "7882:7882/udp" # WebRTC over UDP (CRITICAL)
+      - "7880:7880" # HTTP Signal
+      - "7881:7881" # WebRTC TCP
+      - "7882:7882/udp" # WebRTC UDP
+      - "50000-50050:50000-50050/udp" # Reduced range (only 50 ports) to avoid clashes
     networks:
       - intellilect-net
 
@@ -56,7 +58,7 @@ services:
       - Jwt__Audience=IntelliLect
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      - LiveKit__Host=ws://localhost:7880
+      - LiveKit__Host=ws://192.168.1.104:7880
     depends_on:
       streaming-db:
         condition: service_healthy

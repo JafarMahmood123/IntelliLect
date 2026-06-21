@@ -30,7 +30,7 @@ public sealed class JwtProvider : IJwtProvider
         _audience = audience ?? string.Empty;
     }
 
-    public string GenerateAccessToken(Guid userId, string roleName)
+    public string GenerateAccessToken(Guid userId, string roleName, string userName)
     {
         var signingKey = new SymmetricSecurityKey(_signingKey);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -38,7 +38,8 @@ public sealed class JwtProvider : IJwtProvider
         var claims = new[]
         {
         new Claim("uid", userId.ToString()),
-        new Claim(ClaimTypes.Role, roleName)
+        new Claim(ClaimTypes.Role, roleName),
+        new Claim(ClaimTypes.Name, userName)
     };
 
         var token = new JwtSecurityToken(

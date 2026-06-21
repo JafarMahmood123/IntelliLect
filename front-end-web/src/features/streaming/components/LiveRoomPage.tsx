@@ -8,7 +8,6 @@ import {
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { useEffect, useMemo, useRef } from "react";
-import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { Users } from "lucide-react";
@@ -18,24 +17,16 @@ import {
   useStreamDetails,
 } from "../hooks/useStreamingQueries";
 import { InteractionSidebar } from "./InteractionSidebar";
-import { useAuthStore } from "../../../store/useAuthStore";
 import { useStreamHub } from "../hooks/useStreamHub";
 import { Button } from "../../../components/ui/Button";
 
 const toLiveKitServerUrl = (host: string): string => {
   const trimmed = host.trim();
   if (trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) return trimmed;
-  try {
-    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const url = new URL(withProtocol);
-    const protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${url.host}${url.pathname.replace(/\/$/, "")}${url.search}`;
-  } catch {
-    return trimmed;
-  }
+  return `ws://${trimmed}`;
 };
 
-const VideoLayout = ({ isTeacher }: { isTeacher: boolean }) => {
+const VideoLayout = () => {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -51,28 +42,16 @@ const VideoLayout = ({ isTeacher }: { isTeacher: boolean }) => {
           <ParticipantTile />
         </GridLayout>
       </div>
-
       <div className="h-20 bg-slate-950 border-t border-white/5 flex items-center justify-center">
-        <ControlBar 
-          variation="minimal" 
-          controls={{ 
-            chat: false, 
-            settings: false,
-            leave: true,
-            screenShare: isTeacher 
-          }} 
-        />
+        <ControlBar variation="minimal" controls={{ chat: false, settings: false, leave: true, screenShare: true }} />
       </div>
-
       <RoomAudioRenderer />
     </div>
   );
 };
 
 export const LiveRoomPage = () => {
-  const { t } = useTranslation("streaming");
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const { classroomId, sessionId = "" } = useParams<{ classroomId: string; sessionId: string }>();
 
   const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
@@ -80,10 +59,8 @@ export const LiveRoomPage = () => {
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
   
-  const isTeacher = user?.roleName === "Teacher";
-  
-  // Track status to prevent double-calls
-  const statusRef = useRef({ joined: false, cleaningUp: false });
+  // Use a ref to prevent double-joining/leaving in React StrictMode
+  const hasJoinedApi = useRef(false);
 
   const serverUrl = useMemo(
     () => (data?.liveKitHost ? toLiveKitServerUrl(data.liveKitHost) : ""),
@@ -91,56 +68,36 @@ export const LiveRoomPage = () => {
   );
 
   useEffect(() => {
-    // Only proceed if we have a token and haven't successfully joined yet
-    if (!sessionId || !data?.joinToken || statusRef.current.joined) return;
+    if (!sessionId || !data?.joinToken || hasJoinedApi.current) return;
 
     const performJoin = async () => {
-      console.log(`[LiveRoom] Attempting API Join for session: ${sessionId}`);
       try {
-        statusRef.current.joined = true;
+        hasJoinedApi.current = true;
+        console.log(`[LiveRoom] API Join: ${sessionId}`);
         await joinStreamAsync(sessionId);
       } catch (err) {
         console.error("[LiveRoom] API Join Error:", err);
-        statusRef.current.joined = false;
       }
     };
 
     performJoin();
 
     return () => {
-      // Logic to ensure leave is only called if we were actually joined
-      if (statusRef.current.joined && !statusRef.current.cleaningUp) {
-        console.log(`[LiveRoom] Cleaning up session: ${sessionId}`);
-        statusRef.current.cleaningUp = true;
-        leaveStreamAsync(sessionId)
-          .catch(console.error)
-          .finally(() => {
-            statusRef.current.joined = false;
-            statusRef.current.cleaningUp = false;
-          });
-      }
+        // Only call leave when component actually unmounts
+        console.log(`[LiveRoom] API Leave: ${sessionId}`);
+        leaveStreamAsync(sessionId).catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, data?.joinToken]);
+  }, [sessionId, data?.joinToken, joinStreamAsync, leaveStreamAsync]);
 
-  if (!sessionId) return null;
-
-  if (isPending || (!data && !isError)) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-slate-950 text-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-500 border-t-transparent mb-4"></div>
-        <p className="text-slate-400 font-medium">Entering Live Classroom...</p>
-      </div>
-    );
+  if (isPending) {
+    return <div className="flex h-screen items-center justify-center bg-black text-white">Loading Session...</div>;
   }
 
   if (isError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 p-6">
-        <div className="max-w-md w-full rounded-2xl bg-slate-900 border border-white/10 p-10 text-center shadow-2xl">
-          <p className="text-slate-400 mb-8 text-sm">{error instanceof Error ? error.message : "Failed to load stream."}</p>
-          <Button fullWidth onClick={() => refetch()}>Try Again</Button>
-        </div>
+      <div className="flex h-screen flex-col items-center justify-center bg-black text-white p-4">
+        <p className="mb-4 text-red-400">{error instanceof Error ? error.message : "Stream error"}</p>
+        <Button onClick={() => refetch()}>Retry</Button>
       </div>
     );
   }
@@ -148,44 +105,34 @@ export const LiveRoomPage = () => {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-black">
       <header className="h-16 flex items-center justify-between px-4 border-b border-white/10 bg-slate-950 z-30 lg:px-6 pr-72">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="min-w-0 flex items-center gap-3">
-            <h1 className="text-sm font-bold text-white truncate">
-               {isTeacher ? "Teacher Mode" : "Student Mode"} | {data.status === 'Live' ? "🔴 Session Live" : "Session Room"}
-            </h1>
-            <StatusBadge status={data.status} />
-          </div>
-        </div>
-
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest">
-            <Users size={12} className="text-violet-400" />
-            {participantCount} Online
-          </div>
+          <h1 className="text-sm font-bold text-white">Live Classroom</h1>
+          <StatusBadge status={data?.status || "Live"} />
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-white text-[10px] font-bold">
+          <Users size={12} className="text-violet-400" />
+          {participantCount} Online
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="relative flex-1 bg-slate-950 overflow-hidden">
-          {data.joinToken && serverUrl ? (
+        <main className="relative flex-1 bg-slate-950">
+          {data?.joinToken && serverUrl ? (
             <LiveKitRoom
               serverUrl={serverUrl}
               token={data.joinToken}
               connect={true}
-              video={isTeacher}
-              audio={isTeacher}
+              video={true} // Same for everyone
+              audio={true} // Same for everyone
               onDisconnected={() => navigate(`/classrooms/${classroomId}`)}
               className="flex flex-col h-full w-full"
             >
-              <VideoLayout isTeacher={isTeacher} />
+              <VideoLayout />
             </LiveKitRoom>
           ) : (
-            <div className="flex h-full items-center justify-center text-slate-500 text-sm">
-               Connecting to media server...
-            </div>
+            <div className="flex h-full items-center justify-center text-slate-500">Connecting...</div>
           )}
         </main>
-        
         <InteractionSidebar />
       </div>
     </div>

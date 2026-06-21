@@ -102,7 +102,7 @@ public sealed class AuthService : IAuthService
 
         // 4. Generate Tokens
         // We pass the Role Name (string) as well if your JwtProvider supports it
-        var accessToken = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
+        var accessToken = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString(), user.UserName);
         var refreshToken = _jwtProvider.GenerateRefreshToken();
 
         // 5. Store Refresh Token
@@ -135,7 +135,7 @@ public sealed class AuthService : IAuthService
         // Revoke the old token (Token Rotation)
         tokenRecord.Revoke();
 
-        var newAccess = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString());
+        var newAccess = _jwtProvider.GenerateAccessToken(user.Id, user.Role.Name.ToString(), user.UserName);
         var newRefresh = _jwtProvider.GenerateRefreshToken();
 
         await _refreshTokenRepository.AddAsync(new RefreshToken()
