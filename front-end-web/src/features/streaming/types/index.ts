@@ -6,4 +6,5 @@ export type StreamResponse = {
   startedAtUtc: string | null;
   joinToken: string;
   liveKitHost: string;
+  participationMode: number; // Added
 };

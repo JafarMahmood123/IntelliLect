@@ -18,13 +18,11 @@ public sealed class LiveKitMediaProvider : IMediaProvider
         _logger = logger;
     }
 
-    public string GenerateJoinToken(Guid sessionId, Guid userId, string roleName)
+    public string GenerateJoinToken(Guid sessionId, Guid userId, bool canPublish)
     {
-        bool isTeacher = roleName.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
-
         _logger.LogDebug(
-            "Generating LiveKit join token. SessionId: {SessionId}, UserId: {UserId}, Role: {Role}, CanPublish: {CanPublish}",
-            sessionId, userId, roleName, isTeacher);
+            "Generating LiveKit join token. SessionId: {SessionId}, UserId: {UserId}, CanPublish: {CanPublish}",
+            sessionId, userId, canPublish);
 
         var token = new AccessToken(_settings.ApiKey, _settings.ApiSecret)
             .WithIdentity(userId.ToString())
@@ -34,7 +32,7 @@ public sealed class LiveKitMediaProvider : IMediaProvider
         {
             Room = sessionId.ToString(),
             RoomJoin = true,
-            CanPublish = isTeacher,
+            CanPublish = canPublish,
             CanSubscribe = true,
             CanPublishData = true
         };

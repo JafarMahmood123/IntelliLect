@@ -30,22 +30,18 @@ export interface LearningSession {
   id: string;
   title: string;
   description: string;
-  status: 'Scheduled' | 'Live' | 'Completed' | 'Cancelled';
+  status: "Scheduled" | "Live" | "Completed" | "Cancelled";
   scheduledAtUtc: string;
   startedAtUtc?: string;
   classroomId: string;
+  participationMode: number; // Added
 }
 
 export interface CreateSessionRequest {
   title: string;
   description: string;
   scheduledAtUtc: string;
-}
-
-export interface CreateSessionRequest {
-  title: string;
-  description: string;
-  scheduledAtUtc: string; 
+  participationMode: number; // Added
 }
 
 export interface MemberResponse {
@@ -58,8 +54,7 @@ export interface EnrollmentResponse {
   message: string;
 }
 
-export type SessionStatus = 'Scheduled' | 'Live' | 'Ended' | 0 | 1 | 2;
-
+export type SessionStatus = "Scheduled" | "Live" | "Ended" | 0 | 1 | 2;
 
 export interface Session {
   id: string;
@@ -70,9 +65,9 @@ export interface Session {
   status: SessionStatus;
   startedAtUtc?: string;
   endedAtUtc?: string;
+  participationMode: number; // Added
 }
 
-// Add this to your existing types
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

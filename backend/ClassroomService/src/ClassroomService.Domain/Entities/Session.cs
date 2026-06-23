@@ -1,3 +1,5 @@
+using ClassroomService.Domain.Enums;
+
 namespace ClassroomService.Domain.Entities;
 
 public class Session
@@ -10,6 +12,8 @@ public class Session
     public DateTime ScheduledAtUtc { get; set; }
     public DateTime? StartedAtUtc { get; set; }
     public DateTime? EndedAtUtc { get; set; }
+    public StudentParticipationMode ParticipationMode { get; set; } = StudentParticipationMode.ViewOnly;
+
 
     public SessionStatus Status { get; set; } = SessionStatus.Scheduled;
 }

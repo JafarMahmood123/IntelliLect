@@ -1,6 +1,6 @@
 import { useState, type SetStateAction } from "react";
 import { useForm } from "react-hook-form";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ShieldCheck } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -14,6 +14,12 @@ interface CreateSessionDrawerProps {
   classroomId: string;
 }
 
+interface CreateSessionForm {
+  title: string;
+  description: string;
+  participationMode: number;
+}
+
 export const CreateSessionDrawer = ({
   isOpen,
   onClose,
@@ -22,16 +28,19 @@ export const CreateSessionDrawer = ({
   const { showToast } = useToast();
   const createSessionMutation = useCreateSession(classroomId);
 
-  // Single state for both Date and Time
   const [startDate, setStartDate] = useState<Date | null>(new Date());
 
   const {
     register,
     handleSubmit,
     reset,
-  } = useForm<{ title: string; description: string }>();
+  } = useForm<CreateSessionForm>({
+    defaultValues: {
+      participationMode: 0
+    }
+  });
 
-  const onSubmit = async (data: { title: string; description: string }) => {
+  const onSubmit = async (data: CreateSessionForm) => {
     if (!startDate) return;
 
     try {
@@ -39,12 +48,13 @@ export const CreateSessionDrawer = ({
         title: data.title,
         description: data.description,
         scheduledAtUtc: startDate.toISOString(),
+        participationMode: Number(data.participationMode), // Ensure it's a number
       });
 
       showToast({
         type: "success",
         title: "Success",
-        message: "Session scheduled!",
+        message: "Session scheduled successfully!",
       });
       reset();
       onClose();
@@ -52,7 +62,7 @@ export const CreateSessionDrawer = ({
       showToast({
         type: "error",
         title: "Error",
-        message: "Failed to schedule.",
+        message: "Failed to schedule the session.",
       });
     }
   };
@@ -89,6 +99,25 @@ export const CreateSessionDrawer = ({
             />
           </div>
 
+          {/* Participation Mode */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <ShieldCheck size={16} className="text-violet-500" />
+              Student Participation
+            </label>
+            <select
+              {...register("participationMode", { valueAsNumber: true })}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white appearance-none"
+            >
+              <option value={0}>View Only (Students cannot share)</option>
+              <option value={1}>Voice Only (Students can speak)</option>
+              <option value={2}>Voice & Video (Full participation)</option>
+            </select>
+            <p className="text-[11px] text-slate-500 px-1">
+              This controls which devices students can activate during the live stream.
+            </p>
+          </div>
+
           {/* Integrated Date & Time Picker */}
           <div className="space-y-1.5">
             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -110,7 +139,7 @@ export const CreateSessionDrawer = ({
                 dateFormat="MMMM d, yyyy h:mm aa"
                 minDate={new Date()}
                 calendarClassName="dark-datepicker"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 pl-11 pr-4 text-slate-100 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 py-2.5 pl-11 pr-4 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
                 placeholderText="Select date and time"
               />
             </div>

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace ClassroomService.Infrastructure.Services;
@@ -15,11 +16,11 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
         _logger = logger;
     }
 
-    public async Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, CancellationToken ct)
+    public async Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, CancellationToken ct)
     {
         try
         {
-            var request = new { SessionId = sessionId, ClassroomId = classroomId, TeacherId = teacherId };
+            var request = new { SessionId = sessionId, ClassroomId = classroomId, TeacherId = teacherId, ParticipationMode = participationMode };
             var response = await _httpClient.PostAsJsonAsync("http://streaming-service:8080/api/internal/streams", request, ct);
 
             return response.IsSuccessStatusCode;

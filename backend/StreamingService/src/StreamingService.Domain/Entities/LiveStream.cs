@@ -1,3 +1,5 @@
+using StreamingService.Domain.Enums;
+
 namespace StreamingService.Domain.Entities;
 
 public sealed class LiveStream
@@ -10,6 +12,8 @@ public sealed class LiveStream
     public StreamStatus Status { get; set; } = StreamStatus.Planned;
     public DateTime? StartedAtUtc { get; set; }
     public DateTime? EndedAtUtc { get; set; }
+    public StudentParticipationMode ParticipationMode { get; set; }
+
 
     // Navigation
     public ICollection<StreamParticipant> Participants { get; set; } = new List<StreamParticipant>();

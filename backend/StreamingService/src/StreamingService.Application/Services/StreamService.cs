@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using StreamingService.Application.Abstractions;
 using StreamingService.Application.DTOs;
 using StreamingService.Domain.Entities;
+using StreamingService.Domain.Enums;
 
 namespace StreamingService.Application.Services;
 
@@ -36,7 +37,10 @@ public sealed class StreamService : IStreamService
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null) throw new KeyNotFoundException("Stream not found.");
 
-        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, role);
+        bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
+        bool canPublish = isTeacher || stream.ParticipationMode != StudentParticipationMode.ViewOnly;
+
+        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, canPublish);
 
         return new StreamResponse(
             stream.Id,
@@ -45,7 +49,8 @@ public sealed class StreamService : IStreamService
             stream.Participants.Count,
             stream.StartedAtUtc,
             joinToken,
-            _settings.LiveKitHost);
+            _settings.LiveKitHost,
+            (int)stream.ParticipationMode);
     }
 
     public async Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

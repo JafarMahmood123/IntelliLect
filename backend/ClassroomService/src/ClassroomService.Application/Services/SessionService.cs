@@ -39,7 +39,8 @@ public class SessionService : ISessionService
             Description = request.Description,
             ScheduledAtUtc = request.ScheduledAtUtc,
             CreatedAtUtc = DateTime.UtcNow,
-            Status = SessionStatus.Scheduled
+            Status = SessionStatus.Scheduled,
+            ParticipationMode = request.ParticipationMode
         };
 
         await _sessionRepository.AddAsync(session, ct);
@@ -73,6 +74,7 @@ public class SessionService : ISessionService
                 session.Id,
                 session.ClassroomId,
                 classroom.TeacherId,
+                session.ParticipationMode,
                 ct);
 
             if (!success)

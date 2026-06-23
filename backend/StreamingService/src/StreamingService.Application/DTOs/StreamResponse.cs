@@ -7,4 +7,5 @@ public record StreamResponse(
     int ParticipantCount,
     DateTime? StartedAtUtc,
     string JoinToken,
-    string LiveKitHost);
+    string LiveKitHost,
+    int ParticipationMode);

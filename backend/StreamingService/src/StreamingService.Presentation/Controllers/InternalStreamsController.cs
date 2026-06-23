@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Domain.Enums;
 
 namespace StreamingService.Presentation.Controllers;
 
@@ -29,6 +30,7 @@ public sealed class InternalStreamsController : ControllerBase
             TeacherId = request.TeacherId,
             Status = StreamStatus.Live,
             StartedAtUtc = DateTime.UtcNow,
+            ParticipationMode = request.ParticipationMode,
             StreamKey = Guid.NewGuid().ToString("N")
         };
 
@@ -39,4 +41,4 @@ public sealed class InternalStreamsController : ControllerBase
     }
 }
 
-public record InitializeStreamRequest(Guid SessionId, Guid ClassroomId, Guid TeacherId);
+public record InitializeStreamRequest(Guid SessionId, Guid ClassroomId, Guid TeacherId, StudentParticipationMode ParticipationMode);

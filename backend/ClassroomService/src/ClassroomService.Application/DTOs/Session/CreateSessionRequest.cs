@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ClassroomService.Domain.Enums;
 
 namespace ClassroomService.Application.DTOs.Session;
 
@@ -12,4 +13,6 @@ public class CreateSessionRequest
 
     [Required]
     public DateTime ScheduledAtUtc { get; set; }
+    public StudentParticipationMode ParticipationMode { get; set; }
+
 }
