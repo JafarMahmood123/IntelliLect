@@ -1,7 +1,6 @@
 logging:
   level: info
 
-
 port: 7880
 bind_addresses:
   - ""
@@ -9,7 +8,17 @@ rtc:
   tcp_port: 7881
   port_range_start: 50000
   port_range_end: 50050
-  use_external_ip: true 
+  use_external_ip: true
   enable_loopback_candidate: true
+
+egress:
+  s3:
+    access_key: "testuser"
+    secret_key: "testpassword123!"
+    region: "us-east-1"
+    endpoint: "http://intellilect-s3:9000"
+    bucket: "intellilect-files"
+    force_path_style: true
+
 keys:
   devkey: super_secret_livekit_key_for_development

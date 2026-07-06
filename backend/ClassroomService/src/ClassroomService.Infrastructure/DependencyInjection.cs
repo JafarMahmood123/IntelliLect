@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IClassroomManagementService, ClassroomManagementService>();
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();
+        services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
@@ -111,6 +112,8 @@ public static class DependencyInjection
                     });
                     cfg.ConfigureEndpoints(context);
                 });
+
+            x.AddConsumer<SessionRecordingReadyConsumer>();
         });
 
         return services;

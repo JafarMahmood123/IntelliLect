@@ -10,10 +10,12 @@ namespace ClassroomService.Presentation.Controllers;
 public sealed class ClassroomsController : ApiBaseController
 {
     private readonly IClassroomManagementService _classroomService;
+    private readonly IClassroomRecordingService _recordingService;
 
-    public ClassroomsController(IClassroomManagementService classroomService)
+    public ClassroomsController(IClassroomManagementService classroomService, IClassroomRecordingService recordingService)
     {
         _classroomService = classroomService;
+        _recordingService = recordingService;
     }
 
     [HttpGet]
@@ -73,5 +75,16 @@ public sealed class ClassroomsController : ApiBaseController
     {
         await _classroomService.DeleteAsync(id, UserId, ct);
         return NoContent();
+    }
+
+    [HttpGet("{id:guid}/recordings")]
+    public async Task<IActionResult> GetRecordings(
+    Guid id,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10,
+    CancellationToken ct = default)
+    {
+        var result = await _recordingService.GetClassroomRecordingsAsync(id, page, pageSize, ct);
+        return Ok(result);
     }
 }

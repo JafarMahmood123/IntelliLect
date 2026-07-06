@@ -12,6 +12,8 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<ClassroomFile> ClassroomFiles => Set<ClassroomFile>();
     public DbSet<ClassroomMembership> ClassroomMemberships => Set<ClassroomMembership>();
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

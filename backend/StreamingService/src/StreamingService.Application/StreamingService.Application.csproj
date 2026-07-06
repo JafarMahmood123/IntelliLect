@@ -7,8 +7,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageReference Include="AutoMapper" Version="13.0.1" />
-    <PackageReference Include="IntelliLect.Contracts" Version="1.1.0" />
     <PackageReference Include="MassTransit.Abstractions" Version="8.1.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\IntelliLect.Contracts\Messages\**\*.cs" LinkBase="Contracts\Messages" />
   </ItemGroup>
 
   <ItemGroup>

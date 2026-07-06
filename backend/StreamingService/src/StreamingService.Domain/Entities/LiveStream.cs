@@ -5,6 +5,7 @@ namespace StreamingService.Domain.Entities;
 public sealed class LiveStream
 {
     public Guid Id { get; set; }
+    public string? EgressId { get; set; }
     public Guid SessionId { get; set; }
     public Guid ClassroomId { get; set; }
     public Guid TeacherId { get; set; }
