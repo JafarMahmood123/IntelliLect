@@ -1,0 +1,43 @@
+services:
+  knowledge-db:
+    image: pgvector/pgvector:pg16
+    container_name: knowledge-db
+    environment:
+      POSTGRES_DB: knowledgedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Jafar123!
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d knowledgedb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - knowledge_db_data:/var/lib/postgresql/data
+    networks:
+      - intellilect-net
+
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: knowledge-service
+    env_file:
+      # Optional: copy .env.example to .env to supply GEMINI_API_KEY and
+      # INTERNAL_API_SECRET. The stack still starts without it (DATABASE_URL is
+      # set below), but the ingest endpoint needs INTERNAL_API_SECRET.
+      - path: .env
+        required: false
+    environment:
+      # Overrides the .env host so the container reaches the compose DB service.
+      - DATABASE_URL=postgresql+asyncpg://postgres:Jafar123!@knowledge-db:5432/knowledgedb
+    ports:
+      - "8083:8080"
+    depends_on:
+      knowledge-db:
+        condition: service_healthy
+    networks:
+      - intellilect-net
+
+volumes:
+  knowledge_db_data:
