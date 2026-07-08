@@ -4,11 +4,15 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["LocalPackages/", "LocalPackages/"]
 
+COPY ["IntelliLect.Contracts/", "/IntelliLect.Contracts/"]
+
 COPY ["EmailService/src/EmailService.Api/EmailService.Api.csproj", "EmailService.Api/"]
 COPY ["EmailService/src/EmailService.Application/EmailService.Application.csproj", "EmailService.Application/"]
 COPY ["EmailService/src/EmailService.Infrastructure/EmailService.Infrastructure.csproj", "EmailService.Infrastructure/"]
 
-RUN dotnet restore "EmailService.Api/EmailService.Api.csproj"
+RUN dotnet restore "EmailService.Api/EmailService.Api.csproj" --disable-parallel \
+     && dotnet restore "EmailService.Api/EmailService.Api.csproj" -v m
+
 COPY EmailService/src/. .
 WORKDIR "/src/EmailService.Api"
 RUN dotnet publish "EmailService.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false

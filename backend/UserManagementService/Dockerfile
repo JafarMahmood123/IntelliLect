@@ -4,13 +4,16 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["LocalPackages/", "LocalPackages/"]
 
+COPY ["IntelliLect.Contracts/", "/IntelliLect.Contracts/"]
+
 COPY ["UserManagementService/src/UserManagementService.Api/UserManagementService.Api.csproj", "UserManagementService.Api/"]
 COPY ["UserManagementService/src/UserManagementService.Application/UserManagementService.Application.csproj", "UserManagementService.Application/"]
 COPY ["UserManagementService/src/UserManagementService.Domain/UserManagementService.Domain.csproj", "UserManagementService.Domain/"]
 COPY ["UserManagementService/src/UserManagementService.Infrastructure/UserManagementService.Infrastructure.csproj", "UserManagementService.Infrastructure/"]
 COPY ["UserManagementService/src/UserManagementService.Presentation/UserManagementService.Presentation.csproj", "UserManagementService.Presentation/"]
 
-RUN dotnet restore "UserManagementService.Api/UserManagementService.Api.csproj"
+RUN dotnet restore "UserManagementService.Api/UserManagementService.Api.csproj" --disable-parallel \
+     && dotnet restore "UserManagementService.Api/UserManagementService.Api.csproj" -v m
 
 COPY UserManagementService/src/. .
 

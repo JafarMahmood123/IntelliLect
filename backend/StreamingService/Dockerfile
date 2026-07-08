@@ -4,13 +4,16 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["LocalPackages/", "LocalPackages/"]
 
+COPY ["IntelliLect.Contracts/", "/IntelliLect.Contracts/"]
+
 COPY ["StreamingService/src/StreamingService.Api/StreamingService.Api.csproj", "StreamingService.Api/"]
 COPY ["StreamingService/src/StreamingService.Application/StreamingService.Application.csproj", "StreamingService.Application/"]
 COPY ["StreamingService/src/StreamingService.Domain/StreamingService.Domain.csproj", "StreamingService.Domain/"]
 COPY ["StreamingService/src/StreamingService.Infrastructure/StreamingService.Infrastructure.csproj", "StreamingService.Infrastructure/"]
 COPY ["StreamingService/src/StreamingService.Presentation/StreamingService.Presentation.csproj", "StreamingService.Presentation/"]
 
-RUN dotnet restore "StreamingService.Api/StreamingService.Api.csproj"
+RUN dotnet restore "StreamingService.Api/StreamingService.Api.csproj" --disable-parallel \
+     && dotnet restore "StreamingService.Api/StreamingService.Api.csproj" -v m
 
 COPY StreamingService/src/. .
 

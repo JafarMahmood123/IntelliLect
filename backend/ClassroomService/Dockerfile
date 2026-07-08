@@ -4,13 +4,16 @@ WORKDIR /src
 COPY ["nuget.config", "."]
 COPY ["LocalPackages/", "LocalPackages/"]
 
+COPY ["IntelliLect.Contracts/", "/IntelliLect.Contracts/"]
+
 COPY ["ClassroomService/src/ClassroomService.Api/ClassroomService.Api.csproj", "ClassroomService.Api/"]
 COPY ["ClassroomService/src/ClassroomService.Application/ClassroomService.Application.csproj", "ClassroomService.Application/"]
 COPY ["ClassroomService/src/ClassroomService.Domain/ClassroomService.Domain.csproj", "ClassroomService.Domain/"]
 COPY ["ClassroomService/src/ClassroomService.Infrastructure/ClassroomService.Infrastructure.csproj", "ClassroomService.Infrastructure/"]
 COPY ["ClassroomService/src/ClassroomService.Presentation/ClassroomService.Presentation.csproj", "ClassroomService.Presentation/"]
 
-RUN dotnet restore "ClassroomService.Api/ClassroomService.Api.csproj"
+RUN dotnet restore "ClassroomService.Api/ClassroomService.Api.csproj" --disable-parallel \
+     && dotnet restore "ClassroomService.Api/ClassroomService.Api.csproj" -v m
 
 COPY ClassroomService/src/. .
 

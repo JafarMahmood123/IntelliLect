@@ -37,7 +37,7 @@ services:
       - "7880:7880" # HTTP Signal
       - "7881:7881" # WebRTC TCP
       - "7882:7882/udp" # WebRTC UDP
-      - "50000-50050:50000-50050/udp" # Reduced range (only 50 ports) to avoid clashes
+      - "51000-51050:51000-51050/udp"
     networks:
       - intellilect-net
 
