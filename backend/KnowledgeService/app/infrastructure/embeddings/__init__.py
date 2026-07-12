@@ -1,3 +1,6 @@
-from app.infrastructure.embeddings.gemini_embedding_provider import GeminiEmbeddingProvider
+from app.infrastructure.embeddings.ollama_embedding_provider import (
+    OllamaEmbeddingError,
+    OllamaEmbeddingProvider,
+)
 
-__all__ = ["GeminiEmbeddingProvider"]
+__all__ = ["OllamaEmbeddingProvider", "OllamaEmbeddingError"]

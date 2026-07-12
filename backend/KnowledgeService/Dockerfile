@@ -1,5 +1,5 @@
-# Target: linux/arm64 (Apple Silicon) — the base image is multi-arch, so this
-# also builds on amd64.
+# Target: linux (Ubuntu host, no GPU assumptions). The base image is multi-arch,
+# so this also builds on arm64.
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -20,9 +20,10 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 RUN pip install --upgrade pip && pip install .
 
-# App source + migration assets.
+# App source + migration assets + helper scripts.
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
+COPY scripts ./scripts
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 

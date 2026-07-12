@@ -2,20 +2,25 @@
 
 A Python microservice for the IntelliLect platform. Its eventual purpose is to
 ingest classroom files (PDF, `.docx`, `.pptx`), extract and OCR their text, chunk
-it, embed the chunks with the Gemini API, store them in PostgreSQL + `pgvector`,
-and serve retrieval.
+it, embed the chunks with a **local embedding model (via host Ollama)**, store them
+in PostgreSQL + `pgvector`, and serve retrieval.
 
 **This build is the foundation only.** Extraction, OCR, chunking, real embedding
 of files, and retrieval are intentionally **not** implemented — the code leaves
 clearly-marked ports and placeholders for them.
+
+> **No model weights in the container.** There is no `torch`,
+> `transformers`, or `sentence-transformers` dependency. All embedding inference
+> is HTTP calls to a host-side Ollama server.
 
 ## What works today
 
 - Clean-architecture skeleton with strict dependency inversion.
 - `documents` and `chunks` tables (with a `pgvector` embedding column) created by
   the first Alembic migration.
-- A Gemini embedding adapter behind an `EmbeddingProvider` port.
-- `GET /health` — verifies `SELECT 1` against the database.
+- A **local Ollama** embedding adapter behind an `EmbeddingProvider` port.
+- `GET /health` — verifies `SELECT 1` against the database (fatal) and probes host
+  Ollama (informational): `{"status","db","ollama"}`.
 - `POST /api/internal/documents/ingest` — upserts a **Pending** `Document` row
   (idempotent on `fileId`) and returns `202 Accepted`. It does **not** process the
   file.
@@ -31,7 +36,7 @@ below it.
 |-------|------|----------------|------------|
 | **Domain** | `app/domain` | Pure business objects: `Document`, `Chunk` entities (dataclasses) and enums (`DocumentStatus`, `ChunkSource`). Zero framework/ORM/SDK imports. | stdlib only |
 | **Application** | `app/application` | Ports (ABCs): `EmbeddingProvider`, `DocumentRepository`, `ChunkRepository`. Request/response DTOs (pydantic). `services/` is a placeholder for future use cases. | domain |
-| **Infrastructure** | `app/infrastructure` | Implements the ports. `config/` (pydantic-settings), `persistence/` (SQLAlchemy ORM models, async engine/session, repository impls, Alembic env), `embeddings/` (`GeminiEmbeddingProvider`). No business logic. | application, domain, frameworks/SDKs |
+| **Infrastructure** | `app/infrastructure` | Implements the ports. `config/` (pydantic-settings), `persistence/` (SQLAlchemy ORM models, async engine/session, repository impls, Alembic env), `embeddings/` (`OllamaEmbeddingProvider`). No business logic. | application, domain, frameworks/SDKs |
 | **API** | `app/api` | FastAPI app factory, DI wiring (`dependencies.py`, the composition root), routers. Depends only on application **ports**, resolved via FastAPI dependencies. | application ports + infrastructure (only in `dependencies.py`) |
 
 Key rules honored here:
@@ -44,6 +49,42 @@ Key rules honored here:
   `app/api/dependencies.py` — and everything else depends on the port
   abstractions.
 
+## Embeddings (local Ollama)
+
+`OllamaEmbeddingProvider` talks to a host-side Ollama server over HTTP:
+
+- `embed_documents(texts)` → `POST {OLLAMA_BASE_URL}/api/embed` with
+  `{"model": EMBEDDING_MODEL, "input": texts}`, batched. Documents are embedded
+  **raw**.
+- `embed_query(text)` prepends a configurable retrieval instruction to the
+  **query only** (asymmetric embedding), then embeds it.
+- Every returned vector is **L2-normalized** (the pgvector index uses cosine).
+- If `OLLAMA_AUTH_TOKEN` is set it is sent as `Authorization: Bearer <token>`;
+  otherwise no auth header is sent.
+- Unreachable server or a missing model raises a clear `OllamaEmbeddingError`
+  telling you to run `ollama pull …` or check `OLLAMA_BASE_URL`.
+
+### Host Ollama requirement
+
+Host Ollama must be **running and bound to `0.0.0.0:11434`** with the embedding
+model pulled:
+
+```bash
+# Bind to all interfaces so the container can reach it via host.docker.internal.
+OLLAMA_HOST=0.0.0.0 ollama serve
+ollama pull qwen3-embedding
+```
+
+The container reaches the host through the `extra_hosts:
+host.docker.internal:host-gateway` mapping in `docker-compose.unit.yml` (required
+on Linux; Docker Desktop provides `host.docker.internal` regardless).
+
+> **Cold start.** The **first** embedding call after Ollama (re)starts loads the
+> model into memory and can take longer than `EMBEDDING_TIMEOUT_SECONDS` on a
+> CPU-only host (observed ~90 s for `qwen3-embedding`). Warm the model once
+> (`curl -X POST localhost:11434/api/embed -d '{"model":"qwen3-embedding","input":["warmup"]}'`)
+> or raise `EMBEDDING_TIMEOUT_SECONDS` if you hit a timeout on the first request.
+
 ## Configuration
 
 Configuration is read from environment variables via `pydantic-settings`
@@ -53,9 +94,12 @@ adjust:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DATABASE_URL` | — | Async SQLAlchemy URL (`postgresql+asyncpg://…`). |
-| `GEMINI_API_KEY` | `""` | Gemini API key for the embedding adapter. |
-| `EMBEDDING_MODEL` | `gemini-embedding-001` | Gemini embedding model. |
-| `EMBEDDING_DIM` | `768` | Truncated output dimensionality; also the `pgvector` column dimension. |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama base URL. |
+| `OLLAMA_AUTH_TOKEN` | `""` | Optional bearer token; sent only if set. |
+| `EMBEDDING_MODEL` | `qwen3-embedding` | Ollama embedding model name. |
+| `EMBEDDING_DIM` | `1024` | Embedding dimensionality; also the `pgvector` column dimension. |
+| `EMBEDDING_TIMEOUT_SECONDS` | `60` | Per-request timeout for embedding calls. |
+| `RETRIEVAL_INSTRUCTION` | see settings | Instruction prepended to queries; must contain `{query}`. |
 | `INTERNAL_API_SECRET` | `""` | Shared secret for `/api/internal/*` routes (header `X-Internal-Secret`). |
 | `S3_*` | `""` | Placeholders for object storage. **Unused for now.** |
 
@@ -71,7 +115,7 @@ The service is wired into the platform compose file
 ```bash
 # Create the service env file first (compose reads it via env_file).
 cp KnowledgeService/.env.example KnowledgeService/.env
-# Set a real GEMINI_API_KEY if you intend to call the embedding adapter.
+# Ensure host Ollama is running (0.0.0.0:11434) with qwen3-embedding pulled.
 
 docker-compose up --build knowledge-service knowledge-db
 ```
@@ -86,7 +130,7 @@ Verify:
 
 ```bash
 curl http://localhost:8083/health
-# {"status":"ok","db":"ok"}
+# {"status":"ok","db":"ok","ollama":"reachable"}
 
 curl -X POST http://localhost:8083/api/internal/documents/ingest \
   -H "Content-Type: application/json" \
@@ -99,6 +143,14 @@ curl -X POST http://localhost:8083/api/internal/documents/ingest \
         "contentType": "application/pdf"
       }'
 # 202 Accepted -> a Pending row now exists in `documents`.
+```
+
+Check the embedding provider end-to-end (prints the vector length, expected 1024):
+
+```bash
+docker compose exec knowledge-service python scripts/embed_check.py
+# model='qwen3-embedding' base_url='http://host.docker.internal:11434'
+# vector length: 1024 (expected 1024)
 ```
 
 ## Alembic migrations
@@ -134,8 +186,8 @@ pytest
 ```
 
 `tests/test_health.py` exercises `GET /health` for both the reachable and
-unreachable-DB cases by patching the session factory, so no live database is
-required.
+unreachable-DB cases by patching the session factory and the Ollama probe, so no
+live database or Ollama server is required.
 
 ## Assumptions
 
@@ -148,10 +200,12 @@ required.
   services; adjust in `docker-compose.unit.yml` if needed.
 - DTOs accept **camelCase** field names (`fileId`, `classroomId`, …) to match the
   .NET callers while keeping snake_case in Python.
-- Gemini's `google-genai` SDK is synchronous; the adapter offloads calls to a
-  thread (`asyncio.to_thread`) and **L2-normalizes** each vector because a
-  truncated `output_dimensionality` is not returned normalized.
+- Embeddings are **L2-normalized** in the adapter because Ollama does not normalize
+  its output and the cosine index assumes unit vectors.
+- The **Ollama check in `/health` is non-fatal** — the service reports `200` (with
+  `"ollama":"unreachable"`) when only Ollama is down, since it isn't needed to
+  register documents.
 - The `chunks.embedding` column is nullable — rows can exist before embeddings are
   computed once the processing pipeline is built.
-- Target platform is `linux/arm64` (Apple Silicon); the base and DB images are
-  multi-arch, so amd64 also works.
+- Target platform is **linux** (Ubuntu host, no GPU assumptions); the base and DB
+  images are multi-arch.

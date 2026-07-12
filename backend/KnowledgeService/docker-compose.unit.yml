@@ -23,14 +23,21 @@ services:
       dockerfile: Dockerfile
     container_name: knowledge-service
     env_file:
-      # Optional: copy .env.example to .env to supply GEMINI_API_KEY and
-      # INTERNAL_API_SECRET. The stack still starts without it (DATABASE_URL is
-      # set below), but the ingest endpoint needs INTERNAL_API_SECRET.
+      # Optional: copy .env.example to .env to override embedding settings and
+      # supply INTERNAL_API_SECRET. The stack still starts without it (DATABASE_URL
+      # and OLLAMA_BASE_URL are set below), but the ingest endpoint needs
+      # INTERNAL_API_SECRET.
       - path: .env
         required: false
     environment:
       # Overrides the .env host so the container reaches the compose DB service.
       - DATABASE_URL=postgresql+asyncpg://postgres:Jafar123!@knowledge-db:5432/knowledgedb
+      # Reach host Ollama (see extra_hosts below). Host must run Ollama on
+      # 0.0.0.0:11434 with the qwen3-embedding model pulled.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    # Linux does not provide host.docker.internal by default; map it to the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8083:8080"
     depends_on:

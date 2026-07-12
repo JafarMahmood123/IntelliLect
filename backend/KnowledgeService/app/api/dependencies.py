@@ -9,7 +9,7 @@ from app.application.ports.chunk_repository import ChunkRepository
 from app.application.ports.document_repository import DocumentRepository
 from app.application.ports.embedding_provider import EmbeddingProvider
 from app.infrastructure.config.settings import Settings, get_settings
-from app.infrastructure.embeddings.gemini_embedding_provider import GeminiEmbeddingProvider
+from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session
 from app.infrastructure.persistence.document_repository import SqlAlchemyDocumentRepository
@@ -31,7 +31,7 @@ def get_chunk_repository(session: SessionDep) -> ChunkRepository:
 
 
 def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
-    return GeminiEmbeddingProvider(settings)
+    return OllamaEmbeddingProvider(settings)
 
 
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]

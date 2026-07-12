@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 class EmbeddingProvider(ABC):
     """Port for turning text into embedding vectors.
 
-    Implemented in the infrastructure layer (e.g. GeminiEmbeddingProvider). The
+    Implemented in the infrastructure layer (e.g. OllamaEmbeddingProvider). The
     application/domain layers depend only on this abstraction.
     """
 

@@ -20,10 +20,21 @@ class Settings(BaseSettings):
     # --- Database ---
     database_url: str  # e.g. postgresql+asyncpg://user:pass@host:5432/db
 
-    # --- Gemini embeddings ---
-    gemini_api_key: str = ""
-    embedding_model: str = "gemini-embedding-001"
-    embedding_dim: int = 768
+    # --- Ollama embeddings (local, HTTP-only — no model weights in the container) ---
+    # On Linux, host.docker.internal resolves to the host via the compose
+    # `extra_hosts: host-gateway` mapping; host Ollama must listen on 0.0.0.0:11434.
+    ollama_base_url: str = "http://host.docker.internal:11434"
+    # Optional bearer token. Sent as `Authorization: Bearer <token>` ONLY if set.
+    ollama_auth_token: str = ""
+    embedding_model: str = "qwen3-embedding"
+    embedding_dim: int = 1024
+    embedding_timeout_seconds: float = 60.0
+    # Retrieval instruction prepended to QUERIES only (documents are embedded raw).
+    # Must contain a `{query}` placeholder. Improves asymmetric query/passage recall.
+    retrieval_instruction: str = (
+        "Instruct: Given a search query, retrieve relevant passages that answer it\n"
+        "Query: {query}"
+    )
 
     # --- Internal API security ---
     internal_api_secret: str = ""

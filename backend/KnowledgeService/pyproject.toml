@@ -12,10 +12,11 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "google-genai>=0.8",
     "pgvector>=0.3.6",
     "httpx>=0.27",
 ]
+# NOTE: intentionally NO torch/transformers/sentence-transformers and no model
+# weights in the container. All embedding inference is HTTP calls to host Ollama.
 
 [project.optional-dependencies]
 dev = [

@@ -7,4 +7,4 @@
 #
 # These services will depend ONLY on the application ports (EmbeddingProvider,
 # DocumentRepository, ChunkRepository) and domain entities — never on FastAPI,
-# SQLAlchemy, or the google-genai SDK directly.
+# SQLAlchemy, or an embedding client (e.g. Ollama over HTTP) directly.
