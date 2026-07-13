@@ -6,10 +6,12 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.ports.chunk_repository import ChunkRepository
+from app.application.ports.chunker import Chunker
 from app.application.ports.document_repository import DocumentRepository
 from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.extractor import Extractor
 from app.application.ports.ocr_processor import OcrProcessor
+from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.extraction.router import ExtractorRouter
@@ -38,6 +40,15 @@ def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
     return OllamaEmbeddingProvider(settings)
 
 
+def get_chunker(
+    settings: SettingsDep, embedding_provider: EmbeddingProviderDep
+) -> Chunker:
+    """Chunker chosen by CHUNKING_STRATEGY. The default (structural) is offline and
+    ignores the embedding provider. Registered for later phases; no endpoint uses it
+    yet."""
+    return create_chunker(settings, embedding_provider)
+
+
 # The router is stateless and thread-safe, so one shared instance serves every
 # request. Registered here for later phases to inject; no endpoint calls it yet.
 _extractor: Extractor = ExtractorRouter.default()
@@ -60,6 +71,7 @@ ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 OcrProcessorDep = Annotated[OcrProcessor, Depends(get_ocr_processor)]
+ChunkerDep = Annotated[Chunker, Depends(get_chunker)]
 
 
 async def require_internal_secret(

@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     ocr_min_confidence: float = 45.0  # drop OCR output below this mean word confidence
     ocr_min_chars: int = 8  # drop trivially short OCR output
 
+    # --- Chunking (Phase 4) ---
+    # "structural" needs no model (default, fully offline). "semantic" uses the
+    # EmbeddingProvider to place topic-shift breakpoints (requires a live model).
+    chunking_strategy: str = "structural"
+    chunk_max_tokens: int = 512  # hard cap on tokens per chunk
+    chunk_overlap_tokens: int = 64  # overlap carried between consecutive chunks
+    chunk_min_tokens: int = 64  # merge trailing fragments smaller than this
+    semantic_breakpoint_percentile: int = 90  # distance percentile that marks a boundary
+
     # --- Internal API security ---
     internal_api_secret: str = ""
 
