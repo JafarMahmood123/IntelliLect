@@ -13,8 +13,11 @@ from app.application.ports.document_repository import DocumentRepository
 from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
+from app.application.ports.generation_provider import GenerationProvider
 from app.application.ports.ocr_processor import OcrProcessor
+from app.application.services.answer_service import AnswerService
 from app.application.services.clock import SystemClock
+from app.application.services.context_builder import ContextBuilder
 from app.application.services.ingestion_service import (
     IngestionJob,
     IngestionResult,
@@ -23,11 +26,13 @@ from app.application.services.ingestion_service import (
 from app.application.services.ingestion_worker import IngestionWorker
 from app.application.services.retrieval_service import RetrievalService
 from app.application.services.stale_recovery_service import StaleRecoveryService
+from app.application.services.token_counter import HeuristicTokenCounter
 from app.domain.enums.document_status import DocumentStatus
 from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.extraction.router import ExtractorRouter
+from app.infrastructure.generation.ollama_generation_provider import OllamaGenerationProvider
 from app.infrastructure.ocr.tesseract_ocr_processor import TesseractOcrProcessor
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session, get_session_factory
@@ -96,6 +101,29 @@ def get_retrieval_service(
     )
 
 
+def get_generation_provider(settings: SettingsDep) -> GenerationProvider:
+    return OllamaGenerationProvider(settings)
+
+
+def get_context_builder(settings: SettingsDep) -> ContextBuilder:
+    return ContextBuilder(HeuristicTokenCounter(), settings.context_max_tokens)
+
+
+def get_answer_service(
+    settings: SettingsDep,
+    retrieval: RetrievalServiceDep,
+    context_builder: ContextBuilderDep,
+    generation_provider: GenerationProviderDep,
+) -> AnswerService:
+    """Answering use case for POST /api/answer (retrieve -> pack context -> generate)."""
+    return AnswerService(
+        retrieval,
+        context_builder,
+        generation_provider,
+        default_top_k=settings.answer_top_k,
+    )
+
+
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
@@ -103,6 +131,9 @@ ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 OcrProcessorDep = Annotated[OcrProcessor, Depends(get_ocr_processor)]
 ChunkerDep = Annotated[Chunker, Depends(get_chunker)]
 RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)]
+GenerationProviderDep = Annotated[GenerationProvider, Depends(get_generation_provider)]
+ContextBuilderDep = Annotated[ContextBuilder, Depends(get_context_builder)]
+AnswerServiceDep = Annotated[AnswerService, Depends(get_answer_service)]
 
 
 # --- Ingestion worker composition --------------------------------------------

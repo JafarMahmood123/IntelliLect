@@ -7,7 +7,13 @@ from fastapi import FastAPI
 import logging
 
 from app.api.dependencies import build_ingestion_worker, run_stale_recovery
-from app.api.routers import health, internal_documents, metrics as metrics_router, search
+from app.api.routers import (
+    answer,
+    health,
+    internal_documents,
+    metrics as metrics_router,
+    search,
+)
 from app.infrastructure.config.settings import get_settings
 from app.observability import metrics
 from app.observability.logging_config import configure_logging
@@ -58,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(internal_documents.router)
     app.include_router(search.router)
+    app.include_router(answer.router)
     if settings.metrics_enabled:
         app.include_router(metrics_router.router)
     return app

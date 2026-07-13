@@ -46,6 +46,19 @@ clearly-marked ports and placeholders for them.
   > swap this for user-JWT auth **plus a server-side classroom-membership check**
   > (the classroom filter in the query is mandatory, but membership must also be
   > authorized). `SEARCH_DEFAULT_TOP_K` / `SEARCH_MAX_TOP_K` control result counts.
+- `POST /api/answer` — the brain / RAG answering (Phase 10). Retrieves the top-k
+  relevant chunks (reusing Phase 7, classroom-scoped), packs a numbered context up to
+  `CONTEXT_MAX_TOKENS`, and asks the local generative model (`GENERATION_MODEL`,
+  default `qwen2.5:7b-instruct`) to answer **using only that context**, citing sources
+  by `[n]`. If nothing is retrieved it returns a "no relevant material" answer
+  **without calling the model**. The response includes the answer plus the cited
+  `sources` (each with its `[n]`, chunk/document id, page/slide/section, score).
+  `ANSWER_TOP_K` sets how many chunks are retrieved for context.
+  > **Auth note:** same as `/api/search` — guarded by `INTERNAL_API_SECRET` for now;
+  > switch to user-JWT + a server-side classroom-membership check before any
+  > user-facing feature consumes it, so a user can't ask about a classroom they're not
+  > enrolled in. The mandatory classroom filter comes entirely from retrieval and is
+  > never bypassed.
 
 ## Architecture (Clean Architecture)
 

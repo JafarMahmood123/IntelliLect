@@ -25,8 +25,12 @@ async def _check_db() -> bool:
         return False
 
 
-async def _check_ollama() -> bool:
-    """Probe host Ollama via `GET /api/tags`. Non-fatal — never raises."""
+async def _check_ollama() -> tuple[bool, list[str]]:
+    """Probe host Ollama via `GET /api/tags`. Non-fatal — never raises.
+
+    Returns (reachable, [model names present]) so the caller can also confirm the
+    configured models are pulled.
+    """
     settings = get_settings()
     headers: dict[str, str] = {}
     if settings.ollama_auth_token:
@@ -37,9 +41,20 @@ async def _check_ollama() -> bool:
             timeout=_OLLAMA_PROBE_TIMEOUT_SECONDS, headers=headers
         ) as client:
             response = await client.get(url)
-        return response.status_code == 200
+        if response.status_code != 200:
+            return False, []
+        models = [m.get("name", "") for m in response.json().get("models", [])]
+        return True, [name for name in models if name]
     except Exception:
-        return False
+        return False, []
+
+
+def _model_status(reachable: bool, models: list[str], target: str) -> str:
+    """"available" / "missing" / "unknown" for a configured model name."""
+    if not reachable:
+        return "unknown"
+    present = any(name == target or name.startswith(f"{target}:") for name in models)
+    return "available" if present else "missing"
 
 
 def _check_worker(request: Request) -> tuple[bool, int]:
@@ -54,22 +69,25 @@ def _check_worker(request: Request) -> tuple[bool, int]:
 async def health(request: Request) -> JSONResponse:
     """Liveness + component readiness.
 
-    Reports each component (db, ollama, worker) separately. The DB check is the
-    liveness-critical one (503 if it fails); ollama and worker are non-fatal
+    Reports each component (db, ollama, generation model, worker) separately. The DB
+    check is the liveness-critical one (503 if it fails); the others are non-fatal
     signals, but any unhealthy component makes the overall status "degraded".
     """
+    settings = get_settings()
     db_ok = await _check_db()
-    ollama_ok = await _check_ollama()
+    ollama_ok, models = await _check_ollama()
+    generation_status = _model_status(ollama_ok, models, settings.generation_model)
     worker_ok, queue_depth = _check_worker(request)
 
     status_code = 200 if db_ok else 503
-    overall_ok = db_ok and ollama_ok and worker_ok
+    overall_ok = db_ok and ollama_ok and worker_ok and generation_status == "available"
     return JSONResponse(
         status_code=status_code,
         content={
             "status": "ok" if overall_ok else "degraded",
             "db": "ok" if db_ok else "fail",
             "ollama": "reachable" if ollama_ok else "unreachable",
+            "generationModel": generation_status,
             "worker": "running" if worker_ok else "down",
             "queueDepth": queue_depth,
         },

@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     search_default_top_k: int = 8  # results returned when topK is not supplied
     search_max_top_k: int = 50  # upper clamp on a requested topK
 
+    # --- Generation / answering (Phase 10) ---
+    # Local generative model in host Ollama (reuses OLLAMA_BASE_URL / OLLAMA_AUTH_TOKEN).
+    generation_model: str = "qwen2.5:7b-instruct"
+    generation_timeout_seconds: float = 120.0
+    generation_temperature: float = 0.2
+    generation_max_tokens: int = 1024  # num_predict
+    answer_top_k: int = 6  # chunks retrieved for answer context
+    context_max_tokens: int = 6000  # token budget for the packed context block
+
     # --- Observability (Phase 9) ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
     metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics

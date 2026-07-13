@@ -9,6 +9,7 @@ from app.application.ports.extractor import (
     UnsupportedFormatError,
 )
 from app.application.ports.file_storage import FileStorage
+from app.application.ports.generation_provider import GenerationProvider
 from app.application.ports.ocr_processor import OcrProcessor
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "ExtractionError",
     "Extractor",
     "FileStorage",
+    "GenerationProvider",
     "OcrProcessor",
     "UnsupportedFormatError",
 ]
