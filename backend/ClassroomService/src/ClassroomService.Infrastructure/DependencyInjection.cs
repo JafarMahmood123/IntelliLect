@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ClassroomService.Infrastructure;
@@ -29,6 +30,25 @@ public static class DependencyInjection
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
+
+        // KnowledgeService internal client: typed HttpClient + options (mirrors the
+        // streaming client). BaseAddress/timeout come from the "KnowledgeService" section;
+        // the shared secret is attached per-request by the client itself.
+        services.Configure<KnowledgeServiceOptions>(
+            configuration.GetSection(KnowledgeServiceOptions.SectionName));
+        services.AddHttpClient<IKnowledgeInternalClient, KnowledgeInternalClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<KnowledgeServiceOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? "http://knowledge-service:8080"
+                : options.BaseUrl;
+            if (!baseUrl.EndsWith('/'))
+            {
+                baseUrl += "/";
+            }
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+        });
 
         var s3Section = configuration.GetSection(S3Settings.SectionName);
         services.Configure<S3Settings>(s3Section);

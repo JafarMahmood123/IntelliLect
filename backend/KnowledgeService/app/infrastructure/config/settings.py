@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     chunk_min_tokens: int = 64  # merge trailing fragments smaller than this
     semantic_breakpoint_percentile: int = 90  # distance percentile that marks a boundary
 
+    # --- Ingestion worker (Phase 5) ---
+    ingest_max_concurrency: int = 1  # concurrent worker tasks — the RAM cap
+    ingest_queue_max: int = 100  # bounded in-process job queue size
+    embed_batch_size: int = 32  # chunk texts per embed_documents call
+
     # --- Internal API security ---
     internal_api_secret: str = ""
 

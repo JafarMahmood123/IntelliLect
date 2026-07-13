@@ -8,6 +8,7 @@ from app.application.ports.extractor import (
     Extractor,
     UnsupportedFormatError,
 )
+from app.application.ports.file_storage import FileStorage
 from app.application.ports.ocr_processor import OcrProcessor
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "EmbeddingProvider",
     "ExtractionError",
     "Extractor",
+    "FileStorage",
     "OcrProcessor",
     "UnsupportedFormatError",
 ]

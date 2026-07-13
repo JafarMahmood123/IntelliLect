@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.api.dependencies import DocumentRepositoryDep, require_internal_secret
+from app.api.dependencies import (
+    ChunkRepositoryDep,
+    DocumentRepositoryDep,
+    IngestionWorkerDep,
+    require_internal_secret,
+)
 from app.application.dtos.document_dtos import IngestDocumentRequest, IngestDocumentResponse
+from app.application.services.ingestion_service import IngestionJob
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
 
@@ -26,11 +32,12 @@ router = APIRouter(
 async def ingest_document(
     payload: IngestDocumentRequest,
     documents: DocumentRepositoryDep,
+    worker: IngestionWorkerDep,
 ) -> IngestDocumentResponse:
-    """Register a document for future processing.
+    """Register a document and enqueue it for background ingestion.
 
-    Foundation behavior only: upsert a Pending row (idempotent on fileId) and
-    return 202. Actual download/extract/OCR/chunk/embed happens in later work.
+    Upserts a Pending row (idempotent on fileId), enqueues the ingestion job, and
+    returns 202. If the bounded queue is full, returns 503 so the caller can retry.
     """
     document = Document(
         classroom_id=payload.classroom_id,
@@ -41,6 +48,13 @@ async def ingest_document(
         status=DocumentStatus.PENDING,
     )
     saved = await documents.add(document)
+
+    if not worker.enqueue(IngestionJob.from_document(saved)):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingestion queue is full; please retry shortly.",
+        )
+
     return IngestDocumentResponse(
         document_id=saved.id,
         file_id=saved.file_id,
@@ -52,7 +66,15 @@ async def ingest_document(
 async def delete_document(
     file_id: UUID,
     documents: DocumentRepositoryDep,
+    chunks: ChunkRepositoryDep,
 ) -> Response:
-    """Delete a document. Its chunks are removed via ON DELETE CASCADE."""
-    await documents.delete_by_file_id(file_id)
+    """Delete a document and its chunks.
+
+    The DB also cascades chunk deletion, but we remove them explicitly so behavior
+    is identical regardless of the backing store.
+    """
+    document = await documents.get_by_file_id(file_id)
+    if document is not None:
+        await chunks.delete_by_document_id(document.id)
+        await documents.delete_by_file_id(file_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
