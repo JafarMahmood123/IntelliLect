@@ -9,9 +9,11 @@ from app.application.ports.chunk_repository import ChunkRepository
 from app.application.ports.document_repository import DocumentRepository
 from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.extractor import Extractor
+from app.application.ports.ocr_processor import OcrProcessor
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.extraction.router import ExtractorRouter
+from app.infrastructure.ocr.tesseract_ocr_processor import TesseractOcrProcessor
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session
 from app.infrastructure.persistence.document_repository import SqlAlchemyDocumentRepository
@@ -40,15 +42,24 @@ def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
 # request. Registered here for later phases to inject; no endpoint calls it yet.
 _extractor: Extractor = ExtractorRouter.default()
 
+# Shared OCR processor: config is read once and OCR runs on its own bounded pool.
+# Registered for later phases to inject; no endpoint calls it yet.
+_ocr_processor: OcrProcessor = TesseractOcrProcessor(get_settings())
+
 
 def get_extractor() -> Extractor:
     return _extractor
+
+
+def get_ocr_processor() -> OcrProcessor:
+    return _ocr_processor
 
 
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
+OcrProcessorDep = Annotated[OcrProcessor, Depends(get_ocr_processor)]
 
 
 async def require_internal_secret(

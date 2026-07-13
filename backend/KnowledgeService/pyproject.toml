@@ -18,11 +18,13 @@ dependencies = [
     "pymupdf>=1.24",       # PDF text + image extraction (fitz)
     "python-docx>=1.1",    # Word (.docx)
     "python-pptx>=1.0",    # PowerPoint (.pptx)
-    "Pillow>=10.4",        # image dimensions / format sniffing
+    "Pillow>=10.4",        # image dimensions / format sniffing / OCR rasterization
+    # --- OCR layer (Phase 3): selective Tesseract cascade, English only ---
+    "pytesseract>=0.3.10", # thin wrapper over the tesseract binary (installed via apt)
 ]
 # NOTE: intentionally NO torch/transformers/sentence-transformers and no model
 # weights in the container. All embedding inference is HTTP calls to host Ollama.
-# Extraction is pure-Python parsing — no OCR/Tesseract yet (that is a later phase).
+# OCR shells out to the tesseract binary (see Dockerfile) — still no model weights.
 
 [project.optional-dependencies]
 dev = [

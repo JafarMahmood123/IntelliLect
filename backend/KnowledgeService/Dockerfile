@@ -6,11 +6,13 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-# Build deps for compiling asyncpg / native wheels. Kept minimal.
-# NOTE: OCR/PDF tooling (tesseract-ocr, poppler-utils) will be added here later
-# when extraction/OCR lands. Not needed for the foundation.
+# Build deps for compiling asyncpg / native wheels (build-essential), plus the
+# Tesseract OCR engine and its English language data (Phase 3, English only).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        tesseract-ocr \
+        tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

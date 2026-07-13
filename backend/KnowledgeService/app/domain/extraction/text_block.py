@@ -19,6 +19,17 @@ class TextBlockKind(str, Enum):
     OTHER = "Other"
 
 
+class TextBlockSource(str, Enum):
+    """How a text block's text was obtained.
+
+    NATIVE -> read from the file's own text layer (Phase 2 extraction).
+    OCR    -> recovered by OCR from a scanned page or an embedded image (Phase 3).
+    """
+
+    NATIVE = "Native"
+    OCR = "Ocr"
+
+
 @dataclass
 class TextBlock:
     """A single ordered piece of text extracted from a document.
@@ -33,3 +44,4 @@ class TextBlock:
     page: int | None = None  # 1-based for PDF
     slide: int | None = None  # 1-based for PPTX
     section: str | None = None  # nearest heading path for DOCX, e.g. "Intro > Goals"
+    source: TextBlockSource = TextBlockSource.NATIVE  # NATIVE unless recovered by OCR

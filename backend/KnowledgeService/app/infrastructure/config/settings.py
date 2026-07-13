@@ -36,6 +36,16 @@ class Settings(BaseSettings):
         "Query: {query}"
     )
 
+    # --- OCR (Phase 3): selective Tesseract cascade, English only ---
+    # No model weights either — pytesseract shells out to the tesseract binary.
+    ocr_lang: str = "eng"
+    ocr_dpi: int = 300  # rasterization DPI for scanned PDF pages
+    ocr_max_workers: int = 2  # bounded OCR pool — the RAM cap
+    ocr_min_image_px: int = 200  # skip images whose max(width, height) is below this
+    ocr_max_image_px: int = 2000  # downscale larger images to this long edge before OCR
+    ocr_min_confidence: float = 45.0  # drop OCR output below this mean word confidence
+    ocr_min_chars: int = 8  # drop trivially short OCR output
+
     # --- Internal API security ---
     internal_api_secret: str = ""
 
