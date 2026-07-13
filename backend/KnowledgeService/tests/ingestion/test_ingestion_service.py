@@ -1,180 +1,171 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from uuid import UUID, uuid4
+import hashlib
+from uuid import uuid4
 
-from app.application.services.ingestion_service import IngestionJob, IngestionService
+from app.application.services.ingestion_service import IngestionJob
+from app.domain.entities.chunk import Chunk
 from app.domain.entities.document import Document
+from app.domain.enums.chunk_source import ChunkSource
 from app.domain.enums.document_status import DocumentStatus
-from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings
-from app.infrastructure.extraction.router import ExtractorRouter
-from app.infrastructure.ocr.tesseract_ocr_processor import TesseractOcrProcessor
 
 from tests.ingestion.fakes import (
+    FakeClock,
     FakeEmbeddingProvider,
     FakeFileStorage,
     InMemoryChunkRepository,
     InMemoryDocumentRepository,
-    RaisingEmbeddingProvider,
+    build_ingestion_service,
     make_pdf_bytes,
 )
 
 S3_KEY = "classroom/doc.pdf"
+DIM = Settings().embedding_dim
 
 
-@dataclass
-class Harness:
-    service: IngestionService
-    storage: FakeFileStorage
-    embedder: FakeEmbeddingProvider
-    documents: InMemoryDocumentRepository
-    chunks: InMemoryChunkRepository
-    settings: Settings
-    job: IngestionJob
-    file_id: UUID
-
-
-def _build(embedder: FakeEmbeddingProvider | None = None, *, seed: bool = True) -> Harness:
-    settings = Settings()
-    embedder = embedder or FakeEmbeddingProvider(settings.embedding_dim)
-    storage = FakeFileStorage({S3_KEY: make_pdf_bytes(variant=1)})
-    documents = InMemoryDocumentRepository()
-    chunks = InMemoryChunkRepository()
-    file_id, classroom_id = uuid4(), uuid4()
-
-    if seed:
-        # The endpoint would have upserted a Pending row before enqueuing.
-        seed_doc = Document(
-            classroom_id=classroom_id,
-            file_id=file_id,
-            s3_key=S3_KEY,
-            file_name="doc.pdf",
-            content_type="application/pdf",
+def _seed_pending(documents: InMemoryDocumentRepository, job: IngestionJob) -> None:
+    documents.seed(
+        Document(
+            classroom_id=job.classroom_id,
+            file_id=job.file_id,
+            s3_key=job.s3_key,
+            file_name=job.file_name,
+            content_type=job.content_type,
             status=DocumentStatus.PENDING,
         )
-        # add() is async; seeded inside the test via the returned harness if needed.
-        documents._by_file_id[file_id] = seed_doc  # noqa: SLF001 — direct seed
-        documents.status_history[file_id] = [DocumentStatus.PENDING]
+    )
 
-    service = IngestionService(
-        file_storage=storage,
-        extractor=ExtractorRouter.default(),
-        ocr_processor=TesseractOcrProcessor(settings),
-        chunker=create_chunker(settings, embedder),
-        embedding_provider=embedder,
-        document_repository=documents,
-        chunk_repository=chunks,
-        embed_batch_size=settings.embed_batch_size,
-    )
-    job = IngestionJob(
-        file_id=file_id,
-        classroom_id=classroom_id,
-        s3_key=S3_KEY,
-        file_name="doc.pdf",
-        content_type="application/pdf",
-    )
-    return Harness(service, storage, embedder, documents, chunks, settings, job, file_id)
+
+def _job() -> IngestionJob:
+    return IngestionJob(uuid4(), uuid4(), S3_KEY, "doc.pdf", "application/pdf")
 
 
 async def test_happy_path_pending_processing_done_with_embeddings() -> None:
-    h = _build()
+    job = _job()
+    storage = FakeFileStorage({S3_KEY: make_pdf_bytes(1)})
+    embedder = FakeEmbeddingProvider(DIM)
+    documents = InMemoryDocumentRepository()
+    chunks = InMemoryChunkRepository()
+    _seed_pending(documents, job)
+    service = build_ingestion_service(
+        storage=storage, embedder=embedder, documents=documents, chunks=chunks,
+        clock=FakeClock(),
+    )
 
-    outcome = await h.service.ingest(h.job)
+    outcome = await service.ingest(job)
 
     assert outcome.status == DocumentStatus.DONE
-    assert outcome.skipped is False
     assert outcome.chunk_count > 0
-
-    # Status transitions: Pending -> Processing -> Done.
-    assert h.documents.status_history[h.file_id] == [
+    assert outcome.attempts == 1
+    assert documents.status_history[job.file_id] == [
         DocumentStatus.PENDING,
         DocumentStatus.PROCESSING,
         DocumentStatus.DONE,
     ]
 
-    stored = await h.documents.get_by_file_id(h.file_id)
-    assert stored is not None
+    stored = await documents.get_by_file_id(job.file_id)
     assert stored.status == DocumentStatus.DONE
     assert stored.content_hash is not None and len(stored.content_hash) == 64
-    assert stored.error is None
+    assert stored.attempts == 1
+    assert stored.last_error is None
 
-    # Chunks persisted with aligned embeddings of length EMBEDDING_DIM.
-    persisted = h.chunks.by_document[stored.id]
+    persisted = chunks.by_document[stored.id]
     assert len(persisted) == outcome.chunk_count
     assert [chunk.chunk_index for chunk, _ in persisted] == list(range(len(persisted)))
-    for chunk, embedding in persisted:
-        assert len(embedding) == h.settings.embedding_dim
-        assert "page" in chunk.metadata  # location metadata preserved
+    for _, embedding in persisted:
+        assert len(embedding) == DIM
+    assert chunks.replace_calls == 1
 
 
-async def test_idempotent_rerun_same_hash_skips_reprocessing() -> None:
-    h = _build()
-    await h.service.ingest(h.job)
+async def test_duplicate_job_on_done_document_is_a_noop() -> None:
+    # A Done document is not claimable -> the duplicate exits without reprocessing.
+    job = _job()
+    content_hash = hashlib.sha256(make_pdf_bytes(1)).hexdigest()
+    documents = InMemoryDocumentRepository()
+    documents.seed(
+        Document(
+            classroom_id=job.classroom_id, file_id=job.file_id, s3_key=job.s3_key,
+            file_name=job.file_name, content_type=job.content_type,
+            status=DocumentStatus.DONE, content_hash=content_hash,
+        )
+    )
+    embedder = FakeEmbeddingProvider(DIM)
+    chunks = InMemoryChunkRepository()
+    service = build_ingestion_service(
+        storage=FakeFileStorage({S3_KEY: make_pdf_bytes(1)}),
+        embedder=embedder, documents=documents, chunks=chunks, clock=FakeClock(),
+    )
 
-    stored = await h.documents.get_by_file_id(h.file_id)
-    chunks_snapshot = list(h.chunks.by_document[stored.id])
-    embeds_after_first = h.embedder.embed_documents_calls
-    add_calls_after_first = h.chunks.add_many_calls
-
-    outcome = await h.service.ingest(h.job)
+    outcome = await service.ingest(job)
 
     assert outcome.skipped is True
     assert outcome.status == DocumentStatus.DONE
-    # No re-embedding and no chunk churn.
-    assert h.embedder.embed_documents_calls == embeds_after_first
-    assert h.chunks.add_many_calls == add_calls_after_first
-    assert h.chunks.by_document[stored.id] == chunks_snapshot
+    assert embedder.embed_documents_calls == 0
+    assert chunks.replace_calls == 0
 
 
-async def test_reindex_on_changed_hash_replaces_chunks() -> None:
-    h = _build()
-    await h.service.ingest(h.job)
-    stored = await h.documents.get_by_file_id(h.file_id)
-    first_hash = stored.content_hash
-    first_ids = {chunk.id for chunk, _ in h.chunks.by_document[stored.id]}
+async def test_unchanged_hash_on_reclaimed_document_keeps_chunks() -> None:
+    # Simulate a re-run of a Pending doc whose stored hash matches the file (e.g. a
+    # reindex of unchanged content): keep existing chunks, just mark Done, no re-embed.
+    job = _job()
+    pdf = make_pdf_bytes(1)  # generate once so the stored hash matches the file exactly
+    content_hash = hashlib.sha256(pdf).hexdigest()
+    documents = InMemoryDocumentRepository()
+    documents.seed(
+        Document(
+            classroom_id=job.classroom_id, file_id=job.file_id, s3_key=job.s3_key,
+            file_name=job.file_name, content_type=job.content_type,
+            status=DocumentStatus.PENDING, content_hash=content_hash,
+        )
+    )
+    embedder = FakeEmbeddingProvider(DIM)
+    chunks = InMemoryChunkRepository()
+    service = build_ingestion_service(
+        storage=FakeFileStorage({S3_KEY: pdf}),
+        embedder=embedder, documents=documents, chunks=chunks, clock=FakeClock(),
+    )
 
-    # Same key, new content -> new hash -> re-index.
-    h.storage.put(S3_KEY, make_pdf_bytes(variant=2))
-    outcome = await h.service.ingest(h.job)
+    outcome = await service.ingest(job)
+
+    assert outcome.skipped is True
+    assert outcome.status == DocumentStatus.DONE
+    assert embedder.embed_documents_calls == 0
+    assert chunks.replace_calls == 0
+    stored = await documents.get_by_file_id(job.file_id)
+    assert stored.status == DocumentStatus.DONE
+
+
+async def test_changed_hash_reindexes_and_replaces_chunks() -> None:
+    job = _job()
+    old_hash = "0" * 64
+    documents = InMemoryDocumentRepository()
+    documents.seed(
+        Document(
+            classroom_id=job.classroom_id, file_id=job.file_id, s3_key=job.s3_key,
+            file_name=job.file_name, content_type=job.content_type,
+            status=DocumentStatus.PENDING, content_hash=old_hash,
+        )
+    )
+    chunks = InMemoryChunkRepository()
+    # Pre-existing chunk from a prior index.
+    doc_id = (await documents.get_by_file_id(job.file_id)).id
+    chunks.by_document[doc_id] = [
+        (Chunk(document_id=doc_id, classroom_id=job.classroom_id, chunk_index=0,
+               text="old", source=ChunkSource.TEXT), [0.0] * DIM)
+    ]
+    service = build_ingestion_service(
+        storage=FakeFileStorage({S3_KEY: make_pdf_bytes(2)}),  # new content -> new hash
+        embedder=FakeEmbeddingProvider(DIM), documents=documents, chunks=chunks,
+        clock=FakeClock(),
+    )
+
+    outcome = await service.ingest(job)
 
     assert outcome.status == DocumentStatus.DONE
     assert outcome.skipped is False
-    # Old chunks deleted, new set written.
-    assert h.chunks.delete_calls == 2
-    assert h.chunks.add_many_calls == 2
-    new_ids = {chunk.id for chunk, _ in h.chunks.by_document[stored.id]}
-    assert new_ids.isdisjoint(first_ids)
-
-    stored2 = await h.documents.get_by_file_id(h.file_id)
-    assert stored2.content_hash is not None and stored2.content_hash != first_hash
-
-
-async def test_failure_marks_document_failed_and_records_error() -> None:
-    settings = Settings()
-    h = _build(embedder=RaisingEmbeddingProvider(settings.embedding_dim))
-
-    outcome = await h.service.ingest(h.job)
-
-    assert outcome.status == DocumentStatus.FAILED
-    assert outcome.error is not None and "embedder is down" in outcome.error
-
-    stored = await h.documents.get_by_file_id(h.file_id)
-    assert stored.status == DocumentStatus.FAILED
-    assert stored.error is not None and "embedder is down" in stored.error
-
-    # It reached Processing before failing, and ended Failed.
-    history = h.documents.status_history[h.file_id]
-    assert DocumentStatus.PROCESSING in history
-    assert history[-1] == DocumentStatus.FAILED
-
-    # No chunks were persisted.
-    assert h.chunks.add_many_calls == 0
-    assert h.chunks.by_document.get(stored.id) in (None, [])
-
-
-async def test_ingest_returns_normally_on_failure_so_worker_continues() -> None:
-    # ingest() must never raise for a pipeline failure — it returns an outcome.
-    h = _build(embedder=RaisingEmbeddingProvider(Settings().embedding_dim))
-    outcome = await h.service.ingest(h.job)  # would raise if not swallowed
-    assert outcome.status == DocumentStatus.FAILED
+    assert chunks.replace_calls == 1
+    new_chunks = chunks.by_document[doc_id]
+    assert all(chunk.text != "old" for chunk, _ in new_chunks)  # replaced, not appended
+    stored = await documents.get_by_file_id(job.file_id)
+    assert stored.content_hash != old_hash

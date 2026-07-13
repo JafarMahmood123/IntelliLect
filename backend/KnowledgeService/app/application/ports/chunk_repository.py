@@ -25,6 +25,22 @@ class ChunkRepository(ABC):
         """Delete all chunks for a document. Returns the number removed."""
         raise NotImplementedError
 
+    async def replace_for_document(
+        self,
+        document_id: UUID,
+        chunks: Sequence[Chunk],
+        embeddings: Sequence[list[float]],
+    ) -> None:
+        """Atomically replace a document's chunks with a new set.
+
+        Default implementation deletes then inserts within the caller's transaction,
+        so a failure rolls both back and never leaves a partial/duplicated set. In-
+        memory implementations should override this to be all-or-nothing.
+        """
+        await self.delete_by_document_id(document_id)
+        if chunks:
+            await self.add_many(chunks, embeddings)
+
     @abstractmethod
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int

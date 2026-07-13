@@ -14,9 +14,15 @@ from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
 from app.application.ports.ocr_processor import OcrProcessor
-from app.application.services.ingestion_service import IngestionJob, IngestionService
+from app.application.services.clock import SystemClock
+from app.application.services.ingestion_service import (
+    IngestionJob,
+    IngestionResult,
+    IngestionService,
+)
 from app.application.services.ingestion_worker import IngestionWorker
 from app.application.services.retrieval_service import RetrievalService
+from app.application.services.stale_recovery_service import StaleRecoveryService
 from app.domain.enums.document_status import DocumentStatus
 from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings, get_settings
@@ -105,6 +111,10 @@ RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)
 # (storage, extractor, OCR, chunker, embedder) are shared across jobs.
 
 
+# Shared wall clock. Tests inject a FakeClock into the services directly instead.
+_clock = SystemClock()
+
+
 def build_ingestion_worker() -> IngestionWorker:
     settings = get_settings()
     storage: FileStorage = S3FileStorage(settings)
@@ -112,7 +122,7 @@ def build_ingestion_worker() -> IngestionWorker:
     chunker = create_chunker(settings, embedder)
     session_factory = get_session_factory()
 
-    async def handle(job: IngestionJob) -> None:
+    async def handle(job: IngestionJob) -> IngestionResult | None:
         try:
             async with session_factory() as session:
                 service = IngestionService(
@@ -124,9 +134,14 @@ def build_ingestion_worker() -> IngestionWorker:
                     document_repository=SqlAlchemyDocumentRepository(session),
                     chunk_repository=SqlAlchemyChunkRepository(session),
                     embed_batch_size=settings.embed_batch_size,
+                    clock=_clock,
+                    max_attempts=settings.ingest_max_attempts,
+                    retry_base_seconds=settings.ingest_retry_base_seconds,
+                    retry_max_seconds=settings.ingest_retry_max_seconds,
                 )
-                await service.ingest(job)
+                result = await service.ingest(job)
                 await session.commit()
+                return result
         except Exception:  # noqa: BLE001
             # The main session may be in a broken state; record Failed independently.
             logger.exception("Ingestion job %s failed at the session boundary", job.file_id)
@@ -136,10 +151,37 @@ def build_ingestion_worker() -> IngestionWorker:
                         job.file_id, DocumentStatus.FAILED, "Ingestion failed."
                     )
                     await session.commit()
+            return None
 
     return IngestionWorker(
-        handle, settings.ingest_max_concurrency, settings.ingest_queue_max
+        handle,
+        settings.ingest_max_concurrency,
+        settings.ingest_queue_max,
+        clock=_clock,
     )
+
+
+async def run_stale_recovery(worker: IngestionWorker) -> int:
+    """Reset documents stuck in Processing and re-enqueue them. Returns the count.
+
+    Called once on startup (see the app factory) when STALE_RECOVERY_ON_STARTUP.
+    """
+    settings = get_settings()
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        recovery = StaleRecoveryService(
+            SqlAlchemyDocumentRepository(session),
+            clock=_clock,
+            stale_minutes=settings.stale_processing_minutes,
+        )
+        recovered = await recovery.recover()
+        await session.commit()
+
+    for document in recovered:
+        worker.enqueue(IngestionJob.from_document(document))
+    if recovered:
+        logger.info("Re-enqueued %d recovered document(s) on startup.", len(recovered))
+    return len(recovered)
 
 
 def get_ingestion_worker(request: Request) -> IngestionWorker:

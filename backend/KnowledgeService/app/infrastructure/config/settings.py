@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     ingest_queue_max: int = 100  # bounded in-process job queue size
     embed_batch_size: int = 32  # chunk texts per embed_documents call
 
+    # --- Ingestion lifecycle & robustness (Phase 8) ---
+    ingest_max_attempts: int = 3  # after this many attempts, mark permanently Failed
+    ingest_retry_base_seconds: float = 2.0  # exponential backoff base
+    ingest_retry_max_seconds: float = 30.0  # backoff cap
+    stale_processing_minutes: int = 15  # Processing older than this is considered stale
+    stale_recovery_on_startup: bool = True  # re-queue stale Processing docs at startup
+
     # --- Search / retrieval (Phase 7) ---
     search_default_top_k: int = 8  # results returned when topK is not supplied
     search_max_top_k: int = 50  # upper clamp on a requested topK

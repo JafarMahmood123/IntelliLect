@@ -12,6 +12,8 @@ from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
 from app.application.ports.ocr_processor import OcrProcessor
+from app.application.services.clock import Clock, SystemClock
+from app.application.services.ingestion_errors import is_transient
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
@@ -43,23 +45,29 @@ class IngestionJob:
 
 @dataclass
 class IngestionResult:
-    """Outcome of one ingest() call (for the worker log, tests, and the CLI)."""
+    """Outcome of one ingest() call (for the worker, tests, and the CLI)."""
 
     file_id: UUID
     status: DocumentStatus
-    chunk_count: int
+    chunk_count: int = 0
     skipped: bool = False
     error: str | None = None
+    attempts: int = 0
+    retry: bool = False  # transient failure — the worker should re-enqueue after a delay
+    retry_delay_seconds: float = 0.0
 
 
 class IngestionService:
     """Orchestrates the full ingestion pipeline for one document.
 
-    download -> extract (P2) -> OCR (P3) -> chunk (P4) -> embed -> persist -> Done.
+    claim -> download -> extract (P2) -> OCR (P3) -> chunk (P4) -> embed ->
+    atomic chunk replace -> Done.
 
-    Depends only on ports, so it runs offline against fakes. It owns status
-    transitions and error handling: any failure marks the document Failed (with a
-    concise message) and returns rather than raising, so the worker survives.
+    Robustness (Phase 8): a concurrency-safe claim prevents double-processing;
+    transient failures are retried with backoff (up to INGEST_MAX_ATTEMPTS) while
+    permanent ones fail fast; chunk writes are atomic; unchanged content is a no-op.
+    Never raises for a pipeline failure — returns an IngestionResult so the worker
+    survives and can schedule a retry.
     """
 
     def __init__(
@@ -72,6 +80,10 @@ class IngestionService:
         document_repository: DocumentRepository,
         chunk_repository: ChunkRepository,
         embed_batch_size: int = 32,
+        clock: Clock | None = None,
+        max_attempts: int = 3,
+        retry_base_seconds: float = 2.0,
+        retry_max_seconds: float = 30.0,
     ) -> None:
         self._storage = file_storage
         self._extractor = extractor
@@ -81,77 +93,119 @@ class IngestionService:
         self._documents = document_repository
         self._chunks = chunk_repository
         self._embed_batch_size = max(1, embed_batch_size)
+        self._clock = clock or SystemClock()
+        self._max_attempts = max(1, max_attempts)
+        self._retry_base = retry_base_seconds
+        self._retry_max = retry_max_seconds
 
     async def ingest(self, job: IngestionJob) -> IngestionResult:
-        try:
+        # 1) Claim the document atomically. If we don't win the claim, another worker
+        #    owns it or it's terminal — exit cleanly without reprocessing.
+        template = Document(
+            classroom_id=job.classroom_id,
+            file_id=job.file_id,
+            s3_key=job.s3_key,
+            file_name=job.file_name,
+            content_type=job.content_type,
+            status=DocumentStatus.PROCESSING,
+        )
+        claimed = await self._documents.claim_for_processing(template, self._clock.now())
+        if claimed is None:
             existing = await self._documents.get_by_file_id(job.file_id)
+            status = existing.status if existing is not None else DocumentStatus.DONE
+            logger.info(
+                "Skipping %s: not claimable (status=%s).", job.file_id, status.value
+            )
+            return IngestionResult(
+                file_id=job.file_id, status=status, skipped=True
+            )
 
+        attempts = claimed.attempts
+        try:
             file_bytes = await self._storage.get_bytes(job.s3_key)
             content_hash = hashlib.sha256(file_bytes).hexdigest()
 
-            # Idempotency: an unchanged, already-Done document is left untouched.
-            if (
-                existing is not None
-                and existing.status == DocumentStatus.DONE
-                and existing.content_hash == content_hash
-            ):
-                logger.info(
-                    "Skipping ingest for %s: already Done with the same content hash.",
-                    job.file_id,
-                )
+            # 6) Idempotency: content unchanged since the last successful index -> the
+            #    existing chunks are still valid; just mark Done (no re-embed/rewrite).
+            if claimed.content_hash == content_hash:
+                await self._mark_done(claimed, content_hash)
+                logger.info("Ingest %s: unchanged content, kept existing chunks.", job.file_id)
                 return IngestionResult(
                     file_id=job.file_id,
                     status=DocumentStatus.DONE,
-                    chunk_count=0,
                     skipped=True,
+                    attempts=attempts,
                 )
 
-            # Mark Processing. add() upserts on file_id, so this also creates the row
-            # if the Pending write has not committed yet, and returns the real id.
-            document = self._document_for(
-                job, existing, DocumentStatus.PROCESSING, existing_hash(existing)
-            )
-            document = await self._documents.add(document)
-
-            # extract -> OCR -> chunk
             result = self._extractor.extract(file_bytes, job.file_name, job.content_type)
             result = await self._ocr.process(file_bytes, result)
-            chunks = await self._chunker.chunk(result, document.id, job.classroom_id)
-
+            chunks = await self._chunker.chunk(result, claimed.id, job.classroom_id)
             embeddings = await self._embed(chunks)
 
-            # Re-index: replace any prior chunks with the new set, together, so an
-            # earlier failure never wipes existing chunks.
-            await self._chunks.delete_by_document_id(document.id)
-            if chunks:
-                await self._chunks.add_many(chunks, embeddings)
-
-            document.content_hash = content_hash
-            document.status = DocumentStatus.DONE
-            document.error = None
-            await self._documents.add(document)
+            # 3) Atomic replace: old chunks are removed and new ones inserted together,
+            #    so a failure never leaves a partial/duplicated set. Only after this
+            #    commits do we mark the document Done.
+            await self._chunks.replace_for_document(claimed.id, chunks, embeddings)
+            await self._mark_done(claimed, content_hash)
 
             logger.info("Ingested %s: %d chunk(s) persisted.", job.file_id, len(chunks))
             return IngestionResult(
                 file_id=job.file_id,
                 status=DocumentStatus.DONE,
                 chunk_count=len(chunks),
+                attempts=attempts,
             )
-        except Exception as exc:  # noqa: BLE001 — one bad document must not kill the worker
-            message = f"{type(exc).__name__}: {exc}"[:500]
-            logger.exception("Ingestion failed for %s", job.file_id)
-            try:
-                await self._documents.update_status(
-                    job.file_id, DocumentStatus.FAILED, message
-                )
-            except Exception:  # noqa: BLE001
-                logger.exception("Could not mark %s as Failed", job.file_id)
+        except Exception as exc:  # noqa: BLE001 — classify, then retry or fail
+            return await self._handle_failure(job, attempts, exc)
+
+    async def _handle_failure(
+        self, job: IngestionJob, attempts: int, exc: Exception
+    ) -> IngestionResult:
+        transient = is_transient(exc)
+        message = f"{type(exc).__name__}: {exc}"[:500]
+
+        if transient and attempts < self._max_attempts:
+            delay = self._backoff(attempts)
+            logger.warning(
+                "Ingest %s attempt %d/%d failed (transient): %s — retrying in %.1fs.",
+                job.file_id, attempts, self._max_attempts, message, delay,
+            )
+            # Back to Pending so the re-enqueued job can claim it again.
+            await self._documents.update_status(
+                job.file_id, DocumentStatus.PENDING, message
+            )
             return IngestionResult(
                 file_id=job.file_id,
-                status=DocumentStatus.FAILED,
-                chunk_count=0,
+                status=DocumentStatus.PENDING,
                 error=message,
+                attempts=attempts,
+                retry=True,
+                retry_delay_seconds=delay,
             )
+
+        reason = "permanent" if not transient else "attempts exhausted"
+        logger.error(
+            "Ingest %s attempt %d/%d failed (%s): %s — marking Failed.",
+            job.file_id, attempts, self._max_attempts, reason, message,
+        )
+        await self._documents.update_status(job.file_id, DocumentStatus.FAILED, message)
+        return IngestionResult(
+            file_id=job.file_id,
+            status=DocumentStatus.FAILED,
+            error=message,
+            attempts=attempts,
+        )
+
+    def _backoff(self, attempts: int) -> float:
+        """Exponential backoff for the given (1-based) attempt number, capped."""
+        delay = self._retry_base * (2 ** (attempts - 1))
+        return min(delay, self._retry_max)
+
+    async def _mark_done(self, document: Document, content_hash: str) -> None:
+        document.content_hash = content_hash
+        document.status = DocumentStatus.DONE
+        document.last_error = None
+        await self._documents.add(document)
 
     async def _embed(self, chunks: list[Chunk]) -> list[list[float]]:
         if not chunks:
@@ -162,28 +216,3 @@ class IngestionService:
             batch = texts[start : start + self._embed_batch_size]
             embeddings.extend(await self._embedder.embed_documents(batch))
         return embeddings
-
-    @staticmethod
-    def _document_for(
-        job: IngestionJob,
-        existing: Document | None,
-        status: DocumentStatus,
-        content_hash: str | None,
-    ) -> Document:
-        document = Document(
-            classroom_id=job.classroom_id,
-            file_id=job.file_id,
-            s3_key=job.s3_key,
-            file_name=job.file_name,
-            content_type=job.content_type,
-            content_hash=content_hash,
-            status=status,
-        )
-        if existing is not None:
-            document.id = existing.id
-            document.created_at_utc = existing.created_at_utc
-        return document
-
-
-def existing_hash(document: Document | None) -> str | None:
-    return document.content_hash if document is not None else None

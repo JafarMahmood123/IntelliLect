@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -43,7 +44,13 @@ class DocumentModel(Base):
     status: Mapped[DocumentStatus] = mapped_column(
         String(32), nullable=False, default=DocumentStatus.PENDING.value
     )
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at_utc: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()
     )

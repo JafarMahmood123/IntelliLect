@@ -26,12 +26,14 @@ class Document:
     content_type: str
     content_hash: str | None = None
     status: DocumentStatus = DocumentStatus.PENDING
-    error: str | None = None
+    last_error: str | None = None
+    attempts: int = 0  # ingestion attempts so far (incremented on each claim)
+    processing_started_at: datetime | None = None  # set while Processing; for stale detection
     id: UUID = field(default_factory=uuid4)
     created_at_utc: datetime = field(default_factory=_utcnow)
     updated_at_utc: datetime = field(default_factory=_utcnow)
 
-    def mark(self, status: DocumentStatus, error: str | None = None) -> None:
+    def mark(self, status: DocumentStatus, last_error: str | None = None) -> None:
         self.status = status
-        self.error = error
+        self.last_error = last_error
         self.updated_at_utc = _utcnow()

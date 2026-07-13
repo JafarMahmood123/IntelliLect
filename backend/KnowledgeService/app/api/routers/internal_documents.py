@@ -62,6 +62,44 @@ async def ingest_document(
     )
 
 
+@router.post(
+    "/{file_id}/reindex",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=IngestDocumentResponse,
+    response_model_by_alias=True,
+)
+async def reindex_document(
+    file_id: UUID,
+    documents: DocumentRepositoryDep,
+    worker: IngestionWorkerDep,
+) -> IngestDocumentResponse:
+    """Manually re-trigger ingestion for a document.
+
+    Resets it to Pending (clearing last_error and the attempt count) and re-enqueues
+    it through the existing pipeline. Covers missed upload triggers and manual
+    recovery of Failed/stuck documents. 404 if the document is unknown; 503 if the
+    queue is full.
+    """
+    document = await documents.reset_to_pending(file_id, reset_attempts=True)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No document with fileId {file_id}.",
+        )
+
+    if not worker.enqueue(IngestionJob.from_document(document)):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingestion queue is full; please retry shortly.",
+        )
+
+    return IngestDocumentResponse(
+        document_id=document.id,
+        file_id=document.file_id,
+        status=document.status.value,
+    )
+
+
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     file_id: UUID,

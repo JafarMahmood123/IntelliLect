@@ -26,6 +26,16 @@ clearly-marked ports and placeholders for them.
   file.
 - `DELETE /api/internal/documents/{fileId}` — deletes the document (its chunks
   cascade) and returns `204`.
+- `POST /api/internal/documents/{fileId}/reindex` — manual retry/recovery (Phase 8):
+  resets the document to Pending (clears `last_error`, resets the attempt count) and
+  re-enqueues it through the existing pipeline; `404` if unknown, `503` if the queue
+  is full. Covers missed upload triggers and stuck/Failed documents.
+- Ingestion robustness (Phase 8): a concurrency-safe **claim** prevents double-
+  processing; transient failures (S3/Ollama) **retry with exponential backoff** up to
+  `INGEST_MAX_ATTEMPTS` while permanent ones (corrupt/unsupported) fail fast; chunk
+  writes are **atomic**; documents stuck in Processing past `STALE_PROCESSING_MINUTES`
+  are **recovered and re-enqueued on startup**. A live soak test (kill mid-batch and
+  restart; force an Ollama timeout) is deferred to when the stack is running.
 - `POST /api/search` — retrieval (Phase 7). Embeds the query with the local model
   and runs a pgvector cosine ANN search over one classroom's chunks, returning the
   top-k chunks with text, metadata, and a similarity score. Returns **chunks only**,

@@ -4,9 +4,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.dependencies import build_ingestion_worker
+import logging
+
+from app.api.dependencies import build_ingestion_worker, run_stale_recovery
 from app.api.routers import health, internal_documents, search
+from app.infrastructure.config.settings import get_settings
 from app.infrastructure.persistence.database import dispose_engine
+
+logger = logging.getLogger("knowledge.api")
 
 
 @asynccontextmanager
@@ -16,6 +21,14 @@ async def lifespan(app: FastAPI):
     worker = build_ingestion_worker()
     await worker.start()
     app.state.ingestion_worker = worker
+
+    # Recover documents left stuck in Processing by a previous crash/restart.
+    if get_settings().stale_recovery_on_startup:
+        try:
+            await run_stale_recovery(worker)
+        except Exception:  # noqa: BLE001 — recovery must never block startup
+            logger.exception("Stale-processing recovery failed on startup.")
+
     try:
         yield
     finally:
