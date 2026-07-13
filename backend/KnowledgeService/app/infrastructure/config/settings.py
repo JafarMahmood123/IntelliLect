@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     ingest_queue_max: int = 100  # bounded in-process job queue size
     embed_batch_size: int = 32  # chunk texts per embed_documents call
 
+    # --- Search / retrieval (Phase 7) ---
+    search_default_top_k: int = 8  # results returned when topK is not supplied
+    search_max_top_k: int = 50  # upper clamp on a requested topK
+
     # --- Internal API security ---
     internal_api_secret: str = ""
 

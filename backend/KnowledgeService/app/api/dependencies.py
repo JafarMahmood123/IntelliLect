@@ -16,6 +16,7 @@ from app.application.ports.file_storage import FileStorage
 from app.application.ports.ocr_processor import OcrProcessor
 from app.application.services.ingestion_service import IngestionJob, IngestionService
 from app.application.services.ingestion_worker import IngestionWorker
+from app.application.services.retrieval_service import RetrievalService
 from app.domain.enums.document_status import DocumentStatus
 from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings, get_settings
@@ -75,12 +76,27 @@ def get_ocr_processor() -> OcrProcessor:
     return _ocr_processor
 
 
+def get_retrieval_service(
+    settings: SettingsDep,
+    embedding_provider: EmbeddingProviderDep,
+    chunks: ChunkRepositoryDep,
+) -> RetrievalService:
+    """Retrieval use case for POST /api/search (embed query -> vector search)."""
+    return RetrievalService(
+        embedding_provider,
+        chunks,
+        default_top_k=settings.search_default_top_k,
+        max_top_k=settings.search_max_top_k,
+    )
+
+
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 OcrProcessorDep = Annotated[OcrProcessor, Depends(get_ocr_processor)]
 ChunkerDep = Annotated[Chunker, Depends(get_chunker)]
+RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)]
 
 
 # --- Ingestion worker composition --------------------------------------------

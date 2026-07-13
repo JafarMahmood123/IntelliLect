@@ -154,3 +154,7 @@ class InMemoryChunkRepository(ChunkRepository):
         removed = self.by_document.pop(document_id, [])
         self.delete_calls += 1
         return len(removed)
+
+    async def search(self, classroom_id, query_embedding, top_k):
+        # Not exercised by the ingestion tests; present to satisfy the port.
+        return []

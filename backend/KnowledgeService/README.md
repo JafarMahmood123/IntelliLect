@@ -26,6 +26,16 @@ clearly-marked ports and placeholders for them.
   file.
 - `DELETE /api/internal/documents/{fileId}` — deletes the document (its chunks
   cascade) and returns `204`.
+- `POST /api/search` — retrieval (Phase 7). Embeds the query with the local model
+  and runs a pgvector cosine ANN search over one classroom's chunks, returning the
+  top-k chunks with text, metadata, and a similarity score. Returns **chunks only**,
+  not a generated answer (answer synthesis is a later phase).
+  > **Auth note:** `/api/search` is currently guarded by the same
+  > `INTERNAL_API_SECRET` (`X-Internal-Secret`) as the internal endpoints because it
+  > is consumed service-to-service for now. When a user-facing feature calls it,
+  > swap this for user-JWT auth **plus a server-side classroom-membership check**
+  > (the classroom filter in the query is mandatory, but membership must also be
+  > authorized). `SEARCH_DEFAULT_TOP_K` / `SEARCH_MAX_TOP_K` control result counts.
 
 ## Architecture (Clean Architecture)
 

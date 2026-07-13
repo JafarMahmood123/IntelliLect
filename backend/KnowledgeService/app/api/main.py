@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.dependencies import build_ingestion_worker
-from app.api.routers import health, internal_documents
+from app.api.routers import health, internal_documents, search
 from app.infrastructure.persistence.database import dispose_engine
 
 
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(internal_documents.router)
+    app.include_router(search.router)
     return app
 
 
