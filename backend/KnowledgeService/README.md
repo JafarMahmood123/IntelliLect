@@ -205,9 +205,74 @@ pip install -e ".[dev]"
 pytest
 ```
 
-`tests/test_health.py` exercises `GET /health` for both the reachable and
-unreachable-DB cases by patching the session factory and the Ollama probe, so no
-live database or Ollama server is required.
+The suite is fully offline (fakes for the embedder, storage, DB, and a fake clock).
+Coverage is available but not gated:
+
+```bash
+pytest --cov=app --cov-report=term-missing
+```
+
+Tesseract- and Postgres-dependent tests skip cleanly when those aren't available.
+
+## Observability (Phase 9)
+
+### Structured logs
+
+Logging is JSON, one object per line, at `LOG_LEVEL` (default `INFO`). Every log
+emitted while a document is ingested carries correlation ids so one document's whole
+run can be traced:
+
+```json
+{"ts":"…","level":"INFO","logger":"knowledge.ingestion","message":"chunked",
+ "file_id":"<fileId>","run_id":"<generated>","chunks":12}
+```
+
+Trace a document by its `file_id`; a fresh `run_id` is generated per ingestion
+attempt. Lifecycle events at `INFO`: `claimed → extracted → ocr → chunked → embedded
+→ done`, or `retry` (WARNING) / `failed` (ERROR). **Only counts, ids, sizes, and
+durations are logged** — never file contents, chunk text, secrets, or the auth
+header (failures log the error *type*, not the message; the full message goes to
+`documents.last_error`).
+
+### Metrics
+
+When `METRICS_ENABLED` (default true), Prometheus text is exposed at **`GET
+/metrics`**:
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `documents_ingested_total{status}` | counter | terminal outcomes (`done`/`failed`/`skipped`) |
+| `ingestion_failures_total{type}` | counter | failures by `transient`/`permanent` |
+| `ocr_invocations_total` | counter | Tesseract invocations |
+| `embeddings_requested_total` | counter | chunk texts sent to the embedder |
+| `ingestion_duration_seconds` | histogram | end-to-end time per document |
+| `stage_duration_seconds{stage}` | histogram | per stage: `extract`/`ocr`/`chunk`/`embed`/`persist` |
+| `chunks_per_document` | histogram | chunks produced per document |
+| `ingest_queue_depth` | gauge | current queue depth |
+| `inflight_documents` | gauge | documents currently processing |
+
+### Health
+
+**`GET /health`** reports each component: `db` (`SELECT 1`, liveness-critical → `503`
+if it fails), `ollama` (via `/api/tags`, non-fatal), and `worker` (running + current
+`queueDepth`, non-fatal). Overall `status` is `ok` only when all three are healthy,
+else `degraded`.
+
+### Load / RAM soak runbook (DEFERRED — manual, when the stack is live)
+
+Not run here. When Ollama + Postgres + S3 are up:
+
+1. Ingest a batch of N real files with OCR-heavy content (scanned PDFs / image-heavy
+   slides).
+2. Watch `ingest_queue_depth` and `inflight_documents` (via `/metrics` or Prometheus),
+   the `stage_duration_seconds` histograms (OCR/embed are the heavy stages), and the
+   **container's memory** (`docker stats knowledge-service`).
+3. Confirm memory stays within the container limit at the configured
+   `INGEST_MAX_CONCURRENCY` (concurrent documents) and `OCR_MAX_WORKERS` (concurrent
+   Tesseract calls, the main RAM driver).
+4. If memory is tight, lower `OCR_MAX_WORKERS` first, then `INGEST_MAX_CONCURRENCY`;
+   if the queue backs up and RAM is fine, raise them. Re-run and compare stage
+   durations and peak memory.
 
 ## Assumptions
 

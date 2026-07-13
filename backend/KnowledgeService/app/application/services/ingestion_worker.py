@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 
 from app.application.services.clock import Clock, SystemClock
 from app.application.services.ingestion_service import IngestionJob, IngestionResult
+from app.observability import metrics
 
 logger = logging.getLogger("knowledge.ingestion.worker")
 
@@ -45,10 +46,18 @@ class IngestionWorker:
         """Try to enqueue a job. Returns False if the queue is full."""
         try:
             self._queue.put_nowait(job)
+            metrics.set_queue_depth(self._queue.qsize())
             return True
         except asyncio.QueueFull:
             logger.warning("Ingestion queue full; rejecting job %s.", job.file_id)
             return False
+
+    def queue_depth(self) -> int:
+        """Current number of queued (not-yet-started) jobs."""
+        return self._queue.qsize()
+
+    def is_running(self) -> bool:
+        return self._started and any(not task.done() for task in self._tasks)
 
     async def start(self) -> None:
         if self._started:
@@ -63,6 +72,7 @@ class IngestionWorker:
     async def _run(self, worker_id: int) -> None:
         while True:
             job = await self._queue.get()
+            metrics.set_queue_depth(self._queue.qsize())
             try:
                 result = await self._handler(job)
                 if result is not None and result.retry:

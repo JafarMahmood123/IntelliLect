@@ -7,8 +7,10 @@ from fastapi import FastAPI
 import logging
 
 from app.api.dependencies import build_ingestion_worker, run_stale_recovery
-from app.api.routers import health, internal_documents, search
+from app.api.routers import health, internal_documents, metrics as metrics_router, search
 from app.infrastructure.config.settings import get_settings
+from app.observability import metrics
+from app.observability.logging_config import configure_logging
 from app.infrastructure.persistence.database import dispose_engine
 
 logger = logging.getLogger("knowledge.api")
@@ -39,6 +41,10 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """FastAPI application factory."""
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    metrics.set_enabled(settings.metrics_enabled)
+
     app = FastAPI(
         title="IntelliLect KnowledgeService",
         version="0.1.0",
@@ -52,6 +58,8 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(internal_documents.router)
     app.include_router(search.router)
+    if settings.metrics_enabled:
+        app.include_router(metrics_router.router)
     return app
 
 

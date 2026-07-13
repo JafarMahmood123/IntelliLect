@@ -17,6 +17,9 @@ from app.application.services.ingestion_errors import is_transient
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
+from app.domain.extraction.text_block import TextBlockSource
+from app.observability import metrics
+from app.observability.correlation import correlation_scope
 
 logger = logging.getLogger("knowledge.ingestion")
 
@@ -99,6 +102,13 @@ class IngestionService:
         self._retry_max = retry_max_seconds
 
     async def ingest(self, job: IngestionJob) -> IngestionResult:
+        # Bind correlation ids (file_id + a generated run id) for every log emitted
+        # while this document is processed. Instrumentation is additive: it never
+        # changes control flow or results.
+        with correlation_scope(job.file_id):
+            return await self._run_ingest(job)
+
+    async def _run_ingest(self, job: IngestionJob) -> IngestionResult:
         # 1) Claim the document atomically. If we don't win the claim, another worker
         #    owns it or it's terminal — exit cleanly without reprocessing.
         template = Document(
@@ -113,67 +123,105 @@ class IngestionService:
         if claimed is None:
             existing = await self._documents.get_by_file_id(job.file_id)
             status = existing.status if existing is not None else DocumentStatus.DONE
-            logger.info(
-                "Skipping %s: not claimable (status=%s).", job.file_id, status.value
-            )
-            return IngestionResult(
-                file_id=job.file_id, status=status, skipped=True
-            )
+            logger.info("ingest skipped: not claimable", extra={"claim_status": status.value})
+            metrics.record_document("skipped")
+            return IngestionResult(file_id=job.file_id, status=status, skipped=True)
 
         attempts = claimed.attempts
-        try:
-            file_bytes = await self._storage.get_bytes(job.s3_key)
-            content_hash = hashlib.sha256(file_bytes).hexdigest()
+        logger.info("claimed", extra={"attempt": attempts})
+        with metrics.track_inflight(), metrics.ingestion_timer():
+            try:
+                file_bytes = await self._storage.get_bytes(job.s3_key)
+                content_hash = hashlib.sha256(file_bytes).hexdigest()
 
-            # 6) Idempotency: content unchanged since the last successful index -> the
-            #    existing chunks are still valid; just mark Done (no re-embed/rewrite).
-            if claimed.content_hash == content_hash:
-                await self._mark_done(claimed, content_hash)
-                logger.info("Ingest %s: unchanged content, kept existing chunks.", job.file_id)
-                return IngestionResult(
-                    file_id=job.file_id,
-                    status=DocumentStatus.DONE,
-                    skipped=True,
-                    attempts=attempts,
+                # 6) Idempotency: content unchanged since the last successful index ->
+                #    the existing chunks are still valid; just mark Done.
+                if claimed.content_hash == content_hash:
+                    await self._mark_done(claimed, content_hash)
+                    logger.info("ingest skipped: unchanged content", extra={"attempt": attempts})
+                    metrics.record_document("skipped")
+                    return IngestionResult(
+                        file_id=job.file_id, status=DocumentStatus.DONE,
+                        skipped=True, attempts=attempts,
+                    )
+
+                with metrics.stage_timer("extract"):
+                    result = self._extractor.extract(file_bytes, job.file_name, job.content_type)
+                logger.info(
+                    "extracted",
+                    extra={
+                        "blocks": len(result.blocks),
+                        "images": len(result.images),
+                        "pages_without_text": len(result.pages_without_text),
+                    },
                 )
 
-            result = self._extractor.extract(file_bytes, job.file_name, job.content_type)
-            result = await self._ocr.process(file_bytes, result)
-            chunks = await self._chunker.chunk(result, claimed.id, job.classroom_id)
-            embeddings = await self._embed(chunks)
+                with metrics.stage_timer("ocr"):
+                    result = await self._ocr.process(file_bytes, result)
+                ocr_invoked = int(getattr(self._ocr, "last_ocr_invocations", 0) or 0)
+                ocr_units = sum(
+                    1 for block in result.blocks if block.source == TextBlockSource.OCR
+                )
+                metrics.record_ocr_invocations(ocr_invoked)
+                logger.info("ocr", extra={"units": ocr_units, "invoked": ocr_invoked})
 
-            # 3) Atomic replace: old chunks are removed and new ones inserted together,
-            #    so a failure never leaves a partial/duplicated set. Only after this
-            #    commits do we mark the document Done.
-            await self._chunks.replace_for_document(claimed.id, chunks, embeddings)
-            await self._mark_done(claimed, content_hash)
+                with metrics.stage_timer("chunk"):
+                    chunks = await self._chunker.chunk(result, claimed.id, job.classroom_id)
+                logger.info("chunked", extra={"chunks": len(chunks)})
 
-            logger.info("Ingested %s: %d chunk(s) persisted.", job.file_id, len(chunks))
-            return IngestionResult(
-                file_id=job.file_id,
-                status=DocumentStatus.DONE,
-                chunk_count=len(chunks),
-                attempts=attempts,
-            )
-        except Exception as exc:  # noqa: BLE001 — classify, then retry or fail
-            return await self._handle_failure(job, attempts, exc)
+                with metrics.stage_timer("embed"):
+                    embeddings = await self._embed(chunks)
+                metrics.record_embeddings(len(chunks))
+                logger.info(
+                    "embedded",
+                    extra={"chunks": len(chunks), "batches": self._batch_count(len(chunks))},
+                )
+
+                # 3) Atomic replace, then mark Done only after chunks commit.
+                with metrics.stage_timer("persist"):
+                    await self._chunks.replace_for_document(claimed.id, chunks, embeddings)
+                    await self._mark_done(claimed, content_hash)
+
+                metrics.record_chunks(len(chunks))
+                metrics.record_document("done")
+                logger.info("done", extra={"chunks": len(chunks), "attempt": attempts})
+                return IngestionResult(
+                    file_id=job.file_id, status=DocumentStatus.DONE,
+                    chunk_count=len(chunks), attempts=attempts,
+                )
+            except Exception as exc:  # noqa: BLE001 — classify, then retry or fail
+                return await self._handle_failure(job, attempts, exc)
+
+    def _batch_count(self, count: int) -> int:
+        if count <= 0:
+            return 0
+        return (count + self._embed_batch_size - 1) // self._embed_batch_size
 
     async def _handle_failure(
         self, job: IngestionJob, attempts: int, exc: Exception
     ) -> IngestionResult:
         transient = is_transient(exc)
+        # The full detail is persisted to documents.last_error; logs carry only the
+        # error TYPE (class name), never the raw message, contents, or secrets.
         message = f"{type(exc).__name__}: {exc}"[:500]
+        error_type = type(exc).__name__
 
         if transient and attempts < self._max_attempts:
             delay = self._backoff(attempts)
             logger.warning(
-                "Ingest %s attempt %d/%d failed (transient): %s — retrying in %.1fs.",
-                job.file_id, attempts, self._max_attempts, message, delay,
+                "retry",
+                extra={
+                    "attempt": attempts,
+                    "max_attempts": self._max_attempts,
+                    "delay_seconds": delay,
+                    "error_type": error_type,
+                },
             )
             # Back to Pending so the re-enqueued job can claim it again.
             await self._documents.update_status(
                 job.file_id, DocumentStatus.PENDING, message
             )
+            metrics.record_failure("transient")
             return IngestionResult(
                 file_id=job.file_id,
                 status=DocumentStatus.PENDING,
@@ -183,12 +231,19 @@ class IngestionService:
                 retry_delay_seconds=delay,
             )
 
-        reason = "permanent" if not transient else "attempts exhausted"
+        reason = "permanent" if not transient else "attempts_exhausted"
         logger.error(
-            "Ingest %s attempt %d/%d failed (%s): %s — marking Failed.",
-            job.file_id, attempts, self._max_attempts, reason, message,
+            "failed",
+            extra={
+                "attempt": attempts,
+                "max_attempts": self._max_attempts,
+                "reason": reason,
+                "error_type": error_type,
+            },
         )
         await self._documents.update_status(job.file_id, DocumentStatus.FAILED, message)
+        metrics.record_failure("permanent" if not transient else "transient")
+        metrics.record_document("failed")
         return IngestionResult(
             file_id=job.file_id,
             status=DocumentStatus.FAILED,

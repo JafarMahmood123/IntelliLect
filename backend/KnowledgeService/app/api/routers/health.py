@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
@@ -42,22 +42,35 @@ async def _check_ollama() -> bool:
         return False
 
 
-@router.get("/health")
-async def health() -> JSONResponse:
-    """Liveness + dependency readiness.
+def _check_worker(request: Request) -> tuple[bool, int]:
+    """Whether the ingestion worker is running, and its current queue depth."""
+    worker = getattr(request.app.state, "ingestion_worker", None)
+    if worker is None:
+        return False, 0
+    return worker.is_running(), worker.queue_depth()
 
-    The DB check is fatal (503 if it fails); the Ollama check is informational
-    only, so the service still reports 200 when Ollama is unreachable.
+
+@router.get("/health")
+async def health(request: Request) -> JSONResponse:
+    """Liveness + component readiness.
+
+    Reports each component (db, ollama, worker) separately. The DB check is the
+    liveness-critical one (503 if it fails); ollama and worker are non-fatal
+    signals, but any unhealthy component makes the overall status "degraded".
     """
     db_ok = await _check_db()
     ollama_ok = await _check_ollama()
+    worker_ok, queue_depth = _check_worker(request)
 
     status_code = 200 if db_ok else 503
+    overall_ok = db_ok and ollama_ok and worker_ok
     return JSONResponse(
         status_code=status_code,
         content={
-            "status": "ok" if db_ok else "degraded",
+            "status": "ok" if overall_ok else "degraded",
             "db": "ok" if db_ok else "fail",
             "ollama": "reachable" if ollama_ok else "unreachable",
+            "worker": "running" if worker_ok else "down",
+            "queueDepth": queue_depth,
         },
     )

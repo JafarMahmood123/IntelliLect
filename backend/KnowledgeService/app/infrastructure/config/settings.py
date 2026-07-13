@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     search_default_top_k: int = 8  # results returned when topK is not supplied
     search_max_top_k: int = 50  # upper clamp on a requested topK
 
+    # --- Observability (Phase 9) ---
+    log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
+    metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics
+
     # --- Internal API security ---
     internal_api_secret: str = ""
 
