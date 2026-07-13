@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.ports.chunk_repository import ChunkRepository
 from app.application.ports.document_repository import DocumentRepository
 from app.application.ports.embedding_provider import EmbeddingProvider
+from app.application.ports.extractor import Extractor
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
+from app.infrastructure.extraction.router import ExtractorRouter
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session
 from app.infrastructure.persistence.document_repository import SqlAlchemyDocumentRepository
@@ -34,9 +36,19 @@ def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
     return OllamaEmbeddingProvider(settings)
 
 
+# The router is stateless and thread-safe, so one shared instance serves every
+# request. Registered here for later phases to inject; no endpoint calls it yet.
+_extractor: Extractor = ExtractorRouter.default()
+
+
+def get_extractor() -> Extractor:
+    return _extractor
+
+
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
+ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 
 
 async def require_internal_secret(
