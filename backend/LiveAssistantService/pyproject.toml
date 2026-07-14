@@ -1,0 +1,40 @@
+[project]
+name = "live-assistant-service"
+version = "0.1.0"
+description = "IntelliLect LiveAssistantService — server-side live-session agent that captures the teacher's audio for later real-time RAG feedback."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # Audio format normalization only (downmix + resample). NOT an ML dependency.
+    "numpy>=1.26",
+    # --- LiveKit server-side agent (LA-1) ---
+    "livekit>=1.0",       # realtime SDK: `from livekit import rtc` (room/track/audio)
+    "livekit-api>=1.0",   # access-token minting: `from livekit import api`
+]
+# NOTE: intentionally NO STT/ML dependencies — no torch/transformers, no Ollama,
+# no models. This phase captures audio only; STT, retrieval, brain evaluation, and
+# feedback delivery are later phases and pull in nothing here.
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "anyio>=4.6",
+    "httpx>=0.27",  # FastAPI TestClient dependency
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

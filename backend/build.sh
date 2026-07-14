@@ -23,6 +23,7 @@ SERVICES=(
   classroom-service
   streaming-service
   knowledge-service
+  live-assistant-service
 )
 
 START_STACK=1

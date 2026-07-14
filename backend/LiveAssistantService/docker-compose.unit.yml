@@ -1,0 +1,28 @@
+services:
+  live-assistant-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live-assistant-service
+    env_file:
+      # Optional: copy .env.example to .env to override any of the settings below.
+      # The stack still starts without it — the LiveKit dev credentials are set here
+      # so the agent can reach the in-stack livekit-server out of the box.
+      - path: .env
+        required: false
+    environment:
+      # Reach the LiveKit dev server defined in StreamingService/docker-compose.unit.yml
+      # (same intellilect-net). These match its --dev key/secret.
+      - LIVEKIT_URL=ws://livekit-server:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=super_secret_livekit_key_for_development
+      - AGENT_IDENTITY=ai-assistant
+      - TARGET_SAMPLE_RATE=16000
+      - TARGET_CHANNELS=1
+    ports:
+      - "8084:8080"
+    depends_on:
+      livekit-server:
+        condition: service_started
+    networks:
+      - intellilect-net
