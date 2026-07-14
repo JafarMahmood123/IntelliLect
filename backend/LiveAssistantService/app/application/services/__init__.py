@@ -1,12 +1,14 @@
 """Application services (use cases) for LiveAssistantService.
 
-Placeholder for the future **live-loop orchestrator** (later phase): the use case
-that wires the ports together — pull normalized frames from an ``AudioSource``,
-transcribe them via ``SpeechToText``, detect when the teacher finishes an "idea",
-retrieve classroom material via ``RetrievalClient``, evaluate the idea with
-``BrainClient``, and privately deliver any correction through ``FeedbackSink``.
+Pure application logic that depends only on the ports in ``app.application.ports``
+and domain types — no framework/SDK/infrastructure imports.
 
-Nothing lives here yet. This phase (LA-0 + LA-1) builds only the skeleton and the
-``AudioSource`` implementations; the orchestrator depends solely on the port
-abstractions in ``app.application.ports`` and no framework/SDK.
+- ``boundary_detector`` (LA-3) — segments the transcript stream into ``CompletedIdea``s
+  by semantic drift, pause, and length/time caps.
+- ``token_estimate`` — a tiny whitespace token estimator used by the length caps.
+
+Still to come: the **live-loop orchestrator** that wires the ports end to end — pull
+frames from an ``AudioSource``, transcribe via ``SpeechToText``, detect idea
+boundaries here, retrieve classroom material via ``RetrievalClient``, evaluate with
+``BrainClient``, and privately deliver corrections through ``FeedbackSink``.
 """

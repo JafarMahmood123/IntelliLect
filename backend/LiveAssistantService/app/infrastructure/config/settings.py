@@ -47,6 +47,29 @@ class Settings(BaseSettings):
     stt_chunk_seconds: float = 3.0  # audio accumulated before a transcription step
     stt_pause_seconds: float = 0.8  # trailing silence that marks a segment boundary
 
+    # --- Idea boundary detection (LA-3) ---
+    # Segments the transcript into "ideas". Semantic drift is measured by embedding
+    # finalized segments (via the EmbeddingProvider) — the ONLY model use here, and
+    # even that is faked in tests. The caps are safety nets so a long monologue always
+    # yields boundaries.
+    boundary_drift_threshold: float = 0.35  # cosine distance marking a new idea
+    # Pause length that implies a thought break. Reuses the LA-2 pause concept
+    # (stt_pause_seconds): the followed_by_pause flag already encodes it, and this
+    # also gates silent-gap-between-segments pauses.
+    boundary_pause_seconds: float = 0.8
+    boundary_max_seconds: float = 90.0  # hard cap on idea duration
+    boundary_max_tokens: int = 400  # hard cap on idea length (whitespace tokens)
+    boundary_min_tokens: int = 20  # ignore/merge ideas smaller than this
+
+    # --- Embeddings (LA-3 drift; local Ollama, HTTP-only — no model weights here) ---
+    # Used to embed transcript segments for drift measurement. On Linux,
+    # host.docker.internal resolves to the host via the compose extra_hosts mapping;
+    # host Ollama must listen on 0.0.0.0:11434 with the embedding model pulled.
+    ollama_base_url: str = "http://host.docker.internal:11434"
+    ollama_auth_token: str = ""  # optional bearer token, sent only if set
+    embedding_model: str = "qwen3-embedding"
+    embedding_timeout_seconds: float = 60.0
+
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
 

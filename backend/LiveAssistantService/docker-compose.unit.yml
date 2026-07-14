@@ -26,6 +26,13 @@ services:
       - STT_COMPUTE_TYPE=int8
       - STT_LANGUAGE=en
       - HF_HOME=/root/.cache/huggingface
+      # Idea-boundary drift embeddings (LA-3). Only the deferred boundary_check --live
+      # path calls Ollama; host Ollama must run on 0.0.0.0:11434 with the model pulled.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - EMBEDDING_MODEL=qwen3-embedding
+    # Linux does not provide host.docker.internal by default; map it to the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8084:8080"
     depends_on:

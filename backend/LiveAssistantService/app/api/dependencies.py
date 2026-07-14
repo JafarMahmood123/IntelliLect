@@ -5,10 +5,15 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.application.ports.audio_source import AudioSource
+from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.speech_to_text import SpeechToText
+from app.application.services.boundary_detector import BoundaryDetector
 from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
 from app.infrastructure.config.settings import Settings, get_settings
+from app.infrastructure.embeddings.ollama_embedding_provider import (
+    OllamaEmbeddingProvider,
+)
 from app.infrastructure.stt.faster_whisper_speech_to_text import (
     FasterWhisperSpeechToText,
 )
@@ -45,3 +50,32 @@ def build_speech_to_text(settings: Settings) -> SpeechToText:
     is cheap and does not require the engine to be installed at import time.
     """
     return FasterWhisperSpeechToText(settings)
+
+
+def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
+    """Local Ollama embedder used for LA-3 drift measurement.
+
+    Only the deferred ``boundary_check.py --live`` path uses this; the boundary tests
+    inject a deterministic fake. No live call happens at construction time.
+    """
+    return OllamaEmbeddingProvider(settings)
+
+
+def build_boundary_detector(
+    settings: Settings, embedder: EmbeddingProvider
+) -> BoundaryDetector:
+    """Idea boundary detector (LA-3), configured from settings.
+
+    The ``embedder`` is injected (not constructed here) so callers can supply the
+    real Ollama provider or a fake. Not connected to a live session or to retrieval
+    yet — this is the seam LA-4 will consume. Application logic stays free of
+    ``Settings``: the config primitives are unpacked here.
+    """
+    return BoundaryDetector(
+        embedder,
+        drift_threshold=settings.boundary_drift_threshold,
+        pause_seconds=settings.boundary_pause_seconds,
+        max_seconds=settings.boundary_max_seconds,
+        max_tokens=settings.boundary_max_tokens,
+        min_tokens=settings.boundary_min_tokens,
+    )

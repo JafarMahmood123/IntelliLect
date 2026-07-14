@@ -6,14 +6,14 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-2.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-3.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
-`AudioSource` port, and **streaming English speech-to-text** behind a `SpeechToText`
-port. Transcript buffering, idea/boundary detection (LA-3), embedding, retrieval,
-brain evaluation, and feedback delivery are **not** implemented — the code leaves
-clearly-marked ports and placeholders for them.
+`AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
+port, and **idea boundary detection** that segments the transcript into completed
+"ideas". Retrieval, brain evaluation, and feedback delivery are **not** implemented
+— the code leaves clearly-marked ports and placeholders for them.
 
-> **No Ollama, no torch/transformers in this service.** STT runs on **faster-whisper
+> **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
 > model, unrelated to the embedder/brain. Its model downloads on first use (see
 > [STT model & resources](#stt-model--resources)). `numpy` is present for audio
@@ -55,24 +55,40 @@ clearly-marked ports and placeholders for them.
   `FasterWhisperSpeechToText` and prints each segment (timing, `is_final`,
   `followed_by_pause`, text) — eyeball transcript quality and pause detection with
   **no LiveKit and no Ollama**.
+- **Idea boundary detection (LA-3)** — `BoundaryDetector` (pure application service)
+  consumes the `TranscriptSegment` stream, buffers finalized segments into an idea,
+  and emits a `CompletedIdea` when a boundary fires: **DRIFT** (the newest segment's
+  embedding is cosine-far from the running idea vector), **PAUSE** (`followed_by_pause`
+  or a silent inter-segment gap), or the **TIME_CAP** / **TOKEN_CAP** safety nets.
+  Fragments below `BOUNDARY_MIN_TOKENS` merge forward; a trailing idea is flushed at
+  stream end. Only finalized segments drive decisions (interim text is ignored).
+- `OllamaEmbeddingProvider` — implements `EmbeddingProvider.embed_query` via host
+  Ollama (`POST /api/embed`) for drift measurement. No weights in the container; the
+  boundary tests use a deterministic fake instead, so **no live model is required**.
+- `FakeSpeechToText` / `FakeEmbeddingProvider` (test support) — scripted segments and
+  deterministic topic vectors, so the boundary logic (and later phases) is unit-tested
+  with no models.
+- `scripts/boundary_check.py` — a CLI that segments a **scripted** transcript into
+  ideas (DRIFT / PAUSE / caps / min-token merge / flush) with **no models**; a
+  deferred `--live` mode chains real STT + Ollama.
 
-## Ports (later phases)
+## Ports
 
-Defined now under `app/application/ports/`; only `AudioSource` is implemented this
-phase. The rest are abstract stubs (`raise NotImplementedError`) with the signatures
-their phase will need:
+Defined under `app/application/ports/`; the remaining stubs (`raise
+NotImplementedError`) carry the signatures their phase will need:
 
-| Port | Purpose (later phase) |
+| Port | Purpose |
 | --- | --- |
 | `AudioSource` | **Implemented (LA-1).** Stream of the teacher's normalized audio. |
 | `SpeechToText` | **Implemented (LA-2).** Streaming English transcription → `TranscriptSegment`s. |
-| `EmbeddingProvider` | Embed a finished idea for retrieval. |
+| `EmbeddingProvider` | **Implemented (LA-3).** Embed a segment/idea (local Ollama) for drift & later retrieval. |
 | `RetrievalClient` | Classroom-scoped RAG search via KnowledgeService. |
 | `BrainClient` | Judge an idea against retrieved material; propose a correction. |
 | `FeedbackSink` | Deliver a correction to the teacher **privately**. |
 
-The future **live-loop orchestrator** (the use case that wires these together) will
-live in `app/application/services/` — currently an empty, documented placeholder.
+The future **live-loop orchestrator** (the use case that wires audio → STT → boundary
+detection → retrieval → brain → feedback end to end) will join these in
+`app/application/services/`, alongside the existing `BoundaryDetector`.
 
 ## Architecture
 
@@ -82,20 +98,22 @@ app/
     entities/        # SessionContext
     audio/           # AudioFrame
     transcript/      # TranscriptSegment
+    idea/            # CompletedIdea, BoundaryTrigger
   application/
-    ports/           # AudioSource, SpeechToText (+ EmbeddingProvider,
-                     #   RetrievalClient, BrainClient, FeedbackSink stubs)
-    services/        # placeholder for the future live-loop orchestrator
+    ports/           # AudioSource, SpeechToText, EmbeddingProvider
+                     #   (+ RetrievalClient, BrainClient, FeedbackSink stubs)
+    services/        # boundary_detector, token_estimate (+ future orchestrator)
   infrastructure/
     config/          # pydantic-settings Settings
     audio/           # LiveKitAudioSource, FakeAudioSource, normalization
     stt/             # FasterWhisperSpeechToText, audio_analysis (energy/pause)
+    embeddings/      # OllamaEmbeddingProvider
   api/
     main.py          # FastAPI app factory
     dependencies.py  # composition root (names concrete classes)
     routers/         # health
-scripts/capture_check.py, scripts/stt_check.py
-tests/                # offline; tests/support/FakeSpeechToText for later phases
+scripts/capture_check.py, scripts/stt_check.py, scripts/boundary_check.py
+tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider}
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -126,6 +144,15 @@ See `.env.example`.
 | `STT_LANGUAGE` | `en` | English only for now (Arabic deferred). |
 | `STT_CHUNK_SECONDS` | `3.0` | Audio accumulated before a transcription step (interim cadence). |
 | `STT_PAUSE_SECONDS` | `0.8` | Trailing silence that marks a segment boundary. |
+| `BOUNDARY_DRIFT_THRESHOLD` | `0.35` | Cosine distance marking a topic/idea change. |
+| `BOUNDARY_PAUSE_SECONDS` | `0.8` | Pause (flag or silent gap) that ends an idea. |
+| `BOUNDARY_MAX_SECONDS` | `90` | Safety-net cap on idea duration. |
+| `BOUNDARY_MAX_TOKENS` | `400` | Safety-net cap on idea length (whitespace tokens). |
+| `BOUNDARY_MIN_TOKENS` | `20` | Ideas below this merge forward (no boundary). |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama for drift embeddings. |
+| `OLLAMA_AUTH_TOKEN` | _(empty)_ | Optional bearer token, sent only if set. |
+| `EMBEDDING_MODEL` | `qwen3-embedding` | Embedding model for drift (must be pulled in Ollama). |
+| `EMBEDDING_TIMEOUT_SECONDS` | `60` | Ollama request timeout. |
 | `LOG_LEVEL` | `INFO` | Root log level. |
 | `KNOWLEDGE_BASE_URL` | _(empty)_ | Placeholder — unused this phase. |
 | `INTERNAL_API_SECRET` | _(empty)_ | Placeholder — unused this phase. |
@@ -192,6 +219,26 @@ Example output (`[FINAL]` lines marked `<pause>` were closed by a detected silen
 [FINAL ]    3480-6837   ms  Photosynthesis converts sunlight into chemical energy.
 ```
 
+### Boundary check (offline — no models)
+
+Segment a **scripted** transcript into ideas with `BoundaryDetector`, using a
+deterministic keyword embedder — proves DRIFT / PAUSE / caps / min-token merge / flush
+with **no STT model and no Ollama**:
+
+```bash
+python scripts/boundary_check.py
+```
+
+```text
+idea 1: trigger=Drift    tokens=13  segs=2 dur=  4.0s [0-4000ms]   Photosynthesis converts ...
+idea 2: trigger=Pause    tokens=17  segs=2 dur=  4.0s [4000-8000ms]   Newton described gravity ...
+idea 3: trigger=TokenCap tokens=29  segs=4 dur=  5.0s [8000-13000ms]   Okay Now let's discuss the history ...
+idea 4: trigger=Pause    tokens=9   segs=1 dur=  2.0s [13000-15000ms]   In summary photosynthesis ...
+```
+
+A deferred `--live <wav>` mode chains the real STT (LA-2) + the real Ollama embedder;
+it needs the STT model and a running Ollama with `EMBEDDING_MODEL` pulled.
+
 ## STT model & resources
 
 STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
@@ -236,6 +283,12 @@ Covers:
 - **STT energy/pause helpers** (`audio_analysis`) directly.
 - **`FakeSpeechToText`** yields scripted segments deterministically (the seam LA-3+
   tests against).
+- **Boundary detection** (`BoundaryDetector`) — scripted segments + a one-hot topic
+  embedder cover every trigger: DRIFT at a topic shift, TOKEN_CAP / TIME_CAP on a
+  monologue, PAUSE (flag and silent gap), a stray sub-`MIN_TOKENS` word merging
+  forward, end-of-stream flush, and interim segments never splitting an idea (nor
+  being embedded).
+- **`FakeEmbeddingProvider`** determinism / orthogonal topic vectors.
 
 Two paths are **not** unit-tested against real infrastructure and are isolated behind
 lazy imports:
@@ -245,3 +298,5 @@ lazy imports:
 - The real Whisper model — `tests/test_faster_whisper_real.py` is **opt-in** and
   skips cleanly unless faster-whisper is installed **and** an English WAV is provided
   (`STT_TEST_WAV=/path/to.wav` or a file in `tests/fixtures/`). No audio is committed.
+- The real Ollama embedder (`OllamaEmbeddingProvider`) — used only by
+  `boundary_check.py --live`; the boundary tests inject `FakeEmbeddingProvider`.
