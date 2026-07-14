@@ -30,6 +30,11 @@ services:
       # path calls Ollama; host Ollama must run on 0.0.0.0:11434 with the model pulled.
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - EMBEDDING_MODEL=qwen3-embedding
+      # Session lifecycle (LA-6): the streaming service triggers start/stop on these
+      # /api/internal/sessions routes, authed with this shared secret (must match
+      # StreamingService's LiveAssistant__InternalApiSecret).
+      - INTERNAL_API_SECRET=dev-live-assistant-secret
+      - MAX_CONCURRENT_SESSIONS=20
     # Linux does not provide host.docker.internal by default; map it to the host.
     extra_hosts:
       - "host.docker.internal:host-gateway"

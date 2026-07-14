@@ -6,15 +6,16 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-5.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-6.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
 "ideas", **retrieval + evaluation on each idea** — pulling relevant course material
 from KnowledgeService and asking the brain whether the explanation has a real problem
-— and **private, teacher-only feedback delivery** of the resulting suggestion.
-**Session lifecycle** (LA-6) and **pacing/rate-limiting** (LA-7) are **not**
-implemented — the code leaves clearly-marked ports and placeholders for them.
+— **private, teacher-only feedback delivery** of the resulting suggestion, and the
+**full per-session loop assembled and started/stopped in sync with real sessions**
+(triggered by the streaming service). **Pacing/rate-limiting** (LA-7) is **not**
+implemented — the code leaves a clearly-marked seam for it.
 
 > **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
@@ -107,6 +108,19 @@ implemented — the code leaves clearly-marked ports and placeholders for them.
   dispatcher + sink (via an in-process recording channel) and prints the **exact
   serialized payload** and the **teacher-only target**, with **no LiveKit**; a
   deferred `--live` mode publishes to a real room.
+- **Session lifecycle (LA-6)** — `SessionPipeline` (pure application) assembles the
+  full loop for one session — `AudioSource → SpeechToText → BoundaryDetector →
+  IdeaEvaluator → (has_feedback) → FeedbackSink` — as one cancellable async task; a
+  per-idea error is logged and the run continues, the trailing idea is flushed on
+  stream end, and stopping disconnects the source. `SessionManager` keeps **exactly
+  one pipeline per session_id** (idempotent start/stop, `MAX_CONCURRENT_SESSIONS`
+  cap, graceful shutdown, auto-deregister on unexpected end). The composition root
+  wires each session's LiveKit agent as **both** the capture source and the feedback
+  channel, so feedback returns over the same connection.
+- **Internal session endpoints** (secured by `INTERNAL_API_SECRET`), triggered by the
+  streaming service: `POST /api/internal/sessions/start` (202, idempotent, 503 at
+  cap), `POST /api/internal/sessions/{id}/stop` (204), `GET /api/internal/sessions`
+  (active ids). `/health` also reports `activeSessions`.
 
 ## Ports
 
@@ -140,7 +154,8 @@ app/
   application/
     ports/           # AudioSource, SpeechToText, EmbeddingProvider, RetrievalClient,
                      #   BrainClient, FeedbackSink, AgentDataChannel
-    services/        # boundary_detector, idea_evaluator, feedback_dispatcher, token_estimate
+    services/        # boundary_detector, idea_evaluator, feedback_dispatcher,
+                     #   session_pipeline, session_manager, token_estimate
   infrastructure/
     config/          # pydantic-settings Settings
     audio/           # LiveKitAudioSource (AudioSource + AgentDataChannel), FakeAudioSource, normalization
@@ -150,12 +165,12 @@ app/
     brain/           # OllamaBrainClient, evaluation_prompt
     feedback/        # LiveKitFeedbackSink, feedback_payload (versioned wire contract)
   api/
-    main.py          # FastAPI app factory
+    main.py          # FastAPI app factory + lifespan (SessionManager start/stop)
     dependencies.py  # composition root (names concrete classes)
-    routers/         # health
+    routers/         # health, internal_sessions
 scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py, feedback_check.py
 tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider,
-                     #   RetrievalClient,BrainClient,FeedbackSink,AgentDataChannel}
+                     #   RetrievalClient,BrainClient,FeedbackSink,AgentDataChannel,Pipeline}
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -196,7 +211,6 @@ See `.env.example`.
 | `EMBEDDING_MODEL` | `qwen3-embedding` | Embedding model for drift (must be pulled in Ollama). |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | Ollama request timeout (embeddings). |
 | `KNOWLEDGE_BASE_URL` | _(empty)_ | KnowledgeService base URL for retrieval (`POST /api/search`). |
-| `INTERNAL_API_SECRET` | _(empty)_ | Shared secret sent as `X-Internal-Secret` to KnowledgeService. |
 | `RETRIEVAL_TOP_K` | `6` | Chunks requested per idea. |
 | `RETRIEVAL_MIN_SCORE` | `0.25` | Below this = "no relevant material" (short-circuit, no brain). |
 | `EVAL_MODEL` | `qwen2.5:7b-instruct` | Brain (generation) model; must be pulled in Ollama. |
@@ -205,6 +219,8 @@ See `.env.example`.
 | `EVAL_MAX_TOKENS` | `512` | Brain `num_predict`. |
 | `FEEDBACK_TRANSPORT` | `livekit` | Delivery transport (`livekit`; `signalr` is a future option). |
 | `FEEDBACK_MESSAGE_VERSION` | `1` | Version stamped into the feedback wire contract. |
+| `MAX_CONCURRENT_SESSIONS` | `20` | Cap on active session pipelines; start beyond it → 503. |
+| `INTERNAL_API_SECRET` | _(empty)_ | Shared secret guarding `/api/internal/sessions` (and KnowledgeService calls). |
 | `LOG_LEVEL` | `INFO` | Root log level. |
 
 `/health` reports `livekit: configured` only when `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
@@ -336,6 +352,39 @@ RESULT          : OK (teacher-only)
 A deferred `--live --room <room> --teacher <identity>` mode publishes to a real room
 via the agent's connection; it needs a live session with the teacher present.
 
+## Session lifecycle (LA-6)
+
+Sessions are started and stopped by the **streaming service**, not by a user-facing
+endpoint. When a live session becomes active (its LiveKit room is created), the .NET
+`StreamingService` calls this service — best-effort, so a session starts/ends normally
+even if the assistant is down:
+
+```text
+StreamingService (InternalStreamsController)
+  POST {LiveAssistant:BaseUrl}/api/internal/sessions/start
+       { sessionId, classroomId, roomName=<sessionId>, teacherIdentity=<teacherId> }
+  POST {LiveAssistant:BaseUrl}/api/internal/sessions/{sessionId}/stop
+  (X-Internal-Secret: <shared INTERNAL_API_SECRET>)
+```
+
+`roomName` and `teacherIdentity` follow `LiveKitMediaProvider`'s token conventions
+(room = `sessionId`, participant identity = the user id, so the teacher's identity is
+`teacherId`). On start, the `SessionManager` launches one `SessionPipeline`; on stop,
+it tears it down. Try it locally against a running service:
+
+```bash
+SECRET=dev-live-assistant-secret
+SID=$(uuidgen)
+curl -X POST localhost:8084/api/internal/sessions/start -H "X-Internal-Secret: $SECRET" \
+  -H 'content-type: application/json' \
+  -d "{\"sessionId\":\"$SID\",\"classroomId\":\"$(uuidgen)\",\"roomName\":\"$SID\",\"teacherIdentity\":\"teacher-1\"}"
+curl localhost:8084/api/internal/sessions -H "X-Internal-Secret: $SECRET"
+curl -X POST localhost:8084/api/internal/sessions/$SID/stop -H "X-Internal-Secret: $SECRET"
+```
+
+(A real pipeline needs LiveKit + models to do useful work; the endpoints, registry,
+idempotency, and cap are exercised offline by the test suite.)
+
 ## STT model & resources
 
 STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
@@ -434,6 +483,14 @@ Covers:
   to the teacher over `FEEDBACK_TOPIC` (via `FakeAgentDataChannel`) and raising
   `FeedbackDeliveryError` on channel failure; and the agent's `publish_to_identity`
   issuing a **reliable, single-`destination_identities`** publish (fake room, no SDK).
+- **Session lifecycle (LA-6)** — `SessionPipeline` end to end with every port faked
+  (WAV → scripted STT → boundary → evaluate → feedback): feedback sent per idea,
+  no-feedback dropped, a bad idea logged without stopping the run, trailing idea
+  flushed, stop-before-start safe. `SessionManager`: start registers one pipeline,
+  duplicate start is a no-op, stop cancels + deregisters, unknown stop is safe, the
+  `MAX_CONCURRENT_SESSIONS` cap rejects, `stop_all` on shutdown, and a pipeline ending
+  on its own auto-deregisters. Internal endpoints: start 202 + register, idempotent,
+  stop 204, cap 503, auth enforced, `/health` active count. (.NET side: see below.)
 
 Paths **not** unit-tested against real infrastructure (isolated behind lazy imports /
 injectable transports/channels):
@@ -445,3 +502,15 @@ injectable transports/channels):
   (`STT_TEST_WAV=/path/to.wav` or a file in `tests/fixtures/`). No audio is committed.
 - The real Ollama embedder (`OllamaEmbeddingProvider`) — used only by
   `boundary_check.py --live`; the boundary tests inject `FakeEmbeddingProvider`.
+
+### The .NET trigger (StreamingService)
+
+The start/stop notifications come from `StreamingService`'s `LiveAssistantInternalClient`
+(a typed `HttpClient`, mirroring ClassroomService's internal clients), called from
+`InternalStreamsController` when a stream is created / ended. The calls are **best-effort**
+— wrapped in try/catch so a session starts/ends normally even if the assistant is
+unreachable (a warning is logged). Covered by `StreamingService.UnitTests`:
+`dotnet test backend/StreamingService/tests/StreamingService.UnitTests` — the client
+posts the right start/stop URLs, bodies (`roomName`/`teacherIdentity`), and
+`X-Internal-Secret`; and stream create/end still succeed (with a warning) when the
+assistant call throws.

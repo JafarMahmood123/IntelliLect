@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     feedback_transport: str = "livekit"  # livekit | signalr (future)
     feedback_message_version: int = 1
 
+    # --- Session lifecycle (LA-6) ---
+    # One agent pipeline per active session; start beyond this cap is rejected (503).
+    max_concurrent_sessions: int = 20
+
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
 

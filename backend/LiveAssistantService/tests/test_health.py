@@ -25,7 +25,10 @@ def test_health_ok_and_livekit_not_configured(monkeypatch):
     response = TestClient(create_app()).get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "livekit": "not-configured"}
+    # Without lifespan (no `with`), the session manager isn't wired -> 0 active.
+    assert response.json() == {
+        "status": "ok", "livekit": "not-configured", "activeSessions": 0,
+    }
 
 
 def test_health_reports_livekit_configured(monkeypatch):
@@ -37,4 +40,6 @@ def test_health_reports_livekit_configured(monkeypatch):
     response = TestClient(create_app()).get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "livekit": "configured"}
+    assert response.json() == {
+        "status": "ok", "livekit": "configured", "activeSessions": 0,
+    }
