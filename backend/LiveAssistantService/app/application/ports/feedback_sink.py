@@ -3,23 +3,29 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from app.domain.entities.session_context import SessionContext
+from app.domain.evaluation.teacher_suggestion import TeacherSuggestion
 
 
 class FeedbackSink(ABC):
-    """Port for privately delivering a correction to the teacher — and no one else.
+    """Port for privately delivering a suggestion to the teacher — and no one else.
 
-    STUB — NOT IMPLEMENTED THIS PHASE (later phase: feedback delivery). The concrete
-    implementation will push the suggestion to the teacher alone (e.g. a LiveKit data
-    message addressed only to ``session.teacher_identity``, or a side channel), so
-    students never see it. Every method raises ``NotImplementedError``.
+    Implemented by ``LiveKitFeedbackSink``, which publishes a reliable LiveKit data
+    message targeted to ``session.teacher_identity`` ONLY. The teacher-only invariant
+    is the whole point of this port: an implementation must never broadcast to the
+    room, so a student can never receive feedback.
+
+    This phase (LA-5) only delivers; it does NOT rate-limit / dedup / suppress (LA-7)
+    or wire the live session (LA-6).
     """
 
     @abstractmethod
-    async def send(self, session: SessionContext, suggestion: dict) -> None:
+    async def send(
+        self, session: SessionContext, suggestion: TeacherSuggestion
+    ) -> None:
         """Deliver ``suggestion`` privately to the teacher of ``session``.
 
-        Expected later-phase behavior: route the correction to the teacher's client
-        only — never broadcast to the room. The ``suggestion`` shape comes from the
-        ``BrainClient`` verdict and is finalized when that phase is built.
+        Implementations target ``session.teacher_identity`` exclusively and raise a
+        clear, catchable error if delivery is impossible (no room / teacher absent),
+        so the caller can log and continue — a failed send must never break the loop.
         """
         raise NotImplementedError

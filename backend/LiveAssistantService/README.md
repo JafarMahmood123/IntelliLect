@@ -6,15 +6,15 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-4.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-5.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
-"ideas", and **retrieval + evaluation on each idea** — pulling relevant course
-material from KnowledgeService and asking the brain whether the explanation has a
-real problem. **Feedback delivery** (LA-5), **session lifecycle** (LA-6), and
-**pacing/rate-limiting** (LA-7) are **not** implemented — the code leaves
-clearly-marked ports and placeholders for them.
+"ideas", **retrieval + evaluation on each idea** — pulling relevant course material
+from KnowledgeService and asking the brain whether the explanation has a real problem
+— and **private, teacher-only feedback delivery** of the resulting suggestion.
+**Session lifecycle** (LA-6) and **pacing/rate-limiting** (LA-7) are **not**
+implemented — the code leaves clearly-marked ports and placeholders for them.
 
 > **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
@@ -92,11 +92,25 @@ clearly-marked ports and placeholders for them.
   the evaluator's paths, so LA-4 is tested with **no KnowledgeService and no Ollama**.
 - `scripts/evaluate_check.py` — a CLI that evaluates a **scripted** idea against
   fixture chunks with **no models**; a deferred `--live` mode uses the real clients.
+- **Private feedback delivery (LA-5)** — `FeedbackDispatcher` (pure application
+  connector) sends an `EvaluationOutcome`'s suggestion to the teacher and **drops
+  no-feedback outcomes** (no send); a delivery failure is logged and swallowed so the
+  loop survives. `LiveKitFeedbackSink` serializes the suggestion to a **versioned JSON
+  contract** and publishes it as a **reliable LiveKit data message targeted to
+  `session.teacher_identity` only** — over the agent's existing room connection (no
+  second connection). **Teacher-only is structural:** delivery goes through an
+  `AgentDataChannel` port whose only method targets a single identity — there is no
+  broadcast path, so a student can never receive feedback.
+- `FakeFeedbackSink` / `FakeAgentDataChannel` (test support) — record what would be
+  sent and to whom, so LA-5 is tested with **no LiveKit**.
+- `scripts/feedback_check.py` — a CLI that runs a suggestion through the real
+  dispatcher + sink (via an in-process recording channel) and prints the **exact
+  serialized payload** and the **teacher-only target**, with **no LiveKit**; a
+  deferred `--live` mode publishes to a real room.
 
 ## Ports
 
-Defined under `app/application/ports/`; the remaining stubs (`raise
-NotImplementedError`) carry the signatures their phase will need:
+Defined under `app/application/ports/`:
 
 | Port | Purpose |
 | --- | --- |
@@ -105,12 +119,13 @@ NotImplementedError`) carry the signatures their phase will need:
 | `EmbeddingProvider` | **Implemented (LA-3).** Embed a segment/idea (local Ollama) for drift & later retrieval. |
 | `RetrievalClient` | **Implemented (LA-4).** Classroom-scoped RAG search via KnowledgeService. |
 | `BrainClient` | **Implemented (LA-4).** Judge an idea against retrieved material; propose a correction. |
-| `FeedbackSink` | Deliver a correction to the teacher **privately** (LA-5). |
+| `FeedbackSink` | **Implemented (LA-5).** Deliver a suggestion to the teacher **privately**. |
+| `AgentDataChannel` | **Implemented (LA-5).** Targeted (single-identity) data send over the agent's room. |
 
 The future **live-loop orchestrator** (the use case that wires audio → STT → boundary
 detection → retrieval → brain → feedback end to end) will join these in
-`app/application/services/`, alongside the existing `BoundaryDetector` and
-`IdeaEvaluator`.
+`app/application/services/`, alongside the existing `BoundaryDetector`,
+`IdeaEvaluator`, and `FeedbackDispatcher`.
 
 ## Architecture
 
@@ -124,22 +139,23 @@ app/
     evaluation/      # FeedbackType, RetrievedChunk, TeacherSuggestion, EvaluationOutcome
   application/
     ports/           # AudioSource, SpeechToText, EmbeddingProvider, RetrievalClient,
-                     #   BrainClient (+ FeedbackSink stub)
-    services/        # boundary_detector, idea_evaluator, token_estimate
+                     #   BrainClient, FeedbackSink, AgentDataChannel
+    services/        # boundary_detector, idea_evaluator, feedback_dispatcher, token_estimate
   infrastructure/
     config/          # pydantic-settings Settings
-    audio/           # LiveKitAudioSource, FakeAudioSource, normalization
+    audio/           # LiveKitAudioSource (AudioSource + AgentDataChannel), FakeAudioSource, normalization
     stt/             # FasterWhisperSpeechToText, audio_analysis (energy/pause)
     embeddings/      # OllamaEmbeddingProvider
     retrieval/       # KnowledgeRetrievalClient (POST /api/search)
     brain/           # OllamaBrainClient, evaluation_prompt
+    feedback/        # LiveKitFeedbackSink, feedback_payload (versioned wire contract)
   api/
     main.py          # FastAPI app factory
     dependencies.py  # composition root (names concrete classes)
     routers/         # health
-scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py
+scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py, feedback_check.py
 tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider,
-                     #   RetrievalClient,BrainClient}
+                     #   RetrievalClient,BrainClient,FeedbackSink,AgentDataChannel}
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -187,6 +203,8 @@ See `.env.example`.
 | `EVAL_TEMPERATURE` | `0.2` | Brain sampling temperature. |
 | `EVAL_TIMEOUT_SECONDS` | `60` | Ollama request timeout (brain). |
 | `EVAL_MAX_TOKENS` | `512` | Brain `num_predict`. |
+| `FEEDBACK_TRANSPORT` | `livekit` | Delivery transport (`livekit`; `signalr` is a future option). |
+| `FEEDBACK_MESSAGE_VERSION` | `1` | Version stamped into the feedback wire contract. |
 | `LOG_LEVEL` | `INFO` | Root log level. |
 
 `/health` reports `livekit: configured` only when `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
@@ -295,6 +313,29 @@ A deferred `--live --classroom <uuid> --idea "<text>"` mode uses the real
 KnowledgeService retrieval + Ollama brain; it needs KnowledgeService reachable at
 `KNOWLEDGE_BASE_URL` and Ollama running with `EVAL_MODEL` pulled.
 
+### Feedback check (offline — no LiveKit)
+
+Run a suggestion through the real `FeedbackDispatcher` + `LiveKitFeedbackSink` (wired
+to an in-process recording channel) — proves the no-feedback **drop**, the **exact
+serialized payload**, and **teacher-only** targeting, with **no LiveKit**:
+
+```bash
+python scripts/feedback_check.py
+```
+
+```text
+no-feedback outcome -> sent=False (dropped, nothing published)
+suggestion outcome  -> sent=True
+target identity : teacher-1   (session.teacher_identity)
+topic           : teaching_suggestion
+payload (the exact bytes published to the teacher):
+{ "type": "teaching_suggestion", "version": 1, "feedback_type": "discrepancy", ... }
+RESULT          : OK (teacher-only)
+```
+
+A deferred `--live --room <room> --teacher <identity>` mode publishes to a real room
+via the agent's connection; it needs a live session with the teacher present.
+
 ## STT model & resources
 
 STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
@@ -314,6 +355,34 @@ port.
 faster-whisper is not natively streaming, so `FasterWhisperSpeechToText` implements
 _pseudo-streaming_ (re-transcribe a growing per-utterance window; finalize on a
 silence gap). SDK calls whose shape is version-sensitive carry `# SDK:` comments.
+
+## Feedback delivery (LA-5)
+
+Feedback is delivered as a **reliable LiveKit data message** published from the
+agent's existing room connection (LA-1) to `destination_identities=[teacher]` only —
+so it reaches the teacher's client and no student's. The agent's join token grants
+`can_publish_data` (but not `can_publish` — the agent still never publishes media).
+The teacher's frontend filters on the `teaching_suggestion` data-message topic and
+parses this versioned contract:
+
+```json
+{
+  "type": "teaching_suggestion",
+  "version": 1,
+  "session_id": "...",
+  "feedback_type": "discrepancy|gap|unclear",
+  "text": "<the suggestion>",
+  "sources": [ { "citation": 1, "document_id": "...", "page": null,
+                 "slide": 4, "section": null } ],
+  "created_at": "<iso8601>"
+}
+```
+
+Raw chunk text is intentionally omitted — citations + document locations are enough
+for the UI to reference the source. **Alternative transport (not implemented):** a
+teacher-only method on the StreamingService `StreamHub` (SignalR) could carry the same
+payload; `FEEDBACK_TRANSPORT=signalr` is reserved for it. The LiveKit path is the one
+built here.
 
 ## Tests
 
@@ -357,9 +426,17 @@ Covers:
   asserts the `POST /api/search` URL, `X-Internal-Secret` header, JSON body
   (`classroomId`/`query`/`topK`), result → `RetrievedChunk` mapping (page/slide from
   metadata), and 401/500/transport errors → `RetrievalError`.
+- **Feedback delivery (LA-5)** — the **teacher-only invariant** (dispatcher targets
+  `session.teacher_identity` only, never a student), the no-feedback **drop** (sink
+  never called), sink error swallowed by the connector; the **payload contract**
+  (`build_feedback_payload` schema, `feedback_type` lowercase, citation→location
+  sources, raw chunk text omitted); `LiveKitFeedbackSink` publishing the correct bytes
+  to the teacher over `FEEDBACK_TOPIC` (via `FakeAgentDataChannel`) and raising
+  `FeedbackDeliveryError` on channel failure; and the agent's `publish_to_identity`
+  issuing a **reliable, single-`destination_identities`** publish (fake room, no SDK).
 
 Paths **not** unit-tested against real infrastructure (isolated behind lazy imports /
-injectable transports):
+injectable transports/channels):
 
 - The live LiveKit path — exercised only via the deferred `capture_check.py --livekit`
   mode.

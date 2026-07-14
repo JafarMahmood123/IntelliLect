@@ -17,6 +17,7 @@ import contextlib
 import logging
 from collections.abc import AsyncIterator
 
+from app.application.ports.agent_data_channel import AgentDataChannel
 from app.application.ports.audio_source import AudioSource
 from app.domain.audio.audio_frame import AudioFrame
 from app.domain.entities.session_context import SessionContext
@@ -30,7 +31,7 @@ logger = logging.getLogger("liveassistant.audio.livekit")
 _STREAM_END = object()
 
 
-class LiveKitAudioSource(AudioSource):
+class LiveKitAudioSource(AudioSource, AgentDataChannel):
     """Subscribe to the teacher's audio in a LiveKit room and expose it as frames.
 
     Flow: ``connect`` mints a join token for ``AGENT_IDENTITY``, joins
@@ -39,6 +40,10 @@ class LiveKitAudioSource(AudioSource):
     the teacher to join if they aren't present yet. A background reader per subscribed
     track pulls native PCM, normalizes it to ``TARGET_SAMPLE_RATE``/mono, and pushes
     ``AudioFrame``s onto an internal queue that ``frames()`` drains.
+
+    The agent also implements ``AgentDataChannel`` (LA-5): the same room connection
+    publishes targeted feedback data to a single participant identity — the single
+    source of truth for the room, so feedback never opens a second connection.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -102,17 +107,39 @@ class LiveKitAudioSource(AudioSource):
                 return
             yield item
 
+    # -- AgentDataChannel (LA-5) ----------------------------------------------
+    async def publish_to_identity(
+        self, identity: str, payload: bytes, *, topic: str = ""
+    ) -> None:
+        """Publish a reliable data message to a SINGLE participant identity.
+
+        Targeted delivery only — ``destination_identities`` restricts the packet to
+        that one participant, so a student never receives it. Raises if the agent is
+        not connected so the caller can degrade.
+        """
+        room = self._room
+        if room is None:
+            raise RuntimeError(
+                "Agent is not connected to a room; cannot publish feedback data."
+            )
+        # SDK: LocalParticipant.publish_data(payload, *, reliable=, destination_identities=,
+        # topic=) is the current signature. destination_identities scopes delivery to
+        # exactly those participants (never a broadcast). Version-sensitive.
+        await room.local_participant.publish_data(
+            payload, reliable=True, destination_identities=[identity], topic=topic
+        )
+
     # -- internals ------------------------------------------------------------
     def _mint_token(self, api, session: SessionContext) -> str:
-        """Mint a room-join token for the agent that can subscribe but not publish."""
+        """Mint a room-join token: subscribe + publish DATA only (never media)."""
         # SDK: VideoGrants field names (room_join/can_subscribe/can_publish) and the
         # AccessToken builder chain are version-sensitive.
         grants = api.VideoGrants(
             room_join=True,
             room=session.room_name,
             can_subscribe=True,
-            can_publish=False,
-            can_publish_data=False,
+            can_publish=False,  # the agent never publishes audio/video tracks
+            can_publish_data=True,  # ...but it does publish targeted feedback data (LA-5)
         )
         return (
             api.AccessToken(

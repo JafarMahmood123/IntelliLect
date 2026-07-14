@@ -4,12 +4,15 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.application.ports.agent_data_channel import AgentDataChannel
 from app.application.ports.audio_source import AudioSource
 from app.application.ports.brain_client import BrainClient
 from app.application.ports.embedding_provider import EmbeddingProvider
+from app.application.ports.feedback_sink import FeedbackSink
 from app.application.ports.retrieval_client import RetrievalClient
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
+from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.idea_evaluator import IdeaEvaluator
 from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
@@ -18,6 +21,7 @@ from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
 )
+from app.infrastructure.feedback.livekit_feedback_sink import LiveKitFeedbackSink
 from app.infrastructure.retrieval.knowledge_retrieval_client import (
     KnowledgeRetrievalClient,
 )
@@ -113,3 +117,22 @@ def build_idea_evaluator(
         top_k=settings.retrieval_top_k,
         min_score=settings.retrieval_min_score,
     )
+
+
+def build_feedback_sink(settings: Settings, channel: AgentDataChannel) -> FeedbackSink:
+    """Teacher-only feedback delivery (LA-5) over the agent's room connection.
+
+    ``channel`` is the connected agent (``LiveKitAudioSource`` implements
+    ``AgentDataChannel``) — injected because the room connection is per-session and
+    provided by the live loop (LA-6), not constructed here. Publishes to the teacher
+    identity ONLY; there is no broadcast path.
+    """
+    return LiveKitFeedbackSink(channel, message_version=settings.feedback_message_version)
+
+
+def build_feedback_dispatcher(sink: FeedbackSink) -> FeedbackDispatcher:
+    """Connector: route evaluation outcomes with feedback to the teacher-only sink.
+
+    ``sink`` is injected so callers can supply the real ``LiveKitFeedbackSink`` or a
+    fake. Not connected to a live session yet (LA-6)."""
+    return FeedbackDispatcher(sink)

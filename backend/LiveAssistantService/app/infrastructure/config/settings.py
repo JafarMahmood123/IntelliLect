@@ -87,6 +87,13 @@ class Settings(BaseSettings):
     eval_timeout_seconds: float = 60.0
     eval_max_tokens: int = 512  # num_predict
 
+    # --- Feedback delivery (LA-5): private, teacher-only ---
+    # Primary transport is a reliable LiveKit data message from the agent's existing
+    # room connection, targeted to the teacher identity ONLY. "signalr" (StreamHub) is
+    # a documented future alternative. message_version stamps the wire contract.
+    feedback_transport: str = "livekit"  # livekit | signalr (future)
+    feedback_message_version: int = 1
+
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
 
