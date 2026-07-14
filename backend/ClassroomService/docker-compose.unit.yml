@@ -32,6 +32,11 @@ services:
       - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
+      # Trigger indexing in KnowledgeService (compose service DNS on the shared network).
+      # InternalApiSecret must match KnowledgeService's INTERNAL_API_SECRET.
+      - KnowledgeService__BaseUrl=http://knowledge-service:8080
+      - KnowledgeService__InternalApiSecret=changeme-internal-secret
+      - KnowledgeService__TimeoutSeconds=10
     depends_on:
       classroom-db:
         condition: service_healthy

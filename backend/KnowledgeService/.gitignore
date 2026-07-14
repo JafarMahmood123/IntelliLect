@@ -1,0 +1,6 @@
+# Test/coverage artifacts (Phase 9)
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/

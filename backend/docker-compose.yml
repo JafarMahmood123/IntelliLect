@@ -5,6 +5,7 @@ include:
   - path: ./EmailService/docker-compose.unit.yml
   - path: ./ClassroomService/docker-compose.unit.yml
   - path: ./StreamingService/docker-compose.unit.yml
+  - path: ./KnowledgeService/docker-compose.unit.yml
 
 services:
   intellilect-mq:
@@ -59,4 +60,5 @@ networks:
 volumes:
   user_db_data:
   classroom_db_data:
+  knowledge_db_data:
   s3_data:
