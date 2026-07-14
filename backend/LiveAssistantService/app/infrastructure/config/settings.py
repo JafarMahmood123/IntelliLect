@@ -70,14 +70,25 @@ class Settings(BaseSettings):
     embedding_model: str = "qwen3-embedding"
     embedding_timeout_seconds: float = 60.0
 
+    # --- Retrieval (LA-4): classroom material via the existing KnowledgeService ---
+    # Retrieval goes over HTTP to KnowledgeService (it owns the vector DB); the idea
+    # TEXT is sent as the query and KnowledgeService embeds + searches internally.
+    knowledge_base_url: str = ""  # e.g. http://knowledge-service:8080
+    internal_api_secret: str = ""  # shared secret, sent as X-Internal-Secret
+    retrieval_top_k: int = 6  # chunks requested per idea
+    retrieval_min_score: float = 0.25  # below this = "no relevant material" (short-circuit)
+
+    # --- Evaluation / brain (LA-4): local generative model in host Ollama ---
+    # Reuses OLLAMA_BASE_URL/OLLAMA_AUTH_TOKEN (above). This service has its own
+    # live-assistant-specific evaluation prompt; the model matches KnowledgeService's
+    # generation model. No weights in the container — every call is HTTP to Ollama.
+    eval_model: str = "qwen2.5:7b-instruct"
+    eval_temperature: float = 0.2
+    eval_timeout_seconds: float = 60.0
+    eval_max_tokens: int = 512  # num_predict
+
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
-
-    # --- Placeholders for later phases (unused this phase) ---
-    # KnowledgeService base URL for classroom-scoped RAG retrieval (RetrievalClient).
-    knowledge_base_url: str = ""
-    # Shared secret for internal service-to-service calls (X-Internal-Secret).
-    internal_api_secret: str = ""
 
     @property
     def livekit_configured(self) -> bool:

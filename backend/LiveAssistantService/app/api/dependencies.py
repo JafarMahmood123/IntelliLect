@@ -5,14 +5,21 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.application.ports.audio_source import AudioSource
+from app.application.ports.brain_client import BrainClient
 from app.application.ports.embedding_provider import EmbeddingProvider
+from app.application.ports.retrieval_client import RetrievalClient
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
+from app.application.services.idea_evaluator import IdeaEvaluator
 from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
+from app.infrastructure.brain.ollama_brain_client import OllamaBrainClient
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
+)
+from app.infrastructure.retrieval.knowledge_retrieval_client import (
+    KnowledgeRetrievalClient,
 )
 from app.infrastructure.stt.faster_whisper_speech_to_text import (
     FasterWhisperSpeechToText,
@@ -78,4 +85,31 @@ def build_boundary_detector(
         max_seconds=settings.boundary_max_seconds,
         max_tokens=settings.boundary_max_tokens,
         min_tokens=settings.boundary_min_tokens,
+    )
+
+
+def build_retrieval_client(settings: Settings) -> RetrievalClient:
+    """KnowledgeService-backed retrieval (POST /api/search). No live call at build."""
+    return KnowledgeRetrievalClient(settings)
+
+
+def build_brain_client(settings: Settings) -> BrainClient:
+    """Local Ollama brain that evaluates an idea against retrieved material."""
+    return OllamaBrainClient(settings)
+
+
+def build_idea_evaluator(
+    settings: Settings, retrieval: RetrievalClient, brain: BrainClient
+) -> IdeaEvaluator:
+    """Retrieve + evaluate on an idea boundary (LA-4), configured from settings.
+
+    ``retrieval`` and ``brain`` are injected so callers can supply the real clients or
+    deterministic fakes. Not connected to a live session yet (LA-6). Application logic
+    stays free of ``Settings``: the config primitives are unpacked here.
+    """
+    return IdeaEvaluator(
+        retrieval,
+        brain,
+        top_k=settings.retrieval_top_k,
+        min_score=settings.retrieval_min_score,
     )

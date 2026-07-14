@@ -6,12 +6,15 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-3.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-4.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
-port, and **idea boundary detection** that segments the transcript into completed
-"ideas". Retrieval, brain evaluation, and feedback delivery are **not** implemented
-— the code leaves clearly-marked ports and placeholders for them.
+port, **idea boundary detection** that segments the transcript into completed
+"ideas", and **retrieval + evaluation on each idea** — pulling relevant course
+material from KnowledgeService and asking the brain whether the explanation has a
+real problem. **Feedback delivery** (LA-5), **session lifecycle** (LA-6), and
+**pacing/rate-limiting** (LA-7) are **not** implemented — the code leaves
+clearly-marked ports and placeholders for them.
 
 > **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
@@ -71,6 +74,24 @@ port, and **idea boundary detection** that segments the transcript into complete
 - `scripts/boundary_check.py` — a CLI that segments a **scripted** transcript into
   ideas (DRIFT / PAUSE / caps / min-token merge / flush) with **no models**; a
   deferred `--live` mode chains real STT + Ollama.
+- **Retrieval + evaluation on idea boundary (LA-4)** — `IdeaEvaluator` (pure
+  application service) takes each `CompletedIdea` and: (1) retrieves the classroom's
+  top-k material via `RetrievalClient`, (2) drops chunks below `RETRIEVAL_MIN_SCORE`
+  and **short-circuits to "no feedback" without calling the brain** if nothing
+  remains, (3) asks `BrainClient` to evaluate the idea against the material. A
+  retrieval or brain failure degrades to "no feedback" — a failed evaluation never
+  breaks the loop. `IdeaEvaluationPipeline` pipes a `CompletedIdea` stream through it.
+- `KnowledgeRetrievalClient` — implements `RetrievalClient` via KnowledgeService
+  `POST /api/search` (sends the idea **text**; KnowledgeService owns the vector DB),
+  authed with `INTERNAL_API_SECRET`, mapping results to `RetrievedChunk`.
+- `OllamaBrainClient` — implements `BrainClient` via host Ollama `POST /api/chat` with
+  this service's own **grounded, silence-biased** evaluation prompt. Parses the reply
+  as **strict JSON** (stripping code fences); malformed output degrades to "no
+  feedback". Maps cited `[n]` back to source chunks.
+- `FakeRetrievalClient` / `FakeBrainClient` (test support) — deterministic spies for
+  the evaluator's paths, so LA-4 is tested with **no KnowledgeService and no Ollama**.
+- `scripts/evaluate_check.py` — a CLI that evaluates a **scripted** idea against
+  fixture chunks with **no models**; a deferred `--live` mode uses the real clients.
 
 ## Ports
 
@@ -82,38 +103,43 @@ NotImplementedError`) carry the signatures their phase will need:
 | `AudioSource` | **Implemented (LA-1).** Stream of the teacher's normalized audio. |
 | `SpeechToText` | **Implemented (LA-2).** Streaming English transcription → `TranscriptSegment`s. |
 | `EmbeddingProvider` | **Implemented (LA-3).** Embed a segment/idea (local Ollama) for drift & later retrieval. |
-| `RetrievalClient` | Classroom-scoped RAG search via KnowledgeService. |
-| `BrainClient` | Judge an idea against retrieved material; propose a correction. |
-| `FeedbackSink` | Deliver a correction to the teacher **privately**. |
+| `RetrievalClient` | **Implemented (LA-4).** Classroom-scoped RAG search via KnowledgeService. |
+| `BrainClient` | **Implemented (LA-4).** Judge an idea against retrieved material; propose a correction. |
+| `FeedbackSink` | Deliver a correction to the teacher **privately** (LA-5). |
 
 The future **live-loop orchestrator** (the use case that wires audio → STT → boundary
 detection → retrieval → brain → feedback end to end) will join these in
-`app/application/services/`, alongside the existing `BoundaryDetector`.
+`app/application/services/`, alongside the existing `BoundaryDetector` and
+`IdeaEvaluator`.
 
 ## Architecture
 
-```
+```text
 app/
   domain/            # plain Python — no framework/SDK imports
     entities/        # SessionContext
     audio/           # AudioFrame
     transcript/      # TranscriptSegment
     idea/            # CompletedIdea, BoundaryTrigger
+    evaluation/      # FeedbackType, RetrievedChunk, TeacherSuggestion, EvaluationOutcome
   application/
-    ports/           # AudioSource, SpeechToText, EmbeddingProvider
-                     #   (+ RetrievalClient, BrainClient, FeedbackSink stubs)
-    services/        # boundary_detector, token_estimate (+ future orchestrator)
+    ports/           # AudioSource, SpeechToText, EmbeddingProvider, RetrievalClient,
+                     #   BrainClient (+ FeedbackSink stub)
+    services/        # boundary_detector, idea_evaluator, token_estimate
   infrastructure/
     config/          # pydantic-settings Settings
     audio/           # LiveKitAudioSource, FakeAudioSource, normalization
     stt/             # FasterWhisperSpeechToText, audio_analysis (energy/pause)
     embeddings/      # OllamaEmbeddingProvider
+    retrieval/       # KnowledgeRetrievalClient (POST /api/search)
+    brain/           # OllamaBrainClient, evaluation_prompt
   api/
     main.py          # FastAPI app factory
     dependencies.py  # composition root (names concrete classes)
     routers/         # health
-scripts/capture_check.py, scripts/stt_check.py, scripts/boundary_check.py
-tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider}
+scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py
+tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider,
+                     #   RetrievalClient,BrainClient}
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -149,13 +175,19 @@ See `.env.example`.
 | `BOUNDARY_MAX_SECONDS` | `90` | Safety-net cap on idea duration. |
 | `BOUNDARY_MAX_TOKENS` | `400` | Safety-net cap on idea length (whitespace tokens). |
 | `BOUNDARY_MIN_TOKENS` | `20` | Ideas below this merge forward (no boundary). |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama for drift embeddings. |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama for drift embeddings + the brain. |
 | `OLLAMA_AUTH_TOKEN` | _(empty)_ | Optional bearer token, sent only if set. |
 | `EMBEDDING_MODEL` | `qwen3-embedding` | Embedding model for drift (must be pulled in Ollama). |
-| `EMBEDDING_TIMEOUT_SECONDS` | `60` | Ollama request timeout. |
+| `EMBEDDING_TIMEOUT_SECONDS` | `60` | Ollama request timeout (embeddings). |
+| `KNOWLEDGE_BASE_URL` | _(empty)_ | KnowledgeService base URL for retrieval (`POST /api/search`). |
+| `INTERNAL_API_SECRET` | _(empty)_ | Shared secret sent as `X-Internal-Secret` to KnowledgeService. |
+| `RETRIEVAL_TOP_K` | `6` | Chunks requested per idea. |
+| `RETRIEVAL_MIN_SCORE` | `0.25` | Below this = "no relevant material" (short-circuit, no brain). |
+| `EVAL_MODEL` | `qwen2.5:7b-instruct` | Brain (generation) model; must be pulled in Ollama. |
+| `EVAL_TEMPERATURE` | `0.2` | Brain sampling temperature. |
+| `EVAL_TIMEOUT_SECONDS` | `60` | Ollama request timeout (brain). |
+| `EVAL_MAX_TOKENS` | `512` | Brain `num_predict`. |
 | `LOG_LEVEL` | `INFO` | Root log level. |
-| `KNOWLEDGE_BASE_URL` | _(empty)_ | Placeholder — unused this phase. |
-| `INTERNAL_API_SECRET` | _(empty)_ | Placeholder — unused this phase. |
 
 `/health` reports `livekit: configured` only when `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
 and `LIVEKIT_API_SECRET` are all set.
@@ -239,6 +271,30 @@ idea 4: trigger=Pause    tokens=9   segs=1 dur=  2.0s [13000-15000ms]   In summa
 A deferred `--live <wav>` mode chains the real STT (LA-2) + the real Ollama embedder;
 it needs the STT model and a running Ollama with `EMBEDDING_MODEL` pulled.
 
+### Evaluate check (offline — no models)
+
+Evaluate a **scripted** idea against fixture chunks with `IdeaEvaluator`, using a fake
+retrieval client and a fake brain — proves retrieval → short-circuit → evaluate and
+citation→source mapping with **no KnowledgeService and no Ollama**:
+
+```bash
+python scripts/evaluate_check.py
+```
+
+```text
+has_feedback : True
+type         : Discrepancy
+citations    : [1, 2]
+suggestion   : The explanation conflicts with the material on photosynthesis location [1]; ...
+sources:
+  [1] (slide 4) score=0.82  Photosynthesis occurs in the chloroplast, not the mitochondria.
+  [2] (page 12) score=0.66  The light-dependent reactions take place in the thylakoid membrane.
+```
+
+A deferred `--live --classroom <uuid> --idea "<text>"` mode uses the real
+KnowledgeService retrieval + Ollama brain; it needs KnowledgeService reachable at
+`KNOWLEDGE_BASE_URL` and Ollama running with `EVAL_MODEL` pulled.
+
 ## STT model & resources
 
 STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
@@ -289,9 +345,21 @@ Covers:
   forward, end-of-stream flush, and interim segments never splitting an idea (nor
   being embedded).
 - **`FakeEmbeddingProvider`** determinism / orthogonal topic vectors.
+- **Idea evaluation** (`IdeaEvaluator`) — with `FakeRetrievalClient` /
+  `FakeBrainClient`: happy path (brain sees the relevant chunks), the no-results
+  short-circuit (brain **never** called), `min_score` boundary, a consistent idea
+  (brain called, returns no feedback), and retrieval/brain errors degrading to "no
+  feedback"; plus the `IdeaEvaluationPipeline` over an idea stream.
+- **Brain parsing** (`OllamaBrainClient`, HTTP stubbed) — strict-JSON parse, code-fence
+  stripping, malformed output → no feedback, silence bias (empty suggestion / `none`
+  type), and citation `[n]` → source mapping with out-of-range/bogus citations dropped.
+- **Retrieval HTTP contract** (`KnowledgeRetrievalClient` via `httpx.MockTransport`) —
+  asserts the `POST /api/search` URL, `X-Internal-Secret` header, JSON body
+  (`classroomId`/`query`/`topK`), result → `RetrievedChunk` mapping (page/slide from
+  metadata), and 401/500/transport errors → `RetrievalError`.
 
-Two paths are **not** unit-tested against real infrastructure and are isolated behind
-lazy imports:
+Paths **not** unit-tested against real infrastructure (isolated behind lazy imports /
+injectable transports):
 
 - The live LiveKit path — exercised only via the deferred `capture_check.py --livekit`
   mode.
