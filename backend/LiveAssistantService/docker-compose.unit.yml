@@ -19,6 +19,13 @@ services:
       - AGENT_IDENTITY=ai-assistant
       - TARGET_SAMPLE_RATE=16000
       - TARGET_CHANNELS=1
+      # Streaming English STT (LA-2). Small English model + int8 to share RAM with
+      # the embedder/brain. The model downloads to the HF cache volume on first use.
+      - STT_MODEL=base.en
+      - STT_DEVICE=cpu
+      - STT_COMPUTE_TYPE=int8
+      - STT_LANGUAGE=en
+      - HF_HOME=/root/.cache/huggingface
     ports:
       - "8084:8080"
     depends_on:
@@ -26,3 +33,9 @@ services:
         condition: service_started
     networks:
       - intellilect-net
+    volumes:
+      # Persist the downloaded faster-whisper model across restarts.
+      - live_assistant_hf_cache:/root/.cache/huggingface
+
+volumes:
+  live_assistant_hf_cache:

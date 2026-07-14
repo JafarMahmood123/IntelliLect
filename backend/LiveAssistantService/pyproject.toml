@@ -14,10 +14,16 @@ dependencies = [
     # --- LiveKit server-side agent (LA-1) ---
     "livekit>=1.0",       # realtime SDK: `from livekit import rtc` (room/track/audio)
     "livekit-api>=1.0",   # access-token minting: `from livekit import api`
+    # --- Streaming English STT (LA-2) ---
+    # faster-whisper runs on CTranslate2 — a self-contained inference engine, NOT
+    # torch/transformers and NOT Ollama. Its own English model downloads on first
+    # use (see README). ctranslate2/av/onnxruntime ship manylinux wheels, so no apt
+    # libs are required. The `faster_whisper` import is lazy in the adapter.
+    "faster-whisper>=1.1",
 ]
-# NOTE: intentionally NO STT/ML dependencies — no torch/transformers, no Ollama,
-# no models. This phase captures audio only; STT, retrieval, brain evaluation, and
-# feedback delivery are later phases and pull in nothing here.
+# NOTE: retrieval, brain evaluation, and feedback delivery remain later phases and
+# pull in nothing here. STT deliberately uses its OWN model (CTranslate2), unrelated
+# to the embedder/brain — still no torch, no transformers, no Ollama in this service.
 
 [project.optional-dependencies]
 dev = [

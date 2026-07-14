@@ -6,15 +6,18 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build is the foundation only (phases LA-0 + LA-1).** It contains the
-clean-architecture skeleton and a LiveKit agent that **captures the teacher's live
-audio** behind an `AudioSource` port. STT, transcript buffering, boundary detection,
-embedding, retrieval, brain evaluation, and feedback delivery are **not** implemented
-— the code leaves clearly-marked ports and placeholders for them.
+**This build covers phases LA-0 → LA-2.** It contains the clean-architecture
+skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
+`AudioSource` port, and **streaming English speech-to-text** behind a `SpeechToText`
+port. Transcript buffering, idea/boundary detection (LA-3), embedding, retrieval,
+brain evaluation, and feedback delivery are **not** implemented — the code leaves
+clearly-marked ports and placeholders for them.
 
-> **No models in the container.** There is no `torch`, `transformers`, or Ollama
-> dependency, and no STT model. This phase pulls in **no** ML weights. `numpy` is
-> present for audio format normalization only.
+> **No Ollama, no torch/transformers in this service.** STT runs on **faster-whisper
+> (CTranslate2)** — a self-contained inference engine that uses its **own** English
+> model, unrelated to the embedder/brain. Its model downloads on first use (see
+> [STT model & resources](#stt-model--resources)). `numpy` is present for audio
+> normalization only.
 
 ## What works today
 
@@ -39,6 +42,19 @@ embedding, retrieval, brain evaluation, and feedback delivery are **not** implem
 - `scripts/capture_check.py` — a CLI that drives an `AudioSource` and prints frame
   count / duration / sample rate, proving normalization end-to-end (offline by
   default; `--livekit` mode connects to a real room).
+- **Streaming English STT (LA-2)** — `SpeechToText` port with a real
+  `FasterWhisperSpeechToText` (faster-whisper / CTranslate2). It consumes the
+  normalized `AudioFrame` stream from **any** `AudioSource` (LiveKit or Fake — no
+  LiveKit required), accumulates a rolling per-utterance buffer, emits **interim**
+  `TranscriptSegment`s every `STT_CHUNK_SECONDS`, and **finalizes** a segment when a
+  silence gap ≥ `STT_PAUSE_SECONDS` is detected (flagging `followed_by_pause`) or the
+  stream ends. Blocking model calls run off the event loop via `asyncio.to_thread`.
+- `FakeSpeechToText` (test support) — yields **scripted** `TranscriptSegment`s
+  deterministically, so LA-3+ can be unit-tested with no model.
+- `scripts/stt_check.py` — a CLI that runs a WAV through `FakeAudioSource` →
+  `FasterWhisperSpeechToText` and prints each segment (timing, `is_final`,
+  `followed_by_pause`, text) — eyeball transcript quality and pause detection with
+  **no LiveKit and no Ollama**.
 
 ## Ports (later phases)
 
@@ -48,8 +64,8 @@ their phase will need:
 
 | Port | Purpose (later phase) |
 | --- | --- |
-| `AudioSource` | **Implemented.** Stream of the teacher's normalized audio. |
-| `SpeechToText` | Streaming transcription of audio frames → incremental text. |
+| `AudioSource` | **Implemented (LA-1).** Stream of the teacher's normalized audio. |
+| `SpeechToText` | **Implemented (LA-2).** Streaming English transcription → `TranscriptSegment`s. |
 | `EmbeddingProvider` | Embed a finished idea for retrieval. |
 | `RetrievalClient` | Classroom-scoped RAG search via KnowledgeService. |
 | `BrainClient` | Judge an idea against retrieved material; propose a correction. |
@@ -65,19 +81,21 @@ app/
   domain/            # plain Python — no framework/SDK imports
     entities/        # SessionContext
     audio/           # AudioFrame
+    transcript/      # TranscriptSegment
   application/
-    ports/           # AudioSource (+ SpeechToText, EmbeddingProvider,
+    ports/           # AudioSource, SpeechToText (+ EmbeddingProvider,
                      #   RetrievalClient, BrainClient, FeedbackSink stubs)
     services/        # placeholder for the future live-loop orchestrator
   infrastructure/
     config/          # pydantic-settings Settings
     audio/           # LiveKitAudioSource, FakeAudioSource, normalization
+    stt/             # FasterWhisperSpeechToText, audio_analysis (energy/pause)
   api/
     main.py          # FastAPI app factory
     dependencies.py  # composition root (names concrete classes)
     routers/         # health
-scripts/capture_check.py
-tests/
+scripts/capture_check.py, scripts/stt_check.py
+tests/                # offline; tests/support/FakeSpeechToText for later phases
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -100,8 +118,14 @@ See `.env.example`.
 | `LIVEKIT_API_KEY` | _(empty)_ | For minting the agent's join token. |
 | `LIVEKIT_API_SECRET` | _(empty)_ | For minting the agent's join token. |
 | `AGENT_IDENTITY` | `ai-assistant` | Identity the agent joins under. |
-| `TARGET_SAMPLE_RATE` | `16000` | Normalize captured audio to this rate. |
+| `TARGET_SAMPLE_RATE` | `16000` | Normalize captured audio to this rate (STT assumes 16k). |
 | `TARGET_CHANNELS` | `1` | Mono. |
+| `STT_MODEL` | `base.en` | faster-whisper English model id (`tiny.en`/`base.en`/`small.en`/…). |
+| `STT_DEVICE` | `cpu` | `cpu` or `cuda`. |
+| `STT_COMPUTE_TYPE` | `int8` | `int8` (low RAM on CPU), `float16`, … |
+| `STT_LANGUAGE` | `en` | English only for now (Arabic deferred). |
+| `STT_CHUNK_SECONDS` | `3.0` | Audio accumulated before a transcription step (interim cadence). |
+| `STT_PAUSE_SECONDS` | `0.8` | Trailing silence that marks a segment boundary. |
 | `LOG_LEVEL` | `INFO` | Root log level. |
 | `KNOWLEDGE_BASE_URL` | _(empty)_ | Placeholder — unused this phase. |
 | `INTERNAL_API_SECRET` | _(empty)_ | Placeholder — unused this phase. |
@@ -150,18 +174,74 @@ docker compose exec live-assistant-service \
     python scripts/capture_check.py --livekit --room demo --teacher teacher-1
 ```
 
+### STT check (offline — no LiveKit, no Ollama)
+
+Transcribe an English WAV through `FakeAudioSource` → `FasterWhisperSpeechToText` and
+watch interim/final segments and pause flags stream out:
+
+```bash
+python scripts/stt_check.py path/to/english.wav
+STT_MODEL=small.en python scripts/stt_check.py path/to/english.wav   # override model
+```
+
+Example output (`[FINAL]` lines marked `<pause>` were closed by a detected silence gap):
+
+```text
+[interim]       0-2000   ms  The mitochondria is the powerhouse ...
+[FINAL ]       0-2980   ms  <pause>  The mitochondria is the powerhouse of the cell.
+[FINAL ]    3480-6837   ms  Photosynthesis converts sunlight into chemical energy.
+```
+
+## STT model & resources
+
+STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
+no torch/transformers. The model (`STT_MODEL`, default `base.en`) **downloads from
+HuggingFace on first use**; in Docker it is cached in the `live_assistant_hf_cache`
+volume so restarts don't re-download. To pre-pull it, run the STT check (or any
+transcription) once while the container has network, or bake the download into the
+image.
+
+STT runs **continuously during a session, alongside the embedder and the 7B brain**,
+so size the model to fit the shared memory budget: **`base.en` (or `small.en`) with
+`int8`** on CPU is the safe default. Larger models (`medium.en`, `float16`, or `cuda`)
+are a later, hardware-dependent upgrade — change `STT_MODEL` / `STT_DEVICE` /
+`STT_COMPUTE_TYPE`, nothing else, since the engine is fully behind the `SpeechToText`
+port.
+
+faster-whisper is not natively streaming, so `FasterWhisperSpeechToText` implements
+_pseudo-streaming_ (re-transcribe a growing per-utterance window; finalize on a
+silence gap). SDK calls whose shape is version-sensitive carry `# SDK:` comments.
+
 ## Tests
 
-Fully offline — no LiveKit server, no network, no models. `livekit` is imported
-**lazily** inside `LiveKitAudioSource`, so the suite runs without the SDK installed.
+Fully offline — no LiveKit server, no network, no models. Both `livekit` (in
+`LiveKitAudioSource`) and `faster_whisper` (in `FasterWhisperSpeechToText`) are
+imported **lazily**, so the whole suite runs without either installed.
 
 ```bash
 pip install -e '.[dev]'
 pytest
 ```
 
-Covers: `/health` (configured / not-configured), `FakeAudioSource` frame format /
-rate / channels / ordering from an in-code WAV fixture, and the normalization path
-(a stereo 48kHz fixture comes out mono at 16kHz). The live LiveKit path is not
-unit-tested against a server; it is isolated behind lazy imports and exercised only
-via the deferred `--livekit` CLI mode.
+Covers:
+
+- `/health` (configured / not-configured).
+- `FakeAudioSource` frame format / rate / channels / ordering, and normalization (a
+  stereo 48kHz fixture comes out mono at 16kHz).
+- **STT streaming state machine** — a `tone/silence/tone` fixture through
+  `FakeAudioSource` into a subclass that stubs `_transcribe_window` (no model):
+  asserts two utterances split on the pause, interim-before-final ordering, exactly
+  the first utterance flagged `followed_by_pause`, sane monotonic timings, and pure
+  silence yielding nothing.
+- **STT energy/pause helpers** (`audio_analysis`) directly.
+- **`FakeSpeechToText`** yields scripted segments deterministically (the seam LA-3+
+  tests against).
+
+Two paths are **not** unit-tested against real infrastructure and are isolated behind
+lazy imports:
+
+- The live LiveKit path — exercised only via the deferred `capture_check.py --livekit`
+  mode.
+- The real Whisper model — `tests/test_faster_whisper_real.py` is **opt-in** and
+  skips cleanly unless faster-whisper is installed **and** an English WAV is provided
+  (`STT_TEST_WAV=/path/to.wav` or a file in `tests/fixtures/`). No audio is committed.

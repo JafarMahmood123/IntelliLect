@@ -30,9 +30,22 @@ class Settings(BaseSettings):
 
     # --- Audio normalization target (what downstream STT consumes) ---
     # Incoming LiveKit audio is resampled/downmixed to this so later stages are
-    # decoupled from LiveKit's native capture format.
+    # decoupled from LiveKit's native capture format. STT (faster-whisper) assumes
+    # 16kHz mono, so target_sample_rate should stay 16000.
     target_sample_rate: int = 16000
     target_channels: int = 1  # mono
+
+    # --- Speech-to-text (LA-2): streaming English STT via faster-whisper/CTranslate2 ---
+    # STT runs continuously during a session ALONGSIDE the embedder and the 7B brain,
+    # so keep the model small (English-only + int8) to fit the shared RAM budget;
+    # larger models are a later, hardware-dependent upgrade. Uses its OWN model — no
+    # Ollama, no torch/transformers (CTranslate2 is a separate inference engine).
+    stt_model: str = "base.en"  # faster-whisper English model id (tiny.en/base.en/small.en/...)
+    stt_device: str = "cpu"  # cpu | cuda
+    stt_compute_type: str = "int8"  # int8 (low RAM on cpu) | float16 | ...
+    stt_language: str = "en"  # English only for now (Arabic deferred)
+    stt_chunk_seconds: float = 3.0  # audio accumulated before a transcription step
+    stt_pause_seconds: float = 0.8  # trailing silence that marks a segment boundary
 
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
