@@ -6,11 +6,16 @@ from fastapi import FastAPI
 
 import logging
 
-from app.api.dependencies import build_ingestion_worker, run_stale_recovery
+from app.api.dependencies import (
+    build_ingestion_worker,
+    build_summary_runner,
+    run_stale_recovery,
+)
 from app.api.routers import (
     answer,
     health,
     internal_documents,
+    internal_summaries,
     metrics as metrics_router,
     search,
 )
@@ -30,6 +35,9 @@ async def lifespan(app: FastAPI):
     await worker.start()
     app.state.ingestion_worker = worker
 
+    # Background runner for the session-end summary trigger (S-3).
+    app.state.summary_runner = build_summary_runner()
+
     # Recover documents left stuck in Processing by a previous crash/restart.
     if get_settings().stale_recovery_on_startup:
         try:
@@ -40,8 +48,12 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        # Shutdown: stop workers cleanly, then release DB connections.
+        # Shutdown: stop workers cleanly, drain in-flight summaries, then release DB.
         await worker.stop()
+        try:
+            await app.state.summary_runner.drain()
+        except Exception:  # noqa: BLE001 — shutdown must not raise
+            logger.exception("Error draining in-flight summaries on shutdown.")
         await dispose_engine()
 
 
@@ -63,6 +75,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(internal_documents.router)
+    app.include_router(internal_summaries.router)
     app.include_router(search.router)
     app.include_router(answer.router)
     if settings.metrics_enabled:

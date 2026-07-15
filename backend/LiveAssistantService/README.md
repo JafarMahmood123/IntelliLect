@@ -6,7 +6,7 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-8.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-8 and S-0.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
@@ -136,6 +136,19 @@ signal), and a component-aware `/health`. This is the full assistant pipeline.
   reach the sink; suppressions are logged by `type`/`reason`/`confidence` (never the
   text). LA-4's brain now also emits an optional `confidence` in `[0,1]`, defaulting
   to `FEEDBACK_DEFAULT_CONFIDENCE` when the model omits it (backward-compatible).
+- **Transcript persistence (S-0)** — as the STT emits segments, the pipeline persists
+  the **FINAL** ones **incrementally** (interim/unstable segments are never stored),
+  keyed by session, so a mid-session crash never loses the transcript. A per-session
+  `TranscriptRecorder` writes **off the feedback hot path** (enqueue + a background
+  worker) and is **non-fatal**: a store failure is logged and the live loop keeps
+  running. The session's transcript is `ensure`d at pipeline start and marked
+  `Finalized` on session end. The ordered transcript is exposed for the (later)
+  summary feature via `GET /api/internal/sessions/{id}/transcript` (auth by
+  `INTERNAL_API_SECRET`; `404` if unknown). Storage is Postgres via async
+  SQLAlchemy + Alembic — the **same stack as KnowledgeService** — but **optional**:
+  with `TRANSCRIPT_DB_URL` unset the service falls back to a non-durable in-memory
+  store, so it still runs fully offline. See [Transcript persistence
+  (S-0)](#transcript-persistence-s-0).
 
 ## Ports
 
@@ -150,6 +163,7 @@ Defined under `app/application/ports/`:
 | `BrainClient` | **Implemented (LA-4).** Judge an idea against retrieved material; propose a correction. |
 | `FeedbackSink` | **Implemented (LA-5).** Deliver a suggestion to the teacher **privately**. |
 | `AgentDataChannel` | **Implemented (LA-5).** Targeted (single-identity) data send over the agent's room. |
+| `TranscriptRepository` | **Implemented (S-0).** Durable per-session transcript: append final segments in order, assemble/finalize. SQLAlchemy + in-memory adapters. |
 
 The **live-loop orchestrator** that wires these end to end is `SessionPipeline`
 (`app/application/services/`), driven per session by `SessionManager` and gated by
@@ -244,6 +258,8 @@ See `.env.example`.
 | `FEEDBACK_DEDUP_WINDOW_SEC` | `300` | Look-back window for duplicate suppression. |
 | `FEEDBACK_DEDUP_SIMILARITY` | `0.85` | Token-similarity threshold to treat as a duplicate. |
 | `FEEDBACK_MAX_PER_SESSION` | `0` | Hard cap on delivered suggestions per session (0 = no cap). |
+| `TRANSCRIPT_DB_URL` | _(empty)_ | Postgres URL (asyncpg) for the S-0 transcript store. Empty → non-durable in-memory store (offline). |
+| `TRANSCRIPT_PERSIST_BATCH` | `1` | Flush after every N final segments (1 = persist each immediately; most crash-resilient). |
 | `LOG_LEVEL` | `INFO` | Root log level (structured JSON). |
 | `METRICS_ENABLED` | `true` | Expose `GET /metrics` and record Prometheus metrics. |
 
@@ -426,6 +442,50 @@ curl -X POST localhost:8084/api/internal/sessions/$SID/stop -H "X-Internal-Secre
 
 (A real pipeline needs LiveKit + models to do useful work; the endpoints, registry,
 idempotency, and cap are exercised offline by the test suite.)
+
+## Transcript persistence (S-0)
+
+The prerequisite for the session-summary feature: make the teacher's transcript
+**durable during the session** so it can be summarized when the session ends.
+
+**Flow.** In `SessionPipeline`, a pass-through `_persist_final` tee sits between the
+STT and the boundary detector. It **never changes** the segment stream the boundary
+detector sees; it only forwards **FINAL** segments to a per-session
+`TranscriptRecorder`. The recorder `record()`s by **enqueuing** (never awaiting the
+store, never raising), and a single background worker drains the queue in order and
+appends to the `TranscriptRepository`, assigning a sequential `order_index`. So:
+
+- **Incremental & ordered** — each final segment is persisted as it stabilizes, in
+  the order the teacher spoke (transcript order, independent of stream timestamps).
+- **Interim excluded** — `is_final=False` segments are never persisted.
+- **Off the hot path** — persistence adds no latency to the feedback loop.
+- **Non-fatal** — an `ensure`/`append`/`finalize` failure is logged at `WARNING`
+  (type only, never transcript text) and the session keeps running.
+- **Lifecycle** — `ensure_session` at pipeline start (status `Recording`),
+  `finalize` on any session end (status `Finalized`).
+
+**Data model.** `session_transcripts` (header: `session_id` pk, `classroom_id`,
+`status`, timestamps) and `transcript_segments` (`session_id`, `order_index`, `text`,
+`start_ms`, `end_ms`, `created_at`), unique + indexed on `(session_id, order_index)`
+for ordered retrieval.
+
+**Storage choice.** Postgres via **async SQLAlchemy + Alembic**, matching
+KnowledgeService (`SqlAlchemyTranscriptRepository`). It is **optional**: when
+`TRANSCRIPT_DB_URL` is unset the composition root wires an
+`InMemoryTranscriptRepository` (non-durable) instead, so the service — and the whole
+offline test suite — runs with no DB. `entrypoint.sh` runs `alembic upgrade head`
+only when `TRANSCRIPT_DB_URL` is set. The compose file provisions a `live-assistant-db`
+Postgres and points the service at it.
+
+**Endpoint (for the summary feature, S-1).** The assembled transcript is served to
+KnowledgeService over the internal API:
+
+```bash
+SECRET=dev-live-assistant-secret
+curl localhost:8084/api/internal/sessions/$SID/transcript -H "X-Internal-Secret: $SECRET"
+# {"sessionId":"...","classroomId":"...","status":"Finalized","segmentCount":42,"text":"..."}
+# 404 if the session is unknown. This phase only EXPOSES the transcript — no summary yet.
+```
 
 ## Observability (LA-8)
 
@@ -628,6 +688,16 @@ Covers:
   idea→feedback count, per-stage counts, active-sessions returns to baseline), and
   recording is a no-op when disabled; `GET /metrics` exposes Prometheus text (and is
   absent when `METRICS_ENABLED=false`).
+- **Transcript persistence (S-0)** — all offline. `TranscriptRecorder` +
+  `InMemoryTranscriptRepository`: final segments appended in order with sequential
+  `order_index`, `assemble_text` reconstructs the transcript, interim segments
+  excluded, batched flush, out-of-order timestamps still index by arrival, and a
+  throwing `append` is non-fatal (warning logged, no raise). `SessionPipeline`
+  persists finals through a run, finalizes on end, and a failing store never stops
+  the feedback loop. Internal endpoint: assembled transcript for a known session,
+  404 unknown, secret required/enforced. Repository contract on
+  `InMemoryTranscriptRepository`, plus a **skip-clean** `SqlAlchemyTranscriptRepository`
+  round-trip that runs only when `TRANSCRIPT_TEST_DB_URL` points at a Postgres.
 - **Coverage** — run `pytest --cov=app --cov-report=term-missing` (configured but not
   gated on a threshold).
 

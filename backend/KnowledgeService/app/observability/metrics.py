@@ -46,6 +46,29 @@ INFLIGHT_DOCUMENTS = Gauge(
     "inflight_documents", "Documents currently being processed."
 )
 
+# --- Session summary (S-5) ------------------------------------------------------
+SUMMARIES_GENERATED = Counter(
+    "summaries_generated_total", "Session summaries generated successfully."
+)
+SUMMARIES_FAILED = Counter(
+    "summaries_failed_total", "Session summaries that failed to generate."
+)
+SUMMARIES_GROUNDED = Counter(
+    "summaries_grounded_total",
+    "Summaries generated with classroom-material grounding.",
+)
+SUMMARY_GENERATION_DURATION = Histogram(
+    "summary_generation_seconds", "Time to generate the summary Markdown."
+)
+SUMMARY_RENDER_DURATION = Histogram(
+    "summary_render_seconds", "Time to render the summary PDF."
+)
+SUMMARY_TRANSCRIPT_TOKENS = Histogram(
+    "summary_transcript_tokens",
+    "Transcript tokens fed to summarization.",
+    buckets=(0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000),
+)
+
 _enabled = True
 
 
@@ -120,6 +143,39 @@ def record_chunks(count: int) -> None:
 def set_queue_depth(depth: int) -> None:
     if _enabled:
         INGEST_QUEUE_DEPTH.set(depth)
+
+
+# --- Session summary recording helpers (S-5) -----------------------------------
+
+
+def record_summary_generated() -> None:
+    if _enabled:
+        SUMMARIES_GENERATED.inc()
+
+
+def record_summary_failed() -> None:
+    if _enabled:
+        SUMMARIES_FAILED.inc()
+
+
+def record_summary_grounded() -> None:
+    if _enabled:
+        SUMMARIES_GROUNDED.inc()
+
+
+def observe_summary_generation(seconds: float) -> None:
+    if _enabled:
+        SUMMARY_GENERATION_DURATION.observe(seconds)
+
+
+def observe_summary_render(seconds: float) -> None:
+    if _enabled:
+        SUMMARY_RENDER_DURATION.observe(seconds)
+
+
+def observe_summary_transcript_tokens(count: int) -> None:
+    if _enabled:
+        SUMMARY_TRANSCRIPT_TOKENS.observe(count)
 
 
 def render() -> tuple[bytes, str]:

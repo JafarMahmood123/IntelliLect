@@ -52,14 +52,18 @@ def test_health_ok_when_all_components_healthy(monkeypatch):
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "db": "ok",
-        "ollama": "reachable",
-        "generationModel": "available",
-        "worker": "running",
-        "queueDepth": 3,
-    }
+    body = response.json()
+    # Existing (liveness/readiness) fields keep their exact semantics.
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body["ollama"] == "reachable"
+    assert body["generationModel"] == "available"
+    assert body["worker"] == "running"
+    assert body["queueDepth"] == 3
+    # New summary-side probes are additive, non-fatal, informational signals.
+    assert body["pdfRenderer"] in {"available", "unavailable"}
+    assert body["summaryStorage"] in {"reachable", "unreachable", "not-configured"}
+    assert body["transcriptEndpoint"] in {"reachable", "unreachable", "not-configured"}
 
 
 def test_health_503_and_degraded_when_db_unreachable(monkeypatch):

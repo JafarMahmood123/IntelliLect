@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -11,6 +12,7 @@ from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.feedback_sink import FeedbackSink
 from app.application.ports.retrieval_client import RetrievalClient
 from app.application.ports.speech_to_text import SpeechToText
+from app.application.ports.transcript_repository import TranscriptRepository
 from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
@@ -20,6 +22,7 @@ from app.application.services.session_manager import (
     SessionPipelineFactory,
 )
 from app.application.services.session_pipeline import SessionPipeline
+from app.application.services.transcript_recorder import TranscriptRecorder
 from app.domain.entities.session_context import SessionContext
 from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
@@ -29,6 +32,13 @@ from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
 )
 from app.infrastructure.feedback.livekit_feedback_sink import LiveKitFeedbackSink
+from app.infrastructure.persistence.database import get_session_factory
+from app.infrastructure.persistence.in_memory_transcript_repository import (
+    InMemoryTranscriptRepository,
+)
+from app.infrastructure.persistence.sqlalchemy_transcript_repository import (
+    SqlAlchemyTranscriptRepository,
+)
 from app.infrastructure.retrieval.knowledge_retrieval_client import (
     KnowledgeRetrievalClient,
 )
@@ -43,6 +53,8 @@ from app.infrastructure.stt.faster_whisper_speech_to_text import (
 # No endpoint constructs an AudioSource yet — session lifecycle wiring is LA-6.
 # The factories below are the seam the future live-loop orchestrator/session
 # endpoint will call, and are exercised today by scripts/capture_check.py.
+
+logger = logging.getLogger("liveassistant.di")
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
@@ -158,8 +170,44 @@ def build_feedback_pacer(settings: Settings) -> FeedbackPacer:
     )
 
 
+# --- Transcript persistence (S-0) ---------------------------------------------
+def build_transcript_repository(settings: Settings) -> TranscriptRepository:
+    """The durable transcript store, or an in-memory fallback when no DB is configured.
+
+    With ``TRANSCRIPT_DB_URL`` set, transcripts persist in Postgres (survive a crash);
+    without it the service still runs fully offline against a non-durable in-memory
+    store. Built ONCE at startup and shared by every session pipeline AND the internal
+    transcript endpoint, so the endpoint reads exactly what the pipelines wrote.
+    """
+    if settings.transcript_db_url:
+        return SqlAlchemyTranscriptRepository(get_session_factory())
+    logger.warning(
+        "TRANSCRIPT_DB_URL is not set — using a non-durable in-memory transcript store."
+    )
+    return InMemoryTranscriptRepository()
+
+
+def get_transcript_repository(request: Request) -> TranscriptRepository:
+    repo: TranscriptRepository | None = getattr(
+        request.app.state, "transcript_repository", None
+    )
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Transcript store is not running.",
+        )
+    return repo
+
+
+TranscriptRepositoryDep = Annotated[
+    TranscriptRepository, Depends(get_transcript_repository)
+]
+
+
 # --- Session lifecycle (LA-6) -------------------------------------------------
-def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory:
+def build_session_pipeline_factory(
+    settings: Settings, transcript_repository: TranscriptRepository
+) -> SessionPipelineFactory:
     """Factory that assembles the full per-session loop from the phase components.
 
     Each session gets its OWN LiveKit agent (its own room connection + boundary
@@ -170,7 +218,9 @@ def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory
     per-session state.
 
     One shared ``FeedbackPacer`` (LA-7) serves all sessions, keyed by session_id — the
-    pipeline resets its session's pacing state on teardown.
+    pipeline resets its session's pacing state on teardown. The shared
+    ``transcript_repository`` (S-0) is durable/process-wide; each session gets its own
+    ``TranscriptRecorder`` (per-session writer state) over it.
     """
     pacer = build_feedback_pacer(settings)
 
@@ -182,19 +232,31 @@ def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory
             settings, KnowledgeRetrievalClient(settings), OllamaBrainClient(settings)
         )
         dispatcher = build_feedback_dispatcher(build_feedback_sink(settings, agent))
-        return SessionPipeline(session, agent, stt, boundary, evaluator, pacer, dispatcher)
+        recorder = TranscriptRecorder(
+            transcript_repository,
+            session.session_id,
+            session.classroom_id,
+            batch=settings.transcript_persist_batch,
+        )
+        return SessionPipeline(
+            session, agent, stt, boundary, evaluator, pacer, dispatcher, recorder
+        )
 
     return factory
 
 
-def build_session_manager(settings: Settings) -> SessionManager:
+def build_session_manager(
+    settings: Settings, transcript_repository: TranscriptRepository
+) -> SessionManager:
     """The session registry/lifecycle, capped by MAX_CONCURRENT_SESSIONS.
 
     Built once at app startup and stored on ``app.state`` (see the app factory's
-    lifespan). The pipeline factory is injected so tests can supply fakes.
+    lifespan). The pipeline factory is injected so tests can supply fakes; the shared
+    transcript store (S-0) is threaded in so every pipeline persists through it.
     """
     return SessionManager(
-        build_session_pipeline_factory(settings), settings.max_concurrent_sessions
+        build_session_pipeline_factory(settings, transcript_repository),
+        settings.max_concurrent_sessions,
     )
 
 

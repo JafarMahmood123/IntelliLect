@@ -341,6 +341,56 @@ public sealed class FakeRecordingDownloadSettings : IRecordingDownloadSettings
     public int DownloadUrlTtlSeconds { get; init; } = 600;
 }
 
+/// <summary>In-memory ISummaryRepository for the summary consumer/service tests (S-4).</summary>
+public sealed class FakeSummaryRepository : ISummaryRepository
+{
+    public List<SessionSummary> Store { get; } = new();
+
+    public void Seed(SessionSummary summary) => Store.Add(summary);
+
+    public Task AddAsync(SessionSummary summary, CancellationToken ct = default)
+    {
+        Store.Add(summary);
+        return Task.CompletedTask;
+    }
+
+    public Task<SessionSummary?> GetBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(s => s.SessionId == sessionId));
+
+    public Task<SessionSummary?> GetByIdAsync(Guid summaryId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(s => s.Id == summaryId));
+
+    // Mirrors the real query: classroom filter + optional session, newest first, paged.
+    public Task<(IEnumerable<SessionSummary> Items, int TotalCount)> ListByClassroomAsync(
+        Guid classroomId, Guid? sessionId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = Store.Where(s => s.ClassroomId == classroomId);
+        if (sessionId.HasValue) query = query.Where(s => s.SessionId == sessionId.Value);
+
+        var ordered = query.OrderByDescending(s => s.CreatedAtUtc).ToList();
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult<(IEnumerable<SessionSummary>, int)>((items, ordered.Count));
+    }
+}
+
+/// <summary>Fixed summary download settings for tests.</summary>
+public sealed class FakeSummaryDownloadSettings : ISummaryDownloadSettings
+{
+    public int DownloadUrlTtlSeconds { get; init; } = 600;
+}
+
+/// <summary>Records summary metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeSummaryMetrics : ISummaryMetrics
+{
+    public List<string> IssuedFormats { get; } = new();
+    public List<string> Denials { get; } = new();
+    public int AvailableIncrements { get; private set; }
+
+    public void DownloadUrlIssued(string format) => IssuedFormats.Add(format);
+    public void AuthzDenied(string reason) => Denials.Add(reason);
+    public void AvailableIncrement() => AvailableIncrements++;
+}
+
 public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>

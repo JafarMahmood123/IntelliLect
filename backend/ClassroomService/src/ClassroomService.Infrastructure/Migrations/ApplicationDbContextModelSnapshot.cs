@@ -190,6 +190,46 @@ namespace ClassroomService.Infrastructure.Migrations
                     b.ToTable("SessionRecordings");
                 });
 
+            modelBuilder.Entity("ClassroomService.Domain.Entities.SessionSummary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AvailableAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MdS3Key")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PdfS3Key")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassroomId");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.ToTable("SessionSummaries");
+                });
+
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.InboxState", b =>
                 {
                     b.Property<long>("Id")
@@ -383,6 +423,17 @@ namespace ClassroomService.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("ClassroomService.Domain.Entities.SessionRecording", b =>
+                {
+                    b.HasOne("ClassroomService.Domain.Entities.Session", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("ClassroomService.Domain.Entities.SessionSummary", b =>
                 {
                     b.HasOne("ClassroomService.Domain.Entities.Session", "Session")
                         .WithMany()

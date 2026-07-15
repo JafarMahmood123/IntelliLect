@@ -29,6 +29,11 @@ public static class DependencyInjection
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
         services.AddScoped<IRecordingRepository, RecordingRepository>();
 
+        // Session summaries (S-4): read-side service + repository. Reuses the recording S3 signer
+        // (registered below); only the download-URL TTL is a new "Summaries" option.
+        services.AddScoped<IClassroomSummaryService, ClassroomSummaryService>();
+        services.AddScoped<ISummaryRepository, SummaryRepository>();
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
 
@@ -80,6 +85,11 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<RecordingsOptions>>().Value);
         services.AddScoped<IRecordingUrlSigner, S3RecordingUrlSigner>();
 
+        // Summary downloads (S-4): reuse the same S3 signer/bucket; only the URL TTL is new.
+        services.Configure<SummariesOptions>(configuration.GetSection(SummariesOptions.SectionName));
+        services.AddSingleton<ISummaryDownloadSettings>(sp =>
+            sp.GetRequiredService<IOptions<SummariesOptions>>().Value);
+
         // Recording lifecycle & retention (R-4): delete-over-S3, reconcile & retention logic, and
         // the background job (only registered when a periodic pass is actually enabled).
         services.AddSingleton<IRecordingLifecycleSettings>(sp =>
@@ -90,6 +100,9 @@ public static class DependencyInjection
 
         // Recording metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
         services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
+
+        // Summary metrics (S-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<ISummaryMetrics, Observability.SummaryMetrics>();
 
         var recordingsOptions = recordingsSection.Get<RecordingsOptions>() ?? new RecordingsOptions();
         if (recordingsOptions.ReconcileEnabled || recordingsOptions.RetentionEnabled)
@@ -159,6 +172,7 @@ public static class DependencyInjection
                 });
 
             x.AddConsumer<SessionRecordingReadyConsumer>();
+            x.AddConsumer<SessionSummaryReadyConsumer>();
         });
 
         return services;

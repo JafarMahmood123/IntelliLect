@@ -15,9 +15,12 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // R-5: recordings storage (S3 bucket) reachability/config health.
+// S-5: summaries download-config health (shares the same bucket; config-only).
 builder.Services.AddHealthChecks()
     .AddCheck<ClassroomService.Api.HealthChecks.RecordingsStorageHealthCheck>(
-        "recordings_storage", tags: new[] { "recording" });
+        "recordings_storage", tags: new[] { "recording" })
+    .AddCheck<ClassroomService.Api.HealthChecks.SummariesConfigHealthCheck>(
+        "summaries-config", tags: new[] { "summary" });
 
 var app = builder.Build();
 

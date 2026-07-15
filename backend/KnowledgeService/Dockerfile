@@ -6,13 +6,22 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-# Build deps for compiling asyncpg / native wheels (build-essential), plus the
-# Tesseract OCR engine and its English language data (Phase 3, English only).
+# Build deps for compiling asyncpg / native wheels (build-essential), the Tesseract
+# OCR engine + English language data (Phase 3), and the WeasyPrint runtime libraries
+# (S-2 summary PDF rendering: pango/cairo/gdk-pixbuf/ffi + fonts).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         tesseract-ocr \
         tesseract-ocr-eng \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libpangoft2-1.0-0 \
+        libcairo2 \
+        libgdk-pixbuf-2.0-0 \
+        libffi-dev \
+        shared-mime-info \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

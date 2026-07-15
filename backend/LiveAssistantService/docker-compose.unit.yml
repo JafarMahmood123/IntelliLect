@@ -1,4 +1,22 @@
 services:
+  live-assistant-db:
+    image: postgres:16-alpine
+    container_name: live-assistant-db
+    environment:
+      POSTGRES_DB: liveassistantdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Jafar123!
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d liveassistantdb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - live_assistant_db_data:/var/lib/postgresql/data
+    networks:
+      - intellilect-net
+
   live-assistant-service:
     build:
       context: .
@@ -35,6 +53,10 @@ services:
       # StreamingService's LiveAssistant__InternalApiSecret).
       - INTERNAL_API_SECRET=dev-live-assistant-secret
       - MAX_CONCURRENT_SESSIONS=20
+      # Transcript persistence (S-0): durable per-session transcript in the compose DB.
+      # entrypoint.sh runs Alembic migrations on start because this is set.
+      - TRANSCRIPT_DB_URL=postgresql+asyncpg://postgres:Jafar123!@live-assistant-db:5432/liveassistantdb
+      - TRANSCRIPT_PERSIST_BATCH=1
     # Linux does not provide host.docker.internal by default; map it to the host.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -43,6 +65,8 @@ services:
     depends_on:
       livekit-server:
         condition: service_started
+      live-assistant-db:
+        condition: service_healthy
     networks:
       - intellilect-net
     volumes:
@@ -51,3 +75,4 @@ services:
 
 volumes:
   live_assistant_hf_cache:
+  live_assistant_db_data:
