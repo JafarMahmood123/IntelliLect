@@ -29,6 +29,11 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    // R-5: recording capture config health (LiveKit egress + webhook verification key).
+    builder.Services.AddHealthChecks()
+        .AddCheck<StreamingService.Api.HealthChecks.EgressConfigHealthCheck>(
+            "recording_capture_config", tags: new[] { "recording" });
+
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())
@@ -63,6 +68,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHealthChecks("/health");
     app.MapHub<StreamHub>("/hubs/stream");
 
     app.Run();

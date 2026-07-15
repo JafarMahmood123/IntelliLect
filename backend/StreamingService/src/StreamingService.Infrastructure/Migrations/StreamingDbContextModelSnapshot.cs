@@ -201,11 +201,17 @@ namespace StreamingService.Infrastructure.Migrations
                     b.Property<Guid>("ClassroomId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("EgressId")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("EndedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("ParticipationMode")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("RecordingReadyPublished")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid");

@@ -123,6 +123,22 @@ public static class DependencyInjection
         services.AddSingleton<IStreamSettings>(sp =>
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
         services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
+
+        // Session recording via LiveKit Room Composite Egress (R-0). The typed egress options
+        // sit alongside the LiveKit registration; the egress client wraps the SDK's
+        // EgressServiceClient (reusing the same API key/secret) and is stateless -> singleton.
+        services.Configure<EgressOptions>(configuration.GetSection(EgressOptions.SectionName));
+        services.AddSingleton<ILiveKitEgressClient, LiveKitEgressClient>();
+        services.AddScoped<IRecordingEgressService, LiveKitRecordingEgressService>();
+
+        // Egress-complete webhook -> recording-ready event (R-1). The verifier wraps the SDK's
+        // WebhookReceiver (reusing the LiveKit API key/secret); the handler correlates + publishes.
+        services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
+        services.AddScoped<IRecordingWebhookHandler, LiveKitRecordingWebhookHandler>();
+
+        // Capture metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
+
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 

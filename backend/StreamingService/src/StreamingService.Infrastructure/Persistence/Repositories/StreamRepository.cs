@@ -27,4 +27,9 @@ public sealed class StreamRepository : GenericRepository<LiveStream>, IStreamRep
     {
         return await _streamingContext.Streams.AnyAsync(s => s.SessionId == sessionId, ct);
     }
+
+    public async Task<LiveStream?> GetByEgressIdAsync(string egressId, CancellationToken ct)
+    {
+        return await _streamingContext.Streams.FirstOrDefaultAsync(s => s.EgressId == egressId, ct);
+    }
 }

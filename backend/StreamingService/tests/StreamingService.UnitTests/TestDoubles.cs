@@ -1,5 +1,7 @@
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Infrastructure.Services;
+using Livekit.Server.Sdk.Dotnet;
 using Microsoft.Extensions.Logging;
 
 namespace StreamingService.UnitTests;
@@ -83,6 +85,146 @@ public sealed class RecordingLiveAssistantClient : ILiveAssistantInternalClient
     }
 }
 
+/// <summary>Records recording start/stop calls; optionally throws to simulate egress being
+/// down. Returns a caller-supplied egress id (null models recording disabled).</summary>
+public sealed class FakeRecordingEgressService : IRecordingEgressService
+{
+    private readonly bool _throwOnCall;
+    private readonly string? _egressId;
+    public int StartCalls { get; private set; }
+    public int StopCalls { get; private set; }
+    public string? LastRoomName { get; private set; }
+    public string? LastStoppedEgressId { get; private set; }
+
+    public FakeRecordingEgressService(string? egressId = "EG_test123", bool throwOnCall = false)
+    {
+        _egressId = egressId;
+        _throwOnCall = throwOnCall;
+    }
+
+    public Task<string?> StartRoomRecordingAsync(string roomName, CancellationToken ct = default)
+    {
+        StartCalls++;
+        LastRoomName = roomName;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(_egressId);
+    }
+
+    public Task StopRecordingAsync(string egressId, CancellationToken ct = default)
+    {
+        StopCalls++;
+        LastStoppedEgressId = egressId;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Captures the requests handed to the LiveKit egress client and returns a canned
+/// <see cref="EgressInfo"/>, so the recording service can be tested with no live server.</summary>
+public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient
+{
+    private readonly bool _throwOnCall;
+    public string EgressIdToReturn { get; init; } = "EG_generated";
+    public int StartCalls { get; private set; }
+    public RoomCompositeEgressRequest? LastStartRequest { get; private set; }
+    public StopEgressRequest? LastStopRequest { get; private set; }
+
+    public FakeLiveKitEgressClient(bool throwOnCall = false) => _throwOnCall = throwOnCall;
+
+    public Task<EgressInfo> StartRoomCompositeEgressAsync(RoomCompositeEgressRequest request)
+    {
+        StartCalls++;
+        LastStartRequest = request;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(new EgressInfo { EgressId = EgressIdToReturn, RoomName = request.RoomName });
+    }
+
+    public Task<EgressInfo> StopEgressAsync(StopEgressRequest request)
+    {
+        LastStopRequest = request;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(new EgressInfo { EgressId = request.EgressId });
+    }
+}
+
+/// <summary>Captures published messages. Only the typed Publish&lt;T&gt;(message, ct) overload the
+/// webhook handler uses is implemented; the rest throw so accidental use is obvious.</summary>
+public sealed class FakePublishEndpoint : MassTransit.IPublishEndpoint
+{
+    public List<object> Published { get; } = new();
+
+    public Task Publish<T>(T message, CancellationToken cancellationToken = default) where T : class
+    {
+        Published.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public T? LastOf<T>() where T : class => Published.OfType<T>().LastOrDefault();
+
+    // --- Unused surface -----------------------------------------------------------------
+    public Task Publish<T>(T message, MassTransit.IPipe<MassTransit.PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(T message, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish(object message, CancellationToken cancellationToken = default) { Published.Add(message); return Task.CompletedTask; }
+    public Task Publish(object message, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish(object message, Type messageType, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish(object message, Type messageType, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish<T>(object values, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(object values, MassTransit.IPipe<MassTransit.PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(object values, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public MassTransit.ConnectHandle ConnectPublishObserver(MassTransit.IPublishObserver observer) => throw new NotSupportedException();
+}
+
+/// <summary>Returns a canned WebhookEvent (or throws) so the handler can be tested without signing.</summary>
+public sealed class FakeLiveKitWebhookVerifier : StreamingService.Infrastructure.Services.ILiveKitWebhookVerifier
+{
+    private readonly Livekit.Server.Sdk.Dotnet.WebhookEvent? _event;
+    private readonly bool _throwInvalid;
+    public string? LastBody { get; private set; }
+    public string? LastAuthHeader { get; private set; }
+
+    public FakeLiveKitWebhookVerifier(Livekit.Server.Sdk.Dotnet.WebhookEvent? webhookEvent, bool throwInvalid = false)
+    {
+        _event = webhookEvent;
+        _throwInvalid = throwInvalid;
+    }
+
+    public Livekit.Server.Sdk.Dotnet.WebhookEvent Verify(string body, string authHeader)
+    {
+        LastBody = body;
+        LastAuthHeader = authHeader;
+        if (_throwInvalid) throw new WebhookVerificationException("invalid signature");
+        return _event!;
+    }
+}
+
+/// <summary>Records webhook handler invocations; optionally throws a verification failure.</summary>
+public sealed class FakeRecordingWebhookHandler : IRecordingWebhookHandler
+{
+    private readonly bool _throwInvalid;
+    public int Calls { get; private set; }
+    public string? LastBody { get; private set; }
+    public string? LastAuthHeader { get; private set; }
+
+    public FakeRecordingWebhookHandler(bool throwInvalid = false) => _throwInvalid = throwInvalid;
+
+    public Task HandleAsync(string body, string authHeader, CancellationToken ct = default)
+    {
+        Calls++;
+        LastBody = body;
+        LastAuthHeader = authHeader;
+        if (_throwInvalid) throw new WebhookVerificationException("invalid signature");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records recording metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeRecordingMetrics : IRecordingMetrics
+{
+    public int StartedCount { get; private set; }
+
+    public void RecordingStarted() => StartedCount++;
+}
+
 /// <summary>Minimal in-memory IStreamRepository for controller tests.</summary>
 public sealed class FakeStreamRepository : IStreamRepository
 {
@@ -98,6 +240,9 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task<LiveStream?> GetBySessionIdAsync(Guid sessionId, bool includeParticipants = false, CancellationToken ct = default)
         => Task.FromResult<LiveStream?>(Find(sessionId));
+
+    public Task<LiveStream?> GetByEgressIdAsync(string egressId, CancellationToken ct = default)
+        => Task.FromResult<LiveStream?>(_streams.FirstOrDefault(s => s.EgressId == egressId));
 
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {

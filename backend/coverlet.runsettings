@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Code-coverage config for the recording feature test suites (R-5).
+  Run:  dotnet test collect "XPlat Code Coverage" with settings backend/coverlet.runsettings
+  Coverage is collected and reported (Cobertura), but intentionally NOT gated on an arbitrary
+  threshold: it informs review, it does not fail the build.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!-- Exclude generated / non-logic code from the denominator. -->
+          <ExcludeByFile>**/Migrations/**/*.cs,**/obj/**/*.cs,**/Program.cs</ExcludeByFile>
+          <Exclude>[*]*.Migrations.*</Exclude>
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+          <SkipAutoProps>true</SkipAutoProps>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

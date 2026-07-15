@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
+        services.AddScoped<IRecordingRepository, RecordingRepository>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
@@ -71,6 +72,30 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();
+
+        // Recording downloads (R-3): reuse the S3 client/bucket above; only the URL TTL is new.
+        var recordingsSection = configuration.GetSection(RecordingsOptions.SectionName);
+        services.Configure<RecordingsOptions>(recordingsSection);
+        services.AddSingleton<IRecordingDownloadSettings>(sp =>
+            sp.GetRequiredService<IOptions<RecordingsOptions>>().Value);
+        services.AddScoped<IRecordingUrlSigner, S3RecordingUrlSigner>();
+
+        // Recording lifecycle & retention (R-4): delete-over-S3, reconcile & retention logic, and
+        // the background job (only registered when a periodic pass is actually enabled).
+        services.AddSingleton<IRecordingLifecycleSettings>(sp =>
+            sp.GetRequiredService<IOptions<RecordingsOptions>>().Value);
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IRecordingStorage, S3RecordingStorage>();
+        services.AddScoped<IRecordingLifecycleService, RecordingLifecycleService>();
+
+        // Recording metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
+
+        var recordingsOptions = recordingsSection.Get<RecordingsOptions>() ?? new RecordingsOptions();
+        if (recordingsOptions.ReconcileEnabled || recordingsOptions.RetentionEnabled)
+        {
+            services.AddHostedService<RecordingReconcileHostedService>();
+        }
 
         // 1. Database Configuration
         var connectionString = configuration.GetConnectionString("Database");

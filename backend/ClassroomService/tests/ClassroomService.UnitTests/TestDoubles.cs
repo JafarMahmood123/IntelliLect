@@ -156,6 +156,191 @@ public sealed class FakeFileStorageService : IFileStorageService
     public Task DeleteFileAsync(string s3Key, CancellationToken ct = default) => Task.CompletedTask;
 }
 
+/// <summary>In-memory IRecordingRepository for the recording-ready consumer tests.</summary>
+public sealed class FakeRecordingRepository : IRecordingRepository
+{
+    public List<SessionRecording> Store { get; } = new();
+
+    public void Seed(SessionRecording recording) => Store.Add(recording);
+
+    public Task AddAsync(SessionRecording recording, CancellationToken ct = default)
+    {
+        Store.Add(recording);
+        return Task.CompletedTask;
+    }
+
+    public Task<SessionRecording?> GetBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(r => r.SessionId == sessionId));
+
+    public Task<SessionRecording?> GetByIdAsync(Guid recordingId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(r => r.Id == recordingId));
+
+    // Mirrors the real query: classroom filter + optional session/status, newest first, paged.
+    public Task<(IEnumerable<SessionRecording> Items, int TotalCount)> ListByClassroomAsync(
+        Guid classroomId, Guid? sessionId, ClassroomService.Domain.Enums.RecordingStatus? status,
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = Store.Where(r => r.ClassroomId == classroomId);
+        if (sessionId.HasValue) query = query.Where(r => r.SessionId == sessionId.Value);
+        if (status.HasValue) query = query.Where(r => r.Status == status.Value);
+
+        var ordered = query.OrderByDescending(r => r.CreatedAtUtc).ToList();
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult<(IEnumerable<SessionRecording>, int)>((items, ordered.Count));
+    }
+
+    public Task<List<SessionRecording>> GetStuckProcessingAsync(DateTime olderThanUtc, CancellationToken ct = default)
+        => Task.FromResult(Store
+            .Where(r => r.Status == ClassroomService.Domain.Enums.RecordingStatus.Processing && r.CreatedAtUtc < olderThanUtc)
+            .ToList());
+
+    public Task<List<SessionRecording>> GetOlderThanAsync(DateTime cutoffUtc, CancellationToken ct = default)
+        => Task.FromResult(Store.Where(r => r.CreatedAtUtc < cutoffUtc).ToList());
+
+    public Task RemoveAsync(SessionRecording recording, CancellationToken ct = default)
+    {
+        Store.Remove(recording);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> CountProcessingAsync(CancellationToken ct = default)
+        => Task.FromResult(Store.Count(r => r.Status == ClassroomService.Domain.Enums.RecordingStatus.Processing));
+}
+
+/// <summary>Records recording metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeRecordingMetrics : IRecordingMetrics
+{
+    public int Completed { get; private set; }
+    public long LastSizeBytes { get; private set; }
+    public double LastEgressToAvailableSeconds { get; private set; }
+    public int Failed { get; private set; }
+    public int DownloadIssued { get; private set; }
+    public List<string> Denials { get; } = new();
+    public int Deleted { get; private set; }
+    public List<string> ReconcileOutcomes { get; } = new();
+    public int ProcessingCurrent { get; private set; }
+
+    public void RecordingCompleted(long sizeBytes, double egressToAvailableSeconds)
+    {
+        Completed++;
+        LastSizeBytes = sizeBytes;
+        LastEgressToAvailableSeconds = egressToAvailableSeconds;
+    }
+
+    public void RecordingFailed() => Failed++;
+    public void DownloadUrlIssued() => DownloadIssued++;
+    public void DownloadAuthzDenied(string reason) => Denials.Add(reason);
+    public void RecordingDeleted() => Deleted++;
+    public void RecordingReconciled(string outcome) => ReconcileOutcomes.Add(outcome);
+    public void SetProcessingCurrent(int count) => ProcessingCurrent = count;
+}
+
+/// <summary>Mock recording storage: records deleted keys, optionally throws to simulate a hard S3
+/// failure. A missing object is a success (idempotent) — the fake simply records the key.</summary>
+public sealed class FakeRecordingStorage : IRecordingStorage
+{
+    private readonly bool _throwOnDelete;
+    public List<string> DeletedKeys { get; } = new();
+
+    public FakeRecordingStorage(bool throwOnDelete = false) => _throwOnDelete = throwOnDelete;
+
+    public Task DeleteObjectAsync(string objectKey, CancellationToken ct = default)
+    {
+        if (_throwOnDelete) throw new InvalidOperationException("S3 delete failed");
+        DeletedKeys.Add(objectKey);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Settable clock for time-based reconcile/retention tests.</summary>
+public sealed class FakeClock : IClock
+{
+    public DateTime UtcNow { get; set; } = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+}
+
+/// <summary>Fixed lifecycle settings for tests.</summary>
+public sealed class FakeRecordingLifecycleSettings : IRecordingLifecycleSettings
+{
+    public int StuckProcessingMinutes { get; init; } = 30;
+    public bool RetentionEnabled { get; init; }
+    public int RetentionDays { get; init; }
+}
+
+/// <summary>In-memory IMembershipRepository: only the enrollment check the recording service uses
+/// is meaningful; the rest are unused here.</summary>
+public sealed class FakeMembershipRepository : IMembershipRepository
+{
+    private readonly HashSet<(Guid ClassroomId, Guid StudentId)> _enrollments = new();
+
+    public void Enroll(Guid classroomId, Guid studentId) => _enrollments.Add((classroomId, studentId));
+
+    public Task<bool> IsEnrolledAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult(_enrollments.Contains((classroomId, studentId)));
+
+    public Task<List<ClassroomMembership>> GetMembersWithDetailsAsync(Guid classroomId, CancellationToken ct = default)
+        => Task.FromResult(new List<ClassroomMembership>());
+
+    public Task<ClassroomMembership?> GetMembershipAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult<ClassroomMembership?>(null);
+
+    // IRepository<ClassroomMembership> surface — unused by these tests.
+    public Task<(IEnumerable<ClassroomMembership> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
+        => throw new NotSupportedException();
+    public Task<ClassroomMembership?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task AddAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task UpdateAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => throw new NotSupportedException();
+}
+
+/// <summary>In-memory IUnitOfWork that counts SaveChanges so tests can await consume completion.</summary>
+public sealed class FakeUnitOfWork : IUnitOfWork
+{
+    public int SaveChangesCount { get; private set; }
+
+    public Task BeginTransactionAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveChangesCount++;
+        return Task.FromResult(1);
+    }
+}
+
+/// <summary>Mock pre-signed URL signer: captures the presign arguments and returns a fixed URL,
+/// with expiry derived from the requested TTL so tests can assert TTL reflection. No S3, no network.</summary>
+public sealed class FakeRecordingUrlSigner : IRecordingUrlSigner
+{
+    /// <summary>Deterministic base instant; returned expiry is Base + ttl.</summary>
+    public static readonly DateTime Base = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    public string ReturnUrl { get; set; } = "https://s3.example.test/intellilect-files/obj?X-Amz-Signature=abc123";
+    public int Calls { get; private set; }
+    public string? LastKey { get; private set; }
+    public TimeSpan LastTtl { get; private set; }
+    public string? LastContentDisposition { get; private set; }
+    public string? LastContentType { get; private set; }
+
+    public Task<PresignedUrl> GeneratePresignedGetUrlAsync(
+        string objectKey, TimeSpan ttl, string contentDisposition, string? contentType, CancellationToken ct = default)
+    {
+        Calls++;
+        LastKey = objectKey;
+        LastTtl = ttl;
+        LastContentDisposition = contentDisposition;
+        LastContentType = contentType;
+        return Task.FromResult(new PresignedUrl(ReturnUrl, Base + ttl));
+    }
+}
+
+/// <summary>Fixed download settings for tests.</summary>
+public sealed class FakeRecordingDownloadSettings : IRecordingDownloadSettings
+{
+    public int DownloadUrlTtlSeconds { get; init; } = 600;
+}
+
 public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>
