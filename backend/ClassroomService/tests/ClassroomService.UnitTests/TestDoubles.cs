@@ -172,10 +172,49 @@ public sealed class FakeRecordingRepository : IRecordingRepository
     public Task<SessionRecording?> GetBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
         => Task.FromResult(Store.FirstOrDefault(r => r.SessionId == sessionId));
 
-    public Task<(IEnumerable<SessionRecording> Items, int TotalCount)> GetByClassroomIdPagedAsync(
-        Guid classroomId, int page, int pageSize, CancellationToken ct = default)
-        => Task.FromResult<(IEnumerable<SessionRecording>, int)>(
-            (Store.Where(r => r.ClassroomId == classroomId).ToList(), Store.Count));
+    public Task<SessionRecording?> GetByIdAsync(Guid recordingId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(r => r.Id == recordingId));
+
+    // Mirrors the real query: classroom filter + optional session/status, newest first, paged.
+    public Task<(IEnumerable<SessionRecording> Items, int TotalCount)> ListByClassroomAsync(
+        Guid classroomId, Guid? sessionId, ClassroomService.Domain.Enums.RecordingStatus? status,
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = Store.Where(r => r.ClassroomId == classroomId);
+        if (sessionId.HasValue) query = query.Where(r => r.SessionId == sessionId.Value);
+        if (status.HasValue) query = query.Where(r => r.Status == status.Value);
+
+        var ordered = query.OrderByDescending(r => r.CreatedAtUtc).ToList();
+        var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult<(IEnumerable<SessionRecording>, int)>((items, ordered.Count));
+    }
+}
+
+/// <summary>In-memory IMembershipRepository: only the enrollment check the recording service uses
+/// is meaningful; the rest are unused here.</summary>
+public sealed class FakeMembershipRepository : IMembershipRepository
+{
+    private readonly HashSet<(Guid ClassroomId, Guid StudentId)> _enrollments = new();
+
+    public void Enroll(Guid classroomId, Guid studentId) => _enrollments.Add((classroomId, studentId));
+
+    public Task<bool> IsEnrolledAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult(_enrollments.Contains((classroomId, studentId)));
+
+    public Task<List<ClassroomMembership>> GetMembersWithDetailsAsync(Guid classroomId, CancellationToken ct = default)
+        => Task.FromResult(new List<ClassroomMembership>());
+
+    public Task<ClassroomMembership?> GetMembershipAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult<ClassroomMembership?>(null);
+
+    // IRepository<ClassroomMembership> surface — unused by these tests.
+    public Task<(IEnumerable<ClassroomMembership> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
+        => throw new NotSupportedException();
+    public Task<ClassroomMembership?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task AddAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task UpdateAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => throw new NotSupportedException();
 }
 
 /// <summary>In-memory IUnitOfWork that counts SaveChanges so tests can await consume completion.</summary>

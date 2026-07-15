@@ -1,11 +1,37 @@
 using ClassroomService.Application.DTOs;
-using ClassroomService.Application.DTOs.Classroom;
+using ClassroomService.Application.DTOs.Recording;
+using ClassroomService.Domain.Enums;
 
+namespace ClassroomService.Application.Abstractions;
+
+/// <summary>
+/// Read-side access to a classroom's session recordings (R-2). Authorization (classroom
+/// membership) lives here, in the application layer, so it is consistent and testable.
+/// </summary>
 public interface IClassroomRecordingService
 {
-    Task<PagedResult<RecordingResponse>> GetClassroomRecordingsAsync(
+    /// <summary>
+    /// Lists the classroom's recordings for a member (teacher or enrolled student), newest first,
+    /// optionally filtered by session and/or status. Throws ForbiddenAccessException for a
+    /// non-member; KeyNotFoundException if the classroom does not exist.
+    /// </summary>
+    Task<PagedResult<RecordingSummaryDto>> ListRecordingsAsync(
         Guid classroomId,
+        Guid requestingUserId,
+        Guid? sessionId,
+        RecordingStatus? status,
         int page,
         int pageSize,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a single recording that belongs to the classroom. Throws ForbiddenAccessException
+    /// for a non-member; KeyNotFoundException if the recording is unknown or belongs to a
+    /// different classroom (no cross-classroom leakage).
+    /// </summary>
+    Task<RecordingSummaryDto> GetRecordingAsync(
+        Guid classroomId,
+        Guid recordingId,
+        Guid requestingUserId,
         CancellationToken ct = default);
 }
