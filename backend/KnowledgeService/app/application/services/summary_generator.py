@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from uuid import UUID
 
 from app.application.dtos.search_dtos import SearchRequest
@@ -18,6 +19,7 @@ from app.application.services.summary_prompts import (
     build_synthesis_prompt,
 )
 from app.application.services.token_counter import HeuristicTokenCounter, TokenCounter
+from app.observability import metrics
 
 logger = logging.getLogger("knowledge.summary")
 
@@ -80,6 +82,12 @@ class SummaryGenerator:
         self, transcript: str, classroom_id: UUID, *, session_id: UUID | None = None
     ) -> SummaryResult:
         """Core: summarize a transcript already in hand (no fetch)."""
+        log_extra = {
+            "session_id": str(session_id) if session_id else None,
+            "model": self._model,
+        }
+        logger.info("summary_generation_started", extra=log_extra)
+
         cleaned = transcript.strip()
         if self._is_insufficient(cleaned):
             logger.info(
@@ -87,10 +95,28 @@ class SummaryGenerator:
                 "content summary without calling the model.",
                 classroom_id,
             )
+            logger.info(
+                "summary_generation_finished",
+                extra={**log_extra, "duration_ms": 0, "grounded": False},
+            )
             return self._result(session_id, classroom_id, INSUFFICIENT_CONTENT_MARKDOWN)
 
+        metrics.observe_summary_transcript_tokens(self._counter.count(cleaned))
+        started = time.perf_counter()
         supporting = await self._retrieve_supporting(classroom_id, cleaned)
         markdown = await self._summarize(cleaned, supporting)
+        elapsed = time.perf_counter() - started
+        metrics.observe_summary_generation(elapsed)
+        if supporting is not None:
+            metrics.record_summary_grounded()
+        logger.info(
+            "summary_generation_finished",
+            extra={
+                **log_extra,
+                "duration_ms": round(elapsed * 1000),
+                "grounded": supporting is not None,
+            },
+        )
         return self._result(session_id, classroom_id, markdown)
 
     # -- grounding ------------------------------------------------------------

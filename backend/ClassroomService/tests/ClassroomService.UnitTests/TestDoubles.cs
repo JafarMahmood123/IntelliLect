@@ -379,6 +379,18 @@ public sealed class FakeSummaryDownloadSettings : ISummaryDownloadSettings
     public int DownloadUrlTtlSeconds { get; init; } = 600;
 }
 
+/// <summary>Records summary metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeSummaryMetrics : ISummaryMetrics
+{
+    public List<string> IssuedFormats { get; } = new();
+    public List<string> Denials { get; } = new();
+    public int AvailableIncrements { get; private set; }
+
+    public void DownloadUrlIssued(string format) => IssuedFormats.Add(format);
+    public void AuthzDenied(string reason) => Denials.Add(reason);
+    public void AvailableIncrement() => AvailableIncrements++;
+}
+
 public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>

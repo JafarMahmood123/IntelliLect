@@ -101,6 +101,9 @@ public static class DependencyInjection
         // Recording metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
         services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
 
+        // Summary metrics (S-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<ISummaryMetrics, Observability.SummaryMetrics>();
+
         var recordingsOptions = recordingsSection.Get<RecordingsOptions>() ?? new RecordingsOptions();
         if (recordingsOptions.ReconcileEnabled || recordingsOptions.RetentionEnabled)
         {

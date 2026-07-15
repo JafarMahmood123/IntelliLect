@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from uuid import UUID
 
 from app.application.dtos.summary_messages import SessionSummaryReadyMessage
@@ -8,6 +9,7 @@ from app.application.ports.pdf_renderer import PdfRenderer, SummaryPdfMetadata
 from app.application.ports.summary_publisher import SummaryPublisher
 from app.application.ports.summary_storage import SummaryStorage
 from app.application.services.summary_generator import SummaryGenerator
+from app.observability import metrics
 
 logger = logging.getLogger("knowledge.summary")
 
@@ -57,7 +59,13 @@ class SummaryPipeline:
                 classroom_name=None,  # only the classroom_id is known at this layer
                 generated_at=result.generated_at,
             )
+            render_started = time.perf_counter()
             pdf_bytes = self._renderer.render(result.markdown, metadata)
+            metrics.observe_summary_render(time.perf_counter() - render_started)
+            logger.info(
+                "summary_pdf_rendered",
+                extra={"session_id": str(session_id), "size_bytes": len(pdf_bytes)},
+            )
 
             md_key = self._key(result.classroom_id, session_id, "md")
             pdf_key = self._key(result.classroom_id, session_id, "pdf")
@@ -65,6 +73,10 @@ class SummaryPipeline:
                 md_key, result.markdown.encode("utf-8"), _MARKDOWN_CONTENT_TYPE
             )
             await self._storage.upload(pdf_key, pdf_bytes, _PDF_CONTENT_TYPE)
+            logger.info(
+                "summary_artifacts_uploaded",
+                extra={"session_id": str(session_id), "md_key": md_key, "pdf_key": pdf_key},
+            )
 
             message = SessionSummaryReadyMessage.success(
                 session_id=session_id,
@@ -75,11 +87,17 @@ class SummaryPipeline:
             )
             await self._publisher.publish_ready(message)
             logger.info(
+                "summary_ready_published",
+                extra={"session_id": str(session_id), "succeeded": True},
+            )
+            logger.info(
                 "Summary ready for session %s (classroom %s): %s, %s",
                 session_id, result.classroom_id, md_key, pdf_key,
             )
+            metrics.record_summary_generated()
             return message
         except Exception as exc:  # noqa: BLE001 — summary must be non-fatal to session end
+            metrics.record_summary_failed()
             logger.error(
                 "Summary pipeline failed for session %s: %s: %s",
                 session_id, type(exc).__name__, exc,

@@ -17,15 +17,18 @@ public sealed class SessionSummaryReadyConsumer : IConsumer<SessionSummaryReadyM
     private readonly ISummaryRepository _summaryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<SessionSummaryReadyConsumer> _logger;
+    private readonly ISummaryMetrics _metrics;
 
     public SessionSummaryReadyConsumer(
         ISummaryRepository summaryRepository,
         IUnitOfWork unitOfWork,
-        ILogger<SessionSummaryReadyConsumer> logger)
+        ILogger<SessionSummaryReadyConsumer> logger,
+        ISummaryMetrics metrics)
     {
         _summaryRepository = summaryRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public async Task Consume(ConsumeContext<SessionSummaryReadyMessage> context)
@@ -70,6 +73,11 @@ public sealed class SessionSummaryReadyConsumer : IConsumer<SessionSummaryReadyM
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        if (message.Succeeded)
+        {
+            _metrics.AvailableIncrement();
+        }
 
         _logger.LogInformation(
             "Session summary for session {SessionId} set to {Status}.",

@@ -26,6 +26,7 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
     private readonly IRecordingUrlSigner _urlSigner;
     private readonly ISummaryDownloadSettings _downloadSettings;
     private readonly ILogger<ClassroomSummaryService> _logger;
+    private readonly ISummaryMetrics _metrics;
 
     public ClassroomSummaryService(
         ISummaryRepository summaryRepository,
@@ -33,7 +34,8 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         IMembershipRepository membershipRepository,
         IRecordingUrlSigner urlSigner,
         ISummaryDownloadSettings downloadSettings,
-        ILogger<ClassroomSummaryService> logger)
+        ILogger<ClassroomSummaryService> logger,
+        ISummaryMetrics metrics)
     {
         _summaryRepository = summaryRepository;
         _classroomRepository = classroomRepository;
@@ -41,6 +43,7 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         _urlSigner = urlSigner;
         _downloadSettings = downloadSettings;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public async Task<PagedResult<SummarySummaryDto>> ListSummariesAsync(
@@ -85,7 +88,15 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         string? format,
         CancellationToken ct = default)
     {
-        await EnsureMemberAsync(classroomId, requestingUserId, ct);
+        try
+        {
+            await EnsureMemberAsync(classroomId, requestingUserId, ct);
+        }
+        catch (ForbiddenAccessException)
+        {
+            _metrics.AuthzDenied("not_member");
+            throw;
+        }
 
         var summary = await _summaryRepository.GetByIdAsync(summaryId, ct);
         // Unknown, or belongs to another classroom -> 404 (no cross-classroom leakage).
@@ -116,6 +127,8 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
 
         var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
             objectKey, ttl, contentDisposition, contentType, ct);
+
+        _metrics.DownloadUrlIssued(extension);
 
         // Audit accountability: who requested which summary artifact, when. The URL is a bearer
         // capability, so it is NEVER logged.

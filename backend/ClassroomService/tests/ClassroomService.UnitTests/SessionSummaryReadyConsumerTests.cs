@@ -11,10 +11,12 @@ namespace ClassroomService.UnitTests;
 
 public sealed class SessionSummaryReadyConsumerTests
 {
-    private static ServiceProvider BuildProvider(FakeSummaryRepository repo, FakeUnitOfWork uow)
+    private static ServiceProvider BuildProvider(
+        FakeSummaryRepository repo, FakeUnitOfWork uow, FakeSummaryMetrics? metrics = null)
         => new ServiceCollection()
             .AddSingleton<ISummaryRepository>(repo)
             .AddSingleton<IUnitOfWork>(uow)
+            .AddSingleton<ISummaryMetrics>(metrics ?? new FakeSummaryMetrics())
             .AddMassTransitTestHarness(x => x.AddConsumer<SessionSummaryReadyConsumer>())
             .BuildServiceProvider(true);
 
@@ -39,7 +41,8 @@ public sealed class SessionSummaryReadyConsumerTests
     {
         var repo = new FakeSummaryRepository();
         var uow = new FakeUnitOfWork();
-        await using var provider = BuildProvider(repo, uow);
+        var metrics = new FakeSummaryMetrics();
+        await using var provider = BuildProvider(repo, uow, metrics);
         var harness = provider.GetRequiredService<ITestHarness>();
         await harness.Start();
 
@@ -56,6 +59,7 @@ public sealed class SessionSummaryReadyConsumerTests
         Assert.Equal("summaries/classroom/s.pdf", summary.PdfS3Key);
         Assert.NotNull(summary.AvailableAtUtc);
         Assert.Null(summary.Error);
+        Assert.True(metrics.AvailableIncrements >= 1);
     }
 
     [Fact]

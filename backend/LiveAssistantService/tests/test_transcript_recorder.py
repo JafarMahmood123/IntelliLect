@@ -70,6 +70,25 @@ async def test_finalize_marks_transcript_finalized():
     assert header is not None and header.status is TranscriptStatus.FINALIZED
 
 
+async def test_finalize_logs_segment_count_and_no_text(caplog):
+    repo = InMemoryTranscriptRepository()
+    sid, cid = uuid4(), uuid4()
+    recorder = TranscriptRecorder(repo, sid, cid)
+
+    await recorder.start()
+    recorder.record(_final("SECRET_TRANSCRIPT_ONE", 0, 1000))
+    recorder.record(_final("SECRET_TRANSCRIPT_TWO", 1000, 2000))
+    with caplog.at_level(logging.INFO, logger="liveassistant.transcript"):
+        await recorder.finalize()
+
+    finalized = [r for r in caplog.records if r.message == "transcript_finalized"]
+    assert len(finalized) == 1
+    assert getattr(finalized[0], "segment_count", None) == 2
+    # Lifecycle log carries counts/ids only — never transcript text.
+    for record in caplog.records:
+        assert "SECRET_TRANSCRIPT" not in record.getMessage()
+
+
 class _FailingAppendRepository(InMemoryTranscriptRepository):
     """Ensures/finalizes normally but every append raises (simulates a DB hiccup)."""
 

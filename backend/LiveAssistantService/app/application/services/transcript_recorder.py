@@ -44,6 +44,7 @@ class TranscriptRecorder:
         self._batch = max(1, batch)
         self._queue: asyncio.Queue = asyncio.Queue()
         self._worker: asyncio.Task | None = None
+        self._persisted_count = 0  # FINAL segments successfully appended (for the finalize log)
 
     async def start(self) -> None:
         """Ensure the session's transcript exists and launch the background writer.
@@ -93,6 +94,14 @@ class TranscriptRecorder:
             self._worker = None
         try:
             await self._repo.finalize(self._session_id)
+            # Lifecycle: the transcript is durable and closed. Counts only — never text.
+            logger.info(
+                "transcript_finalized",
+                extra={
+                    "session_id": str(self._session_id),
+                    "segment_count": self._persisted_count,
+                },
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "transcript_finalize_failed",
@@ -120,6 +129,7 @@ class TranscriptRecorder:
         for segment in segments:
             try:
                 await self._repo.append_segment(self._session_id, segment)
+                self._persisted_count += 1
             except Exception as exc:  # noqa: BLE001 — a lost segment must not stop feedback
                 logger.warning(
                     "transcript_append_failed",

@@ -20,6 +20,7 @@ public sealed class ClassroomSummaryServiceTests
     private readonly FakeRecordingUrlSigner _signer = new();
     private readonly FakeSummaryDownloadSettings _settings = new() { DownloadUrlTtlSeconds = 600 };
     private readonly RecordingLogger<ClassroomSummaryService> _logger = new();
+    private readonly FakeSummaryMetrics _metrics = new();
 
     public ClassroomSummaryServiceTests()
     {
@@ -28,7 +29,7 @@ public sealed class ClassroomSummaryServiceTests
     }
 
     private ClassroomSummaryService Service()
-        => new(_summaries, _classrooms, _memberships, _signer, _settings, _logger);
+        => new(_summaries, _classrooms, _memberships, _signer, _settings, _logger, _metrics);
 
     private SessionSummary Seed(
         SummaryStatus status = SummaryStatus.Available,
@@ -186,6 +187,7 @@ public sealed class ClassroomSummaryServiceTests
         await Assert.ThrowsAsync<ForbiddenAccessException>(
             () => Service().GetDownloadUrlAsync(_classroomId, summary.Id, _outsiderId, "pdf"));
         Assert.Equal(0, _signer.Calls); // never mint for a non-member
+        Assert.Contains("not_member", _metrics.Denials);
     }
 
     [Theory]
@@ -243,6 +245,7 @@ public sealed class ClassroomSummaryServiceTests
         Assert.Equal(summary.PdfS3Key, _signer.LastKey);
         Assert.Contains(".pdf", _signer.LastContentDisposition);
         Assert.Equal("application/pdf", _signer.LastContentType);
+        Assert.Contains("pdf", _metrics.IssuedFormats);
     }
 
     [Theory]
@@ -257,6 +260,7 @@ public sealed class ClassroomSummaryServiceTests
         Assert.Equal(summary.MdS3Key, _signer.LastKey);            // markdown key
         Assert.Contains($"{summary.SessionId}-summary.md", _signer.LastContentDisposition);
         Assert.Equal("text/markdown", _signer.LastContentType);
+        Assert.Contains("md", _metrics.IssuedFormats);
     }
 
     // --- security ------------------------------------------------------------------------
