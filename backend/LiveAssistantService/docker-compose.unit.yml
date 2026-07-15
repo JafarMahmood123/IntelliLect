@@ -1,0 +1,53 @@
+services:
+  live-assistant-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live-assistant-service
+    env_file:
+      # Optional: copy .env.example to .env to override any of the settings below.
+      # The stack still starts without it — the LiveKit dev credentials are set here
+      # so the agent can reach the in-stack livekit-server out of the box.
+      - path: .env
+        required: false
+    environment:
+      # Reach the LiveKit dev server defined in StreamingService/docker-compose.unit.yml
+      # (same intellilect-net). These match its --dev key/secret.
+      - LIVEKIT_URL=ws://livekit-server:7880
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=super_secret_livekit_key_for_development
+      - AGENT_IDENTITY=ai-assistant
+      - TARGET_SAMPLE_RATE=16000
+      - TARGET_CHANNELS=1
+      # Streaming English STT (LA-2). Small English model + int8 to share RAM with
+      # the embedder/brain. The model downloads to the HF cache volume on first use.
+      - STT_MODEL=base.en
+      - STT_DEVICE=cpu
+      - STT_COMPUTE_TYPE=int8
+      - STT_LANGUAGE=en
+      - HF_HOME=/root/.cache/huggingface
+      # Idea-boundary drift embeddings (LA-3). Only the deferred boundary_check --live
+      # path calls Ollama; host Ollama must run on 0.0.0.0:11434 with the model pulled.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - EMBEDDING_MODEL=qwen3-embedding
+      # Session lifecycle (LA-6): the streaming service triggers start/stop on these
+      # /api/internal/sessions routes, authed with this shared secret (must match
+      # StreamingService's LiveAssistant__InternalApiSecret).
+      - INTERNAL_API_SECRET=dev-live-assistant-secret
+      - MAX_CONCURRENT_SESSIONS=20
+    # Linux does not provide host.docker.internal by default; map it to the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8084:8080"
+    depends_on:
+      livekit-server:
+        condition: service_started
+    networks:
+      - intellilect-net
+    volumes:
+      # Persist the downloaded faster-whisper model across restarts.
+      - live_assistant_hf_cache:/root/.cache/huggingface
+
+volumes:
+  live_assistant_hf_cache:

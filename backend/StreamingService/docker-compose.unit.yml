@@ -59,6 +59,10 @@ services:
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
       - LiveKit__Host=ws://192.168.1.104:7880
+      # LiveAssistantService trigger (LA-6): notify it on session start/end. Secret
+      # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
+      - LiveAssistant__BaseUrl=http://live-assistant-service:8080
+      - LiveAssistant__InternalApiSecret=dev-live-assistant-secret
     depends_on:
       streaming-db:
         condition: service_healthy

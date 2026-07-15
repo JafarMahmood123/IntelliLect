@@ -126,6 +126,24 @@ public static class DependencyInjection
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 
+        // LiveAssistantService internal client (LA-6): typed HttpClient + options.
+        // BaseAddress/timeout come from the "LiveAssistant" section; the shared secret
+        // is attached per-request by the client. Best-effort — see the caller's wrapper.
+        services.Configure<LiveAssistantOptions>(
+            configuration.GetSection(LiveAssistantOptions.SectionName));
+        services.AddHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<LiveAssistantOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? "http://live-assistant-service:8080"
+                : options.BaseUrl;
+            if (!baseUrl.EndsWith('/'))
+            {
+                baseUrl += "/";
+            }
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 5);
+        });
 
         return services;
     }

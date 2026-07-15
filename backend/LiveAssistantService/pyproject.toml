@@ -1,0 +1,61 @@
+[project]
+name = "live-assistant-service"
+version = "0.1.0"
+description = "IntelliLect LiveAssistantService — server-side live-session agent that captures the teacher's audio for later real-time RAG feedback."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # Audio format normalization only (downmix + resample). NOT an ML dependency.
+    "numpy>=1.26",
+    # HTTP client for the local Ollama embedder (LA-3 drift measurement). No model
+    # weights in the container — embeddings are HTTP calls to host Ollama.
+    "httpx>=0.27",
+    # --- LiveKit server-side agent (LA-1) ---
+    "livekit>=1.0",       # realtime SDK: `from livekit import rtc` (room/track/audio)
+    "livekit-api>=1.0",   # access-token minting: `from livekit import api`
+    # --- Streaming English STT (LA-2) ---
+    # faster-whisper runs on CTranslate2 — a self-contained inference engine, NOT
+    # torch/transformers and NOT Ollama. Its own English model downloads on first
+    # use (see README). ctranslate2/av/onnxruntime ship manylinux wheels, so no apt
+    # libs are required. The `faster_whisper` import is lazy in the adapter.
+    "faster-whisper>=1.1",
+    # --- Observability (LA-8): lightweight Prometheus metrics ---
+    "prometheus-client>=0.20",
+]
+# NOTE: retrieval, brain evaluation, and feedback delivery remain later phases and
+# pull in nothing here. STT deliberately uses its OWN model (CTranslate2), unrelated
+# to the embedder/brain — still no torch, no transformers, no Ollama in this service.
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "anyio>=4.6",
+    "httpx>=0.27",  # FastAPI TestClient dependency
+    "pytest-cov>=5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# Coverage is available (run `pytest --cov=app --cov-report=term-missing`) but is
+# intentionally NOT wired into addopts and NOT gated on a threshold.
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
