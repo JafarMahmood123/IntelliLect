@@ -15,6 +15,7 @@ from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
 from app.application.ports.generation_provider import GenerationProvider
 from app.application.ports.ocr_processor import OcrProcessor
+from app.application.ports.transcript_client import TranscriptClient
 from app.application.services.answer_service import AnswerService
 from app.application.services.clock import SystemClock
 from app.application.services.context_builder import ContextBuilder
@@ -26,6 +27,7 @@ from app.application.services.ingestion_service import (
 from app.application.services.ingestion_worker import IngestionWorker
 from app.application.services.retrieval_service import RetrievalService
 from app.application.services.stale_recovery_service import StaleRecoveryService
+from app.application.services.summary_generator import SummaryGenerator
 from app.application.services.token_counter import HeuristicTokenCounter
 from app.domain.enums.document_status import DocumentStatus
 from app.infrastructure.chunking.factory import create_chunker
@@ -33,6 +35,7 @@ from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.extraction.router import ExtractorRouter
 from app.infrastructure.generation.ollama_generation_provider import OllamaGenerationProvider
+from app.infrastructure.live_assistant.transcript_client import LiveAssistantTranscriptClient
 from app.infrastructure.ocr.tesseract_ocr_processor import TesseractOcrProcessor
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session, get_session_factory
@@ -124,6 +127,40 @@ def get_answer_service(
     )
 
 
+# --- Session summary (S-1) ----------------------------------------------------
+# Registered here for the summary use case. No endpoint consumes these yet — the
+# session-end trigger and any persistence live in S-3. The summary generator reuses
+# the Ollama chat client with the SUMMARY_* parameters, and the RetrievalService for
+# optional classroom-scoped grounding.
+
+
+def get_transcript_client(settings: SettingsDep) -> TranscriptClient:
+    """Fetches a session's assembled transcript from LiveAssistantService (S-0)."""
+    return LiveAssistantTranscriptClient(settings)
+
+
+def get_summary_generation_provider(settings: SettingsDep) -> GenerationProvider:
+    """The Ollama chat client configured with the SUMMARY_* generation parameters."""
+    return OllamaGenerationProvider(
+        settings,
+        model=settings.summary_model,
+        temperature=settings.summary_temperature,
+        max_tokens=settings.summary_max_tokens,
+    )
+
+
+def get_summary_generator(
+    settings: SettingsDep,
+    transcript_client: TranscriptClientDep,
+    retrieval: RetrievalServiceDep,
+    generation_provider: SummaryGenerationProviderDep,
+) -> SummaryGenerator:
+    """Summarization use case (fetch transcript -> optional grounding -> Markdown)."""
+    return SummaryGenerator(
+        transcript_client, retrieval, generation_provider, settings
+    )
+
+
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
@@ -134,6 +171,11 @@ RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)
 GenerationProviderDep = Annotated[GenerationProvider, Depends(get_generation_provider)]
 ContextBuilderDep = Annotated[ContextBuilder, Depends(get_context_builder)]
 AnswerServiceDep = Annotated[AnswerService, Depends(get_answer_service)]
+TranscriptClientDep = Annotated[TranscriptClient, Depends(get_transcript_client)]
+SummaryGenerationProviderDep = Annotated[
+    GenerationProvider, Depends(get_summary_generation_provider)
+]
+SummaryGeneratorDep = Annotated[SummaryGenerator, Depends(get_summary_generator)]
 
 
 # --- Ingestion worker composition --------------------------------------------

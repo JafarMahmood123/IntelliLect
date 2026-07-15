@@ -59,6 +59,24 @@ clearly-marked ports and placeholders for them.
   > user-facing feature consumes it, so a user can't ask about a classroom they're not
   > enrolled in. The mandatory classroom filter comes entirely from retrieval and is
   > never bypassed.
+- **Session summary generation (S-1)** — `SummaryGenerator` turns a lecture transcript
+  into a **structured Markdown** summary (Overview / Key Points / Key Terms / Notable
+  Moments). It fetches the transcript from **LiveAssistantService** (S-0) via a
+  `TranscriptClient` port (`GET {LIVE_ASSISTANT_BASE_URL}/api/internal/sessions/{id}/
+  transcript`, `X-Internal-Secret`), or summarizes text passed in directly
+  (`generate_from_text`). Behavior: an **empty/too-short transcript short-circuits** to
+  an "insufficient content" note **without** calling the model; long transcripts (over
+  `SUMMARY_TRANSCRIPT_MAX_TOKENS`) are summarized **map-reduce** (per-chunk notes →
+  synthesis); grounding is **optional** (`SUMMARY_GROUNDING_ENABLED`) — it retrieves up
+  to `SUMMARY_GROUNDING_TOP_K` classroom chunks (reusing Phase 7) as *supporting*
+  context to sharpen terminology, and a **retrieval failure degrades gracefully** to an
+  ungrounded summary rather than failing. The transcript is always the primary content;
+  the model is instructed to summarize only what was taught. Reuses the local Ollama
+  chat client with the `SUMMARY_*` parameters. **Output stops at Markdown** — PDF
+  rendering (S-2), storage/upload and the session-end trigger (S-3), and download
+  endpoints (S-4) are later phases, so no endpoint consumes this yet. Try it offline:
+  `python scripts/summary_check.py` (add `--long` for the map-reduce path); `--live
+  <session-id>` is deferred to a running stack.
 
 ## Architecture (Clean Architecture)
 
@@ -133,7 +151,15 @@ adjust:
 | `EMBEDDING_DIM` | `1024` | Embedding dimensionality; also the `pgvector` column dimension. |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | Per-request timeout for embedding calls. |
 | `RETRIEVAL_INSTRUCTION` | see settings | Instruction prepended to queries; must contain `{query}`. |
-| `INTERNAL_API_SECRET` | `""` | Shared secret for `/api/internal/*` routes (header `X-Internal-Secret`). |
+| `GENERATION_MODEL` | `qwen2.5:7b-instruct` | Ollama chat model for `/api/answer` (Phase 10). |
+| `SUMMARY_MODEL` | `qwen2.5:7b-instruct` | Ollama chat model for session summaries (S-1). |
+| `SUMMARY_TEMPERATURE` | `0.3` | Sampling temperature for summarization. |
+| `SUMMARY_MAX_TOKENS` | `1500` | `num_predict` per summary pass. |
+| `SUMMARY_GROUNDING_ENABLED` | `true` | Ground key terms in classroom material (optional). |
+| `SUMMARY_GROUNDING_TOP_K` | `6` | Supporting chunks retrieved when grounding. |
+| `SUMMARY_TRANSCRIPT_MAX_TOKENS` | `8000` | Per-pass transcript cap; above it → map-reduce. |
+| `LIVE_ASSISTANT_BASE_URL` | `""` | LiveAssistantService base URL for the S-0 transcript endpoint. |
+| `INTERNAL_API_SECRET` | `""` | Shared secret for `/api/internal/*` routes (header `X-Internal-Secret`); also sent to LiveAssistantService. |
 | `S3_*` | `""` | Placeholders for object storage. **Unused for now.** |
 
 > `EMBEDDING_DIM` is read by both the ORM models and the Alembic migration, so the
@@ -219,7 +245,12 @@ pytest
 ```
 
 The suite is fully offline (fakes for the embedder, storage, DB, and a fake clock).
-Coverage is available but not gated:
+Session summarization (S-1) is covered end to end with a `FakeTranscriptClient`,
+`FakeBrainClient` (deterministic Markdown, records every prompt), and a real
+`RetrievalService` over fakes: structure, grounding on/off, empty/short short-circuit,
+long-transcript map-reduce, retrieval-failure degradation, generation-failure error,
+and the `TranscriptClient` HTTP contract (via `httpx.MockTransport`). Coverage is
+available but not gated:
 
 ```bash
 pytest --cov=app --cov-report=term-missing

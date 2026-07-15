@@ -25,12 +25,25 @@ class OllamaGenerationProvider(GenerationProvider):
     bearer auth, configurable timeout, and clear errors.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        # Defaults come from the Phase 10 answering config; the optional overrides let
+        # another use case (e.g. S-1 summarization) run the same client with its own
+        # model / temperature / token budget without a second implementation.
         self._base_url = settings.ollama_base_url.rstrip("/")
-        self._model = settings.generation_model
-        self._timeout = settings.generation_timeout_seconds
-        self._temperature = settings.generation_temperature
-        self._max_tokens = settings.generation_max_tokens
+        self._model = model or settings.generation_model
+        self._timeout = timeout or settings.generation_timeout_seconds
+        self._temperature = (
+            temperature if temperature is not None else settings.generation_temperature
+        )
+        self._max_tokens = max_tokens or settings.generation_max_tokens
         self._headers: dict[str, str] = {}
         if settings.ollama_auth_token:
             self._headers["Authorization"] = f"Bearer {settings.ollama_auth_token}"

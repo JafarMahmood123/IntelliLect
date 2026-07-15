@@ -80,6 +80,23 @@ class Settings(BaseSettings):
     answer_top_k: int = 6  # chunks retrieved for answer context
     context_max_tokens: int = 6000  # token budget for the packed context block
 
+    # --- Session summary (S-1) ---
+    # Turns a lecture transcript (fetched from LiveAssistantService) into a structured
+    # Markdown summary. Reuses the local Ollama generative model (OLLAMA_BASE_URL /
+    # OLLAMA_AUTH_TOKEN) but with its own generation parameters so summarization can be
+    # tuned independently of answering. This phase STOPS at Markdown (PDF is S-2).
+    summary_model: str = "qwen2.5:7b-instruct"  # reuse the generation model by default
+    summary_temperature: float = 0.3
+    summary_max_tokens: int = 1500  # num_predict for a summary pass
+    summary_grounding_enabled: bool = True  # ground key terms in classroom material
+    summary_grounding_top_k: int = 6  # chunks retrieved as supporting context
+    # Cap on transcript tokens fed to the model in a single pass. Longer transcripts are
+    # summarized map-reduce (chunk summaries -> synthesis) so a long lecture still fits.
+    summary_transcript_max_tokens: int = 8000
+    # LiveAssistantService internal transcript endpoint (S-0). Empty in offline dev/tests
+    # (the FakeTranscriptClient is used instead). Reuses INTERNAL_API_SECRET below.
+    live_assistant_base_url: str = ""  # e.g. http://live-assistant-service:8080
+
     # --- Observability (Phase 9) ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
     metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics

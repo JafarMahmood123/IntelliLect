@@ -1,3 +1,7 @@
+# Local virtualenvs
+.venv/
+venv/
+
 # Test/coverage artifacts (Phase 9)
 .coverage
 .coverage.*
