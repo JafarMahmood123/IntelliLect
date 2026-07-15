@@ -77,6 +77,17 @@ clearly-marked ports and placeholders for them.
   endpoints (S-4) are later phases, so no endpoint consumes this yet. Try it offline:
   `python scripts/summary_check.py` (add `--long` for the map-reduce path); `--live
   <session-id>` is deferred to a running stack.
+- **Summary PDF rendering (S-2)** — `WeasyPrintPdfRenderer` (behind a `PdfRenderer`
+  port) renders the S-1 Markdown into a clean, styled **PDF** (Markdown → HTML via the
+  `markdown` lib → PDF via WeasyPrint). The document has a title header + a subheader
+  (classroom / session date from passed-in `SummaryPdfMetadata`), the rendered sections
+  (Overview / Key Points / Key Terms / Notable Moments) with bullets and inline
+  emphasis, and a footer with the page number and a "generated on" line. The stylesheet
+  lives in a separate, tweakable module. Empty Markdown still yields a valid minimal PDF;
+  any conversion failure raises a catchable `RenderingError` (S-3 will treat it as a
+  failed summary). **Pure rendering** — no models, services, or S3, and no endpoint
+  wires it yet. Eyeball it offline: `python scripts/render_check.py --out /tmp/s.pdf`
+  (WeasyPrint needs the system libs baked into the Docker image; see the Dockerfile).
 
 ## Architecture (Clean Architecture)
 
@@ -249,8 +260,11 @@ Session summarization (S-1) is covered end to end with a `FakeTranscriptClient`,
 `FakeBrainClient` (deterministic Markdown, records every prompt), and a real
 `RetrievalService` over fakes: structure, grounding on/off, empty/short short-circuit,
 long-transcript map-reduce, retrieval-failure degradation, generation-failure error,
-and the `TranscriptClient` HTTP contract (via `httpx.MockTransport`). Coverage is
-available but not gated:
+and the `TranscriptClient` HTTP contract (via `httpx.MockTransport`). Summary PDF
+rendering (S-2) is covered too: the Markdown→HTML step and metadata/template assembly
+run everywhere, while the PDF-producing tests assert a valid `%PDF` with ≥1 page (read
+back via `pymupdf`) and **skip cleanly** when WeasyPrint's system libs are absent; the
+`RenderingError` path is always exercised. Coverage is available but not gated:
 
 ```bash
 pytest --cov=app --cov-report=term-missing

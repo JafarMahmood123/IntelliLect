@@ -25,6 +25,12 @@ dependencies = [
     "boto3>=1.34",         # S3 client (imported lazily; unused by the offline tests)
     # --- Observability (Phase 9): lightweight Prometheus metrics ---
     "prometheus-client>=0.20",
+    # --- Summary PDF rendering (S-2): Markdown -> HTML -> PDF ---
+    # `markdown` converts the S-1 Markdown to HTML; WeasyPrint renders HTML+CSS to PDF.
+    # WeasyPrint needs system libraries (pango/cairo/gdk-pixbuf) — see the Dockerfile.
+    # Still no model weights: this is pure document rendering.
+    "markdown>=3.6",
+    "weasyprint>=62",
 ]
 # NOTE: intentionally NO torch/transformers/sentence-transformers and no model
 # weights in the container. All embedding inference is HTTP calls to host Ollama.

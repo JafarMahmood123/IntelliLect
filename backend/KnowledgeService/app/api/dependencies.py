@@ -15,6 +15,7 @@ from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
 from app.application.ports.generation_provider import GenerationProvider
 from app.application.ports.ocr_processor import OcrProcessor
+from app.application.ports.pdf_renderer import PdfRenderer
 from app.application.ports.transcript_client import TranscriptClient
 from app.application.services.answer_service import AnswerService
 from app.application.services.clock import SystemClock
@@ -40,6 +41,7 @@ from app.infrastructure.ocr.tesseract_ocr_processor import TesseractOcrProcessor
 from app.infrastructure.persistence.chunk_repository import SqlAlchemyChunkRepository
 from app.infrastructure.persistence.database import get_session, get_session_factory
 from app.infrastructure.persistence.document_repository import SqlAlchemyDocumentRepository
+from app.infrastructure.rendering.weasyprint_pdf_renderer import WeasyPrintPdfRenderer
 from app.infrastructure.storage.s3_file_storage import S3FileStorage
 
 logger = logging.getLogger("knowledge.api")
@@ -81,9 +83,18 @@ _extractor: Extractor = ExtractorRouter.default()
 # Registered for later phases to inject; no endpoint calls it yet.
 _ocr_processor: OcrProcessor = TesseractOcrProcessor(get_settings())
 
+# Shared summary PDF renderer (S-2): stateless and thread-safe, so one instance serves
+# every render. Registered here for the summary flow; no endpoint/trigger calls it yet
+# (the session-end trigger + storage is S-3).
+_pdf_renderer: PdfRenderer = WeasyPrintPdfRenderer()
+
 
 def get_extractor() -> Extractor:
     return _extractor
+
+
+def get_pdf_renderer() -> PdfRenderer:
+    return _pdf_renderer
 
 
 def get_ocr_processor() -> OcrProcessor:
@@ -166,6 +177,7 @@ ChunkRepositoryDep = Annotated[ChunkRepository, Depends(get_chunk_repository)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]
 OcrProcessorDep = Annotated[OcrProcessor, Depends(get_ocr_processor)]
+PdfRendererDep = Annotated[PdfRenderer, Depends(get_pdf_renderer)]
 ChunkerDep = Annotated[Chunker, Depends(get_chunker)]
 RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)]
 GenerationProviderDep = Annotated[GenerationProvider, Depends(get_generation_provider)]
