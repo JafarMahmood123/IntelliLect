@@ -19,6 +19,7 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
     private readonly IMembershipRepository _membershipRepository;
     private readonly IRecordingUrlSigner _urlSigner;
     private readonly IRecordingDownloadSettings _downloadSettings;
+    private readonly IRecordingMetrics _metrics;
     private readonly ILogger<ClassroomRecordingService> _logger;
 
     public ClassroomRecordingService(
@@ -27,6 +28,7 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
         IMembershipRepository membershipRepository,
         IRecordingUrlSigner urlSigner,
         IRecordingDownloadSettings downloadSettings,
+        IRecordingMetrics metrics,
         ILogger<ClassroomRecordingService> logger)
     {
         _recordingRepository = recordingRepository;
@@ -34,6 +36,7 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
         _membershipRepository = membershipRepository;
         _urlSigner = urlSigner;
         _downloadSettings = downloadSettings;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -79,7 +82,15 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
         Guid requestingUserId,
         CancellationToken ct = default)
     {
-        await EnsureMemberAsync(classroomId, requestingUserId, ct);
+        try
+        {
+            await EnsureMemberAsync(classroomId, requestingUserId, ct);
+        }
+        catch (ForbiddenAccessException)
+        {
+            _metrics.DownloadAuthzDenied("not_member");
+            throw;
+        }
 
         var recording = await _recordingRepository.GetByIdAsync(recordingId, ct);
         // Unknown, or belongs to another classroom -> 404 (no cross-classroom leakage).
@@ -105,6 +116,8 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
 
         var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
             recording.S3Key, ttl, contentDisposition, contentType, ct);
+
+        _metrics.DownloadUrlIssued();
 
         // Audit accountability: who requested a download of which recording, when. The URL is a
         // bearer capability, so it is NEVER logged.

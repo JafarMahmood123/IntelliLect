@@ -14,6 +14,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IRecordingLifecycleSettings _settings;
+    private readonly IRecordingMetrics _metrics;
     private readonly ILogger<RecordingLifecycleService> _logger;
 
     public RecordingLifecycleService(
@@ -23,6 +24,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
         IUnitOfWork unitOfWork,
         IClock clock,
         IRecordingLifecycleSettings settings,
+        IRecordingMetrics metrics,
         ILogger<RecordingLifecycleService> logger)
     {
         _recordingRepository = recordingRepository;
@@ -31,6 +33,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _settings = settings;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -53,6 +56,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
         await DeleteObjectAndRowAsync(recording, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
+        _metrics.RecordingDeleted();
         _logger.LogInformation(
             "Recording {RecordingId} in classroom {ClassroomId} deleted by user {UserId}.",
             recordingId, classroomId, requestingUserId);
@@ -74,6 +78,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
             // future improvement.
             recording.Status = RecordingStatus.Failed;
             recording.Error = $"Reconcile timeout: no egress-complete within {_settings.StuckProcessingMinutes} minutes.";
+            _metrics.RecordingReconciled("failed");
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -99,6 +104,7 @@ public sealed class RecordingLifecycleService : IRecordingLifecycleService
             {
                 await DeleteObjectAndRowAsync(recording, ct);
                 deleted++;
+                _metrics.RecordingDeleted();
             }
             catch (Exception ex)
             {

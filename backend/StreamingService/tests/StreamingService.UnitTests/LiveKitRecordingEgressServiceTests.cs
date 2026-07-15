@@ -22,9 +22,32 @@ public sealed class LiveKitRecordingEgressServiceTests
     };
 
     private static LiveKitRecordingEgressService CreateService(
-        FakeLiveKitEgressClient client, EgressOptions options)
+        FakeLiveKitEgressClient client, EgressOptions options, FakeRecordingMetrics? metrics = null)
         => new(client, Microsoft.Extensions.Options.Options.Create(options),
+            metrics ?? new FakeRecordingMetrics(),
             new RecordingLogger<LiveKitRecordingEgressService>());
+
+    [Fact]
+    public async Task StartRoomRecording_increments_started_metric()
+    {
+        var metrics = new FakeRecordingMetrics();
+        var service = CreateService(new FakeLiveKitEgressClient(), Options(), metrics);
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal(1, metrics.StartedCount);
+    }
+
+    [Fact]
+    public async Task StartRoomRecording_disabled_does_not_increment_started_metric()
+    {
+        var metrics = new FakeRecordingMetrics();
+        var service = CreateService(new FakeLiveKitEgressClient(), Options(enabled: false), metrics);
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal(0, metrics.StartedCount);
+    }
 
     [Fact]
     public async Task StartRoomRecording_requests_mp4_to_s3_with_key_from_template_and_returns_egress_id()

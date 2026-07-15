@@ -16,21 +16,27 @@ public sealed class SessionRecordingReadyConsumer : IConsumer<SessionRecordingRe
 {
     private readonly IRecordingRepository _recordingRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IRecordingMetrics _metrics;
     private readonly ILogger<SessionRecordingReadyConsumer> _logger;
 
     public SessionRecordingReadyConsumer(
         IRecordingRepository recordingRepository,
         IUnitOfWork unitOfWork,
+        IRecordingMetrics metrics,
         ILogger<SessionRecordingReadyConsumer> logger)
     {
         _recordingRepository = recordingRepository;
         _unitOfWork = unitOfWork;
+        _metrics = metrics;
         _logger = logger;
     }
 
     public async Task Consume(ConsumeContext<SessionRecordingReadyMessage> context)
     {
         var message = context.Message;
+
+        // Correlate every log in this operation by session + egress id.
+        using var scope = _logger.BeginScope("session:{SessionId} egress:{EgressId}", message.SessionId, message.EgressId);
 
         // Upsert by session id: reuse the R-0 Processing row if present, else create one as a
         // safety net. This is what makes duplicate webhook deliveries idempotent.
@@ -71,6 +77,19 @@ public sealed class SessionRecordingReadyConsumer : IConsumer<SessionRecordingRe
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        if (message.Succeeded)
+        {
+            // Time from the egress-complete webhook (message publish) to Available.
+            var egressToAvailable = context.SentTime is { } sent
+                ? Math.Max(0, (DateTime.UtcNow - sent).TotalSeconds)
+                : 0;
+            _metrics.RecordingCompleted(message.SizeBytes, egressToAvailable);
+        }
+        else
+        {
+            _metrics.RecordingFailed();
+        }
 
         _logger.LogInformation(
             "Session recording for session {SessionId} (egress {EgressId}) set to {Status}.",

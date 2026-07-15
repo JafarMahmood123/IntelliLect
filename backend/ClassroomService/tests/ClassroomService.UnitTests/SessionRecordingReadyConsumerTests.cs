@@ -11,10 +11,12 @@ namespace ClassroomService.UnitTests;
 
 public sealed class SessionRecordingReadyConsumerTests
 {
-    private static ServiceProvider BuildProvider(FakeRecordingRepository repo, FakeUnitOfWork uow)
+    private static ServiceProvider BuildProvider(
+        FakeRecordingRepository repo, FakeUnitOfWork uow, FakeRecordingMetrics? metrics = null)
         => new ServiceCollection()
             .AddSingleton<IRecordingRepository>(repo)
             .AddSingleton<IUnitOfWork>(uow)
+            .AddSingleton<IRecordingMetrics>(metrics ?? new FakeRecordingMetrics())
             .AddMassTransitTestHarness(x => x.AddConsumer<SessionRecordingReadyConsumer>())
             .BuildServiceProvider(true);
 

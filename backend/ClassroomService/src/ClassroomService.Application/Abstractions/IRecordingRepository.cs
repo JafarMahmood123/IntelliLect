@@ -34,4 +34,7 @@ public interface IRecordingRepository
 
     /// <summary>Marks the metadata row for deletion; persisted by the unit of work (R-4).</summary>
     Task RemoveAsync(SessionRecording recording, CancellationToken ct = default);
+
+    /// <summary>Count of recordings currently in Processing (R-5 gauge refresh).</summary>
+    Task<int> CountProcessingAsync(CancellationToken ct = default);
 }

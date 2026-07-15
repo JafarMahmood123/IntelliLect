@@ -88,6 +88,9 @@ public static class DependencyInjection
         services.AddScoped<IRecordingStorage, S3RecordingStorage>();
         services.AddScoped<IRecordingLifecycleService, RecordingLifecycleService>();
 
+        // Recording metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
+
         var recordingsOptions = recordingsSection.Get<RecordingsOptions>() ?? new RecordingsOptions();
         if (recordingsOptions.ReconcileEnabled || recordingsOptions.RetentionEnabled)
         {

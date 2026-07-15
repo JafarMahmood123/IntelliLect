@@ -19,15 +19,18 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
 
     private readonly ILiveKitEgressClient _egressClient;
     private readonly EgressOptions _options;
+    private readonly IRecordingMetrics _metrics;
     private readonly ILogger<LiveKitRecordingEgressService> _logger;
 
     public LiveKitRecordingEgressService(
         ILiveKitEgressClient egressClient,
         IOptions<EgressOptions> options,
+        IRecordingMetrics metrics,
         ILogger<LiveKitRecordingEgressService> logger)
     {
         _egressClient = egressClient;
         _options = options.Value;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -59,10 +62,14 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
 
         var info = await _egressClient.StartRoomCompositeEgressAsync(request);
 
-        // Never log S3 secrets — bucket + object key only.
+        _metrics.RecordingStarted();
+
+        // Correlate by room + egress id. Privacy (R-5): never log S3 secrets OR the raw object key
+        // at info level — the key is internal. The rendered key stays at debug for troubleshooting.
         _logger.LogInformation(
-            "Started room-composite egress {EgressId} for room {RoomName} -> s3://{Bucket}/{ObjectKey}.",
-            info.EgressId, roomName, _options.S3.Bucket, objectKey);
+            "Started room-composite egress {EgressId} for room {RoomName} (bucket {Bucket}).",
+            info.EgressId, roomName, _options.S3.Bucket);
+        _logger.LogDebug("Egress {EgressId} object key: {ObjectKey}.", info.EgressId, objectKey);
 
         return info.EgressId;
     }

@@ -14,6 +14,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+// R-5: recordings storage (S3 bucket) reachability/config health.
+builder.Services.AddHealthChecks()
+    .AddCheck<ClassroomService.Api.HealthChecks.RecordingsStorageHealthCheck>(
+        "recordings_storage", tags: new[] { "recording" });
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -35,5 +40,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

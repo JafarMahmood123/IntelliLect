@@ -67,5 +67,10 @@ public sealed class RecordingReconcileHostedService : BackgroundService
 
         // No-op internally when retention is disabled.
         await lifecycle.ApplyRetentionAsync(ct);
+
+        // Refresh the processing gauge (R-5) on the maintenance cadence.
+        var repository = scope.ServiceProvider.GetRequiredService<IRecordingRepository>();
+        var metrics = scope.ServiceProvider.GetRequiredService<IRecordingMetrics>();
+        metrics.SetProcessingCurrent(await repository.CountProcessingAsync(ct));
     }
 }

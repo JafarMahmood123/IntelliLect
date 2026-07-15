@@ -50,6 +50,12 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
 
         var egress = webhookEvent.EgressInfo;
 
+        // Correlate every log in this operation by egress id.
+        using var scope = _logger.BeginScope("egress:{EgressId}", egress.EgressId);
+        _logger.LogInformation(
+            "LiveKit egress webhook received: event {Event}, egress {EgressId}, status {Status}.",
+            webhookEvent.Event, egress.EgressId, egress.Status);
+
         var stream = await _streamRepository.GetByEgressIdAsync(egress.EgressId, ct);
         if (stream is null)
         {
@@ -87,9 +93,10 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
             var duration = file is null ? TimeSpan.Zero : TimeSpan.FromTicks(file.Duration / 100);
             var size = file?.Size ?? 0;
 
+            // Privacy (R-5): log ids + size, never the raw s3 key.
             _logger.LogInformation(
-                "Publishing recording-ready (success) for session {SessionId}, egress {EgressId}, key {S3Key}.",
-                sessionId, egress.EgressId, s3Key);
+                "Publishing recording-ready (success) for session {SessionId}, egress {EgressId} ({SizeBytes} bytes).",
+                sessionId, egress.EgressId, size);
 
             return new SessionRecordingReadyMessage(
                 sessionId, classroomId, s3Key, size, duration,

@@ -18,6 +18,7 @@ public sealed class RecordingLifecycleServiceTests
     private readonly FakeRecordingStorage _storage = new();
     private readonly FakeUnitOfWork _uow = new();
     private readonly FakeClock _clock = new();
+    private readonly FakeRecordingMetrics _metrics = new();
     private readonly RecordingLogger<RecordingLifecycleService> _logger = new();
 
     public RecordingLifecycleServiceTests()
@@ -28,7 +29,7 @@ public sealed class RecordingLifecycleServiceTests
     private RecordingLifecycleService Service(
         IRecordingLifecycleSettings? settings = null, FakeRecordingStorage? storage = null)
         => new(_recordings, _classrooms, storage ?? _storage, _uow, _clock,
-            settings ?? new FakeRecordingLifecycleSettings(), _logger);
+            settings ?? new FakeRecordingLifecycleSettings(), _metrics, _logger);
 
     private SessionRecording Seed(
         RecordingStatus status = RecordingStatus.Available,

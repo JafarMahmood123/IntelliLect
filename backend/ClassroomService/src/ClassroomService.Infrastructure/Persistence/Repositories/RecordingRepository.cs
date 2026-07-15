@@ -84,4 +84,10 @@ public sealed class RecordingRepository : IRecordingRepository
         _context.SessionRecordings.Remove(recording);
         return Task.CompletedTask;
     }
+
+    public async Task<int> CountProcessingAsync(CancellationToken ct = default)
+    {
+        return await _context.SessionRecordings
+            .CountAsync(r => r.Status == RecordingStatus.Processing, ct);
+    }
 }

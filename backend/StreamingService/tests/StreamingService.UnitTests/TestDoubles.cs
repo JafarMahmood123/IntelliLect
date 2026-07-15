@@ -217,6 +217,14 @@ public sealed class FakeRecordingWebhookHandler : IRecordingWebhookHandler
     }
 }
 
+/// <summary>Records recording metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeRecordingMetrics : IRecordingMetrics
+{
+    public int StartedCount { get; private set; }
+
+    public void RecordingStarted() => StartedCount++;
+}
+
 /// <summary>Minimal in-memory IStreamRepository for controller tests.</summary>
 public sealed class FakeStreamRepository : IStreamRepository
 {

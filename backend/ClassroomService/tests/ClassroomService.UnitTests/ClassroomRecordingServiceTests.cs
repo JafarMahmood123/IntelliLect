@@ -18,6 +18,7 @@ public sealed class ClassroomRecordingServiceTests
     private readonly FakeMembershipRepository _memberships = new();
     private readonly FakeRecordingUrlSigner _signer = new();
     private readonly FakeRecordingDownloadSettings _settings = new() { DownloadUrlTtlSeconds = 600 };
+    private readonly FakeRecordingMetrics _metrics = new();
     private readonly RecordingLogger<ClassroomRecordingService> _logger = new();
 
     public ClassroomRecordingServiceTests()
@@ -27,7 +28,7 @@ public sealed class ClassroomRecordingServiceTests
     }
 
     private ClassroomRecordingService Service()
-        => new(_recordings, _classrooms, _memberships, _signer, _settings, _logger);
+        => new(_recordings, _classrooms, _memberships, _signer, _settings, _metrics, _logger);
 
     private SessionRecording Seed(
         RecordingStatus status = RecordingStatus.Available,

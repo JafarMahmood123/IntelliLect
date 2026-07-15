@@ -136,6 +136,9 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
         services.AddScoped<IRecordingWebhookHandler, LiveKitRecordingWebhookHandler>();
 
+        // Capture metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
+        services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
+
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 

@@ -202,6 +202,37 @@ public sealed class FakeRecordingRepository : IRecordingRepository
         Store.Remove(recording);
         return Task.CompletedTask;
     }
+
+    public Task<int> CountProcessingAsync(CancellationToken ct = default)
+        => Task.FromResult(Store.Count(r => r.Status == ClassroomService.Domain.Enums.RecordingStatus.Processing));
+}
+
+/// <summary>Records recording metric calls so tests can assert instrumentation moved.</summary>
+public sealed class FakeRecordingMetrics : IRecordingMetrics
+{
+    public int Completed { get; private set; }
+    public long LastSizeBytes { get; private set; }
+    public double LastEgressToAvailableSeconds { get; private set; }
+    public int Failed { get; private set; }
+    public int DownloadIssued { get; private set; }
+    public List<string> Denials { get; } = new();
+    public int Deleted { get; private set; }
+    public List<string> ReconcileOutcomes { get; } = new();
+    public int ProcessingCurrent { get; private set; }
+
+    public void RecordingCompleted(long sizeBytes, double egressToAvailableSeconds)
+    {
+        Completed++;
+        LastSizeBytes = sizeBytes;
+        LastEgressToAvailableSeconds = egressToAvailableSeconds;
+    }
+
+    public void RecordingFailed() => Failed++;
+    public void DownloadUrlIssued() => DownloadIssued++;
+    public void DownloadAuthzDenied(string reason) => Denials.Add(reason);
+    public void RecordingDeleted() => Deleted++;
+    public void RecordingReconciled(string outcome) => ReconcileOutcomes.Add(outcome);
+    public void SetProcessingCurrent(int count) => ProcessingCurrent = count;
 }
 
 /// <summary>Mock recording storage: records deleted keys, optionally throws to simulate a hard S3
