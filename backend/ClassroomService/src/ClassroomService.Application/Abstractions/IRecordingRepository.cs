@@ -25,4 +25,13 @@ public interface IRecordingRepository
         int page,
         int pageSize,
         CancellationToken ct = default);
+
+    /// <summary>Recordings still in Processing whose created_at is before the cutoff (R-4 reconcile).</summary>
+    Task<List<SessionRecording>> GetStuckProcessingAsync(DateTime olderThanUtc, CancellationToken ct = default);
+
+    /// <summary>Recordings whose created_at is before the cutoff, any status (R-4 retention).</summary>
+    Task<List<SessionRecording>> GetOlderThanAsync(DateTime cutoffUtc, CancellationToken ct = default);
+
+    /// <summary>Marks the metadata row for deletion; persisted by the unit of work (R-4).</summary>
+    Task RemoveAsync(SessionRecording recording, CancellationToken ct = default);
 }

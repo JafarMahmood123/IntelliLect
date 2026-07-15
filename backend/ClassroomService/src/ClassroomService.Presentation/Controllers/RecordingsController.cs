@@ -14,10 +14,14 @@ namespace ClassroomService.Presentation.Controllers;
 public sealed class RecordingsController : ApiBaseController
 {
     private readonly IClassroomRecordingService _recordingService;
+    private readonly IRecordingLifecycleService _lifecycleService;
 
-    public RecordingsController(IClassroomRecordingService recordingService)
+    public RecordingsController(
+        IClassroomRecordingService recordingService,
+        IRecordingLifecycleService lifecycleService)
     {
         _recordingService = recordingService;
+        _lifecycleService = lifecycleService;
     }
 
     [HttpGet]
@@ -54,5 +58,17 @@ public sealed class RecordingsController : ApiBaseController
     {
         var result = await _recordingService.GetDownloadUrlAsync(classroomId, recordingId, UserId, ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Deletes a recording (S3 object + metadata). Only the classroom's teacher or an admin may
+    /// delete; enrolled students / non-members get 403. Unknown/cross-classroom -> 404.
+    /// </summary>
+    [HttpDelete("{recordingId:guid}")]
+    public async Task<IActionResult> Delete(Guid classroomId, Guid recordingId, CancellationToken ct)
+    {
+        await _lifecycleService.DeleteRecordingAsync(
+            classroomId, recordingId, UserId, User.IsInRole("Admin"), ct);
+        return NoContent();
     }
 }

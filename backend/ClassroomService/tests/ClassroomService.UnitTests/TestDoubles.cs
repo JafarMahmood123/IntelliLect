@@ -188,6 +188,51 @@ public sealed class FakeRecordingRepository : IRecordingRepository
         var items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         return Task.FromResult<(IEnumerable<SessionRecording>, int)>((items, ordered.Count));
     }
+
+    public Task<List<SessionRecording>> GetStuckProcessingAsync(DateTime olderThanUtc, CancellationToken ct = default)
+        => Task.FromResult(Store
+            .Where(r => r.Status == ClassroomService.Domain.Enums.RecordingStatus.Processing && r.CreatedAtUtc < olderThanUtc)
+            .ToList());
+
+    public Task<List<SessionRecording>> GetOlderThanAsync(DateTime cutoffUtc, CancellationToken ct = default)
+        => Task.FromResult(Store.Where(r => r.CreatedAtUtc < cutoffUtc).ToList());
+
+    public Task RemoveAsync(SessionRecording recording, CancellationToken ct = default)
+    {
+        Store.Remove(recording);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Mock recording storage: records deleted keys, optionally throws to simulate a hard S3
+/// failure. A missing object is a success (idempotent) — the fake simply records the key.</summary>
+public sealed class FakeRecordingStorage : IRecordingStorage
+{
+    private readonly bool _throwOnDelete;
+    public List<string> DeletedKeys { get; } = new();
+
+    public FakeRecordingStorage(bool throwOnDelete = false) => _throwOnDelete = throwOnDelete;
+
+    public Task DeleteObjectAsync(string objectKey, CancellationToken ct = default)
+    {
+        if (_throwOnDelete) throw new InvalidOperationException("S3 delete failed");
+        DeletedKeys.Add(objectKey);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Settable clock for time-based reconcile/retention tests.</summary>
+public sealed class FakeClock : IClock
+{
+    public DateTime UtcNow { get; set; } = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
+}
+
+/// <summary>Fixed lifecycle settings for tests.</summary>
+public sealed class FakeRecordingLifecycleSettings : IRecordingLifecycleSettings
+{
+    public int StuckProcessingMinutes { get; init; } = 30;
+    public bool RetentionEnabled { get; init; }
+    public int RetentionDays { get; init; }
 }
 
 /// <summary>In-memory IMembershipRepository: only the enrollment check the recording service uses

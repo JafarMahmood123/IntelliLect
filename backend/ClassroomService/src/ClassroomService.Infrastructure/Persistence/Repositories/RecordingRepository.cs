@@ -64,4 +64,24 @@ public sealed class RecordingRepository : IRecordingRepository
 
         return (items, totalCount);
     }
+
+    public async Task<List<SessionRecording>> GetStuckProcessingAsync(DateTime olderThanUtc, CancellationToken ct = default)
+    {
+        return await _context.SessionRecordings
+            .Where(r => r.Status == RecordingStatus.Processing && r.CreatedAtUtc < olderThanUtc)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<SessionRecording>> GetOlderThanAsync(DateTime cutoffUtc, CancellationToken ct = default)
+    {
+        return await _context.SessionRecordings
+            .Where(r => r.CreatedAtUtc < cutoffUtc)
+            .ToListAsync(ct);
+    }
+
+    public Task RemoveAsync(SessionRecording recording, CancellationToken ct = default)
+    {
+        _context.SessionRecordings.Remove(recording);
+        return Task.CompletedTask;
+    }
 }
