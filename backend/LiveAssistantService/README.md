@@ -6,16 +6,17 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-6.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-7.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
 "ideas", **retrieval + evaluation on each idea** — pulling relevant course material
 from KnowledgeService and asking the brain whether the explanation has a real problem
-— **private, teacher-only feedback delivery** of the resulting suggestion, and the
+— **private, teacher-only feedback delivery** of the resulting suggestion, the
 **full per-session loop assembled and started/stopped in sync with real sessions**
-(triggered by the streaming service). **Pacing/rate-limiting** (LA-7) is **not**
-implemented — the code leaves a clearly-marked seam for it.
+(triggered by the streaming service), and a **pacing/safety/suppression gate** that
+rate-limits, drops low-confidence, and de-duplicates suggestions so the assistant
+never floods the teacher. This is the full assistant pipeline.
 
 > **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
@@ -121,6 +122,18 @@ implemented — the code leaves a clearly-marked seam for it.
   streaming service: `POST /api/internal/sessions/start` (202, idempotent, 503 at
   cap), `POST /api/internal/sessions/{id}/stop` (204), `GET /api/internal/sessions`
   (active ids). `/health` also reports `activeSessions`.
+- **Pacing, safety & suppression (LA-7)** — `FeedbackPacer` (pure application) gates
+  every would-be suggestion between evaluation and delivery, per session, applying
+  four ordered rules (first failing wins): **low confidence** (< `FEEDBACK_CONFIDENCE_MIN`),
+  **session cap** (`FEEDBACK_MAX_PER_SESSION`), **rate limit**
+  (`FEEDBACK_MIN_INTERVAL_SEC` since the last delivery), and **duplicate** (token
+  similarity ≥ `FEEDBACK_DEDUP_SIMILARITY`, or same citation set + type, within
+  `FEEDBACK_DEDUP_WINDOW_SEC`). Time comes from an **injected clock** (deterministic
+  tests, no sleeps); similarity is an injected callable (default token Jaccard).
+  `SessionPipeline` routes feedback **through** the pacer — only approved suggestions
+  reach the sink; suppressions are logged by `type`/`reason`/`confidence` (never the
+  text). LA-4's brain now also emits an optional `confidence` in `[0,1]`, defaulting
+  to `FEEDBACK_DEFAULT_CONFIDENCE` when the model omits it (backward-compatible).
 
 ## Ports
 
@@ -136,10 +149,9 @@ Defined under `app/application/ports/`:
 | `FeedbackSink` | **Implemented (LA-5).** Deliver a suggestion to the teacher **privately**. |
 | `AgentDataChannel` | **Implemented (LA-5).** Targeted (single-identity) data send over the agent's room. |
 
-The future **live-loop orchestrator** (the use case that wires audio → STT → boundary
-detection → retrieval → brain → feedback end to end) will join these in
-`app/application/services/`, alongside the existing `BoundaryDetector`,
-`IdeaEvaluator`, and `FeedbackDispatcher`.
+The **live-loop orchestrator** that wires these end to end is `SessionPipeline`
+(`app/application/services/`), driven per session by `SessionManager` and gated by
+`FeedbackPacer` before delivery.
 
 ## Architecture
 
@@ -151,11 +163,13 @@ app/
     transcript/      # TranscriptSegment
     idea/            # CompletedIdea, BoundaryTrigger
     evaluation/      # FeedbackType, RetrievedChunk, TeacherSuggestion, EvaluationOutcome
+    pacing/          # SuppressionReason, PacingDecision
   application/
     ports/           # AudioSource, SpeechToText, EmbeddingProvider, RetrievalClient,
                      #   BrainClient, FeedbackSink, AgentDataChannel
     services/        # boundary_detector, idea_evaluator, feedback_dispatcher,
-                     #   session_pipeline, session_manager, token_estimate
+                     #   feedback_pacer, text_similarity, session_pipeline,
+                     #   session_manager, token_estimate
   infrastructure/
     config/          # pydantic-settings Settings
     audio/           # LiveKitAudioSource (AudioSource + AgentDataChannel), FakeAudioSource, normalization
@@ -221,6 +235,12 @@ See `.env.example`.
 | `FEEDBACK_MESSAGE_VERSION` | `1` | Version stamped into the feedback wire contract. |
 | `MAX_CONCURRENT_SESSIONS` | `20` | Cap on active session pipelines; start beyond it → 503. |
 | `INTERNAL_API_SECRET` | _(empty)_ | Shared secret guarding `/api/internal/sessions` (and KnowledgeService calls). |
+| `FEEDBACK_MIN_INTERVAL_SEC` | `45` | Min seconds between delivered suggestions per session. |
+| `FEEDBACK_CONFIDENCE_MIN` | `0.5` | Drop suggestions below this confidence. |
+| `FEEDBACK_DEFAULT_CONFIDENCE` | `0.6` | Confidence used when the model omits it. |
+| `FEEDBACK_DEDUP_WINDOW_SEC` | `300` | Look-back window for duplicate suppression. |
+| `FEEDBACK_DEDUP_SIMILARITY` | `0.85` | Token-similarity threshold to treat as a duplicate. |
+| `FEEDBACK_MAX_PER_SESSION` | `0` | Hard cap on delivered suggestions per session (0 = no cap). |
 | `LOG_LEVEL` | `INFO` | Root log level. |
 
 `/health` reports `livekit: configured` only when `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
@@ -351,6 +371,24 @@ RESULT          : OK (teacher-only)
 
 A deferred `--live --room <room> --teacher <identity>` mode publishes to a real room
 via the agent's connection; it needs a live session with the teacher present.
+
+### Pacing check (offline — no models)
+
+Drive the `FeedbackPacer` with a scripted `(suggestion, timestamp)` sequence and print
+each decision — rate-limit, low-confidence, and dedup, with **no models and no real
+sleeps**:
+
+```bash
+python scripts/pacing_check.py
+```
+
+```text
+t=   0s  DELIVER   reason=None          conf=0.90  (first suggestion)
+t=  10s  suppress  reason=RateLimited   conf=0.90  (burst (too soon))
+t=  60s  suppress  reason=LowConfidence conf=0.30  (low confidence)
+t= 120s  suppress  reason=Duplicate     conf=0.90  (repeat of #1)
+t= 200s  DELIVER   reason=None          conf=0.80  (new, spaced out)
+```
 
 ## Session lifecycle (LA-6)
 
@@ -491,6 +529,14 @@ Covers:
   `MAX_CONCURRENT_SESSIONS` cap rejects, `stop_all` on shutdown, and a pipeline ending
   on its own auto-deregisters. Internal endpoints: start 202 + register, idempotent,
   stop 204, cap 503, auth enforced, `/health` active count. (.NET side: see below.)
+- **Pacing (LA-7)** — `FeedbackPacer` with a fake clock (explicit `now`, no sleeps):
+  rate-limit within the interval then deliver after it, low-confidence suppressed,
+  missing confidence treated as fully confident, duplicate by text **and** by
+  citation-set+type, dedup-window expiry re-allows, the session cap, rule ordering
+  (low-confidence wins), per-session isolation, and `reset` cleanup; token Jaccard
+  similarity; the brain parsing `confidence` (present / absent→default / clamped /
+  invalid); and `SessionPipeline` routing feedback **through** the pacer so a
+  suppressed suggestion never reaches the sink.
 
 Paths **not** unit-tested against real infrastructure (isolated behind lazy imports /
 injectable transports/channels):

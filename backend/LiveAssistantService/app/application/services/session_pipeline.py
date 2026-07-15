@@ -24,6 +24,7 @@ from app.application.ports.audio_source import AudioSource
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
+from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
 from app.domain.entities.session_context import SessionContext
 
@@ -31,7 +32,7 @@ logger = logging.getLogger("liveassistant.pipeline")
 
 
 class SessionPipeline:
-    """Owns the async task that runs audio → STT → ideas → evaluate → feedback."""
+    """Owns the async task that runs audio → STT → ideas → evaluate → pace → feedback."""
 
     def __init__(
         self,
@@ -40,6 +41,7 @@ class SessionPipeline:
         speech_to_text: SpeechToText,
         boundary_detector: BoundaryDetector,
         idea_evaluator: IdeaEvaluator,
+        feedback_pacer: FeedbackPacer,
         feedback_dispatcher: FeedbackDispatcher,
     ) -> None:
         self._session = session
@@ -47,6 +49,7 @@ class SessionPipeline:
         self._stt = speech_to_text
         self._boundary = boundary_detector
         self._evaluator = idea_evaluator
+        self._pacer = feedback_pacer
         self._dispatcher = feedback_dispatcher
         self._task: asyncio.Task | None = None
 
@@ -87,13 +90,30 @@ class SessionPipeline:
         finally:
             with contextlib.suppress(Exception):
                 await self._audio_source.disconnect()
+            # Release this session's pacing state (LA-7) on any end: stop, crash, or
+            # natural stream end all run this finally.
+            self._pacer.reset(session_id)
             logger.info("Session pipeline stopped for %s", session_id)
 
     async def _handle_idea(self, idea) -> None:
-        """Evaluate one idea and deliver feedback; never let one idea stop the run."""
+        """Evaluate one idea, PACE it (LA-7), then deliver; never let one idea stop the run."""
         try:
             outcome = await self._evaluator.evaluate(idea, self._session)
-            await self._dispatcher.dispatch(outcome, self._session)
+            if not outcome.has_feedback or outcome.suggestion is None:
+                return  # nothing to deliver
+            # Gate through the pacer BEFORE delivery: rate-limit / low-confidence / dedup.
+            decision = self._pacer.decide(self._session.session_id, outcome.suggestion)
+            if decision.deliver:
+                await self._dispatcher.dispatch(outcome, self._session)
+            else:
+                # Metrics-friendly: never log suggestion text — type/reason/confidence only.
+                logger.info(
+                    "Suppressed feedback in session %s: reason=%s type=%s confidence=%.2f",
+                    self._session.session_id,
+                    decision.reason.value,
+                    outcome.suggestion.type.value,
+                    outcome.suggestion.confidence,
+                )
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001 — one bad idea must not end the session

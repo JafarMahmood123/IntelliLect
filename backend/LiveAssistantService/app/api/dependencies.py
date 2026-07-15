@@ -13,6 +13,7 @@ from app.application.ports.retrieval_client import RetrievalClient
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
+from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
 from app.application.services.session_manager import (
     SessionManager,
@@ -144,6 +145,19 @@ def build_feedback_dispatcher(sink: FeedbackSink) -> FeedbackDispatcher:
     return FeedbackDispatcher(sink)
 
 
+# --- Pacing, safety & suppression (LA-7) --------------------------------------
+def build_feedback_pacer(settings: Settings) -> FeedbackPacer:
+    """The pacing gate, configured from settings. Uses a real monotonic clock in prod;
+    tests inject a fake clock. State is per-session (keyed by session_id)."""
+    return FeedbackPacer(
+        min_interval_sec=settings.feedback_min_interval_sec,
+        confidence_min=settings.feedback_confidence_min,
+        dedup_window_sec=settings.feedback_dedup_window_sec,
+        dedup_similarity=settings.feedback_dedup_similarity,
+        max_per_session=settings.feedback_max_per_session,
+    )
+
+
 # --- Session lifecycle (LA-6) -------------------------------------------------
 def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory:
     """Factory that assembles the full per-session loop from the phase components.
@@ -154,7 +168,11 @@ def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory
     over the same single connection (no second connection). Stateless HTTP clients
     (embedder / retrieval / brain) are constructed per session too; they hold no
     per-session state.
+
+    One shared ``FeedbackPacer`` (LA-7) serves all sessions, keyed by session_id — the
+    pipeline resets its session's pacing state on teardown.
     """
+    pacer = build_feedback_pacer(settings)
 
     def factory(session: SessionContext) -> SessionPipeline:
         agent = LiveKitAudioSource(settings)  # AudioSource + AgentDataChannel
@@ -164,7 +182,7 @@ def build_session_pipeline_factory(settings: Settings) -> SessionPipelineFactory
             settings, KnowledgeRetrievalClient(settings), OllamaBrainClient(settings)
         )
         dispatcher = build_feedback_dispatcher(build_feedback_sink(settings, agent))
-        return SessionPipeline(session, agent, stt, boundary, evaluator, dispatcher)
+        return SessionPipeline(session, agent, stt, boundary, evaluator, pacer, dispatcher)
 
     return factory
 

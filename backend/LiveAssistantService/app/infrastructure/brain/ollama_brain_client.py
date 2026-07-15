@@ -51,6 +51,8 @@ class OllamaBrainClient(BrainClient):
         self._timeout = settings.eval_timeout_seconds
         self._temperature = settings.eval_temperature
         self._max_tokens = settings.eval_max_tokens
+        # LA-7: confidence used when the model omits it (backward-compatible).
+        self._default_confidence = settings.feedback_default_confidence
         self._headers: dict[str, str] = {}
         if settings.ollama_auth_token:
             self._headers["Authorization"] = f"Bearer {settings.ollama_auth_token}"
@@ -128,6 +130,7 @@ class OllamaBrainClient(BrainClient):
                 type=feedback_type,
                 citations=citations,
                 sources=sources,
+                confidence=_parse_confidence(data.get("confidence"), self._default_confidence),
             ),
         )
 
@@ -143,6 +146,17 @@ def _strip_code_fences(content: str) -> str:
     if lines and lines[-1].strip().startswith("```"):
         lines = lines[:-1]
     return "\n".join(lines).strip()
+
+
+def _parse_confidence(raw, default: float) -> float:
+    """A number in [0, 1] from the model, clamped; ``default`` if absent/invalid.
+
+    Booleans are rejected (a confidence is never a bool) — kept backward-compatible so
+    a model that omits the field never crashes parsing.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return default
+    return max(0.0, min(1.0, float(raw)))
 
 
 def _valid_citations(raw, citation_map: dict[int, RetrievedChunk]) -> list[int]:

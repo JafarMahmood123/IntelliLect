@@ -22,10 +22,12 @@ SYSTEM_PROMPT = (
     "uncertain — most explanations need no feedback.\n"
     "- The suggestion goes PRIVATELY to the teacher: be direct, concise, one short "
     "paragraph. Cite the material you rely on by [n].\n"
-    "- Respond with ONLY a JSON object, no prose, no code fences.\n\n"
+    "- Respond with ONLY a JSON object, no prose, no code fences.\n"
+    "- Include your confidence in [0, 1] that this is a real problem worth raising.\n\n"
     'JSON schema: {"has_feedback": true|false, '
     '"type": "discrepancy|gap|unclear|none", '
-    '"suggestion": "<one short paragraph, or empty>", "citations": [<n>, ...]}'
+    '"suggestion": "<one short paragraph, or empty>", "citations": [<n>, ...], '
+    '"confidence": <number 0..1>}'
 )
 
 

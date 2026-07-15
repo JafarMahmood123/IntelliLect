@@ -98,6 +98,15 @@ class Settings(BaseSettings):
     # One agent pipeline per active session; start beyond this cap is rejected (503).
     max_concurrent_sessions: int = 20
 
+    # --- Pacing, safety & suppression (LA-7) ---
+    # Gates delivery so the assistant never floods the teacher. Pure decision logic.
+    feedback_min_interval_sec: float = 45.0  # min seconds between delivered suggestions
+    feedback_confidence_min: float = 0.5  # drop suggestions below this confidence
+    feedback_default_confidence: float = 0.6  # used when the model omits confidence
+    feedback_dedup_window_sec: float = 300.0  # look-back window for duplicate suppression
+    feedback_dedup_similarity: float = 0.85  # token-similarity threshold for a duplicate
+    feedback_max_per_session: int = 0  # hard cap on delivered suggestions (0 = no cap)
+
     # --- Observability ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
 

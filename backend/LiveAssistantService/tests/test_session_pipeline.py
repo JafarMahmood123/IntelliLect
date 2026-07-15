@@ -1,11 +1,13 @@
-"""SessionPipeline end to end with fakes — the full LA-1..LA-5 loop, no models (LA-6)."""
+"""SessionPipeline end to end with fakes — the full LA-1..LA-7 loop, no models."""
 
 from __future__ import annotations
 
+import itertools
 from uuid import uuid4
 
 from app.api.dependencies import build_boundary_detector, build_idea_evaluator
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
+from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.session_pipeline import SessionPipeline
 from app.domain.entities.session_context import SessionContext
 from app.domain.evaluation.evaluation_outcome import EvaluationOutcome
@@ -53,7 +55,21 @@ def _feedback_outcome() -> EvaluationOutcome:
     return EvaluationOutcome(True, TeacherSuggestion("fix [1]", FeedbackType.GAP, [1], [_chunk()]))
 
 
-def _build_pipeline(settings, sink, *, brain=None, evaluator=None):
+def _counter_clock():
+    """A strictly-increasing fake clock (0, 1, 2, ...) — deterministic, no real time."""
+    counter = itertools.count()
+    return lambda: float(next(counter))
+
+
+def _permissive_pacer() -> FeedbackPacer:
+    """Delivers everything: no rate limit, no confidence floor, no dedup, no cap."""
+    return FeedbackPacer(
+        min_interval_sec=0.0, confidence_min=0.0, dedup_window_sec=0.0,
+        dedup_similarity=2.0, max_per_session=0, clock=_counter_clock(),
+    )
+
+
+def _build_pipeline(settings, sink, *, brain=None, evaluator=None, pacer=None):
     session = SessionContext(uuid4(), uuid4(), "teacher-1", "room-1")
     audio = FakeAudioSource(settings, wav_path=None, tone_seconds=0.05)
     stt = FakeSpeechToText(_scripted_segments())
@@ -63,7 +79,9 @@ def _build_pipeline(settings, sink, *, brain=None, evaluator=None):
             settings, FakeRetrievalClient([_chunk()]), brain or FakeBrainClient(_feedback_outcome())
         )
     dispatcher = FeedbackDispatcher(sink)
-    return SessionPipeline(session, audio, stt, boundary, evaluator, dispatcher), session
+    return SessionPipeline(
+        session, audio, stt, boundary, evaluator, pacer or _permissive_pacer(), dispatcher
+    ), session
 
 
 async def test_pipeline_delivers_feedback_for_each_idea_and_flushes_trailing():
@@ -112,3 +130,18 @@ async def test_stop_before_start_is_safe():
     pipeline, _ = _build_pipeline(settings, sink)
 
     await pipeline.stop()  # never started -> no error
+
+
+async def test_pipeline_routes_feedback_through_the_pacer_and_suppresses():
+    # Rate-limit everything after the first: two ideas -> only the first is delivered.
+    settings, sink = _settings(), FakeFeedbackSink()
+    rate_limiting_pacer = FeedbackPacer(
+        min_interval_sec=1000.0, confidence_min=0.0, dedup_window_sec=0.0,
+        dedup_similarity=2.0, max_per_session=0, clock=_counter_clock(),
+    )
+    pipeline, _ = _build_pipeline(settings, sink, pacer=rate_limiting_pacer)
+
+    await pipeline.start()
+
+    # The second idea's suggestion was suppressed by the pacer -> never reached the sink.
+    assert len(sink.calls) == 1

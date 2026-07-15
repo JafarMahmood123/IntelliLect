@@ -53,6 +53,32 @@ async def test_valid_json_maps_citations_to_sources():
     assert outcome.suggestion.sources == [chunks[0], chunks[2]]  # 1-based mapping
 
 
+async def test_confidence_is_parsed_when_present():
+    content = ('{"has_feedback": true, "type": "gap", "suggestion": "Add [1].", '
+               '"citations": [1], "confidence": 0.42}')
+    outcome = await _StubBrain(content).evaluate(_idea(), _chunks(1))
+
+    assert outcome.suggestion.confidence == 0.42
+
+
+async def test_missing_confidence_uses_configured_default():
+    content = '{"has_feedback": true, "type": "gap", "suggestion": "Add [1].", "citations": [1]}'
+    outcome = await _StubBrain(content).evaluate(_idea(), _chunks(1))
+
+    # Settings() default feedback_default_confidence is 0.6.
+    assert outcome.suggestion.confidence == Settings().feedback_default_confidence
+
+
+async def test_out_of_range_or_invalid_confidence_is_clamped_or_defaulted():
+    high = await _StubBrain('{"has_feedback": true, "type": "gap", "suggestion": "x [1].", "citations": [1], "confidence": 1.5}').evaluate(_idea(), _chunks(1))
+    low = await _StubBrain('{"has_feedback": true, "type": "gap", "suggestion": "x [1].", "citations": [1], "confidence": -0.3}').evaluate(_idea(), _chunks(1))
+    bad = await _StubBrain('{"has_feedback": true, "type": "gap", "suggestion": "x [1].", "citations": [1], "confidence": "high"}').evaluate(_idea(), _chunks(1))
+
+    assert high.suggestion.confidence == 1.0
+    assert low.suggestion.confidence == 0.0
+    assert bad.suggestion.confidence == Settings().feedback_default_confidence
+
+
 async def test_code_fenced_json_is_parsed():
     content = '```json\n{"has_feedback": true, "type": "gap", "suggestion": "Add [1].", "citations": [1]}\n```'
     outcome = await _StubBrain(content).evaluate(_idea(), _chunks(1))
