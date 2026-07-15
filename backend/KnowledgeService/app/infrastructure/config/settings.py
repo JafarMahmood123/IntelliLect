@@ -97,6 +97,28 @@ class Settings(BaseSettings):
     # (the FakeTranscriptClient is used instead). Reuses INTERNAL_API_SECRET below.
     live_assistant_base_url: str = ""  # e.g. http://live-assistant-service:8080
 
+    # --- Session summary storage & trigger (S-3) ---
+    # On session end, the summary pipeline uploads the Markdown + PDF to object storage
+    # and publishes a SessionSummaryReadyMessage for ClassroomService (S-4). The
+    # SUMMARY_S3_* values default to the generic S3_* above when blank, so the summaries
+    # may live in the same (recordings) bucket. Offline tests use fakes and need none.
+    summary_s3_bucket: str = ""  # falls back to S3_BUCKET_NAME when blank
+    summary_s3_region: str = ""  # falls back to S3_REGION when blank
+    summary_s3_access_key: str = ""  # falls back to S3_ACCESS_KEY when blank
+    summary_s3_secret_key: str = ""  # falls back to S3_SECRET_KEY when blank
+    summary_s3_endpoint: str = ""  # falls back to S3_SERVICE_URL when blank (optional)
+    # Object-key template. Placeholders: {classroom_id}, {session_id}, {ext} (md/pdf).
+    summary_s3_key_template: str = "summaries/{classroom_id}/{session_id}.{ext}"
+    summary_trigger_enabled: bool = True  # feature flag for the session-end trigger
+
+    # RabbitMQ, for publishing the SessionSummaryReadyMessage to the MassTransit bus.
+    # Defaults match the platform compose broker; only the live publisher uses these.
+    rabbitmq_host: str = "rabbitmq"
+    rabbitmq_port: int = 5672
+    rabbitmq_username: str = "jafar.mahmood"
+    rabbitmq_password: str = "Jafar123!"
+    rabbitmq_vhost: str = "/"
+
     # --- Observability (Phase 9) ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
     metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics

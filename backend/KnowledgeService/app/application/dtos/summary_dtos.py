@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, Field
+
 
 @dataclass(frozen=True)
 class TranscriptDocument:
@@ -35,3 +37,22 @@ class SummaryResult:
     markdown: str
     model: str
     generated_at: datetime
+
+
+class SummarizeRequest(BaseModel):
+    """Body of the session-end summarize trigger (S-3). camelCase from the caller.
+
+    ``classroomId`` is provided by the session-end caller so a summary FAILURE can still
+    be reported for the right classroom even if the transcript fetch fails.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    classroom_id: UUID = Field(alias="classroomId")
+
+
+class SummarizeResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    session_id: UUID = Field(alias="sessionId")
+    status: str  # "accepted" | "skipped" | "in-progress"

@@ -88,6 +88,21 @@ clearly-marked ports and placeholders for them.
   failed summary). **Pure rendering** — no models, services, or S3, and no endpoint
   wires it yet. Eyeball it offline: `python scripts/render_check.py --out /tmp/s.pdf`
   (WeasyPrint needs the system libs baked into the Docker image; see the Dockerfile).
+- **Summary storage, session-end trigger & ready event (S-3)** — `SummaryPipeline`
+  runs the whole flow when a session ends: generate the Markdown (S-1) → render the PDF
+  (S-2) → upload **both** artifacts straight to S3 (`SummaryStorage`, under the
+  `SUMMARY_S3_KEY_TEMPLATE` keys `…/{session}.md` + `…/{session}.pdf`) → publish a
+  `SessionSummaryReadyMessage` (MassTransit-compatible, so ClassroomService (S-4)
+  consumes it). The trigger is `POST /api/internal/sessions/{sessionId}/summarize`
+  (`X-Internal-Secret`, body `{ classroomId }`): it enqueues the pipeline on a
+  **background task** and returns `202` — **non-blocking and non-fatal**, so session end
+  never waits on or fails from summarization. Gated by `SUMMARY_TRIGGER_ENABLED`, and
+  **idempotent per session** (deterministic keys → a re-run overwrites the same objects
+  and safely re-publishes; a duplicate trigger while one run is in flight is skipped). On
+  **any** step failing it publishes a **failure** message (`succeeded=false` + `error`)
+  and logs — it never crashes. An empty transcript still yields a valid minimal summary
+  (a success, not a failure). The live path (real S3 + broker) is deferred to
+  `python scripts/summarize_local.py <session-id>`.
 
 ## Architecture (Clean Architecture)
 
@@ -170,8 +185,12 @@ adjust:
 | `SUMMARY_GROUNDING_TOP_K` | `6` | Supporting chunks retrieved when grounding. |
 | `SUMMARY_TRANSCRIPT_MAX_TOKENS` | `8000` | Per-pass transcript cap; above it → map-reduce. |
 | `LIVE_ASSISTANT_BASE_URL` | `""` | LiveAssistantService base URL for the S-0 transcript endpoint. |
+| `SUMMARY_S3_BUCKET` / `_REGION` / `_ACCESS_KEY` / `_SECRET_KEY` / `_ENDPOINT` | `""` | Summary artifact storage (S-3); each falls back to the matching `S3_*` when blank. |
+| `SUMMARY_S3_KEY_TEMPLATE` | `summaries/{classroom_id}/{session_id}.{ext}` | Object-key template for the `.md` / `.pdf` artifacts. |
+| `SUMMARY_TRIGGER_ENABLED` | `true` | Feature flag for the session-end summary trigger. |
+| `RABBITMQ_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` / `_VHOST` | compose broker | Broker for publishing `SessionSummaryReadyMessage` (live publisher only). |
 | `INTERNAL_API_SECRET` | `""` | Shared secret for `/api/internal/*` routes (header `X-Internal-Secret`); also sent to LiveAssistantService. |
-| `S3_*` | `""` | Placeholders for object storage. **Unused for now.** |
+| `S3_*` | `""` | Object storage credentials (recordings bucket); reused as the `SUMMARY_S3_*` fallback. |
 
 > `EMBEDDING_DIM` is read by both the ORM models and the Alembic migration, so the
 > schema and the app always agree. Changing it after the first migration requires
@@ -264,7 +283,13 @@ and the `TranscriptClient` HTTP contract (via `httpx.MockTransport`). Summary PD
 rendering (S-2) is covered too: the Markdown→HTML step and metadata/template assembly
 run everywhere, while the PDF-producing tests assert a valid `%PDF` with ≥1 page (read
 back via `pymupdf`) and **skip cleanly** when WeasyPrint's system libs are absent; the
-`RenderingError` path is always exercised. Coverage is available but not gated:
+`RenderingError` path is always exercised. The summary pipeline/trigger (S-3) is covered
+with a `FakeSummaryGenerator`, `FakePdfRenderer`, `FakeSummaryStorage`, and
+`FakeSummaryPublisher`: the happy path (both artifacts uploaded under the templated keys
+with correct content types + a success message), failure at each step (a failure message,
+no crash), idempotent re-runs (same keys, safe re-publish), the background runner
+(dedup + non-fatal), and the `/summarize` trigger (202, enqueue, auth, disabled-flag skip,
+non-fatal). Coverage is available but not gated:
 
 ```bash
 pytest --cov=app --cov-report=term-missing

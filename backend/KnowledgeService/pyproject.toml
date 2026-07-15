@@ -31,6 +31,9 @@ dependencies = [
     # Still no model weights: this is pure document rendering.
     "markdown>=3.6",
     "weasyprint>=62",
+    # --- Summary ready event (S-3): publish to the MassTransit/RabbitMQ bus ---
+    # Used only by the live publisher (imported lazily); the offline tests use a fake.
+    "aio-pika>=9.4",
 ]
 # NOTE: intentionally NO torch/transformers/sentence-transformers and no model
 # weights in the container. All embedding inference is HTTP calls to host Ollama.
