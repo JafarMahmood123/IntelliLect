@@ -20,5 +20,12 @@ egress:
     bucket: "intellilect-files"
     force_path_style: true
 
+# Egress lifecycle webhooks -> StreamingService (R-1). LiveKit signs each POST with the api_key
+# below; the receiver verifies it with the matching secret in `keys`.
+webhook:
+  api_key: devkey
+  urls:
+    - http://streaming-service:8080/api/webhooks/livekit
+
 keys:
   devkey: super_secret_livekit_key_for_development

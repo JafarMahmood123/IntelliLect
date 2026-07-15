@@ -1,0 +1,126 @@
+using IntelliLect.Contracts.Messages;
+using Livekit.Server.Sdk.Dotnet;
+using MassTransit;
+using Microsoft.Extensions.Logging;
+using StreamingService.Application.Abstractions;
+using LkFileInfo = Livekit.Server.Sdk.Dotnet.FileInfo;
+
+namespace StreamingService.Infrastructure.Services;
+
+/// <summary>
+/// Turns a verified LiveKit egress webhook into a <see cref="SessionRecordingReadyMessage"/> (R-1).
+/// Correlates the egress id back to its <c>LiveStream</c> (persisted in R-0) to recover the
+/// session/classroom, publishes success or failure, and marks the stream so duplicate webhook
+/// deliveries don't re-publish.
+/// </summary>
+public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
+{
+    // LiveKit fires this once an egress reaches a terminal state; EgressInfo.Status says which.
+    private const string EgressEndedEvent = "egress_ended";
+    private const string RecordingContentType = "video/mp4";
+
+    private readonly ILiveKitWebhookVerifier _verifier;
+    private readonly IStreamRepository _streamRepository;
+    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly ILogger<LiveKitRecordingWebhookHandler> _logger;
+
+    public LiveKitRecordingWebhookHandler(
+        ILiveKitWebhookVerifier verifier,
+        IStreamRepository streamRepository,
+        IPublishEndpoint publishEndpoint,
+        ILogger<LiveKitRecordingWebhookHandler> logger)
+    {
+        _verifier = verifier;
+        _streamRepository = streamRepository;
+        _publishEndpoint = publishEndpoint;
+        _logger = logger;
+    }
+
+    public async Task HandleAsync(string body, string authHeader, CancellationToken ct = default)
+    {
+        // Throws WebhookVerificationException on a bad signature -> the endpoint returns 401.
+        var webhookEvent = _verifier.Verify(body, authHeader);
+
+        if (webhookEvent.EgressInfo is null ||
+            !string.Equals(webhookEvent.Event, EgressEndedEvent, StringComparison.Ordinal))
+        {
+            _logger.LogDebug("Ignoring non-terminal LiveKit webhook event {Event}.", webhookEvent.Event);
+            return;
+        }
+
+        var egress = webhookEvent.EgressInfo;
+
+        var stream = await _streamRepository.GetByEgressIdAsync(egress.EgressId, ct);
+        if (stream is null)
+        {
+            // Not ours (or the egress id was never persisted) — nothing to correlate, ignore.
+            _logger.LogWarning(
+                "No LiveStream found for egress {EgressId}; ignoring recording webhook.", egress.EgressId);
+            return;
+        }
+
+        if (stream.RecordingReadyPublished)
+        {
+            _logger.LogInformation(
+                "Recording-ready already published for egress {EgressId}; ignoring duplicate webhook.",
+                egress.EgressId);
+            return;
+        }
+
+        var message = BuildMessage(stream.SessionId, stream.ClassroomId, egress);
+        await _publishEndpoint.Publish(message, ct);
+
+        // Persist the idempotency marker in the same DbContext scope; with the bus outbox the
+        // published message is delivered on SaveChanges, so publish + marker commit together.
+        stream.RecordingReadyPublished = true;
+        await _streamRepository.UpdateAsync(stream, ct);
+        await _streamRepository.SaveChangesAsync(ct);
+    }
+
+    private SessionRecordingReadyMessage BuildMessage(Guid sessionId, Guid classroomId, EgressInfo egress)
+    {
+        if (egress.Status == EgressStatus.EgressComplete)
+        {
+            var file = ExtractFile(egress);
+            var s3Key = FirstNonEmpty(file?.Filename, file?.Location) ?? string.Empty;
+            // LiveKit reports file duration in NANOSECONDS (1 tick = 100ns).
+            var duration = file is null ? TimeSpan.Zero : TimeSpan.FromTicks(file.Duration / 100);
+            var size = file?.Size ?? 0;
+
+            _logger.LogInformation(
+                "Publishing recording-ready (success) for session {SessionId}, egress {EgressId}, key {S3Key}.",
+                sessionId, egress.EgressId, s3Key);
+
+            return new SessionRecordingReadyMessage(
+                sessionId, classroomId, s3Key, size, duration,
+                EgressId: egress.EgressId, ContentType: RecordingContentType, Succeeded: true, Error: null);
+        }
+
+        var error = string.IsNullOrWhiteSpace(egress.Error)
+            ? $"Egress ended with status {egress.Status}."
+            : egress.Error;
+
+        _logger.LogWarning(
+            "Publishing recording-ready (failure) for session {SessionId}, egress {EgressId}: {Error}.",
+            sessionId, egress.EgressId, error);
+
+        return new SessionRecordingReadyMessage(
+            sessionId, classroomId, S3Key: string.Empty, SizeBytes: 0, Duration: TimeSpan.Zero,
+            EgressId: egress.EgressId, ContentType: RecordingContentType, Succeeded: false, Error: error);
+    }
+
+    private static LkFileInfo? ExtractFile(EgressInfo egress)
+    {
+        if (egress.FileResults.Count > 0)
+        {
+            return egress.FileResults[0];
+        }
+
+#pragma warning disable CS0612 // legacy single-file result on older LiveKit servers
+        return egress.File;
+#pragma warning restore CS0612
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(v => !string.IsNullOrEmpty(v));
+}

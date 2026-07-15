@@ -6,6 +6,11 @@ public sealed class LiveStream
 {
     public Guid Id { get; set; }
     public string? EgressId { get; set; }
+
+    /// <summary>Set once the egress-complete webhook has been turned into a
+    /// SessionRecordingReadyMessage (R-1), so duplicate webhook deliveries don't re-publish.</summary>
+    public bool RecordingReadyPublished { get; set; }
+
     public Guid SessionId { get; set; }
     public Guid ClassroomId { get; set; }
     public Guid TeacherId { get; set; }

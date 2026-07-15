@@ -156,6 +156,44 @@ public sealed class FakeFileStorageService : IFileStorageService
     public Task DeleteFileAsync(string s3Key, CancellationToken ct = default) => Task.CompletedTask;
 }
 
+/// <summary>In-memory IRecordingRepository for the recording-ready consumer tests.</summary>
+public sealed class FakeRecordingRepository : IRecordingRepository
+{
+    public List<SessionRecording> Store { get; } = new();
+
+    public void Seed(SessionRecording recording) => Store.Add(recording);
+
+    public Task AddAsync(SessionRecording recording, CancellationToken ct = default)
+    {
+        Store.Add(recording);
+        return Task.CompletedTask;
+    }
+
+    public Task<SessionRecording?> GetBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+        => Task.FromResult(Store.FirstOrDefault(r => r.SessionId == sessionId));
+
+    public Task<(IEnumerable<SessionRecording> Items, int TotalCount)> GetByClassroomIdPagedAsync(
+        Guid classroomId, int page, int pageSize, CancellationToken ct = default)
+        => Task.FromResult<(IEnumerable<SessionRecording>, int)>(
+            (Store.Where(r => r.ClassroomId == classroomId).ToList(), Store.Count));
+}
+
+/// <summary>In-memory IUnitOfWork that counts SaveChanges so tests can await consume completion.</summary>
+public sealed class FakeUnitOfWork : IUnitOfWork
+{
+    public int SaveChangesCount { get; private set; }
+
+    public Task BeginTransactionAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveChangesCount++;
+        return Task.FromResult(1);
+    }
+}
+
 public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>

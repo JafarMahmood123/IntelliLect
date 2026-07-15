@@ -147,6 +147,76 @@ public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient
     }
 }
 
+/// <summary>Captures published messages. Only the typed Publish&lt;T&gt;(message, ct) overload the
+/// webhook handler uses is implemented; the rest throw so accidental use is obvious.</summary>
+public sealed class FakePublishEndpoint : MassTransit.IPublishEndpoint
+{
+    public List<object> Published { get; } = new();
+
+    public Task Publish<T>(T message, CancellationToken cancellationToken = default) where T : class
+    {
+        Published.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public T? LastOf<T>() where T : class => Published.OfType<T>().LastOrDefault();
+
+    // --- Unused surface -----------------------------------------------------------------
+    public Task Publish<T>(T message, MassTransit.IPipe<MassTransit.PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(T message, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish(object message, CancellationToken cancellationToken = default) { Published.Add(message); return Task.CompletedTask; }
+    public Task Publish(object message, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish(object message, Type messageType, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish(object message, Type messageType, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task Publish<T>(object values, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(object values, MassTransit.IPipe<MassTransit.PublishContext<T>> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public Task Publish<T>(object values, MassTransit.IPipe<MassTransit.PublishContext> publishPipe, CancellationToken cancellationToken = default) where T : class => throw new NotSupportedException();
+    public MassTransit.ConnectHandle ConnectPublishObserver(MassTransit.IPublishObserver observer) => throw new NotSupportedException();
+}
+
+/// <summary>Returns a canned WebhookEvent (or throws) so the handler can be tested without signing.</summary>
+public sealed class FakeLiveKitWebhookVerifier : StreamingService.Infrastructure.Services.ILiveKitWebhookVerifier
+{
+    private readonly Livekit.Server.Sdk.Dotnet.WebhookEvent? _event;
+    private readonly bool _throwInvalid;
+    public string? LastBody { get; private set; }
+    public string? LastAuthHeader { get; private set; }
+
+    public FakeLiveKitWebhookVerifier(Livekit.Server.Sdk.Dotnet.WebhookEvent? webhookEvent, bool throwInvalid = false)
+    {
+        _event = webhookEvent;
+        _throwInvalid = throwInvalid;
+    }
+
+    public Livekit.Server.Sdk.Dotnet.WebhookEvent Verify(string body, string authHeader)
+    {
+        LastBody = body;
+        LastAuthHeader = authHeader;
+        if (_throwInvalid) throw new WebhookVerificationException("invalid signature");
+        return _event!;
+    }
+}
+
+/// <summary>Records webhook handler invocations; optionally throws a verification failure.</summary>
+public sealed class FakeRecordingWebhookHandler : IRecordingWebhookHandler
+{
+    private readonly bool _throwInvalid;
+    public int Calls { get; private set; }
+    public string? LastBody { get; private set; }
+    public string? LastAuthHeader { get; private set; }
+
+    public FakeRecordingWebhookHandler(bool throwInvalid = false) => _throwInvalid = throwInvalid;
+
+    public Task HandleAsync(string body, string authHeader, CancellationToken ct = default)
+    {
+        Calls++;
+        LastBody = body;
+        LastAuthHeader = authHeader;
+        if (_throwInvalid) throw new WebhookVerificationException("invalid signature");
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>Minimal in-memory IStreamRepository for controller tests.</summary>
 public sealed class FakeStreamRepository : IStreamRepository
 {
@@ -162,6 +232,9 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task<LiveStream?> GetBySessionIdAsync(Guid sessionId, bool includeParticipants = false, CancellationToken ct = default)
         => Task.FromResult<LiveStream?>(Find(sessionId));
+
+    public Task<LiveStream?> GetByEgressIdAsync(string egressId, CancellationToken ct = default)
+        => Task.FromResult<LiveStream?>(_streams.FirstOrDefault(s => s.EgressId == egressId));
 
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {

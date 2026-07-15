@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
+        services.AddScoped<IRecordingRepository, RecordingRepository>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();

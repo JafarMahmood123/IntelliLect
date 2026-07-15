@@ -131,6 +131,11 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitEgressClient, LiveKitEgressClient>();
         services.AddScoped<IRecordingEgressService, LiveKitRecordingEgressService>();
 
+        // Egress-complete webhook -> recording-ready event (R-1). The verifier wraps the SDK's
+        // WebhookReceiver (reusing the LiveKit API key/secret); the handler correlates + publishes.
+        services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();
+        services.AddScoped<IRecordingWebhookHandler, LiveKitRecordingWebhookHandler>();
+
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 

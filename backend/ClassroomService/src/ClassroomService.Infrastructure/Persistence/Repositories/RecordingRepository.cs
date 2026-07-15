@@ -18,6 +18,12 @@ public sealed class RecordingRepository : IRecordingRepository
         await _context.SessionRecordings.AddAsync(recording, ct);
     }
 
+    public async Task<SessionRecording?> GetBySessionIdAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        return await _context.SessionRecordings
+            .FirstOrDefaultAsync(r => r.SessionId == sessionId, ct);
+    }
+
     public async Task<(IEnumerable<SessionRecording> Items, int TotalCount)> GetByClassroomIdPagedAsync(
         Guid classroomId,
         int page,
