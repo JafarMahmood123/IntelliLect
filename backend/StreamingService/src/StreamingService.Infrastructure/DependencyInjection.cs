@@ -123,6 +123,14 @@ public static class DependencyInjection
         services.AddSingleton<IStreamSettings>(sp =>
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
         services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
+
+        // Session recording via LiveKit Room Composite Egress (R-0). The typed egress options
+        // sit alongside the LiveKit registration; the egress client wraps the SDK's
+        // EgressServiceClient (reusing the same API key/secret) and is stateless -> singleton.
+        services.Configure<EgressOptions>(configuration.GetSection(EgressOptions.SectionName));
+        services.AddSingleton<ILiveKitEgressClient, LiveKitEgressClient>();
+        services.AddScoped<IRecordingEgressService, LiveKitRecordingEgressService>();
+
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 

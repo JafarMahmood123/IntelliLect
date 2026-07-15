@@ -12,15 +12,18 @@ public sealed class InternalStreamsController : ControllerBase
 {
     private readonly IStreamRepository _streamRepository;
     private readonly ILiveAssistantInternalClient _liveAssistant;
+    private readonly IRecordingEgressService _recordingEgress;
     private readonly ILogger<InternalStreamsController> _logger;
 
     public InternalStreamsController(
         IStreamRepository streamRepository,
         ILiveAssistantInternalClient liveAssistant,
+        IRecordingEgressService recordingEgress,
         ILogger<InternalStreamsController> logger)
     {
         _streamRepository = streamRepository;
         _liveAssistant = liveAssistant;
+        _recordingEgress = recordingEgress;
         _logger = logger;
     }
 
@@ -41,6 +44,11 @@ public sealed class InternalStreamsController : ControllerBase
             ParticipationMode = request.ParticipationMode,
             StreamKey = Guid.NewGuid().ToString("N")
         };
+
+        // Start recording the room before the first save so the egress id is persisted in one
+        // write. Best-effort — recording is an enhancement, so a failure must NOT fail stream
+        // creation. Room name matches LiveKitMediaProvider's convention: room == sessionId.
+        await TryStartRecordingAsync(stream, ct);
 
         await _streamRepository.AddAsync(stream, ct);
         await _streamRepository.SaveChangesAsync(ct);
@@ -68,10 +76,53 @@ public sealed class InternalStreamsController : ControllerBase
             await _streamRepository.SaveChangesAsync(ct);
         }
 
+        // Stop the recording so LiveKit finalizes and uploads the MP4. Best-effort — see above.
+        // Readiness of the uploaded file is reported later via the egress webhook (R-1).
+        await TryStopRecordingAsync(stream, ct);
+
         // Tell the assistant to tear down. Best-effort — see above.
         await NotifyAssistantEndedAsync(sessionId, ct);
 
         return NoContent();
+    }
+
+    private async Task TryStartRecordingAsync(LiveStream stream, CancellationToken ct)
+    {
+        try
+        {
+            var egressId = await _recordingEgress.StartRoomRecordingAsync(stream.SessionId.ToString(), ct);
+            if (!string.IsNullOrWhiteSpace(egressId))
+            {
+                stream.EgressId = egressId;
+                _logger.LogInformation(
+                    "Recording egress {EgressId} started for session {SessionId}.",
+                    egressId, stream.SessionId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not start recording egress for session {SessionId}; continuing without recording.",
+                stream.SessionId);
+        }
+    }
+
+    private async Task TryStopRecordingAsync(LiveStream stream, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(stream.EgressId)) return;
+
+        try
+        {
+            await _recordingEgress.StopRecordingAsync(stream.EgressId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not stop recording egress {EgressId} for session {SessionId}; continuing.",
+                stream.EgressId, stream.SessionId);
+        }
     }
 
     private async Task NotifyAssistantStartedAsync(LiveStream stream, CancellationToken ct)

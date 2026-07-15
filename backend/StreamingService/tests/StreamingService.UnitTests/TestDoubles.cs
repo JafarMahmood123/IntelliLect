@@ -1,5 +1,7 @@
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Infrastructure.Services;
+using Livekit.Server.Sdk.Dotnet;
 using Microsoft.Extensions.Logging;
 
 namespace StreamingService.UnitTests;
@@ -80,6 +82,68 @@ public sealed class RecordingLiveAssistantClient : ILiveAssistantInternalClient
         LastSessionId = sessionId;
         if (_throwOnCall) throw new HttpRequestException("LiveAssistant is unreachable");
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records recording start/stop calls; optionally throws to simulate egress being
+/// down. Returns a caller-supplied egress id (null models recording disabled).</summary>
+public sealed class FakeRecordingEgressService : IRecordingEgressService
+{
+    private readonly bool _throwOnCall;
+    private readonly string? _egressId;
+    public int StartCalls { get; private set; }
+    public int StopCalls { get; private set; }
+    public string? LastRoomName { get; private set; }
+    public string? LastStoppedEgressId { get; private set; }
+
+    public FakeRecordingEgressService(string? egressId = "EG_test123", bool throwOnCall = false)
+    {
+        _egressId = egressId;
+        _throwOnCall = throwOnCall;
+    }
+
+    public Task<string?> StartRoomRecordingAsync(string roomName, CancellationToken ct = default)
+    {
+        StartCalls++;
+        LastRoomName = roomName;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(_egressId);
+    }
+
+    public Task StopRecordingAsync(string egressId, CancellationToken ct = default)
+    {
+        StopCalls++;
+        LastStoppedEgressId = egressId;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Captures the requests handed to the LiveKit egress client and returns a canned
+/// <see cref="EgressInfo"/>, so the recording service can be tested with no live server.</summary>
+public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient
+{
+    private readonly bool _throwOnCall;
+    public string EgressIdToReturn { get; init; } = "EG_generated";
+    public int StartCalls { get; private set; }
+    public RoomCompositeEgressRequest? LastStartRequest { get; private set; }
+    public StopEgressRequest? LastStopRequest { get; private set; }
+
+    public FakeLiveKitEgressClient(bool throwOnCall = false) => _throwOnCall = throwOnCall;
+
+    public Task<EgressInfo> StartRoomCompositeEgressAsync(RoomCompositeEgressRequest request)
+    {
+        StartCalls++;
+        LastStartRequest = request;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(new EgressInfo { EgressId = EgressIdToReturn, RoomName = request.RoomName });
+    }
+
+    public Task<EgressInfo> StopEgressAsync(StopEgressRequest request)
+    {
+        LastStopRequest = request;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(new EgressInfo { EgressId = request.EgressId });
     }
 }
 

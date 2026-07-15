@@ -63,6 +63,15 @@ services:
       # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
       - LiveAssistant__InternalApiSecret=dev-live-assistant-secret
+      # Session recording via LiveKit Room Composite Egress (R-0). LiveKit writes the MP4
+      # straight to the shared MinIO (intellilect-s3) — matches livekit.yaml's egress.s3.
+      - Egress__Enabled=true
+      - Egress__KeyTemplate=recordings/{room_name}/{time}.mp4
+      - Egress__S3__Bucket=intellilect-files
+      - Egress__S3__Region=us-east-1
+      - Egress__S3__AccessKey=testuser
+      - Egress__S3__Secret=testpassword123!
+      - Egress__S3__Endpoint=http://intellilect-s3:9000
     depends_on:
       streaming-db:
         condition: service_healthy
