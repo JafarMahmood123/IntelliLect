@@ -34,4 +34,16 @@ public interface IClassroomRecordingService
         Guid recordingId,
         Guid requestingUserId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Mints a short-lived, GET-only pre-signed download URL for an Available recording (R-3).
+    /// Same membership rule as listing. Throws ForbiddenAccessException for a non-member;
+    /// KeyNotFoundException if unknown or in a different classroom; ConflictException if the
+    /// recording is not Available (Processing/Failed). Never returns the raw s3_key.
+    /// </summary>
+    Task<DownloadUrlDto> GetDownloadUrlAsync(
+        Guid classroomId,
+        Guid recordingId,
+        Guid requestingUserId,
+        CancellationToken ct = default);
 }

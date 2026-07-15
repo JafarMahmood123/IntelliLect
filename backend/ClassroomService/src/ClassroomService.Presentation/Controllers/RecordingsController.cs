@@ -44,4 +44,15 @@ public sealed class RecordingsController : ApiBaseController
         var result = await _recordingService.GetRecordingAsync(classroomId, recordingId, UserId, ct);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Returns a short-lived, GET-only pre-signed URL to download the recording's MP4 directly
+    /// from S3 (R-3). 403 for non-members, 404 for unknown/cross-classroom, 409 if not Available.
+    /// </summary>
+    [HttpGet("{recordingId:guid}/download-url")]
+    public async Task<IActionResult> GetDownloadUrl(Guid classroomId, Guid recordingId, CancellationToken ct)
+    {
+        var result = await _recordingService.GetDownloadUrlAsync(classroomId, recordingId, UserId, ct);
+        return Ok(result);
+    }
 }

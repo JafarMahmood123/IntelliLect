@@ -16,6 +16,9 @@ public sealed class ClassroomRecordingServiceTests
     private readonly FakeRecordingRepository _recordings = new();
     private readonly FakeClassroomRepository _classrooms = new();
     private readonly FakeMembershipRepository _memberships = new();
+    private readonly FakeRecordingUrlSigner _signer = new();
+    private readonly FakeRecordingDownloadSettings _settings = new() { DownloadUrlTtlSeconds = 600 };
+    private readonly RecordingLogger<ClassroomRecordingService> _logger = new();
 
     public ClassroomRecordingServiceTests()
     {
@@ -23,7 +26,8 @@ public sealed class ClassroomRecordingServiceTests
         _memberships.Enroll(_classroomId, _studentId);
     }
 
-    private ClassroomRecordingService Service() => new(_recordings, _classrooms, _memberships);
+    private ClassroomRecordingService Service()
+        => new(_recordings, _classrooms, _memberships, _signer, _settings, _logger);
 
     private SessionRecording Seed(
         RecordingStatus status = RecordingStatus.Available,
@@ -196,5 +200,101 @@ public sealed class ClassroomRecordingServiceTests
     {
         await Assert.ThrowsAsync<KeyNotFoundException>(
             () => Service().GetRecordingAsync(_classroomId, Guid.NewGuid(), _teacherId));
+    }
+
+    // --- Download URL (R-3) --------------------------------------------------------------
+
+    [Fact]
+    public async Task Teacher_gets_download_url_for_available_recording()
+    {
+        var rec = Seed(RecordingStatus.Available);
+
+        var dto = await Service().GetDownloadUrlAsync(_classroomId, rec.Id, _teacherId);
+
+        Assert.Equal(_signer.ReturnUrl, dto.Url); // passed through unchanged
+        Assert.Equal(FakeRecordingUrlSigner.Base + TimeSpan.FromSeconds(600), dto.ExpiresAt);
+    }
+
+    [Fact]
+    public async Task Enrolled_student_gets_download_url()
+    {
+        var rec = Seed(RecordingStatus.Available);
+
+        var dto = await Service().GetDownloadUrlAsync(_classroomId, rec.Id, _studentId);
+
+        Assert.Equal(_signer.ReturnUrl, dto.Url);
+    }
+
+    [Fact]
+    public async Task Non_member_download_is_forbidden()
+    {
+        var rec = Seed(RecordingStatus.Available);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => Service().GetDownloadUrlAsync(_classroomId, rec.Id, _outsiderId));
+        Assert.Equal(0, _signer.Calls); // never mint for a non-member
+    }
+
+    [Theory]
+    [InlineData(RecordingStatus.Processing)]
+    [InlineData(RecordingStatus.Failed)]
+    public async Task Non_available_recording_download_is_conflict(RecordingStatus status)
+    {
+        var rec = Seed(status);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => Service().GetDownloadUrlAsync(_classroomId, rec.Id, _teacherId));
+        Assert.Equal(0, _signer.Calls);
+    }
+
+    [Fact]
+    public async Task Unknown_recording_download_returns_404()
+    {
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => Service().GetDownloadUrlAsync(_classroomId, Guid.NewGuid(), _teacherId));
+    }
+
+    [Fact]
+    public async Task Download_of_recording_in_another_classroom_returns_404()
+    {
+        var rec = Seed(RecordingStatus.Available, classroomId: Guid.NewGuid());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => Service().GetDownloadUrlAsync(_classroomId, rec.Id, _teacherId));
+    }
+
+    [Fact]
+    public async Task Signer_is_called_with_exact_key_ttl_and_attachment_disposition()
+    {
+        var rec = Seed(RecordingStatus.Available);
+
+        await Service().GetDownloadUrlAsync(_classroomId, rec.Id, _teacherId);
+
+        Assert.Equal(1, _signer.Calls);
+        Assert.Equal(rec.S3Key, _signer.LastKey);                 // exact object key
+        Assert.Equal(TimeSpan.FromSeconds(600), _signer.LastTtl); // TTL == DownloadUrlTtlSeconds
+        Assert.StartsWith("attachment;", _signer.LastContentDisposition);
+        Assert.Contains(".mp4", _signer.LastContentDisposition);
+        Assert.Equal("video/mp4", _signer.LastContentType);       // content-type from the recording
+    }
+
+    [Fact]
+    public async Task Url_is_never_written_to_logs()
+    {
+        var rec = Seed(RecordingStatus.Available);
+
+        var dto = await Service().GetDownloadUrlAsync(_classroomId, rec.Id, _teacherId);
+
+        // An audit line is expected, but it must NOT contain the bearer URL.
+        Assert.NotEmpty(_logger.Entries);
+        Assert.All(_logger.Entries, e => Assert.DoesNotContain(dto.Url, e.Message));
+    }
+
+    [Fact]
+    public void DownloadUrlDto_exposes_only_url_and_expiry_never_the_key()
+    {
+        var propertyNames = typeof(DownloadUrlDto).GetProperties().Select(p => p.Name.ToLowerInvariant()).ToList();
+        Assert.DoesNotContain(propertyNames, n => n.Contains("s3") || n.Contains("key"));
+        Assert.Equal(new[] { "url", "expiresat" }, propertyNames);
     }
 }

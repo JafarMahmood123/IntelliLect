@@ -233,6 +233,38 @@ public sealed class FakeUnitOfWork : IUnitOfWork
     }
 }
 
+/// <summary>Mock pre-signed URL signer: captures the presign arguments and returns a fixed URL,
+/// with expiry derived from the requested TTL so tests can assert TTL reflection. No S3, no network.</summary>
+public sealed class FakeRecordingUrlSigner : IRecordingUrlSigner
+{
+    /// <summary>Deterministic base instant; returned expiry is Base + ttl.</summary>
+    public static readonly DateTime Base = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    public string ReturnUrl { get; set; } = "https://s3.example.test/intellilect-files/obj?X-Amz-Signature=abc123";
+    public int Calls { get; private set; }
+    public string? LastKey { get; private set; }
+    public TimeSpan LastTtl { get; private set; }
+    public string? LastContentDisposition { get; private set; }
+    public string? LastContentType { get; private set; }
+
+    public Task<PresignedUrl> GeneratePresignedGetUrlAsync(
+        string objectKey, TimeSpan ttl, string contentDisposition, string? contentType, CancellationToken ct = default)
+    {
+        Calls++;
+        LastKey = objectKey;
+        LastTtl = ttl;
+        LastContentDisposition = contentDisposition;
+        LastContentType = contentType;
+        return Task.FromResult(new PresignedUrl(ReturnUrl, Base + ttl));
+    }
+}
+
+/// <summary>Fixed download settings for tests.</summary>
+public sealed class FakeRecordingDownloadSettings : IRecordingDownloadSettings
+{
+    public int DownloadUrlTtlSeconds { get; init; } = 600;
+}
+
 public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>

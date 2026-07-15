@@ -73,6 +73,12 @@ public static class DependencyInjection
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();
 
+        // Recording downloads (R-3): reuse the S3 client/bucket above; only the URL TTL is new.
+        services.Configure<RecordingsOptions>(configuration.GetSection(RecordingsOptions.SectionName));
+        services.AddSingleton<IRecordingDownloadSettings>(sp =>
+            sp.GetRequiredService<IOptions<RecordingsOptions>>().Value);
+        services.AddScoped<IRecordingUrlSigner, S3RecordingUrlSigner>();
+
         // 1. Database Configuration
         var connectionString = configuration.GetConnectionString("Database");
         services.AddDbContext<ApplicationDbContext>(options =>
