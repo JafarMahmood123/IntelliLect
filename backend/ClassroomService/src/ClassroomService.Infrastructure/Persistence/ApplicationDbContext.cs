@@ -13,6 +13,7 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<ClassroomMembership> ClassroomMemberships => Set<ClassroomMembership>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
+    public DbSet<SessionSummary> SessionSummaries => Set<SessionSummary>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,6 +34,20 @@ public sealed class ApplicationDbContext : DbContext
             recording.HasOne(r => r.Session)
                 .WithMany()
                 .HasForeignKey(r => r.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Session summaries (S-4). Looked up by session on the summary-ready path and listed by
+        // classroom, so both are indexed. Mirrors the SessionRecording configuration.
+        modelBuilder.Entity<SessionSummary>(summary =>
+        {
+            summary.HasKey(s => s.Id);
+            // One summary per session: unique so a racing insert can't create a duplicate row.
+            summary.HasIndex(s => s.SessionId).IsUnique();
+            summary.HasIndex(s => s.ClassroomId);
+            summary.HasOne(s => s.Session)
+                .WithMany()
+                .HasForeignKey(s => s.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
