@@ -107,8 +107,9 @@ class Settings(BaseSettings):
     feedback_dedup_similarity: float = 0.85  # token-similarity threshold for a duplicate
     feedback_max_per_session: int = 0  # hard cap on delivered suggestions (0 = no cap)
 
-    # --- Observability ---
+    # --- Observability (LA-8) ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
+    metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics
 
     @property
     def livekit_configured(self) -> bool:

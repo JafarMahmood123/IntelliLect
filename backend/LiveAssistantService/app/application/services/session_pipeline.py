@@ -2,16 +2,19 @@
 
 Chains, for a given ``SessionContext``:
     AudioSource (LA-1) -> SpeechToText (LA-2) -> BoundaryDetector (LA-3)
-    -> IdeaEvaluator (LA-4) -> (has_feedback) -> FeedbackSink (LA-5, via FeedbackDispatcher)
+    -> IdeaEvaluator (LA-4) -> pacing (LA-7) -> FeedbackSink (LA-5, via FeedbackDispatcher)
 
 Runs as one async task that consumes the audio stream to completion. Per-idea errors
 are caught and logged so one bad idea never stops the session; the trailing idea is
 flushed by the boundary detector on stream end. Stopping cancels the task and
 disconnects the ``AudioSource`` cleanly.
 
-Pure application logic: depends only on ports/services + domain — no infrastructure,
-no framework. LA-7 (pacing/rate-limiting/dedup) will slot between the evaluator and
-the dispatcher without changing this shape.
+LA-8 instrumentation is ADDITIVE and does not change behavior: a ``session_scope``
+binds session_id/run_id to every log line, lifecycle events log at INFO with
+structured extras (counts/ids/types/durations only — NEVER transcript/idea/suggestion
+text), and stage/latency metrics wrap the existing calls.
+
+Pure application logic: depends only on ports/services + domain + observability.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 
 from app.application.ports.audio_source import AudioSource
 from app.application.ports.speech_to_text import SpeechToText
@@ -26,7 +30,11 @@ from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
+from app.application.services.token_estimate import estimate_tokens
 from app.domain.entities.session_context import SessionContext
+from app.domain.idea.completed_idea import CompletedIdea
+from app.observability import metrics
+from app.observability.correlation import session_scope
 
 logger = logging.getLogger("liveassistant.pipeline")
 
@@ -75,46 +83,82 @@ class SessionPipeline:
 
     async def _run(self) -> None:
         session_id = self._session.session_id
-        logger.info("Session pipeline starting for %s", session_id)
-        try:
-            await self._audio_source.connect(self._session)
-            # frames -> transcript segments -> completed ideas (each stage is lazy).
-            segments = self._stt.transcribe(self._audio_source.frames())
-            async for idea in self._boundary.process(segments):
-                await self._handle_idea(idea)
-        except asyncio.CancelledError:
-            logger.info("Session pipeline cancelled for %s", session_id)
-            raise
-        except Exception:  # noqa: BLE001 — the loop must not propagate arbitrary faults
-            logger.exception("Session pipeline crashed for %s", session_id)
-        finally:
-            with contextlib.suppress(Exception):
-                await self._audio_source.disconnect()
-            # Release this session's pacing state (LA-7) on any end: stop, crash, or
-            # natural stream end all run this finally.
-            self._pacer.reset(session_id)
-            logger.info("Session pipeline stopped for %s", session_id)
+        with session_scope(session_id):
+            metrics.record_session_started()
+            metrics.active_sessions_inc()
+            logger.info("session_started")
+            try:
+                await self._audio_source.connect(self._session)
+                logger.info("agent_joined")
+                # frames -> transcript segments -> completed ideas (each stage is lazy).
+                segments = self._stt.transcribe(self._audio_source.frames())
+                last = time.perf_counter()
+                async for idea in self._boundary.process(segments):
+                    # Time to detect/emit this idea (audio pull + STT + boundary).
+                    metrics.observe_stage("boundary", time.perf_counter() - last)
+                    await self._handle_idea(idea)
+                    last = time.perf_counter()
+            except asyncio.CancelledError:
+                logger.info("session_cancelled")
+                raise
+            except Exception as exc:  # noqa: BLE001 — the loop must not propagate faults
+                # Log the error TYPE only — never a raw message/traceback that could
+                # carry course content.
+                logger.error("session_crashed", extra={"error_type": type(exc).__name__})
+            finally:
+                with contextlib.suppress(Exception):
+                    await self._audio_source.disconnect()
+                logger.info("agent_left")
+                # Release this session's pacing state (LA-7) on any end.
+                self._pacer.reset(session_id)
+                metrics.active_sessions_dec()
+                logger.info("session_ended")
 
-    async def _handle_idea(self, idea) -> None:
+    async def _handle_idea(self, idea: CompletedIdea) -> None:
         """Evaluate one idea, PACE it (LA-7), then deliver; never let one idea stop the run."""
         try:
+            received_at = time.perf_counter()
+            metrics.record_idea(idea.trigger.value)
+            logger.info(
+                "idea_completed",
+                extra={
+                    "trigger": idea.trigger.value,
+                    "tokens": estimate_tokens(idea.text),
+                    "segments": idea.segment_count,
+                    "duration_ms": idea.duration_ms,
+                },
+            )
+
             outcome = await self._evaluator.evaluate(idea, self._session)
+            metrics.record_evaluation(outcome.has_feedback)
+            feedback_type = outcome.suggestion.type.value if outcome.suggestion else None
+            logger.info(
+                "evaluation", extra={"has_feedback": outcome.has_feedback, "type": feedback_type}
+            )
             if not outcome.has_feedback or outcome.suggestion is None:
                 return  # nothing to deliver
+
             # Gate through the pacer BEFORE delivery: rate-limit / low-confidence / dedup.
             decision = self._pacer.decide(self._session.session_id, outcome.suggestion)
-            if decision.deliver:
+            logger.info(
+                "pacing_decision",
+                extra={
+                    "delivered": decision.deliver,
+                    "reason": decision.reason.value,
+                    "type": outcome.suggestion.type.value,
+                    "confidence": round(outcome.suggestion.confidence, 2),
+                },
+            )
+            if not decision.deliver:
+                metrics.record_suppressed(decision.reason.value)
+                return
+
+            with metrics.stage_timer("delivery"):
                 await self._dispatcher.dispatch(outcome, self._session)
-            else:
-                # Metrics-friendly: never log suggestion text — type/reason/confidence only.
-                logger.info(
-                    "Suppressed feedback in session %s: reason=%s type=%s confidence=%.2f",
-                    self._session.session_id,
-                    decision.reason.value,
-                    outcome.suggestion.type.value,
-                    outcome.suggestion.confidence,
-                )
+            metrics.record_delivered(outcome.suggestion.type.value)
+            metrics.observe_idea_to_feedback(time.perf_counter() - received_at)
+            logger.info("feedback_delivered", extra={"type": outcome.suggestion.type.value})
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 — one bad idea must not end the session
-            logger.exception("Failed to process an idea in session %s", self._session.session_id)
+        except Exception as exc:  # noqa: BLE001 — one bad idea must not end the session
+            logger.error("idea_failed", extra={"error_type": type(exc).__name__})

@@ -22,6 +22,7 @@ from app.application.ports.retrieval_client import RetrievalClient
 from app.domain.entities.session_context import SessionContext
 from app.domain.evaluation.evaluation_outcome import EvaluationOutcome
 from app.domain.idea.completed_idea import CompletedIdea
+from app.observability import metrics
 
 logger = logging.getLogger("liveassistant.evaluator")
 
@@ -46,9 +47,10 @@ class IdeaEvaluator:
         self, idea: CompletedIdea, session: SessionContext
     ) -> EvaluationOutcome:
         try:
-            chunks = await self._retrieval.retrieve(
-                session.classroom_id, idea.text, self._top_k
-            )
+            with metrics.stage_timer("retrieval"):
+                chunks = await self._retrieval.retrieve(
+                    session.classroom_id, idea.text, self._top_k
+                )
             relevant = [c for c in chunks if c.score >= self._min_score]
 
             # No-results short-circuit: nothing relevant -> no feedback, brain NOT called.
@@ -56,9 +58,11 @@ class IdeaEvaluator:
                 logger.debug("No relevant material for idea; skipping brain.")
                 return EvaluationOutcome.none()
 
-            return await self._brain.evaluate(idea, relevant)
-        except Exception:  # noqa: BLE001 — a failed evaluation must not break the loop
-            logger.exception("Idea evaluation failed; degrading to no feedback.")
+            with metrics.stage_timer("evaluation"):
+                return await self._brain.evaluate(idea, relevant)
+        except Exception as exc:  # noqa: BLE001 — a failed evaluation must not break the loop
+            # Log the error TYPE only (privacy): degrade to no feedback.
+            logger.warning("evaluation_failed", extra={"error_type": type(exc).__name__})
             return EvaluationOutcome.none()
 
 

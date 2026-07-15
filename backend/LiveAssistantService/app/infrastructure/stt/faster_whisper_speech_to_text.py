@@ -33,6 +33,7 @@ from app.infrastructure.stt.audio_analysis import (
     is_silent,
     pcm16_to_float32,
 )
+from app.observability import metrics
 
 logger = logging.getLogger("liveassistant.stt")
 
@@ -162,7 +163,9 @@ class FasterWhisperSpeechToText(SpeechToText):
         Overridden by the offline tests to drive the streaming state machine without
         loading a model.
         """
-        text = await asyncio.to_thread(self._run_model, samples)
+        # LA-8: time each STT window (stt_segment_latency + stage=stt). Additive.
+        with metrics.stt_segment_timer():
+            text = await asyncio.to_thread(self._run_model, samples)
         return text.strip()
 
     def _run_model(self, samples: np.ndarray) -> str:

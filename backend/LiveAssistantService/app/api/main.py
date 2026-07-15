@@ -7,16 +7,12 @@ from fastapi import FastAPI
 
 from app.api.dependencies import build_session_manager
 from app.api.routers import health, internal_sessions
+from app.api.routers import metrics as metrics_router
 from app.infrastructure.config.settings import get_settings
+from app.observability import metrics
+from app.observability.logging_config import configure_logging
 
 logger = logging.getLogger("liveassistant.api")
-
-
-def _configure_logging(level: str) -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
 
 
 @asynccontextmanager
@@ -36,7 +32,8 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """FastAPI application factory."""
     settings = get_settings()
-    _configure_logging(settings.log_level)
+    configure_logging(settings.log_level)  # structured JSON logs + correlation ids
+    metrics.set_enabled(settings.metrics_enabled)
 
     app = FastAPI(
         title="IntelliLect LiveAssistantService",
@@ -53,6 +50,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(internal_sessions.router)
+    if settings.metrics_enabled:
+        app.include_router(metrics_router.router)
     return app
 
 

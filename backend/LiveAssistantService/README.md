@@ -6,7 +6,7 @@ detect when the teacher finishes an "idea", check that idea against the classroo
 uploaded material via the existing **KnowledgeService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
-**This build covers phases LA-0 → LA-7.** It contains the clean-architecture
+**This build covers phases LA-0 → LA-8.** It contains the clean-architecture
 skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
@@ -14,9 +14,11 @@ port, **idea boundary detection** that segments the transcript into completed
 from KnowledgeService and asking the brain whether the explanation has a real problem
 — **private, teacher-only feedback delivery** of the resulting suggestion, the
 **full per-session loop assembled and started/stopped in sync with real sessions**
-(triggered by the streaming service), and a **pacing/safety/suppression gate** that
+(triggered by the streaming service), a **pacing/safety/suppression gate** that
 rate-limits, drops low-confidence, and de-duplicates suggestions so the assistant
-never floods the teacher. This is the full assistant pipeline.
+never floods the teacher, and **observability & hardening** — structured
+per-session logging, Prometheus metrics (including the idea→feedback latency NFR
+signal), and a component-aware `/health`. This is the full assistant pipeline.
 
 > **No torch/transformers in this service.** STT runs on **faster-whisper
 > (CTranslate2)** — a self-contained inference engine that uses its **own** English
@@ -178,13 +180,14 @@ app/
     retrieval/       # KnowledgeRetrievalClient (POST /api/search)
     brain/           # OllamaBrainClient, evaluation_prompt
     feedback/        # LiveKitFeedbackSink, feedback_payload (versioned wire contract)
+  observability/     # logging_config (JSON), correlation (session_id/run_id), metrics
   api/
     main.py          # FastAPI app factory + lifespan (SessionManager start/stop)
     dependencies.py  # composition root (names concrete classes)
-    routers/         # health, internal_sessions
-scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py, feedback_check.py
-tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider,
-                     #   RetrievalClient,BrainClient,FeedbackSink,AgentDataChannel,Pipeline}
+    routers/         # health, internal_sessions, metrics
+scripts/capture_check.py, stt_check.py, boundary_check.py, evaluate_check.py, feedback_check.py, pacing_check.py
+tests/                # offline; tests/support/Fake{SpeechToText,EmbeddingProvider,RetrievalClient,
+                     #   BrainClient,FeedbackSink,AgentDataChannel,Pipeline}, pipeline_harness
 ```
 
 ### Why raw `livekit` (rtc) rather than `livekit-agents`
@@ -241,7 +244,8 @@ See `.env.example`.
 | `FEEDBACK_DEDUP_WINDOW_SEC` | `300` | Look-back window for duplicate suppression. |
 | `FEEDBACK_DEDUP_SIMILARITY` | `0.85` | Token-similarity threshold to treat as a duplicate. |
 | `FEEDBACK_MAX_PER_SESSION` | `0` | Hard cap on delivered suggestions per session (0 = no cap). |
-| `LOG_LEVEL` | `INFO` | Root log level. |
+| `LOG_LEVEL` | `INFO` | Root log level (structured JSON). |
+| `METRICS_ENABLED` | `true` | Expose `GET /metrics` and record Prometheus metrics. |
 
 `/health` reports `livekit: configured` only when `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
 and `LIVEKIT_API_SECRET` are all set.
@@ -423,6 +427,79 @@ curl -X POST localhost:8084/api/internal/sessions/$SID/stop -H "X-Internal-Secre
 (A real pipeline needs LiveKit + models to do useful work; the endpoints, registry,
 idempotency, and cap are exercised offline by the test suite.)
 
+## Observability (LA-8)
+
+Instrumentation is **additive** — it never changes pipeline results.
+
+### Structured logs
+
+Logs are **JSON lines** (`configure_logging`, root logger) at `LOG_LEVEL`. Every line
+emitted while a session runs carries a **`session_id`** and a generated **`run_id`**
+(bound via `session_scope`/contextvars), so you can follow one session end to end:
+
+```bash
+docker compose logs -f live-assistant-service | jq 'select(.session_id=="<uuid>")'
+```
+
+Lifecycle events at INFO: `session_started`, `agent_joined`, `idea_completed`
+(`trigger`, `tokens`, `segments`, `duration_ms`), `evaluation` (`has_feedback`,
+`type`), `pacing_decision` (`delivered`, `reason`, `type`, `confidence`),
+`feedback_delivered`, `agent_left`, `session_ended`. **Privacy (hard rule):** logs
+carry only counts / ids / durations / types / reasons — **never** transcript, idea,
+suggestion, or chunk text, secrets, or audio. Errors log the exception **type** only.
+
+### Metrics
+
+Prometheus metrics at **`GET /metrics`** (when `METRICS_ENABLED`):
+
+| Metric | Meaning |
+| --- | --- |
+| `sessions_started_total` | Session pipelines started. |
+| `active_sessions` (gauge) | Pipelines currently running. |
+| `ideas_detected_total{trigger}` | Ideas emitted, by boundary trigger. |
+| `evaluations_total{has_feedback}` | Ideas evaluated, by whether feedback resulted. |
+| `suggestions_delivered_total{type}` | Suggestions delivered, by feedback type. |
+| `suggestions_suppressed_total{reason}` | Suggestions suppressed by pacing, by reason. |
+| `stt_segment_latency_seconds` | Time to transcribe one audio window. |
+| `stage_latency_seconds{stage}` | Per-stage latency (`stt`/`boundary`/`retrieval`/`evaluation`/`delivery`). |
+| `idea_to_feedback_latency_seconds` | **Key NFR:** idea completion → feedback delivered (target 3–5s). |
+
+```bash
+curl localhost:8084/metrics
+```
+
+### Health
+
+`GET /health` is component-aware and non-fatal (always 200; `status` is `ok` or
+`degraded`): `livekit` (configured?), `knowledgeService` / `ollama` (reachable via a
+cheap ping, or `not-configured`), `stt` (model + status), `activeSessions`, and
+`metrics`. It is `degraded` only when a **configured** external component is
+unreachable.
+
+```bash
+curl localhost:8084/health | jq
+```
+
+### DEFERRED — live latency / RAM soak runbook (manual)
+
+Run this once the full stack is live (real LiveKit room + host Ollama + STT model).
+It is **manual and deferred** — the offline suite cannot exercise real latency/RAM.
+
+1. Start a real session and speak continuous English for several minutes.
+2. Watch `idea_to_feedback_latency_seconds` on `/metrics` — the p95 must land within
+   the **3–5s NFR**. If high, reduce `STT_MODEL` size, or widen `BOUNDARY_MAX_SECONDS`
+   / lower `BOUNDARY_MAX_TOKENS` so ideas close sooner, or profile the `stage_latency`
+   breakdown to find the slow stage (retrieval vs evaluation are the usual suspects).
+3. Watch container/host memory with **STT + embedder + 7B brain all active at once**
+   (`docker stats live-assistant-service`); confirm it stays within budget. If not,
+   drop to a smaller `STT_MODEL` (`tiny.en`/`base.en`) and `STT_COMPUTE_TYPE=int8`.
+4. Tune `FEEDBACK_MIN_INTERVAL_SEC` so delivered suggestions feel helpful, not
+   spammy, using `suggestions_delivered_total` vs `suggestions_suppressed_total`.
+5. **False-positive drill:** speak content that IS consistent with the uploaded
+   material and confirm the assistant stays mostly silent (low
+   `suggestions_delivered_total`, high `evaluations_total{has_feedback="false"}`). If
+   it over-speaks, raise `FEEDBACK_CONFIDENCE_MIN`.
+
 ## STT model & resources
 
 STT uses **faster-whisper (CTranslate2)** with its **own** English model — no Ollama,
@@ -537,6 +614,22 @@ Covers:
   similarity; the brain parsing `confidence` (present / absent→default / clamped /
   invalid); and `SessionPipeline` routing feedback **through** the pacer so a
   suppressed suggestion never reaches the sink.
+- **End-to-end (LA-8)** — the REAL `SessionManager` + `SessionPipeline` over a scripted
+  4-idea stream wired to every fake: ideas segmented (drift + flush), flagged ideas
+  produce suggestions and consistent ones don't, pacing gates as configured, only
+  approved suggestions reach the sink (teacher-only), a per-idea brain error doesn't
+  stop the session, the trailing idea is flushed, and start/stop launches + tears down
+  exactly one pipeline.
+- **Logging (LA-8)** — lifecycle events emit at INFO with the `session_id`
+  correlation id and structured counts, and a rendered-log scan asserts transcript /
+  idea / suggestion / chunk text is **never** logged.
+- **Metrics (LA-8)** — a fake-driven run moves the counters/histograms/gauge by exact,
+  deterministic deltas (ideas by trigger, evaluations, delivered/suppressed,
+  idea→feedback count, per-stage counts, active-sessions returns to baseline), and
+  recording is a no-op when disabled; `GET /metrics` exposes Prometheus text (and is
+  absent when `METRICS_ENABLED=false`).
+- **Coverage** — run `pytest --cov=app --cov-report=term-missing` (configured but not
+  gated on a threshold).
 
 Paths **not** unit-tested against real infrastructure (isolated behind lazy imports /
 injectable transports/channels):
