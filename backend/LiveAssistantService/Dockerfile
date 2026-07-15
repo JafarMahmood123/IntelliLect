@@ -20,7 +20,9 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 RUN pip install --upgrade pip && pip install .
 
-# Helper scripts + launcher.
+# Migration assets (S-0 transcript store) + helper scripts + launcher.
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 COPY scripts ./scripts
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

@@ -24,6 +24,8 @@ import contextlib
 import logging
 import time
 
+from collections.abc import AsyncIterator
+
 from app.application.ports.audio_source import AudioSource
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
@@ -31,8 +33,10 @@ from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
 from app.application.services.token_estimate import estimate_tokens
+from app.application.services.transcript_recorder import TranscriptRecorder
 from app.domain.entities.session_context import SessionContext
 from app.domain.idea.completed_idea import CompletedIdea
+from app.domain.transcript.transcript_segment import TranscriptSegment
 from app.observability import metrics
 from app.observability.correlation import session_scope
 
@@ -51,6 +55,7 @@ class SessionPipeline:
         idea_evaluator: IdeaEvaluator,
         feedback_pacer: FeedbackPacer,
         feedback_dispatcher: FeedbackDispatcher,
+        transcript_recorder: TranscriptRecorder | None = None,
     ) -> None:
         self._session = session
         self._audio_source = audio_source
@@ -59,6 +64,9 @@ class SessionPipeline:
         self._evaluator = idea_evaluator
         self._pacer = feedback_pacer
         self._dispatcher = feedback_dispatcher
+        # Optional (S-0): when present, FINAL segments are persisted incrementally,
+        # off the feedback hot path. Absent -> no persistence (unchanged LA-6 behavior).
+        self._recorder = transcript_recorder
         self._task: asyncio.Task | None = None
 
     def start(self) -> asyncio.Task:
@@ -88,10 +96,15 @@ class SessionPipeline:
             metrics.active_sessions_inc()
             logger.info("session_started")
             try:
+                # Make the transcript durable from the very start of the session (S-0).
+                if self._recorder is not None:
+                    await self._recorder.start()
                 await self._audio_source.connect(self._session)
                 logger.info("agent_joined")
                 # frames -> transcript segments -> completed ideas (each stage is lazy).
-                segments = self._stt.transcribe(self._audio_source.frames())
+                # The persist tee is a pass-through: it never changes the segment stream
+                # the boundary detector sees, it only records FINAL segments alongside.
+                segments = self._persist_final(self._stt.transcribe(self._audio_source.frames()))
                 last = time.perf_counter()
                 async for idea in self._boundary.process(segments):
                     # Time to detect/emit this idea (audio pull + STT + boundary).
@@ -109,10 +122,29 @@ class SessionPipeline:
                 with contextlib.suppress(Exception):
                     await self._audio_source.disconnect()
                 logger.info("agent_left")
+                # Drain + mark the transcript Finalized on any end (S-0). Non-fatal:
+                # finalize swallows its own store errors; suppress guards teardown too.
+                if self._recorder is not None:
+                    with contextlib.suppress(Exception):
+                        await self._recorder.finalize()
                 # Release this session's pacing state (LA-7) on any end.
                 self._pacer.reset(session_id)
                 metrics.active_sessions_dec()
                 logger.info("session_ended")
+
+    async def _persist_final(
+        self, segments: AsyncIterator[TranscriptSegment]
+    ) -> AsyncIterator[TranscriptSegment]:
+        """Pass segments through unchanged, recording FINAL ones off the hot path (S-0).
+
+        ``record`` only enqueues (never awaits the store, never raises), so the boundary
+        detector — and thus the feedback loop — is never slowed or broken by persistence.
+        Interim segments are yielded onward untouched but never recorded.
+        """
+        async for segment in segments:
+            if self._recorder is not None and segment.is_final:
+                self._recorder.record(segment)
+            yield segment
 
     async def _handle_idea(self, idea: CompletedIdea) -> None:
         """Evaluate one idea, PACE it (LA-7), then deliver; never let one idea stop the run."""

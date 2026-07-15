@@ -1,3 +1,7 @@
+# Local virtualenvs
+.venv/
+venv/
+
 # Test/coverage artifacts
 .coverage
 .coverage.*

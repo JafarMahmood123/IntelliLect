@@ -98,6 +98,19 @@ class Settings(BaseSettings):
     # One agent pipeline per active session; start beyond this cap is rejected (503).
     max_concurrent_sessions: int = 20
 
+    # --- Transcript persistence (S-0): durable teacher transcript per session ---
+    # FINAL transcript segments are persisted incrementally so a mid-session crash
+    # doesn't lose the transcript, and the ordered transcript can be assembled for the
+    # (later) session-summary feature. When TRANSCRIPT_DB_URL is empty the service runs
+    # fully offline against an in-memory store (non-durable) — mirroring how LiveKit /
+    # Ollama / KnowledgeService are optional here. Set it (Postgres, asyncpg driver) to
+    # persist for real; the Alembic migration provisions the schema.
+    transcript_db_url: str = ""  # e.g. postgresql+asyncpg://user:pass@host:5432/db
+    # Flush cadence for the background writer: persist after every N final segments.
+    # Default 1 = persist each final segment immediately (most crash-resilient); a
+    # larger value trades a little durability for fewer writes.
+    transcript_persist_batch: int = 1
+
     # --- Pacing, safety & suppression (LA-7) ---
     # Gates delivery so the assistant never floods the teacher. Pure decision logic.
     feedback_min_interval_sec: float = 45.0  # min seconds between delivered suggestions
