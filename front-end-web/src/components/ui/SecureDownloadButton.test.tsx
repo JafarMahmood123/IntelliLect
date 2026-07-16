@@ -52,7 +52,10 @@ describe('SecureDownloadButton', () => {
 
     await user.click(screen.getByRole('button', { name: 'Download' }));
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    // An error is surfaced (both an inline message and a toast use role=alert).
+    await waitFor(() =>
+      expect(screen.getAllByRole('alert').length).toBeGreaterThan(0),
+    );
     expect(window.open).not.toHaveBeenCalled();
   });
 });

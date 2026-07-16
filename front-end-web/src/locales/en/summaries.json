@@ -1,0 +1,32 @@
+{
+  "tab": "Summaries",
+  "title": "Summaries",
+  "description": "Download AI-generated summaries of this classroom's sessions.",
+  "summary": "Summary",
+  "downloadPdf": "Download PDF",
+  "downloadMd": "Download .md",
+  "downloadPdfAria": "Download PDF summary from {{date}}",
+  "downloadMdAria": "Download Markdown summary from {{date}}",
+  "preparing": "Preparing…",
+  "generating": "Preparing summary…",
+  "failedRow": "This summary failed to generate.",
+  "createdOn": "Summary — {{date}}",
+  "preview": {
+    "open": "Preview",
+    "openAria": "Preview summary from {{date}}",
+    "title": "Summary preview",
+    "close": "Close preview",
+    "loading": "Loading preview…",
+    "error": "Could not load the preview. Please try again."
+  },
+  "empty": {
+    "title": "No summaries yet",
+    "description": "Summaries will appear here once a session has been summarized."
+  },
+  "error": {
+    "title": "Could not load summaries",
+    "description": "Something went wrong while loading summaries. Please try again.",
+    "downloadFailedTitle": "Download failed",
+    "downloadFailed": "Could not prepare the download. Please try again."
+  }
+}

@@ -46,6 +46,12 @@
     "retry": "Retry",
     "refresh": "Refresh"
   },
+  "download": {
+    "label": "Download",
+    "preparing": "Preparing…",
+    "errorTitle": "Download failed",
+    "error": "Could not prepare the download. Please try again."
+  },
   "statuses": {
     "scheduled": "Scheduled",
     "live": "Live",

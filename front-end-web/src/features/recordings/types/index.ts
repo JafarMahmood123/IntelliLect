@@ -24,21 +24,10 @@ export interface DownloadUrlResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Stubs for later phases (summaries / documents). Types only — the summaries
-// phase fills in the implementation. Kept here so the shared components
-// (StatusBadge, SecureDownloadButton, ArtifactList) can be reused as-is.
+// Stub for a later phase (documents). Types only — kept here so the shared
+// components (StatusBadge, SecureDownloadButton, ArtifactList) can be reused
+// as-is. Summaries are implemented in the `summaries` feature.
 // ---------------------------------------------------------------------------
-
-export type SummaryStatus = 'Pending' | 'Generating' | 'Done' | 'Failed';
-
-export interface Summary {
-  summaryId: string;
-  sessionId: string;
-  classroomId: string;
-  status: SummaryStatus;
-  createdAt: string;
-  availableAt: string | null;
-}
 
 export type DocumentStatus = 'Pending' | 'Generating' | 'Done' | 'Failed';
 

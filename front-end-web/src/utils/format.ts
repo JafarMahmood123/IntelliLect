@@ -31,6 +31,8 @@ export const formatBytes = (bytes: number): string => {
   );
   const value = bytes / Math.pow(1024, exponent);
   const decimals = value >= 100 || exponent === 0 ? 0 : 1;
+  // Number() drops any trailing ".0" so whole values read as "2 KB", not "2.0 KB".
+  const rounded = Number(value.toFixed(decimals));
 
-  return `${value.toFixed(decimals)} ${units[exponent]}`;
+  return `${rounded} ${units[exponent]}`;
 };

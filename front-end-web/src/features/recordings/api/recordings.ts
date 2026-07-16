@@ -1,10 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type {
-  DownloadUrlResponse,
-  GeneratedDocument,
-  Recording,
-  Summary,
-} from '../types';
+import type { DownloadUrlResponse, GeneratedDocument, Recording } from '../types';
 
 // --- Recordings -------------------------------------------------------------
 
@@ -43,18 +38,6 @@ export const getRecordingDownloadUrl = async (
   );
   return data;
 };
-
-// --- Summaries (stubs — implemented by the summaries phase) -----------------
-
-export type GetSummaries = (
-  classroomId: string,
-  sessionId?: string,
-) => Promise<Summary[]>;
-
-export type GetSummaryDownloadUrl = (
-  classroomId: string,
-  summaryId: string,
-) => Promise<DownloadUrlResponse>;
 
 // --- Documents (stubs — implemented by a later phase) -----------------------
 
