@@ -20,5 +20,19 @@
   "sidebar": {
     "ariaLabel": "Chat and Q&A",
     "placeholder": "Chat & Q&A (Coming Soon)"
+  },
+  "feedback": {
+    "title": "Teaching assistant",
+    "subtitle": "Private — only you can see these",
+    "empty": "No suggestions yet",
+    "dismiss": "Dismiss suggestion",
+    "collapse": "Collapse suggestions panel",
+    "expand": "Expand suggestions panel",
+    "unread": "{{count}} new",
+    "sourcesLabel": "Sources",
+    "source": {
+      "slide": "slide {{n}}",
+      "page": "p. {{n}}"
+    }
   }
 }

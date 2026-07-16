@@ -65,6 +65,9 @@
     "done": "Done",
     "completed": "Completed",
     "cancelled": "Cancelled",
+    "discrepancy": "Discrepancy",
+    "gap": "Gap",
+    "unclear": "Unclear",
     "unknown": "Unknown"
   }
 }

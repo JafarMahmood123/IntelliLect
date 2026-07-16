@@ -17,6 +17,7 @@ import {
   useStreamDetails,
 } from "../hooks/useStreamingQueries";
 import { InteractionSidebar } from "./InteractionSidebar";
+import { TeacherFeedbackPanel } from "./TeacherFeedbackPanel";
 import { useStreamHub } from "../hooks/useStreamHub";
 import { Button } from "../../../components/ui/Button";
 import { useAuthStore } from "../../../store/useAuthStore";
@@ -151,11 +152,14 @@ export const LiveRoomPage = () => {
               onDisconnected={() => navigate(`/classrooms/${classroomId}`)}
               className="flex flex-col h-full w-full"
             >
-              <VideoLayout 
-                canVideo={canPublishVideo} 
-                canAudio={canPublishAudio} 
-                isTeacher={isTeacher} 
+              <VideoLayout
+                canVideo={canPublishVideo}
+                canAudio={canPublishAudio}
+                isTeacher={isTeacher}
               />
+              {/* Private, teacher-only live-feedback panel. Subscribes to the
+                  EXISTING room's data channel — never a new connection. */}
+              {isTeacher && <TeacherFeedbackPanel />}
             </LiveKitRoom>
           ) : (
             <div className="flex h-full items-center justify-center text-slate-500">Connecting to media server...</div>

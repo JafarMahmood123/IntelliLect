@@ -14,7 +14,13 @@ const numericStatusMap: Record<number, string> = {
 // Color grouping by normalized status. Reused across recordings, summaries,
 // sessions, etc. — all statuses route through the same design tokens.
 const successStatuses = ['active', 'live', 'available', 'done', 'completed'];
-const pendingStatuses = ['pending', 'scheduled', 'processing', 'generating'];
+const pendingStatuses = [
+  'pending',
+  'scheduled',
+  'processing',
+  'generating',
+  'gap',
+];
 const errorStatuses = [
   'deactivated',
   'inactive',
@@ -22,6 +28,7 @@ const errorStatuses = [
   'ended',
   'failed',
   'cancelled',
+  'discrepancy',
 ];
 
 const colorClassesFor = (normalizedStatus: string): string => {
