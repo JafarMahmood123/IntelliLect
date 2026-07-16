@@ -1,49 +1,63 @@
+import { useTranslation } from 'react-i18next';
+
 interface StatusBadgeProps {
-  status: string | number; // Updated to accept both
+  status: string | number; // Accepts both string labels and numeric enums
 }
 
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
-  // 1. Map numeric enums to strings if necessary
-  const statusMap: Record<number, string> = {
-    0: "Scheduled",
-    1: "Live",
-    2: "Ended",
-  };
+// Numeric session enums (kept for backward compatibility with existing callers).
+const numericStatusMap: Record<number, string> = {
+  0: 'Scheduled',
+  1: 'Live',
+  2: 'Ended',
+};
 
-  // 2. Ensure we have a string to work with
+// Color grouping by normalized status. Reused across recordings, summaries,
+// sessions, etc. — all statuses route through the same design tokens.
+const successStatuses = ['active', 'live', 'available', 'done', 'completed'];
+const pendingStatuses = ['pending', 'scheduled', 'processing', 'generating'];
+const errorStatuses = [
+  'deactivated',
+  'inactive',
+  'rejected',
+  'ended',
+  'failed',
+  'cancelled',
+];
+
+const colorClassesFor = (normalizedStatus: string): string => {
+  if (successStatuses.includes(normalizedStatus)) {
+    return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  }
+  if (pendingStatuses.includes(normalizedStatus)) {
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+  }
+  if (errorStatuses.includes(normalizedStatus)) {
+    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+  }
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+};
+
+export const StatusBadge = ({ status }: StatusBadgeProps) => {
+  const { t } = useTranslation('common');
+
   const statusString =
-    typeof status === "number"
-      ? statusMap[status] || "Unknown"
-      : status || "Unknown";
+    typeof status === 'number'
+      ? numericStatusMap[status] ?? 'Unknown'
+      : status || 'Unknown';
 
   const normalizedStatus = statusString.toLowerCase();
 
-  let colorClasses =
-    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
-
-  // Live / Active
-  if (normalizedStatus === "active" || normalizedStatus === "live") {
-    colorClasses =
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
-  }
-  // Pending / Scheduled
-  else if (normalizedStatus === "pending" || normalizedStatus === "scheduled") {
-    colorClasses =
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-  }
-  // Error / Ended / Rejected
-  else if (
-    ["deactivated", "inactive", "rejected", "ended"].includes(normalizedStatus)
-  ) {
-    colorClasses =
-      "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
-  }
+  // i18n label with a graceful fallback to the raw status string, so callers
+  // that pass a status without a translation key still render sensibly.
+  const label = t(`statuses.${normalizedStatus}`, { defaultValue: statusString });
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${colorClasses}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${colorClassesFor(
+        normalizedStatus,
+      )}`}
     >
-      {statusString}
+      {label}
     </span>
   );
 };

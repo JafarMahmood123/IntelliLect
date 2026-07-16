@@ -41,5 +41,24 @@
   },
   "toast": {
     "close": "إغلاق الإشعار"
+  },
+  "actions": {
+    "retry": "إعادة المحاولة",
+    "refresh": "تحديث"
+  },
+  "statuses": {
+    "scheduled": "مجدول",
+    "live": "مباشر",
+    "ended": "منتهٍ",
+    "active": "نشط",
+    "pending": "قيد الانتظار",
+    "processing": "قيد المعالجة",
+    "available": "متاح",
+    "failed": "فشل",
+    "generating": "قيد الإنشاء",
+    "done": "مكتمل",
+    "completed": "مكتمل",
+    "cancelled": "ملغى",
+    "unknown": "غير معروف"
   }
 }

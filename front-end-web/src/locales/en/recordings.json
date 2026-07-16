@@ -1,0 +1,25 @@
+{
+  "tab": "Recordings",
+  "title": "Recordings",
+  "description": "Download recordings of this classroom's sessions.",
+  "download": "Download",
+  "downloadAria": "Download recording from {{date}}",
+  "preparing": "Preparing…",
+  "processing": "Preparing recording…",
+  "failedRow": "This recording failed to process.",
+  "recordedOn": "Recorded {{date}}",
+  "meta": {
+    "duration": "Duration",
+    "size": "Size"
+  },
+  "empty": {
+    "title": "No recordings available",
+    "description": "Recordings will appear here once a session has been recorded."
+  },
+  "error": {
+    "title": "Could not load recordings",
+    "description": "Something went wrong while loading recordings. Please try again.",
+    "downloadFailedTitle": "Download failed",
+    "downloadFailed": "Could not prepare the download. Please try again."
+  }
+}

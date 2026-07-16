@@ -41,5 +41,24 @@
   },
   "toast": {
     "close": "Close notification"
+  },
+  "actions": {
+    "retry": "Retry",
+    "refresh": "Refresh"
+  },
+  "statuses": {
+    "scheduled": "Scheduled",
+    "live": "Live",
+    "ended": "Ended",
+    "active": "Active",
+    "pending": "Pending",
+    "processing": "Processing",
+    "available": "Available",
+    "failed": "Failed",
+    "generating": "Generating",
+    "done": "Done",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "unknown": "Unknown"
   }
 }

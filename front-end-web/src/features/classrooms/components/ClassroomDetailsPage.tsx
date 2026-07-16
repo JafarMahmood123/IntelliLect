@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, Video } from 'lucide-react';
+import { FileText, Film, Video } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
 import { useClassroomDetails } from '../hooks/useClassroomQueries';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { ClassroomFileList } from './ClassroomFileList';
 import { ClassroomSessionList } from './ClassroomSessionList';
+import { RecordingsList } from '../../recordings';
 
-type ClassroomTab = 'files' | 'sessions';
+type ClassroomTab = 'files' | 'sessions' | 'recordings';
 
 export const ClassroomDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +19,7 @@ export const ClassroomDetailsPage = () => {
   // Check if the current user is a teacher to show/hide management actions
   const { user } = useAuthStore();
   const isTeacher = user?.roleName === 'Teacher';
+  const { t } = useTranslation('recordings');
   
   // Fetch classroom metadata (name, description, etc.)
   const { data: classroom, isLoading, isError } = useClassroomDetails(id!);
@@ -45,6 +48,7 @@ export const ClassroomDetailsPage = () => {
   const tabs = [
     { id: 'files', label: 'Files & Materials', icon: <FileText size={18} /> },
     { id: 'sessions', label: 'Live Sessions', icon: <Video size={18} /> },
+    { id: 'recordings', label: t('tab'), icon: <Film size={18} /> },
   ];
 
   return (
@@ -71,10 +75,14 @@ export const ClassroomDetailsPage = () => {
         )}
         
         {activeTab === 'sessions' && (
-          <ClassroomSessionList 
-            classroomId={classroom.id} 
-            isTeacher={isTeacher} 
+          <ClassroomSessionList
+            classroomId={classroom.id}
+            isTeacher={isTeacher}
           />
+        )}
+
+        {activeTab === 'recordings' && (
+          <RecordingsList classroomId={classroom.id} />
         )}
       </div>
     </div>
