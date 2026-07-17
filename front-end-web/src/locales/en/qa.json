@@ -1,0 +1,24 @@
+{
+  "tab": "Q&A",
+  "title": "Ask about this classroom",
+  "description": "Ask a question and get an answer grounded in this classroom's material.",
+  "inputLabel": "Your question",
+  "placeholder": "Ask a question about the material…",
+  "ask": "Ask",
+  "thinking": "Thinking…",
+  "answerLabel": "Answer",
+  "sourcesLabel": "Sources",
+  "noMaterial": "No relevant material found for this question.",
+  "emptyHistory": "Your questions and answers will appear here.",
+  "you": "You",
+  "source": {
+    "slide": "slide {{n}}",
+    "page": "p. {{n}}",
+    "document": "Document"
+  },
+  "error": {
+    "title": "Couldn't get an answer",
+    "generic": "Something went wrong. Please try again.",
+    "forbidden": "You don't have access to this classroom's Q&A."
+  }
+}

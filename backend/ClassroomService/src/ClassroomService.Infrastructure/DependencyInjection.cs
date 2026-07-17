@@ -34,6 +34,9 @@ public static class DependencyInjection
         services.AddScoped<IClassroomSummaryService, ClassroomSummaryService>();
         services.AddScoped<ISummaryRepository, SummaryRepository>();
 
+        // User-facing classroom Q&A (F-5): membership-scoped wrapper over KnowledgeService answering.
+        services.AddScoped<IClassroomQaService, ClassroomQaService>();
+
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
 

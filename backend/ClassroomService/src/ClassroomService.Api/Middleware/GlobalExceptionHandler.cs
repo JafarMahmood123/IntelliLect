@@ -22,6 +22,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
 
         var (statusCode, title) = exception switch
         {
+            ValidationException => (StatusCodes.Status422UnprocessableEntity, "Unprocessable Entity"),
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
             ForbiddenAccessException => (StatusCodes.Status403Forbidden, "Forbidden"),

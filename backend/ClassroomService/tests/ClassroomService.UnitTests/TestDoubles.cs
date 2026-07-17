@@ -2,6 +2,7 @@ using System.Net;
 using AutoMapper;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.Common.Mappings;
+using ClassroomService.Application.Models;
 using ClassroomService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -96,6 +97,26 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
         LastStatusFileId = fileId;
         if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
         return Task.FromResult(StatusToReturn);
+    }
+
+    public int AnswerCalls { get; private set; }
+    public Guid LastAnswerClassroomId { get; private set; }
+    public string? LastAnswerQuestion { get; private set; }
+
+    /// <summary>Answer returned by <see cref="GetAnswerAsync"/>. Defaults to a grounded answer
+    /// with one source; set to an empty-source result to simulate "no relevant material".</summary>
+    public KnowledgeAnswerResult AnswerToReturn { get; set; } = new(
+        "The mitochondria is the powerhouse of the cell [1].",
+        new List<KnowledgeAnswerSource> { new(1, Guid.NewGuid(), 4, null, "Cell biology") });
+
+    public Task<KnowledgeAnswerResult> GetAnswerAsync(
+        Guid classroomId, string question, CancellationToken ct = default)
+    {
+        AnswerCalls++;
+        LastAnswerClassroomId = classroomId;
+        LastAnswerQuestion = question;
+        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        return Task.FromResult(AnswerToReturn);
     }
 }
 

@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Application.Models;
 using ClassroomService.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
     private const string InternalSecretHeader = "X-Internal-Secret";
     private const string IngestPath = "api/internal/documents/ingest";
     private const string DocumentsPath = "api/internal/documents";
+    private const string AnswerPath = "api/answer";
     private const int MaxAttempts = 3;
 
     private readonly HttpClient _httpClient;
@@ -126,6 +128,70 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
         }
     }
 
+    public async Task<KnowledgeAnswerResult> GetAnswerAsync(
+        Guid classroomId, string question, CancellationToken ct = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                var body = new AnswerRequest(classroomId, question);
+                using var request = new HttpRequestMessage(HttpMethod.Post, AnswerPath)
+                {
+                    Content = JsonContent.Create(body),
+                };
+                if (!string.IsNullOrWhiteSpace(_options.InternalApiSecret))
+                {
+                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _options.InternalApiSecret);
+                }
+
+                response = await _httpClient.SendAsync(request, ct);
+            }
+            catch (HttpRequestException) when (attempt < MaxAttempts)
+            {
+                _logger.LogWarning(
+                    "KnowledgeService answer for classroom {ClassroomId} could not connect; retry {Attempt}/{Max}.",
+                    classroomId, attempt, MaxAttempts);
+                await Task.Delay(RetryDelay(attempt), ct);
+                continue;
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested && attempt < MaxAttempts)
+            {
+                _logger.LogWarning(
+                    "KnowledgeService answer for classroom {ClassroomId} timed out; retry {Attempt}/{Max}.",
+                    classroomId, attempt, MaxAttempts);
+                await Task.Delay(RetryDelay(attempt), ct);
+                continue;
+            }
+
+            using (response)
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadFromJsonAsync<AnswerResponseBody>(ct)
+                        ?? new AnswerResponseBody(string.Empty, new List<AnswerSourceBody>());
+                    var sources = (body.Sources ?? new List<AnswerSourceBody>())
+                        .Select(s => new KnowledgeAnswerSource(s.Citation, s.DocumentId, s.Page, s.Slide, s.Section))
+                        .ToList();
+                    return new KnowledgeAnswerResult(body.Answer ?? string.Empty, sources);
+                }
+
+                if ((int)response.StatusCode >= 500 && attempt < MaxAttempts)
+                {
+                    _logger.LogWarning(
+                        "KnowledgeService answer for classroom {ClassroomId} returned {StatusCode}; retry {Attempt}/{Max}.",
+                        classroomId, (int)response.StatusCode, attempt, MaxAttempts);
+                    await Task.Delay(RetryDelay(attempt), ct);
+                    continue;
+                }
+
+                throw new HttpRequestException(
+                    $"KnowledgeService answer for classroom {classroomId} failed with status {(int)response.StatusCode}.");
+            }
+        }
+    }
+
     private async Task SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         string operation,
@@ -197,6 +263,23 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
     private sealed record DocumentStatusResponse(
         [property: JsonPropertyName("fileId")] Guid FileId,
         [property: JsonPropertyName("status")] string Status);
+
+    /// <summary>Matches KnowledgeService's answer request ({ classroomId, question }).</summary>
+    private sealed record AnswerRequest(
+        [property: JsonPropertyName("classroomId")] Guid ClassroomId,
+        [property: JsonPropertyName("question")] string Question);
+
+    /// <summary>Subset of KnowledgeService's answer response we forward (ignores chunkId/score).</summary>
+    private sealed record AnswerResponseBody(
+        [property: JsonPropertyName("answer")] string Answer,
+        [property: JsonPropertyName("sources")] List<AnswerSourceBody> Sources);
+
+    private sealed record AnswerSourceBody(
+        [property: JsonPropertyName("citation")] int Citation,
+        [property: JsonPropertyName("documentId")] Guid DocumentId,
+        [property: JsonPropertyName("page")] int? Page,
+        [property: JsonPropertyName("slide")] int? Slide,
+        [property: JsonPropertyName("section")] string? Section);
 
     /// <summary>Matches KnowledgeService's ingest DTO (camelCase aliases).</summary>
     private sealed record IngestDocumentRequest(

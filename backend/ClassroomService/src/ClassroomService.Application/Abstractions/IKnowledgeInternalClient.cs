@@ -1,3 +1,5 @@
+using ClassroomService.Application.Models;
+
 namespace ClassroomService.Application.Abstractions;
 
 /// <summary>
@@ -26,4 +28,12 @@ public interface IKnowledgeInternalClient
     /// leaves this client.
     /// </summary>
     Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Run KnowledgeService's grounded RAG answer for a classroom, server-side. The classroom
+    /// scope is passed explicitly by the caller (from the route + verified membership) — never
+    /// from the browser. The internal secret never leaves this client.
+    /// </summary>
+    Task<KnowledgeAnswerResult> GetAnswerAsync(
+        Guid classroomId, string question, CancellationToken ct = default);
 }

@@ -122,4 +122,41 @@ public sealed class KnowledgeInternalClientTests
         // 404 is terminal — no retries.
         Assert.Single(handler.Requests);
     }
+
+    [Fact]
+    public async Task GetAnswer_posts_question_with_scope_and_secret_and_parses_sources()
+    {
+        var classroomId = Guid.NewGuid();
+        var documentId = Guid.NewGuid();
+        var handler = new CapturingHttpMessageHandler(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            // Response mirrors KnowledgeService: includes chunkId/score which must be ignored.
+            Content = JsonContent.Create(new
+            {
+                answer = "Grounded answer [1].",
+                sources = new[]
+                {
+                    new { citation = 1, chunkId = Guid.NewGuid(), documentId, page = 12, slide = (int?)null, section = "Intro", score = 0.87 },
+                },
+            }),
+        });
+        var client = CreateClient(handler);
+
+        var result = await client.GetAnswerAsync(classroomId, "What is X?");
+
+        Assert.Equal("Grounded answer [1].", result.Answer);
+        var source = Assert.Single(result.Sources);
+        Assert.Equal(1, source.Citation);
+        Assert.Equal(documentId, source.DocumentId);
+        Assert.Equal(12, source.Page);
+        Assert.Equal("Intro", source.Section);
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("http://knowledge-service:8080/api/answer", request.Uri!.AbsoluteUri);
+        Assert.Equal(Secret, request.SecretHeader);
+        // The classroom scope is sent server-side; the secret is a header, never echoed to a client.
+        Assert.Contains($"\"classroomId\":\"{classroomId}\"", request.Body!);
+        Assert.Contains("\"question\":\"What is X?\"", request.Body!);
+    }
 }

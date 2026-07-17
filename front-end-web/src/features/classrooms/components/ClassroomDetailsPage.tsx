@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, Film, ScrollText, Video } from 'lucide-react';
+import { FileText, Film, MessagesSquare, ScrollText, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
@@ -10,8 +10,9 @@ import { ClassroomFileList } from './ClassroomFileList';
 import { ClassroomSessionList } from './ClassroomSessionList';
 import { RecordingsList } from '../../recordings';
 import { SummariesList } from '../../summaries';
+import { QaPanel } from '../../qa';
 
-type ClassroomTab = 'files' | 'sessions' | 'recordings' | 'summaries';
+type ClassroomTab = 'files' | 'sessions' | 'recordings' | 'summaries' | 'qa';
 
 export const ClassroomDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +52,7 @@ export const ClassroomDetailsPage = () => {
     { id: 'sessions', label: 'Live Sessions', icon: <Video size={18} /> },
     { id: 'recordings', label: t('tab'), icon: <Film size={18} /> },
     { id: 'summaries', label: t('tab', { ns: 'summaries' }), icon: <ScrollText size={18} /> },
+    { id: 'qa', label: t('tab', { ns: 'qa' }), icon: <MessagesSquare size={18} /> },
   ];
 
   return (
@@ -89,6 +91,10 @@ export const ClassroomDetailsPage = () => {
 
         {activeTab === 'summaries' && (
           <SummariesList classroomId={classroom.id} />
+        )}
+
+        {activeTab === 'qa' && (
+          <QaPanel classroomId={classroom.id} />
         )}
       </div>
     </div>
