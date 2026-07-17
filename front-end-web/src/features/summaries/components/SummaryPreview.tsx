@@ -87,7 +87,7 @@ export const SummaryPreview = ({
         role="dialog"
         aria-modal="true"
         aria-label={t('preview.title')}
-        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-xl dark:border-slate-800 dark:bg-slate-900"
+        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <div className="min-w-0">

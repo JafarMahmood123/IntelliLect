@@ -52,7 +52,10 @@ describe('QaPanel', () => {
     await user.type(screen.getByLabelText('Your question'), 'What is ATP?');
     await user.click(screen.getByRole('button', { name: /ask/i }));
 
-    expect(await screen.findByText('Mitochondria produce ATP [1].')).toBeInTheDocument();
+    const answer = await screen.findByText('Mitochondria produce ATP [1].');
+    expect(answer).toBeInTheDocument();
+    // Backend content uses auto-direction so English renders cleanly in RTL chrome.
+    expect(answer).toHaveAttribute('dir', 'auto');
     expect(screen.getByText('p. 12')).toBeInTheDocument();
     expect(screen.getByText('slide 4')).toBeInTheDocument();
   });

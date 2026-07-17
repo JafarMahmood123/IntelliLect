@@ -153,7 +153,11 @@ const SuggestionCard = ({
         </button>
       </div>
 
-      <p className="text-sm leading-snug text-slate-100">{suggestion.text}</p>
+      {/* Backend content (English for now): auto-direction so it renders cleanly
+          even when the panel chrome is RTL. */}
+      <p dir="auto" className="text-sm leading-snug text-slate-100">
+        {suggestion.text}
+      </p>
 
       {suggestion.sources.length > 0 && (
         <div className="mt-3">

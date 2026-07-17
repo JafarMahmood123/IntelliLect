@@ -68,11 +68,12 @@ export const QaPanel = ({ classroomId }: QaPanelProps) => {
           <input
             id="qa-question"
             type="text"
+            dir="auto"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder={t('placeholder')}
             disabled={askMutation.isPending}
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
           <Button
             type="submit"
@@ -129,13 +130,18 @@ const QaCard = ({ entry }: { entry: QaEntry }) => {
     <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/50">
       <p className="text-sm font-semibold text-slate-900 dark:text-white">
         <span className="text-slate-400">{t('you')}: </span>
-        {question}
+        {/* User/backend content: auto-direction so an English question or answer
+            renders LTR even inside RTL (Arabic) chrome. */}
+        <span dir="auto">{question}</span>
       </p>
 
       <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
         {response.hasAnswer ? (
           <>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+            <p
+              dir="auto"
+              className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200"
+            >
               {response.answer}
             </p>
 
