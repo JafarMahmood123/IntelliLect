@@ -18,6 +18,7 @@ public sealed class ClassroomFileServiceTriggerTests
         var service = new ClassroomFileService(
             files,
             classrooms,
+            new FakeMembershipRepository(),
             new FakeFileStorageService(),
             knowledge,
             TestMapper.Create(),

@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, File as FileIcon, Trash2, UploadCloud } from 'lucide-react';
 import { Table, type TableColumn } from '../../../components/ui/Table';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
 import { useToast } from '../../../components/ui/ToastProvider';
 import { useClassroomFiles, useDeleteClassroomFile, useUploadClassroomFile } from '../hooks/useClassroomQueries';
+import { FileIndexingBadge } from './FileIndexingBadge';
 import type { ClassroomFile } from '../types';
 
 interface ClassroomFileListProps {
@@ -23,6 +25,7 @@ const formatBytes = (bytes: number) => {
 export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
+  const { t } = useTranslation('common');
   
   const [fileToDelete, setFileToDelete] = useState<ClassroomFile | null>(null);
 
@@ -75,6 +78,11 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
       key: 'size',
       header: 'Size',
       render: (file) => <span className="text-slate-600 dark:text-slate-400">{formatBytes(file.sizeBytes)}</span>,
+    },
+    {
+      key: 'indexing',
+      header: t('indexing.columnHeader'),
+      render: (file) => <FileIndexingBadge classroomId={classroomId} fileId={file.id} />,
     },
     {
       key: 'actions',

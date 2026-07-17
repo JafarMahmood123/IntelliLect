@@ -25,3 +25,17 @@ class IngestDocumentResponse(BaseModel):
     document_id: UUID = Field(alias="documentId")
     file_id: UUID = Field(alias="fileId")
     status: str
+
+
+class DocumentStatusResponse(BaseModel):
+    """Read model for a document's indexing status.
+
+    Consumed server-side by ClassroomService (which re-authorizes by membership
+    and forwards a trimmed view to the browser). Deliberately exposes only the
+    file id and lifecycle status — never s3 keys, error detail, or chunk data.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    file_id: UUID = Field(alias="fileId")
+    status: str

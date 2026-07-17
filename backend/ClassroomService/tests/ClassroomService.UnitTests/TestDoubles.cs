@@ -64,7 +64,13 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     private readonly bool _throwOnCall;
     public int UploadCalls { get; private set; }
     public int DeleteCalls { get; private set; }
+    public int StatusCalls { get; private set; }
     public Guid LastFileId { get; private set; }
+    public Guid LastStatusFileId { get; private set; }
+
+    /// <summary>Status returned by <see cref="GetIndexingStatusAsync"/>; null simulates a
+    /// KnowledgeService 404 (no document row yet).</summary>
+    public string? StatusToReturn { get; set; } = "Done";
 
     public RecordingKnowledgeClient(bool throwOnCall = false) => _throwOnCall = throwOnCall;
 
@@ -82,6 +88,14 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
         LastFileId = fileId;
         if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
         return Task.CompletedTask;
+    }
+
+    public Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default)
+    {
+        StatusCalls++;
+        LastStatusFileId = fileId;
+        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        return Task.FromResult(StatusToReturn);
     }
 }
 

@@ -46,6 +46,13 @@
     "retry": "إعادة المحاولة",
     "refresh": "تحديث"
   },
+  "indexing": {
+    "inProgress": "جارٍ الفهرسة…",
+    "ready": "جاهز",
+    "failed": "فشلت الفهرسة",
+    "label": "حالة الفهرسة: {{status}}",
+    "columnHeader": "الفهرسة"
+  },
   "download": {
     "label": "تنزيل",
     "preparing": "جارٍ التحضير…",

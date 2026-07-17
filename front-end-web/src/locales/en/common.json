@@ -46,6 +46,13 @@
     "retry": "Retry",
     "refresh": "Refresh"
   },
+  "indexing": {
+    "inProgress": "Indexing…",
+    "ready": "Ready",
+    "failed": "Indexing failed",
+    "label": "Indexing status: {{status}}",
+    "columnHeader": "Indexing"
+  },
   "download": {
     "label": "Download",
     "preparing": "Preparing…",

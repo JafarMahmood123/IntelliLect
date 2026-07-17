@@ -10,7 +10,11 @@ from app.api.dependencies import (
     IngestionWorkerDep,
     require_internal_secret,
 )
-from app.application.dtos.document_dtos import IngestDocumentRequest, IngestDocumentResponse
+from app.application.dtos.document_dtos import (
+    DocumentStatusResponse,
+    IngestDocumentRequest,
+    IngestDocumentResponse,
+)
 from app.application.services.ingestion_service import IngestionJob
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
@@ -98,6 +102,30 @@ async def reindex_document(
         file_id=document.file_id,
         status=document.status.value,
     )
+
+
+@router.get(
+    "/{file_id}/status",
+    response_model=DocumentStatusResponse,
+    response_model_by_alias=True,
+)
+async def get_document_status(
+    file_id: UUID,
+    documents: DocumentRepositoryDep,
+) -> DocumentStatusResponse:
+    """Return a document's indexing status (Pending/Processing/Done/Failed).
+
+    Read-only projection for ClassroomService to proxy to classroom members.
+    404 if no document has been registered for this file id yet.
+    """
+    document = await documents.get_by_file_id(file_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No document with fileId {file_id}.",
+        )
+
+    return DocumentStatusResponse(file_id=document.file_id, status=document.status.value)
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)

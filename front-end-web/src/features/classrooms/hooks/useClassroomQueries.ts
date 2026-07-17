@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeacherClassrooms, createClassroom, startSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom } from '../api/classrooms';
-import type { CreateClassroomRequest, CreateSessionRequest } from '../types';
+import { getTeacherClassrooms, createClassroom, startSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom, getFileIndexingStatus } from '../api/classrooms';
+import type { CreateClassroomRequest, CreateSessionRequest, FileIndexingStatus } from '../types';
 
 export const classroomKeys = {
   all: ['classrooms'] as const,
@@ -39,6 +39,24 @@ export const useClassroomFiles = (classroomId: string) => {
   return useQuery({
     queryKey: [...classroomKeys.detail(classroomId), 'files'],
     queryFn: () => getClassroomFiles(classroomId),
+  });
+};
+
+export const INDEXING_POLL_INTERVAL_MS = 5000;
+export const isTerminalIndexingStatus = (status?: FileIndexingStatus) =>
+  status === 'Done' || status === 'Failed';
+
+// Reads a file's RAG indexing status, polling every 5s while it is still
+// Pending/Processing and stopping once it reaches a terminal state.
+export const useFileIndexingStatus = (classroomId: string, fileId: string) => {
+  return useQuery({
+    queryKey: [...classroomKeys.detail(classroomId), 'files', fileId, 'indexing-status'],
+    queryFn: () => getFileIndexingStatus(classroomId, fileId),
+    enabled: Boolean(classroomId && fileId),
+    refetchInterval: (query) =>
+      isTerminalIndexingStatus(query.state.data?.status)
+        ? false
+        : INDEXING_POLL_INTERVAL_MS,
   });
 };
 

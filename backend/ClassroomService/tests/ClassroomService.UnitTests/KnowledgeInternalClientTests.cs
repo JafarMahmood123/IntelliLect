@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using ClassroomService.Infrastructure.Configuration;
 using ClassroomService.Infrastructure.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -87,6 +88,38 @@ public sealed class KnowledgeInternalClientTests
             () => client.NotifyFileDeletedAsync(Guid.NewGuid()));
 
         // 4xx is terminal — no retries.
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task GetIndexingStatus_gets_status_url_with_secret_and_parses_status()
+    {
+        var fileId = Guid.NewGuid();
+        var handler = new CapturingHttpMessageHandler(() => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new { fileId, status = "Processing" }),
+        });
+        var client = CreateClient(handler);
+
+        var status = await client.GetIndexingStatusAsync(fileId);
+
+        Assert.Equal("Processing", status);
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Get, request.Method);
+        Assert.Equal($"http://knowledge-service:8080/api/internal/documents/{fileId}/status", request.Uri!.AbsoluteUri);
+        Assert.Equal(Secret, request.SecretHeader);
+    }
+
+    [Fact]
+    public async Task GetIndexingStatus_returns_null_on_404()
+    {
+        var handler = new CapturingHttpMessageHandler(() => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = CreateClient(handler);
+
+        var status = await client.GetIndexingStatusAsync(Guid.NewGuid());
+
+        Assert.Null(status);
+        // 404 is terminal — no retries.
         Assert.Single(handler.Requests);
     }
 }

@@ -1,6 +1,7 @@
 using AutoMapper;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.File;
+using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -8,8 +9,13 @@ namespace ClassroomService.Application.Services;
 
 public sealed class ClassroomFileService : IClassroomFileService
 {
+    // KnowledgeService registers a Pending document on upload; until it has a row (or if the
+    // ingest trigger failed) treat the file as still awaiting indexing.
+    private const string PendingStatus = "Pending";
+
     private readonly IRepository<ClassroomFile> _fileRepository;
     private readonly IClassroomRepository _classroomRepository;
+    private readonly IMembershipRepository _membershipRepository;
     private readonly IFileStorageService _storageService;
     private readonly IKnowledgeInternalClient _knowledgeClient;
     private readonly IMapper _mapper;
@@ -18,6 +24,7 @@ public sealed class ClassroomFileService : IClassroomFileService
     public ClassroomFileService(
         IRepository<ClassroomFile> fileRepository,
         IClassroomRepository classroomRepository,
+        IMembershipRepository membershipRepository,
         IFileStorageService storageService,
         IKnowledgeInternalClient knowledgeClient,
         IMapper mapper,
@@ -25,6 +32,7 @@ public sealed class ClassroomFileService : IClassroomFileService
     {
         _fileRepository = fileRepository;
         _classroomRepository = classroomRepository;
+        _membershipRepository = membershipRepository;
         _storageService = storageService;
         _knowledgeClient = knowledgeClient;
         _mapper = mapper;
@@ -110,5 +118,42 @@ public sealed class ClassroomFileService : IClassroomFileService
     {
         var classroom = await _classroomRepository.GetWithDetailsAsync(classroomId, ct);
         return _mapper.Map<IEnumerable<ClassroomFileResponse>>(classroom?.Files ?? new List<ClassroomFile>());
+    }
+
+    public async Task<FileIndexingStatusResponse> GetFileIndexingStatusAsync(
+        Guid classroomId, Guid fileId, Guid requestingUserId, CancellationToken ct)
+    {
+        // Members only: missing classroom -> 404, non-member -> 403 (before any file lookup).
+        await EnsureMemberAsync(classroomId, requestingUserId, ct);
+
+        var file = await _fileRepository.GetByIdAsync(fileId, ct);
+        // Unknown, or belongs to another classroom -> 404 (no cross-classroom leakage).
+        if (file is null || file.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("File not found.");
+        }
+
+        // Fetch the status from KnowledgeService server-side (secret stays inside the client).
+        // A null result means KnowledgeService has no document row yet -> still Pending.
+        var status = await _knowledgeClient.GetIndexingStatusAsync(fileId, ct);
+        return new FileIndexingStatusResponse(fileId, status ?? PendingStatus);
+    }
+
+    /// <summary>
+    /// Reuses the platform's membership rule: the classroom's teacher OR an enrolled student is a
+    /// member. Missing classroom -> 404; non-member -> 403.
+    /// </summary>
+    private async Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
+    {
+        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
+            ?? throw new KeyNotFoundException("Classroom not found.");
+
+        var isMember = classroom.TeacherId == userId
+            || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct);
+
+        if (!isMember)
+        {
+            throw new ForbiddenAccessException("You are not a member of this classroom.");
+        }
     }
 }

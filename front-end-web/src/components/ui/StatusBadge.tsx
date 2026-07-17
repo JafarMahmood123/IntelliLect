@@ -2,6 +2,12 @@ import { useTranslation } from 'react-i18next';
 
 interface StatusBadgeProps {
   status: string | number; // Accepts both string labels and numeric enums
+  /**
+   * Optional explicit label. When set it overrides the i18n-derived text while
+   * the color still follows `status` — lets callers (e.g. file indexing) show a
+   * domain-specific label ("Ready"/"Indexing…") without new color logic.
+   */
+  label?: string;
 }
 
 // Numeric session enums (kept for backward compatibility with existing callers).
@@ -44,7 +50,7 @@ const colorClassesFor = (normalizedStatus: string): string => {
   return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 };
 
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
+export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
   const { t } = useTranslation('common');
 
   const statusString =
@@ -54,9 +60,10 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
 
   const normalizedStatus = statusString.toLowerCase();
 
-  // i18n label with a graceful fallback to the raw status string, so callers
-  // that pass a status without a translation key still render sensibly.
-  const label = t(`statuses.${normalizedStatus}`, { defaultValue: statusString });
+  // Explicit label wins; otherwise the i18n label with a graceful fallback to
+  // the raw status string, so callers without a translation key still render.
+  const text =
+    label ?? t(`statuses.${normalizedStatus}`, { defaultValue: statusString });
 
   return (
     <span
@@ -64,7 +71,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
         normalizedStatus,
       )}`}
     >
-      {label}
+      {text}
     </span>
   );
 };

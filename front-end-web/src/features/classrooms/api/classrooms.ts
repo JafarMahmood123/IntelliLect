@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, LearningSession, Session, PagedResult } from '../types';
+import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, FileIndexingStatusResponse, LearningSession, Session, PagedResult } from '../types';
 
 export const getTeacherClassrooms = async (): Promise<Classroom[]> => {
   const response = await apiClient.get<Classroom[]>('/classrooms/teacher');
@@ -48,6 +48,18 @@ export const startSession = async (classroomId: string, sessionId: string): Prom
 
 export const deleteFile = async (classroomId: string, fileId: string): Promise<void> => {
   await apiClient.delete(`/classrooms/${classroomId}/files/${fileId}`);
+};
+
+// Member-authorized RAG indexing status for a file. The browser never sees any
+// internal secret — ClassroomService reads KnowledgeService server-side.
+export const getFileIndexingStatus = async (
+  classroomId: string,
+  fileId: string,
+): Promise<FileIndexingStatusResponse> => {
+  const { data } = await apiClient.get<FileIndexingStatusResponse>(
+    `/classrooms/${classroomId}/files/${fileId}/indexing-status`,
+  );
+  return data;
 };
 
 export const getClassroomSessions = async (classroomId: string): Promise<Session[]> => {

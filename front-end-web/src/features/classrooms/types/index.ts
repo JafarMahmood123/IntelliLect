@@ -26,6 +26,15 @@ export interface ClassroomFile {
   s3Key: string;
 }
 
+// RAG indexing lifecycle for an uploaded classroom file (read via a
+// member-authorized ClassroomService endpoint — no internal secret in the browser).
+export type FileIndexingStatus = 'Pending' | 'Processing' | 'Done' | 'Failed';
+
+export interface FileIndexingStatusResponse {
+  fileId: string;
+  status: FileIndexingStatus;
+}
+
 export interface LearningSession {
   id: string;
   title: string;

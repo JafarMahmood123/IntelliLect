@@ -18,4 +18,12 @@ public interface IKnowledgeInternalClient
 
     /// <summary>Notify KnowledgeService that a file was deleted (removes its index entry).</summary>
     Task NotifyFileDeletedAsync(Guid fileId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Read a file's indexing status (Pending/Processing/Done/Failed) from KnowledgeService.
+    /// Returns <c>null</c> when KnowledgeService has no document registered for the file yet
+    /// (its 404), so the caller can present that as still-pending. The internal secret never
+    /// leaves this client.
+    /// </summary>
+    Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default);
 }

@@ -65,6 +65,67 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
             ct);
     }
 
+    public async Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{DocumentsPath}/{fileId}/status");
+                if (!string.IsNullOrWhiteSpace(_options.InternalApiSecret))
+                {
+                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _options.InternalApiSecret);
+                }
+
+                response = await _httpClient.SendAsync(request, ct);
+            }
+            catch (HttpRequestException) when (attempt < MaxAttempts)
+            {
+                _logger.LogWarning(
+                    "KnowledgeService status for file {FileId} could not connect; retry {Attempt}/{Max}.",
+                    fileId, attempt, MaxAttempts);
+                await Task.Delay(RetryDelay(attempt), ct);
+                continue;
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested && attempt < MaxAttempts)
+            {
+                _logger.LogWarning(
+                    "KnowledgeService status for file {FileId} timed out; retry {Attempt}/{Max}.",
+                    fileId, attempt, MaxAttempts);
+                await Task.Delay(RetryDelay(attempt), ct);
+                continue;
+            }
+
+            using (response)
+            {
+                // No document registered yet -> caller treats as still-pending.
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return null;
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadFromJsonAsync<DocumentStatusResponse>(ct);
+                    return body?.Status;
+                }
+
+                if ((int)response.StatusCode >= 500 && attempt < MaxAttempts)
+                {
+                    _logger.LogWarning(
+                        "KnowledgeService status for file {FileId} returned {StatusCode}; retry {Attempt}/{Max}.",
+                        fileId, (int)response.StatusCode, attempt, MaxAttempts);
+                    await Task.Delay(RetryDelay(attempt), ct);
+                    continue;
+                }
+
+                throw new HttpRequestException(
+                    $"KnowledgeService status for file {fileId} failed with status {(int)response.StatusCode}.");
+            }
+        }
+    }
+
     private async Task SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         string operation,
@@ -131,6 +192,11 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
     }
 
     private static TimeSpan RetryDelay(int attempt) => TimeSpan.FromMilliseconds(200 * attempt);
+
+    /// <summary>Matches KnowledgeService's status read model ({ fileId, status }).</summary>
+    private sealed record DocumentStatusResponse(
+        [property: JsonPropertyName("fileId")] Guid FileId,
+        [property: JsonPropertyName("status")] string Status);
 
     /// <summary>Matches KnowledgeService's ingest DTO (camelCase aliases).</summary>
     private sealed record IngestDocumentRequest(
