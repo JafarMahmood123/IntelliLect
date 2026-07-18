@@ -8,11 +8,12 @@ export const getRecordings = async (
   classroomId: string,
   sessionId?: string,
 ): Promise<Recording[]> => {
-  const { data } = await apiClient.get<Recording[]>(
+  // The endpoint returns a paged result ({ items, totalCount, ... }); tolerate a bare array too.
+  const { data } = await apiClient.get<{ items?: Recording[] } | Recording[]>(
     `/classrooms/${classroomId}/recordings`,
     { params: sessionId ? { sessionId } : undefined },
   );
-  return data;
+  return Array.isArray(data) ? data : (data.items ?? []);
 };
 
 export const getRecording = async (

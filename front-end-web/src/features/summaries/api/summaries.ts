@@ -6,11 +6,12 @@ export const getSummaries = async (
   classroomId: string,
   sessionId?: string,
 ): Promise<Summary[]> => {
-  const { data } = await apiClient.get<Summary[]>(
+  // The endpoint returns a paged result ({ items, totalCount, ... }); tolerate a bare array too.
+  const { data } = await apiClient.get<{ items?: Summary[] } | Summary[]>(
     `/classrooms/${classroomId}/summaries`,
     { params: sessionId ? { sessionId } : undefined },
   );
-  return data;
+  return Array.isArray(data) ? data : (data.items ?? []);
 };
 
 export const getSummary = async (
