@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
-import { getSummaryDownloadUrl } from '../api/summaries';
+import { fetchSummaryMarkdownText } from '../api/summaries';
 
 interface SummaryPreviewProps {
   isOpen: boolean;
@@ -16,21 +16,13 @@ interface SummaryPreviewProps {
 }
 
 /**
- * Fetches the summary's Markdown artifact on demand (pre-signed URL, then the
- * text) and renders it read-only and sanitized. Only runs while the panel is
- * open, so the list never pays this cost.
+ * Fetches the summary's Markdown artifact on demand (streamed through the API/gateway) and renders
+ * it read-only and sanitized. Only runs while the panel is open, so the list never pays this cost.
  */
-const fetchSummaryMarkdown = async (
+const fetchSummaryMarkdown = (
   classroomId: string,
   summaryId: string,
-): Promise<string> => {
-  const { url } = await getSummaryDownloadUrl(classroomId, summaryId, 'md');
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch summary markdown: ${response.status}`);
-  }
-  return response.text();
-};
+): Promise<string> => fetchSummaryMarkdownText(classroomId, summaryId);
 
 export const SummaryPreview = ({
   isOpen,

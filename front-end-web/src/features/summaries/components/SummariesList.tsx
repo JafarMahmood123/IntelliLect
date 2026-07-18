@@ -4,7 +4,7 @@ import { Clock, Eye, FileText, Loader2, RefreshCw } from 'lucide-react';
 import { ArtifactList } from '../../../components/ui/ArtifactList';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SecureDownloadButton } from '../../../components/ui/SecureDownloadButton';
-import { getSummaryDownloadUrl } from '../api/summaries';
+import { downloadSummary } from '../api/summaries';
 import { useClassroomSummaries } from '../hooks/useSummaryQueries';
 import type { Summary } from '../types';
 import { SummaryPreview } from './SummaryPreview';
@@ -152,8 +152,8 @@ const SummaryRow = ({
             </button>
 
             <SecureDownloadButton
-              getUrl={() =>
-                getSummaryDownloadUrl(classroomId, summary.summaryId, 'pdf')
+              onDownload={() =>
+                downloadSummary(classroomId, summary.summaryId, 'pdf')
               }
               label={t('downloadPdf')}
               ariaLabel={t('downloadPdfAria', { date: dateLabel })}
@@ -161,8 +161,8 @@ const SummaryRow = ({
 
             <SecureDownloadButton
               variant="secondary"
-              getUrl={() =>
-                getSummaryDownloadUrl(classroomId, summary.summaryId, 'md')
+              onDownload={() =>
+                downloadSummary(classroomId, summary.summaryId, 'md')
               }
               label={t('downloadMd')}
               ariaLabel={t('downloadMdAria', { date: dateLabel })}

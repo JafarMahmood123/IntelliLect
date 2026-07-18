@@ -15,13 +15,16 @@ public sealed class RecordingsController : ApiBaseController
 {
     private readonly IClassroomRecordingService _recordingService;
     private readonly IRecordingLifecycleService _lifecycleService;
+    private readonly IFileStorageService _fileStorage;
 
     public RecordingsController(
         IClassroomRecordingService recordingService,
-        IRecordingLifecycleService lifecycleService)
+        IRecordingLifecycleService lifecycleService,
+        IFileStorageService fileStorage)
     {
         _recordingService = recordingService;
         _lifecycleService = lifecycleService;
+        _fileStorage = fileStorage;
     }
 
     [HttpGet]
@@ -58,6 +61,19 @@ public sealed class RecordingsController : ApiBaseController
     {
         var result = await _recordingService.GetDownloadUrlAsync(classroomId, recordingId, UserId, ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Streams the recording's MP4 to the caller through the API/gateway (as an attachment), so the
+    /// browser stays on the app origin instead of hitting the raw MinIO port. Same checks as the
+    /// pre-signed variant: 403 non-member, 404 unknown/cross-classroom, 409 if not Available.
+    /// </summary>
+    [HttpGet("{recordingId:guid}/download")]
+    public async Task<IActionResult> Download(Guid classroomId, Guid recordingId, CancellationToken ct)
+    {
+        var target = await _recordingService.GetDownloadTargetAsync(classroomId, recordingId, UserId, ct);
+        var stream = await _fileStorage.OpenReadAsync(target.S3Key, ct);
+        return File(stream, target.ContentType, target.FileName);
     }
 
     /// <summary>

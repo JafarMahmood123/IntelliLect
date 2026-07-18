@@ -1,54 +1,38 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SecureDownloadButton } from './SecureDownloadButton';
 import { renderWithProviders } from '../../test/test-utils';
 
 describe('SecureDownloadButton', () => {
-  beforeEach(() => {
-    vi.spyOn(window, 'open').mockReturnValue(null);
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('does NOT fetch the url on mount (URLs are short-lived)', () => {
-    const getUrl = vi.fn().mockResolvedValue({
-      url: 'https://s3.example.com/rec.mp4',
-      expiresAt: '2026-01-01T00:00:00Z',
-    });
+  it('does NOT run the download on mount (only on click)', () => {
+    const onDownload = vi.fn().mockResolvedValue(undefined);
 
-    renderWithProviders(<SecureDownloadButton getUrl={getUrl} />);
+    renderWithProviders(<SecureDownloadButton onDownload={onDownload} />);
 
-    expect(getUrl).not.toHaveBeenCalled();
+    expect(onDownload).not.toHaveBeenCalled();
   });
 
-  it('fetches a fresh url on click and opens it', async () => {
+  it('runs the download on click', async () => {
     const user = userEvent.setup();
-    const url = 'https://s3.example.com/rec.mp4';
-    const getUrl = vi.fn().mockResolvedValue({
-      url,
-      expiresAt: '2026-01-01T00:00:00Z',
-    });
+    const onDownload = vi.fn().mockResolvedValue(undefined);
 
-    renderWithProviders(<SecureDownloadButton getUrl={getUrl} />);
+    renderWithProviders(<SecureDownloadButton onDownload={onDownload} />);
 
     await user.click(screen.getByRole('button', { name: 'Download' }));
 
-    await waitFor(() => expect(getUrl).toHaveBeenCalledTimes(1));
-    expect(window.open).toHaveBeenCalledWith(
-      url,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    await waitFor(() => expect(onDownload).toHaveBeenCalledTimes(1));
   });
 
-  it('shows an error when the url fetch fails', async () => {
+  it('shows an error when the download fails', async () => {
     const user = userEvent.setup();
-    const getUrl = vi.fn().mockRejectedValue(new Error('boom'));
+    const onDownload = vi.fn().mockRejectedValue(new Error('boom'));
 
-    renderWithProviders(<SecureDownloadButton getUrl={getUrl} />);
+    renderWithProviders(<SecureDownloadButton onDownload={onDownload} />);
 
     await user.click(screen.getByRole('button', { name: 'Download' }));
 
@@ -56,6 +40,5 @@ describe('SecureDownloadButton', () => {
     await waitFor(() =>
       expect(screen.getAllByRole('alert').length).toBeGreaterThan(0),
     );
-    expect(window.open).not.toHaveBeenCalled();
   });
 });

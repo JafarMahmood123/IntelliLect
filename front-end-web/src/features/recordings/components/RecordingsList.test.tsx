@@ -8,13 +8,13 @@ import type { Recording } from '../types';
 
 vi.mock('../api/recordings', () => ({
   getRecordings: vi.fn(),
-  getRecordingDownloadUrl: vi.fn(),
+  downloadRecording: vi.fn(),
 }));
 
-import { getRecordings, getRecordingDownloadUrl } from '../api/recordings';
+import { getRecordings, downloadRecording } from '../api/recordings';
 
 const mockGetRecordings = vi.mocked(getRecordings);
-const mockGetDownloadUrl = vi.mocked(getRecordingDownloadUrl);
+const mockDownloadRecording = vi.mocked(downloadRecording);
 
 const CLASSROOM_ID = 'class-1';
 
@@ -93,15 +93,12 @@ describe('RecordingsList', () => {
     ).toBeInTheDocument();
   });
 
-  it('download flow: click fetches a fresh url on demand and opens it', async () => {
+  it('download flow: click streams the recording on demand (never on mount)', async () => {
     const user = userEvent.setup();
     mockGetRecordings.mockResolvedValue([
       makeRecording({ recordingId: 'rec-9', status: 'Available' }),
     ]);
-    mockGetDownloadUrl.mockResolvedValue({
-      url: 'https://s3.example.com/rec-9.mp4',
-      expiresAt: '2026-01-01T00:00:00Z',
-    });
+    mockDownloadRecording.mockResolvedValue(undefined);
 
     renderWithProviders(<RecordingsList classroomId={CLASSROOM_ID} />);
 
@@ -109,18 +106,13 @@ describe('RecordingsList', () => {
       name: /download recording/i,
     });
 
-    // The url must NOT be fetched until the click.
-    expect(mockGetDownloadUrl).not.toHaveBeenCalled();
+    // The download must NOT run until the click.
+    expect(mockDownloadRecording).not.toHaveBeenCalled();
 
     await user.click(downloadButton);
 
     await waitFor(() =>
-      expect(mockGetDownloadUrl).toHaveBeenCalledWith(CLASSROOM_ID, 'rec-9'),
-    );
-    expect(window.open).toHaveBeenCalledWith(
-      'https://s3.example.com/rec-9.mp4',
-      '_blank',
-      'noopener,noreferrer',
+      expect(mockDownloadRecording).toHaveBeenCalledWith(CLASSROOM_ID, 'rec-9'),
     );
   });
 

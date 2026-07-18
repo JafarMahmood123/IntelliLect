@@ -46,4 +46,15 @@ public interface IClassroomRecordingService
         Guid recordingId,
         Guid requestingUserId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves an Available recording to its storage target (key + file name + content type) after
+    /// the SAME membership/status checks as <see cref="GetDownloadUrlAsync"/>. Used by the streaming
+    /// download endpoint, which serves the bytes through the API/gateway instead of a direct S3 link.
+    /// </summary>
+    Task<FileDownloadTarget> GetDownloadTargetAsync(
+        Guid classroomId,
+        Guid recordingId,
+        Guid requestingUserId,
+        CancellationToken ct = default);
 }

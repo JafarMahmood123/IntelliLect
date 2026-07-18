@@ -1,5 +1,6 @@
 import { apiClient } from '../../../lib/axios';
-import type { DownloadUrlResponse, Summary, SummaryFormat } from '../types';
+import { filenameFromContentDisposition, triggerBlobDownload } from '../../../utils/download';
+import type { Summary, SummaryFormat } from '../types';
 
 export const getSummaries = async (
   classroomId: string,
@@ -23,18 +24,35 @@ export const getSummary = async (
 };
 
 /**
- * Fetches a fresh, short-lived pre-signed S3 URL for a summary in the given
- * format (defaults to PDF). MUST be called on demand (on download click) —
- * never pre-fetched/cached, because the URL expires quickly.
+ * Fetches a summary's Markdown as text through the API/gateway (auth-guarded) for inline preview —
+ * no direct-to-MinIO link, so no browser HTTPS-upgrade issue.
  */
-export const getSummaryDownloadUrl = async (
+export const fetchSummaryMarkdownText = async (
+  classroomId: string,
+  summaryId: string,
+): Promise<string> => {
+  const { data } = await apiClient.get<string>(
+    `/classrooms/${classroomId}/summaries/${summaryId}/download`,
+    { params: { format: 'md' }, responseType: 'text' },
+  );
+  return data;
+};
+
+/**
+ * Downloads a summary artifact (PDF default, or Markdown) by streaming it through the API/gateway
+ * (auth header + blob) rather than a direct-to-MinIO link. Called on demand (on click).
+ */
+export const downloadSummary = async (
   classroomId: string,
   summaryId: string,
   format: SummaryFormat = 'pdf',
-): Promise<DownloadUrlResponse> => {
-  const { data } = await apiClient.get<DownloadUrlResponse>(
-    `/classrooms/${classroomId}/summaries/${summaryId}/download-url`,
-    { params: { format } },
+): Promise<void> => {
+  const response = await apiClient.get<Blob>(
+    `/classrooms/${classroomId}/summaries/${summaryId}/download`,
+    { params: { format }, responseType: 'blob' },
   );
-  return data;
+  const fileName =
+    filenameFromContentDisposition(response.headers['content-disposition']) ??
+    `summary-${summaryId}.${format}`;
+  triggerBlobDownload(response.data, fileName);
 };

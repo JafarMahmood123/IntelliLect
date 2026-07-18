@@ -88,6 +88,57 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         string? format,
         CancellationToken ct = default)
     {
+        var (objectKey, fileName, contentType, extension) =
+            await ResolveAvailableSummaryAsync(classroomId, summaryId, requestingUserId, format, ct);
+
+        var ttlSeconds = _downloadSettings.DownloadUrlTtlSeconds > 0
+            ? _downloadSettings.DownloadUrlTtlSeconds
+            : DefaultTtlSeconds;
+        var ttl = TimeSpan.FromSeconds(ttlSeconds);
+
+        var contentDisposition = $"attachment; filename=\"{fileName}\"";
+
+        var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
+            objectKey, ttl, contentDisposition, contentType, ct);
+
+        _metrics.DownloadUrlIssued(extension);
+
+        // Audit accountability: who requested which summary artifact, when. The URL is a bearer
+        // capability, so it is NEVER logged.
+        _logger.LogInformation(
+            "Summary download URL issued for summary {SummaryId} ({Format}) in classroom {ClassroomId} to user {UserId} at {TimestampUtc:o}.",
+            summaryId, extension, classroomId, requestingUserId, DateTime.UtcNow);
+
+        return new DownloadUrlDto(presigned.Url, presigned.ExpiresAtUtc);
+    }
+
+    public async Task<FileDownloadTarget> GetDownloadTargetAsync(
+        Guid classroomId,
+        Guid summaryId,
+        Guid requestingUserId,
+        string? format,
+        CancellationToken ct = default)
+    {
+        var (objectKey, fileName, contentType, extension) =
+            await ResolveAvailableSummaryAsync(classroomId, summaryId, requestingUserId, format, ct);
+
+        _metrics.DownloadUrlIssued(extension);
+
+        // Audit accountability: who downloaded which summary artifact, when.
+        _logger.LogInformation(
+            "Summary {SummaryId} ({Format}) in classroom {ClassroomId} downloaded by user {UserId} at {TimestampUtc:o}.",
+            summaryId, extension, classroomId, requestingUserId, DateTime.UtcNow);
+
+        return new FileDownloadTarget(objectKey, fileName, contentType);
+    }
+
+    /// <summary>
+    /// Shared download guard: membership (403 + metric on denial), existence/cross-classroom (404),
+    /// and Available-with-key (409). Resolves the chosen artifact (PDF default, "md" for Markdown).
+    /// </summary>
+    private async Task<(string ObjectKey, string FileName, string ContentType, string Extension)> ResolveAvailableSummaryAsync(
+        Guid classroomId, Guid summaryId, Guid requestingUserId, string? format, CancellationToken ct)
+    {
         try
         {
             await EnsureMemberAsync(classroomId, requestingUserId, ct);
@@ -115,28 +166,11 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
             throw new ConflictException("Summary is not available for download.");
         }
 
-        var ttlSeconds = _downloadSettings.DownloadUrlTtlSeconds > 0
-            ? _downloadSettings.DownloadUrlTtlSeconds
-            : DefaultTtlSeconds;
-        var ttl = TimeSpan.FromSeconds(ttlSeconds);
-
         var extension = isMarkdown ? "md" : "pdf";
         var contentType = isMarkdown ? MarkdownContentType : PdfContentType;
         var fileName = $"{summary.SessionId}-summary.{extension}";
-        var contentDisposition = $"attachment; filename=\"{fileName}\"";
 
-        var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
-            objectKey, ttl, contentDisposition, contentType, ct);
-
-        _metrics.DownloadUrlIssued(extension);
-
-        // Audit accountability: who requested which summary artifact, when. The URL is a bearer
-        // capability, so it is NEVER logged.
-        _logger.LogInformation(
-            "Summary download URL issued for summary {SummaryId} ({Format}) in classroom {ClassroomId} to user {UserId} at {TimestampUtc:o}.",
-            summaryId, extension, classroomId, requestingUserId, DateTime.UtcNow);
-
-        return new DownloadUrlDto(presigned.Url, presigned.ExpiresAtUtc);
+        return (objectKey, fileName, contentType, extension);
     }
 
     /// <summary>

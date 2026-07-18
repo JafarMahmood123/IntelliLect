@@ -82,6 +82,58 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
         Guid requestingUserId,
         CancellationToken ct = default)
     {
+        var recording = await ResolveAvailableRecordingAsync(classroomId, recordingId, requestingUserId, ct);
+
+        var ttlSeconds = _downloadSettings.DownloadUrlTtlSeconds > 0
+            ? _downloadSettings.DownloadUrlTtlSeconds
+            : DefaultTtlSeconds;
+        var ttl = TimeSpan.FromSeconds(ttlSeconds);
+
+        var fileName = BuildFileName(recording);
+        var contentDisposition = $"attachment; filename=\"{fileName}\"";
+        var contentType = string.IsNullOrEmpty(recording.ContentType) ? DefaultContentType : recording.ContentType;
+
+        var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
+            recording.S3Key, ttl, contentDisposition, contentType, ct);
+
+        _metrics.DownloadUrlIssued();
+
+        // Audit accountability: who requested a download of which recording, when. The URL is a
+        // bearer capability, so it is NEVER logged.
+        _logger.LogInformation(
+            "Download URL issued for recording {RecordingId} in classroom {ClassroomId} to user {UserId} at {TimestampUtc:o}.",
+            recordingId, classroomId, requestingUserId, DateTime.UtcNow);
+
+        return new DownloadUrlDto(presigned.Url, presigned.ExpiresAtUtc);
+    }
+
+    public async Task<FileDownloadTarget> GetDownloadTargetAsync(
+        Guid classroomId,
+        Guid recordingId,
+        Guid requestingUserId,
+        CancellationToken ct = default)
+    {
+        var recording = await ResolveAvailableRecordingAsync(classroomId, recordingId, requestingUserId, ct);
+
+        var contentType = string.IsNullOrEmpty(recording.ContentType) ? DefaultContentType : recording.ContentType;
+
+        _metrics.DownloadUrlIssued();
+
+        // Audit accountability: who downloaded which recording, when.
+        _logger.LogInformation(
+            "Recording {RecordingId} in classroom {ClassroomId} downloaded by user {UserId} at {TimestampUtc:o}.",
+            recordingId, classroomId, requestingUserId, DateTime.UtcNow);
+
+        return new FileDownloadTarget(recording.S3Key, BuildFileName(recording), contentType);
+    }
+
+    /// <summary>
+    /// Shared download guard: membership (403 + metric on denial), existence/cross-classroom (404),
+    /// and Available-with-key (409). Returns the recording ready to serve.
+    /// </summary>
+    private async Task<SessionRecording> ResolveAvailableRecordingAsync(
+        Guid classroomId, Guid recordingId, Guid requestingUserId, CancellationToken ct)
+    {
         try
         {
             await EnsureMemberAsync(classroomId, requestingUserId, ct);
@@ -105,27 +157,7 @@ public sealed class ClassroomRecordingService : IClassroomRecordingService
             throw new ConflictException("Recording is not available for download.");
         }
 
-        var ttlSeconds = _downloadSettings.DownloadUrlTtlSeconds > 0
-            ? _downloadSettings.DownloadUrlTtlSeconds
-            : DefaultTtlSeconds;
-        var ttl = TimeSpan.FromSeconds(ttlSeconds);
-
-        var fileName = BuildFileName(recording);
-        var contentDisposition = $"attachment; filename=\"{fileName}\"";
-        var contentType = string.IsNullOrEmpty(recording.ContentType) ? DefaultContentType : recording.ContentType;
-
-        var presigned = await _urlSigner.GeneratePresignedGetUrlAsync(
-            recording.S3Key, ttl, contentDisposition, contentType, ct);
-
-        _metrics.DownloadUrlIssued();
-
-        // Audit accountability: who requested a download of which recording, when. The URL is a
-        // bearer capability, so it is NEVER logged.
-        _logger.LogInformation(
-            "Download URL issued for recording {RecordingId} in classroom {ClassroomId} to user {UserId} at {TimestampUtc:o}.",
-            recordingId, classroomId, requestingUserId, DateTime.UtcNow);
-
-        return new DownloadUrlDto(presigned.Url, presigned.ExpiresAtUtc);
+        return recording;
     }
 
     /// <summary>

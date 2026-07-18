@@ -1,4 +1,5 @@
 import { apiClient } from '../../../lib/axios';
+import { filenameFromContentDisposition, triggerBlobDownload } from '../../../utils/download';
 import type { DownloadUrlResponse, GeneratedDocument, Recording } from '../types';
 
 // --- Recordings -------------------------------------------------------------
@@ -25,18 +26,21 @@ export const getRecording = async (
 };
 
 /**
- * Fetches a fresh, short-lived pre-signed S3 URL for a recording.
- * MUST be called on demand (on download click) — never pre-fetched/cached,
- * because the URL expires quickly.
+ * Downloads a recording by streaming it through the API/gateway (auth header + blob) rather than a
+ * direct-to-MinIO link, so the browser stays on the app origin. Called on demand (on click).
  */
-export const getRecordingDownloadUrl = async (
+export const downloadRecording = async (
   classroomId: string,
   recordingId: string,
-): Promise<DownloadUrlResponse> => {
-  const { data } = await apiClient.get<DownloadUrlResponse>(
-    `/classrooms/${classroomId}/recordings/${recordingId}/download-url`,
+): Promise<void> => {
+  const response = await apiClient.get<Blob>(
+    `/classrooms/${classroomId}/recordings/${recordingId}/download`,
+    { responseType: 'blob' },
   );
-  return data;
+  const fileName =
+    filenameFromContentDisposition(response.headers['content-disposition']) ??
+    `recording-${recordingId}.mp4`;
+  triggerBlobDownload(response.data, fileName);
 };
 
 // --- Documents (stubs — implemented by a later phase) -----------------------

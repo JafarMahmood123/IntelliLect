@@ -3,20 +3,14 @@ import { Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from './ToastProvider';
 
-/** Minimal shape of a pre-signed download URL response (any artifact type). */
-interface DownloadUrl {
-  url: string;
-  expiresAt: string;
-}
-
 type DownloadButtonVariant = 'primary' | 'secondary';
 
 interface SecureDownloadButtonProps {
   /**
-   * Fetches a fresh, short-lived pre-signed URL. Called ONLY on click —
-   * never on mount/render, because the URL expires quickly.
+   * Performs the download. Called ONLY on click — typically streams the artifact through the API
+   * (auth-guarded) and saves it. Shows a loading state while it runs and a toast on failure.
    */
-  getUrl: () => Promise<DownloadUrl>;
+  onDownload: () => Promise<void>;
   /** Visible button label. Defaults to the translated "Download". */
   label?: string;
   /** Accessible label describing what is being downloaded. */
@@ -41,7 +35,7 @@ const variantClasses: Record<DownloadButtonVariant, string> = {
  * failure. It intentionally does NOT fetch on mount.
  */
 export const SecureDownloadButton = ({
-  getUrl,
+  onDownload,
   label,
   ariaLabel,
   variant = 'primary',
@@ -60,9 +54,7 @@ export const SecureDownloadButton = ({
     setHasError(false);
 
     try {
-      const { url } = await getUrl();
-      // Open the pre-signed S3 URL to start the direct download.
-      window.open(url, '_blank', 'noopener,noreferrer');
+      await onDownload();
     } catch {
       setHasError(true);
       showToast({

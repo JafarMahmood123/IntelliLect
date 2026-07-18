@@ -9,13 +9,19 @@ import type { Summary } from '../types';
 vi.mock('../api/summaries', () => ({
   getSummaries: vi.fn(),
   getSummary: vi.fn(),
-  getSummaryDownloadUrl: vi.fn(),
+  downloadSummary: vi.fn(),
+  fetchSummaryMarkdownText: vi.fn(),
 }));
 
-import { getSummaries, getSummaryDownloadUrl } from '../api/summaries';
+import {
+  getSummaries,
+  downloadSummary,
+  fetchSummaryMarkdownText,
+} from '../api/summaries';
 
 const mockGetSummaries = vi.mocked(getSummaries);
-const mockGetDownloadUrl = vi.mocked(getSummaryDownloadUrl);
+const mockDownloadSummary = vi.mocked(downloadSummary);
+const mockFetchMarkdown = vi.mocked(fetchSummaryMarkdownText);
 
 const CLASSROOM_ID = 'class-1';
 
@@ -92,17 +98,12 @@ describe('SummariesList', () => {
     ).toBeInTheDocument();
   });
 
-  it('download flow: PDF fetches format=pdf on click, MD fetches format=md, never on mount', async () => {
+  it('download flow: PDF streams format=pdf on click, MD streams format=md, never on mount', async () => {
     const user = userEvent.setup();
     mockGetSummaries.mockResolvedValue([
       makeSummary({ summaryId: 'sum-9', status: 'Available' }),
     ]);
-    mockGetDownloadUrl.mockImplementation((_c, _s, format) =>
-      Promise.resolve({
-        url: `https://s3.example.com/sum-9.${format}`,
-        expiresAt: '2026-01-01T00:00:00Z',
-      }),
-    );
+    mockDownloadSummary.mockResolvedValue(undefined);
 
     renderWithProviders(<SummariesList classroomId={CLASSROOM_ID} />);
 
@@ -111,35 +112,25 @@ describe('SummariesList', () => {
     });
     const mdButton = screen.getByRole('button', { name: /download markdown/i });
 
-    // Never fetched on mount.
-    expect(mockGetDownloadUrl).not.toHaveBeenCalled();
+    // Never triggered on mount.
+    expect(mockDownloadSummary).not.toHaveBeenCalled();
 
     await user.click(pdfButton);
     await waitFor(() =>
-      expect(mockGetDownloadUrl).toHaveBeenCalledWith(
+      expect(mockDownloadSummary).toHaveBeenCalledWith(
         CLASSROOM_ID,
         'sum-9',
         'pdf',
       ),
     );
-    expect(window.open).toHaveBeenCalledWith(
-      'https://s3.example.com/sum-9.pdf',
-      '_blank',
-      'noopener,noreferrer',
-    );
 
     await user.click(mdButton);
     await waitFor(() =>
-      expect(mockGetDownloadUrl).toHaveBeenCalledWith(
+      expect(mockDownloadSummary).toHaveBeenCalledWith(
         CLASSROOM_ID,
         'sum-9',
         'md',
       ),
-    );
-    expect(window.open).toHaveBeenCalledWith(
-      'https://s3.example.com/sum-9.md',
-      '_blank',
-      'noopener,noreferrer',
     );
   });
 
@@ -148,18 +139,9 @@ describe('SummariesList', () => {
     mockGetSummaries.mockResolvedValue([
       makeSummary({ summaryId: 'sum-p', status: 'Available' }),
     ]);
-    mockGetDownloadUrl.mockResolvedValue({
-      url: 'https://s3.example.com/sum-p.md',
-      expiresAt: '2026-01-01T00:00:00Z',
-    });
-
     const markdown =
       '# Session Recap\n\nKey point one.\n\n<img src="x" onerror="alert(1)">';
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(markdown),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    mockFetchMarkdown.mockResolvedValue(markdown);
 
     renderWithProviders(<SummariesList classroomId={CLASSROOM_ID} />);
 
@@ -169,15 +151,12 @@ describe('SummariesList', () => {
     await user.click(previewButton);
 
     const dialog = await screen.findByRole('dialog');
-    // Markdown rendered as real elements (heading), fetched via the md url.
+    // Markdown rendered as real elements (heading), fetched via the streaming endpoint.
     expect(await within(dialog).findByText('Session Recap')).toBeInTheDocument();
-    expect(mockGetDownloadUrl).toHaveBeenCalledWith(CLASSROOM_ID, 'sum-p', 'md');
-    expect(fetchMock).toHaveBeenCalledWith('https://s3.example.com/sum-p.md');
+    expect(mockFetchMarkdown).toHaveBeenCalledWith(CLASSROOM_ID, 'sum-p');
 
     // Sanitized: the injected onerror image must not survive.
     expect(dialog.querySelector('img[onerror]')).toBeNull();
-
-    vi.unstubAllGlobals();
   });
 
   it('renders a friendly empty state (no error) on a 403', async () => {

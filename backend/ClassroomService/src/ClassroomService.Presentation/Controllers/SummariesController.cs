@@ -14,10 +14,12 @@ namespace ClassroomService.Presentation.Controllers;
 public sealed class SummariesController : ApiBaseController
 {
     private readonly IClassroomSummaryService _summaryService;
+    private readonly IFileStorageService _fileStorage;
 
-    public SummariesController(IClassroomSummaryService summaryService)
+    public SummariesController(IClassroomSummaryService summaryService, IFileStorageService fileStorage)
     {
         _summaryService = summaryService;
+        _fileStorage = fileStorage;
     }
 
     [HttpGet]
@@ -58,5 +60,22 @@ public sealed class SummariesController : ApiBaseController
     {
         var result = await _summaryService.GetDownloadUrlAsync(classroomId, summaryId, UserId, format, ct);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Streams the summary's PDF or Markdown (<c>?format=pdf|md</c>, default pdf) through the
+    /// API/gateway as an attachment, so the browser stays on the app origin instead of hitting the
+    /// raw MinIO port. Same checks: 403 non-member, 404 unknown/cross-classroom, 409 if not Available.
+    /// </summary>
+    [HttpGet("{summaryId:guid}/download")]
+    public async Task<IActionResult> Download(
+        Guid classroomId,
+        Guid summaryId,
+        [FromQuery] string? format,
+        CancellationToken ct)
+    {
+        var target = await _summaryService.GetDownloadTargetAsync(classroomId, summaryId, UserId, format, ct);
+        var stream = await _fileStorage.OpenReadAsync(target.S3Key, ct);
+        return File(stream, target.ContentType, target.FileName);
     }
 }

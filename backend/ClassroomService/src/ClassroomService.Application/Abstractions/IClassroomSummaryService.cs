@@ -47,4 +47,16 @@ public interface IClassroomSummaryService
         Guid requestingUserId,
         string? format,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves an Available summary artifact (PDF default, "md" for Markdown) to its storage target
+    /// after the SAME membership/status checks as <see cref="GetDownloadUrlAsync"/>. Used by the
+    /// streaming download endpoint, which serves the bytes through the API/gateway.
+    /// </summary>
+    Task<FileDownloadTarget> GetDownloadTargetAsync(
+        Guid classroomId,
+        Guid summaryId,
+        Guid requestingUserId,
+        string? format,
+        CancellationToken ct = default);
 }

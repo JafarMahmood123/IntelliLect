@@ -5,7 +5,7 @@ import { ArtifactList } from '../../../components/ui/ArtifactList';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SecureDownloadButton } from '../../../components/ui/SecureDownloadButton';
 import { formatBytes, formatDuration } from '../../../utils/format';
-import { getRecordingDownloadUrl } from '../api/recordings';
+import { downloadRecording } from '../api/recordings';
 import { useClassroomRecordings } from '../hooks/useRecordingQueries';
 import type { Recording } from '../types';
 
@@ -133,8 +133,8 @@ const RecordingRow = ({
       <div className="flex items-center gap-3 ltr:sm:ml-auto rtl:sm:mr-auto">
         {recording.status === 'Available' && (
           <SecureDownloadButton
-            getUrl={() =>
-              getRecordingDownloadUrl(classroomId, recording.recordingId)
+            onDownload={() =>
+              downloadRecording(classroomId, recording.recordingId)
             }
             ariaLabel={t('downloadAria', { date: dateLabel })}
           />
