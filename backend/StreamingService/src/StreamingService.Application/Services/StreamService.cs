@@ -32,7 +32,7 @@ public sealed class StreamService : IStreamService
         _logger = logger;
     }
 
-    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, CancellationToken ct)
+    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, string userName, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null) throw new KeyNotFoundException("Stream not found.");
@@ -40,7 +40,7 @@ public sealed class StreamService : IStreamService
         bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
         bool canPublish = isTeacher || stream.ParticipationMode != StudentParticipationMode.ViewOnly;
 
-        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, canPublish);
+        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, canPublish, role, userName);
 
         return new StreamResponse(
             stream.Id,

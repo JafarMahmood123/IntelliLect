@@ -23,6 +23,11 @@ services:
     container_name: livekit-server
     command:
       - --dev
+      # Force the advertised WebRTC media IP to the host LAN IP. --dev otherwise STUN-discovers
+      # the machine's PUBLIC IP and hands browsers an unroutable media candidate, so peer
+      # connections fail and clients get kicked out of the room. Must match the join URL host.
+      - --node-ip
+      - 192.168.1.104
       - --config
       - /livekit.yaml
     volumes:
@@ -35,9 +40,18 @@ services:
       - LOG_LEVEL=info,pion:warn,transport:warn
     ports:
       - "7880:7880" # HTTP Signal
-      - "7881:7881" # WebRTC TCP
-      - "7882:7882/udp" # WebRTC UDP
-      - "51000-51050:51000-51050/udp"
+      - "7881:7881" # WebRTC TCP (ICE/TURN fallback)
+      - "7882:7882/udp" # WebRTC UDP — single multiplexed media port (rtc.udp_port)
+    # Fail loudly if the media server is down. A bad livekit.yaml previously let this
+    # container exit(0) while streaming-service came up regardless, silently bouncing
+    # everyone out of live sessions. The HTTP signal port returns "OK" once serving;
+    # the image ships busybox wget (no curl). start_period covers STUN/external-IP setup.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - intellilect-net
 
@@ -78,7 +92,7 @@ services:
       intellilect-mq:
         condition: service_healthy
       livekit-server:
-        condition: service_started
+        condition: service_healthy
     networks:
       - intellilect-net
 

@@ -4,7 +4,7 @@ namespace StreamingService.Application.Abstractions;
 
 public interface IStreamService
 {
-    Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, CancellationToken ct = default);
+    Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, string userName, CancellationToken ct = default);
     Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct = default);
     Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct = default);
     Task ToggleHandRaiseAsync(Guid sessionId, Guid userId, bool isRaised, CancellationToken ct = default);

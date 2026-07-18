@@ -6,19 +6,26 @@ bind_addresses:
   - ""
 rtc:
   tcp_port: 7881
-  port_range_start: 51000
-  port_range_end: 51050
-  use_external_ip: true
+  # Single UDP port (not a range). Docker's userland proxy mangles/drops UDP across a large
+  # published port range, which surfaces as "dtls timeout" on the media transport and clients
+  # never actually get audio/video (endless reconnects). One multiplexed UDP port is LiveKit's
+  # documented Docker setup and only needs a single "7882:7882/udp" publish.
+  udp_port: 7882
+  # Local/LAN dev: advertise the host's LAN IP for WebRTC media. With use_external_ip:true
+  # LiveKit STUN-discovers the machine's PUBLIC IP (149.40.58.152) and hands that to browsers
+  # as the media (ICE) candidate — unroutable for UDP from a LAN client. node_ip must match
+  # the host in the join URL StreamingService returns (ws://192.168.1.104:7880). NOTE: --dev
+  # overrides these yaml keys, so the authoritative value is the --node-ip flag in compose.
+  use_external_ip: false
+  node_ip: 192.168.1.104
   enable_loopback_candidate: true
 
-egress:
-  s3:
-    access_key: "testuser"
-    secret_key: "testpassword123!"
-    region: "us-east-1"
-    endpoint: "http://intellilect-s3:9000"
-    bucket: "intellilect-files"
-    force_path_style: true
+# NOTE: The LiveKit *server* config has no top-level `egress` section — that field
+# belongs to the separate LiveKit Egress service's config. Placing it here makes
+# livekit-server fail to parse the config and exit on startup (which took the whole
+# live-session flow down). Egress/recording S3 settings are supplied to StreamingService
+# via the Egress__S3__* env vars and require a livekit/egress container to actually run;
+# without it, StreamingService logs a warning and continues without recording.
 
 # Egress lifecycle webhooks -> StreamingService (R-1). LiveKit signs each POST with the api_key
 # below; the receiver verifies it with the matching secret in `keys`.
