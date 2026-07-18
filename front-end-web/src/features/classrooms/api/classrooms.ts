@@ -62,6 +62,34 @@ export const getFileIndexingStatus = async (
   return data;
 };
 
+/**
+ * Downloads a classroom material file by streaming it through the API/gateway (same origin the
+ * app already uses) rather than a direct-to-MinIO link. The request carries the auth header via
+ * apiClient; the blob is then saved with the original file name. Called on demand (on click).
+ */
+export const downloadClassroomFile = async (
+  classroomId: string,
+  fileId: string,
+  fileName: string,
+): Promise<void> => {
+  const { data } = await apiClient.get<Blob>(
+    `/classrooms/${classroomId}/files/${fileId}/download`,
+    { responseType: 'blob' },
+  );
+
+  const objectUrl = URL.createObjectURL(data);
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 export const getClassroomSessions = async (classroomId: string): Promise<Session[]> => {
   const { data } = await apiClient.get<Session[]>(`/classrooms/${classroomId}/sessions`);
   return data;

@@ -189,6 +189,9 @@ public sealed class FakeFileStorageService : IFileStorageService
         => Task.FromResult(fileName);
 
     public Task DeleteFileAsync(string s3Key, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task<Stream> OpenReadAsync(string s3Key, CancellationToken ct = default)
+        => Task.FromResult<Stream>(new MemoryStream(new byte[] { 1, 2, 3 }));
 }
 
 /// <summary>In-memory IRecordingRepository for the recording-ready consumer tests.</summary>

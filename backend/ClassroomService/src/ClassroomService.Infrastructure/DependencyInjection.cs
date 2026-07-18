@@ -63,30 +63,42 @@ public static class DependencyInjection
         services.Configure<S3Settings>(s3Section);
         var s3Settings = s3Section.Get<S3Settings>();
 
-        services.AddSingleton<IAmazonS3>(sp =>
+        static AmazonS3Client BuildS3Client(S3Settings s, string? serviceUrl)
         {
             var config = new AmazonS3Config
             {
-                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Settings!.Region),
+                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s.Region),
                 ForcePathStyle = true
             };
 
-            if (!string.IsNullOrEmpty(s3Settings.ServiceUrl))
+            if (!string.IsNullOrEmpty(serviceUrl))
             {
-                config.ServiceURL = s3Settings.ServiceUrl;
+                config.ServiceURL = serviceUrl;
             }
 
             return new AmazonS3Client("testuser", "testpassword123!", config);
-        });
+        }
+
+        // Main client — talks to MinIO over the internal endpoint for uploads/deletes/byte reads.
+        services.AddSingleton<IAmazonS3>(_ => BuildS3Client(s3Settings!, s3Settings!.ServiceUrl));
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();
+
+        // Pre-sign client — signs GET download URLs against the BROWSER-reachable endpoint so the
+        // links resolve from the user's browser (SigV4 signs the host, so it must match what the
+        // browser hits). Presigning is local; this client never connects. Falls back to ServiceUrl.
+        var presignServiceUrl = string.IsNullOrWhiteSpace(s3Settings!.PublicServiceUrl)
+            ? s3Settings.ServiceUrl
+            : s3Settings.PublicServiceUrl;
+        var presignS3Client = BuildS3Client(s3Settings, presignServiceUrl);
 
         // Recording downloads (R-3): reuse the S3 client/bucket above; only the URL TTL is new.
         var recordingsSection = configuration.GetSection(RecordingsOptions.SectionName);
         services.Configure<RecordingsOptions>(recordingsSection);
         services.AddSingleton<IRecordingDownloadSettings>(sp =>
             sp.GetRequiredService<IOptions<RecordingsOptions>>().Value);
-        services.AddScoped<IRecordingUrlSigner, S3RecordingUrlSigner>();
+        services.AddScoped<IRecordingUrlSigner>(sp =>
+            new S3RecordingUrlSigner(presignS3Client, sp.GetRequiredService<IOptions<S3Settings>>()));
 
         // Summary downloads (S-4): reuse the same S3 signer/bucket; only the URL TTL is new.
         services.Configure<SummariesOptions>(configuration.GetSection(SummariesOptions.SectionName));

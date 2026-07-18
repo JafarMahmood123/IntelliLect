@@ -139,6 +139,30 @@ public sealed class ClassroomFileService : IClassroomFileService
         return new FileIndexingStatusResponse(fileId, status ?? PendingStatus);
     }
 
+    public async Task<FileDownloadResult> GetFileDownloadAsync(
+        Guid classroomId, Guid fileId, Guid requestingUserId, CancellationToken ct)
+    {
+        // Members only: missing classroom -> 404, non-member -> 403 (before any file lookup).
+        await EnsureMemberAsync(classroomId, requestingUserId, ct);
+
+        var file = await _fileRepository.GetByIdAsync(fileId, ct);
+        // Unknown, or belongs to another classroom -> 404 (no cross-classroom leakage).
+        if (file is null || file.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("File not found.");
+        }
+
+        // Stream straight from MinIO through the API — the browser never touches the storage port.
+        var content = await _storageService.OpenReadAsync(file.S3Key, ct);
+
+        // Audit accountability: who downloaded which file, when.
+        _logger.LogInformation(
+            "File {FileId} in classroom {ClassroomId} downloaded by user {UserId} at {TimestampUtc:o}.",
+            fileId, classroomId, requestingUserId, DateTime.UtcNow);
+
+        return new FileDownloadResult(content, file.FileName, file.ContentType);
+    }
+
     /// <summary>
     /// Reuses the platform's membership rule: the classroom's teacher OR an enrolled student is a
     /// member. Missing classroom -> 404; non-member -> 403.

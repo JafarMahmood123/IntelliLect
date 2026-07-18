@@ -1,13 +1,49 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, File as FileIcon, Trash2, UploadCloud } from 'lucide-react';
+import { Download, File as FileIcon, Loader2, Trash2, UploadCloud } from 'lucide-react';
 import { Table, type TableColumn } from '../../../components/ui/Table';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
 import { useToast } from '../../../components/ui/ToastProvider';
 import { useClassroomFiles, useDeleteClassroomFile, useUploadClassroomFile } from '../hooks/useClassroomQueries';
+import { downloadClassroomFile } from '../api/classrooms';
 import { FileIndexingBadge } from './FileIndexingBadge';
 import type { ClassroomFile } from '../types';
+
+/**
+ * Downloads a file by streaming it through the API (auth header + blob), showing a spinner while
+ * in flight and a toast on failure. Kept self-contained so each row tracks its own state.
+ */
+const FileDownloadButton = ({ classroomId, file }: { classroomId: string; file: ClassroomFile }) => {
+  const { showToast } = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleClick = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await downloadClassroomFile(classroomId, file.id, file.fileName);
+    } catch {
+      showToast({ type: 'error', title: 'Download failed', message: 'Could not download this file.' });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isDownloading}
+      aria-label={`Download ${file.fileName}`}
+      aria-busy={isDownloading}
+      title="Download File"
+      className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 active:scale-[0.98]"
+    >
+      {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+    </button>
+  );
+};
 
 interface ClassroomFileListProps {
   classroomId: string;
@@ -91,19 +127,10 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
       cellClassName: 'text-right',
       render: (file) => (
         <div className="flex justify-end gap-2">
-          {/* --- FIX 1: FIXED DOWNLOAD URL FOR MINIO ---
-            Changing 'localhost:4566' to 'localhost:9000' to point directly to MinIO's API.
-          */}
-          <a 
-            href={`http://localhost:9000/intellilect-files/${file.s3Key}`} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer active:scale-[0.98]"
-            title="Download File"
-          >
-            <Download size={16} />
-          </a>
-          
+          {/* Streams through the API/gateway (auth + blob) — the browser never touches the raw
+              MinIO port, so no scheme/HTTPS-upgrade issues. */}
+          <FileDownloadButton classroomId={classroomId} file={file} />
+
           {isTeacher && (
             <button
               onClick={() => setFileToDelete(file)}

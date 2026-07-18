@@ -60,4 +60,16 @@ public sealed class ClassroomFilesController : ApiBaseController
         var result = await _fileService.GetFileIndexingStatusAsync(classroomId, fileId, UserId, ct);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Streams a classroom material file to the caller through the API/gateway (as an attachment),
+    /// so the browser stays on the app origin instead of hitting the raw MinIO port. 403 for
+    /// non-members, 404 for unknown/cross-classroom files.
+    /// </summary>
+    [HttpGet("{fileId:guid}/download")]
+    public async Task<IActionResult> Download(Guid classroomId, Guid fileId, CancellationToken ct)
+    {
+        var result = await _fileService.GetFileDownloadAsync(classroomId, fileId, UserId, ct);
+        return File(result.Content, result.ContentType, result.FileName);
+    }
 }

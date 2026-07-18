@@ -45,6 +45,14 @@ public sealed class S3FileStorageService : IFileStorageService
         return s3Key;
     }
 
+    public async Task<Stream> OpenReadAsync(string s3Key, CancellationToken ct = default)
+    {
+        // ResponseStream stays connected to S3/MinIO until read; the caller (FileStreamResult)
+        // disposes it, which releases the underlying HTTP response.
+        var response = await _s3Client.GetObjectAsync(_settings.BucketName, s3Key, ct);
+        return response.ResponseStream;
+    }
+
     public async Task DeleteFileAsync(string s3Key, CancellationToken ct = default)
     {
         var deleteObjectRequest = new DeleteObjectRequest

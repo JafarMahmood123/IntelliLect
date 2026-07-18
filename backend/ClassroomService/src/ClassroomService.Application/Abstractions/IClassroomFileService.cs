@@ -9,6 +9,14 @@ public interface IClassroomFileService
     Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(Guid classroomId, CancellationToken ct = default);
 
     /// <summary>
+    /// Opens a classroom material file for download by a member, streamed through the API (and
+    /// thus the gateway) rather than a direct-to-MinIO link — so the browser stays on the app's
+    /// origin. Missing classroom -> 404; non-member -> 403; unknown/cross-classroom file -> 404.
+    /// </summary>
+    Task<FileDownloadResult> GetFileDownloadAsync(
+        Guid classroomId, Guid fileId, Guid requestingUserId, CancellationToken ct = default);
+
+    /// <summary>
     /// Read a classroom file's RAG indexing status for a member. Missing classroom -> 404;
     /// non-member -> 403; unknown/cross-classroom file -> 404. The status is fetched from
     /// KnowledgeService server-side (no internal secret ever reaches the client).

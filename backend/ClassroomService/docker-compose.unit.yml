@@ -29,6 +29,9 @@ services:
       - RabbitMq__Password=Jafar123!
       - S3Settings__BucketName=intellilect-files
       - S3Settings__ServiceUrl=http://intellilect-s3:9000
+      # Browser-reachable MinIO endpoint used only to sign download URLs (host-published port).
+      # The service still uploads/reads over the internal ServiceUrl above.
+      - S3Settings__PublicServiceUrl=http://localhost:9000
       - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
