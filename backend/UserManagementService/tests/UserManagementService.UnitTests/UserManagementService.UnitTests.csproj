@@ -18,4 +18,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UserManagementService.Application\UserManagementService.Application.csproj" />
+    <ProjectReference Include="..\..\src\UserManagementService.Domain\UserManagementService.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

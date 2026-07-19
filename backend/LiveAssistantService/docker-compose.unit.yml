@@ -44,14 +44,27 @@ services:
       - STT_COMPUTE_TYPE=int8
       - STT_LANGUAGE=en
       - HF_HOME=/root/.cache/huggingface
+      # Disable HuggingFace's Xet transfer protocol — it stalls the model.bin download at 0 bytes
+      # from this container (the plain HTTPS/LFS path works). Prevents IncompleteSnapshotError.
+      - HF_HUB_DISABLE_XET=1
       # Idea-boundary drift embeddings (LA-3). Only the deferred boundary_check --live
       # path calls Ollama; host Ollama must run on 0.0.0.0:11434 with the model pulled.
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - EMBEDDING_MODEL=qwen3-embedding
-      # Session lifecycle (LA-6): the streaming service triggers start/stop on these
-      # /api/internal/sessions routes, authed with this shared secret (must match
-      # StreamingService's LiveAssistant__InternalApiSecret).
-      - INTERNAL_API_SECRET=dev-live-assistant-secret
+      # Host Ollama is CPU-only and swaps between the 7B evaluator and the embedding model,
+      # so individual calls can take ~30s+ (model reload). Generous timeouts keep a slow call
+      # from crashing the whole session (OllamaEmbeddingError). Real speed comes from keeping
+      # both models resident: set OLLAMA_MAX_LOADED_MODELS=2 + OLLAMA_KEEP_ALIVE=-1 on the host.
+      - EMBEDDING_TIMEOUT_SECONDS=180
+      - EVAL_TIMEOUT_SECONDS=180
+      # Material retrieval (LA-3): the evaluator calls KnowledgeService's POST /api/search to
+      # fetch relevant chunks for each spoken idea. Without this the evaluator raises
+      # RetrievalError and no suggestion is ever produced.
+      - KNOWLEDGE_BASE_URL=http://knowledge-service:8080
+      # Shared internal secret across the internal mesh. Must match KnowledgeService's
+      # INTERNAL_API_SECRET (used for /api/search) AND StreamingService's
+      # LiveAssistant__InternalApiSecret (used for /api/internal/sessions). One value everywhere.
+      - INTERNAL_API_SECRET=changeme-internal-secret
       - MAX_CONCURRENT_SESSIONS=20
       # Transcript persistence (S-0): durable per-session transcript in the compose DB.
       # entrypoint.sh runs Alembic migrations on start because this is set.

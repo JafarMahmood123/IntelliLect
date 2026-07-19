@@ -154,6 +154,27 @@ public sealed class AuthService : IAuthService
         return new LoginResponse(newAccess, newRefresh, response);
     }
 
+    public async Task LogoutAsync(Guid userId, string refreshToken, CancellationToken ct = default)
+    {
+        // Step 3: Locate the refresh token tied to the session.
+        var user = await _userRepository.FindByRefreshToken(refreshToken, ct);
+        var tokenRecord = user?.RefreshTokens.FirstOrDefault(rt => rt.Token == refreshToken);
+
+        // Alternate path 3: token missing or already revoked. The goal (session can no
+        // longer be renewed) is already met, so treat logout as successful and do nothing.
+        if (tokenRecord is null || tokenRecord.IsRevoked)
+            return;
+
+        // Step 4 / Alternate path 4: refuse to revoke a token that belongs to another user,
+        // preventing one user from ending another user's session.
+        if (tokenRecord.UserId != userId)
+            throw new UnauthorizedAccessException("The refresh token does not belong to the current user.");
+
+        // Step 5: revoke the token so it can no longer issue new access tokens.
+        tokenRecord.Revoke();
+        await _refreshTokenRepository.SaveChangesAsync(ct);
+    }
+
     public async Task ForgotPasswordAsync(string email, CancellationToken ct)
     {
         var user = await _userRepository.FindByEmail(email, ct);

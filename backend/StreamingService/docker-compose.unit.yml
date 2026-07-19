@@ -76,7 +76,9 @@ services:
       # LiveAssistantService trigger (LA-6): notify it on session start/end. Secret
       # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
-      - LiveAssistant__InternalApiSecret=dev-live-assistant-secret
+      # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
+      # (which is also what live-assistant presents to KnowledgeService). One value everywhere.
+      - LiveAssistant__InternalApiSecret=changeme-internal-secret
       # Session recording via LiveKit Room Composite Egress (R-0). LiveKit writes the MP4
       # straight to the shared MinIO (intellilect-s3) — matches livekit.yaml's egress.s3.
       - Egress__Enabled=true

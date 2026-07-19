@@ -262,6 +262,35 @@ namespace UserManagementService.Infrastructure.Persistence.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("UserManagementService.Domain.Entities.TwoFactorChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TwoFactorChallenges");
+                });
+
             modelBuilder.Entity("UserManagementService.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -296,6 +325,9 @@ namespace UserManagementService.Infrastructure.Persistence.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -327,6 +359,17 @@ namespace UserManagementService.Infrastructure.Persistence.Migrations
                     b.HasOne("UserManagementService.Domain.Entities.User", "User")
                         .WithOne("ResetPasswordToken")
                         .HasForeignKey("UserManagementService.Domain.Entities.ResetPasswordToken", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserManagementService.Domain.Entities.TwoFactorChallenge", b =>
+                {
+                    b.HasOne("UserManagementService.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

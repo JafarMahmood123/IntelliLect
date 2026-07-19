@@ -50,6 +50,25 @@ public sealed class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken ct)
+    {
+        var userId = GetUserIdFromClaims();
+        await _authService.LogoutAsync(userId, request.RefreshToken, ct);
+        return Ok(new { Message = "You have been logged out successfully." });
+    }
+
+    private Guid GetUserIdFromClaims()
+    {
+        var userIdClaim = User.FindFirst("uid")?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new UnauthorizedAccessException("Invalid user claims.");
+        }
+        return userId;
+    }
+
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
     {

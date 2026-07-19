@@ -15,6 +15,10 @@ export const register = async (data: RegisterRequest): Promise<void> => {
   await apiClient.post('/auth/register', data);
 };
 
+export const logout = async (refreshToken: string): Promise<void> => {
+  await apiClient.post('/auth/logout', { refreshToken });
+};
+
 export const forgotPassword = async (email: string): Promise<void> => {
   await apiClient.post('/auth/forgot-password', { email });
 };
