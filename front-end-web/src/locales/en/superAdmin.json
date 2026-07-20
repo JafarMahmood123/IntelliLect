@@ -122,5 +122,91 @@
       "confirmPasswordMin": "Please confirm the password",
       "passwordMismatch": "Passwords do not match"
     }
+  },
+  "users": {
+    "navLink": "Browse Users",
+    "title": "Platform Users",
+    "subtitle": "Search, filter, and inspect any user account and their classroom memberships.",
+    "backToDashboard": "Back to Dashboard",
+    "loading": "Loading users...",
+    "loadError": "Failed to load users.",
+    "empty": "No users match the selected criteria.",
+    "search": {
+      "label": "Search",
+      "placeholder": "Search by name, username, or email"
+    },
+    "filters": {
+      "role": "Role",
+      "status": "Status",
+      "allRoles": "All roles",
+      "allStatuses": "All statuses",
+      "createdFrom": "Joined from",
+      "createdTo": "Joined to",
+      "clear": "Clear filters"
+    },
+    "roles": {
+      "student": "Student",
+      "teacher": "Teacher",
+      "admin": "Admin",
+      "superAdmin": "Super Admin"
+    },
+    "statuses": {
+      "active": "Active",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "deactivated": "Deactivated"
+    },
+    "sortLabel": "Sort by",
+    "sortOptions": {
+      "joinedDesc": "Newest joined",
+      "joinedAsc": "Oldest joined",
+      "usernameAsc": "Username A-Z",
+      "usernameDesc": "Username Z-A",
+      "emailAsc": "Email A-Z",
+      "emailDesc": "Email Z-A",
+      "roleAsc": "Role A-Z",
+      "roleDesc": "Role Z-A",
+      "statusAsc": "Status A-Z",
+      "statusDesc": "Status Z-A"
+    },
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "joined": "Joined"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} users",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{total}}"
+    },
+    "detail": {
+      "backToUsers": "Back to Users",
+      "loading": "Loading user details...",
+      "loadError": "Failed to load user details.",
+      "notFound": "This account does not exist.",
+      "profile": {
+        "email": "Email",
+        "role": "Role",
+        "joined": "Joined",
+        "bio": "Bio",
+        "noBio": "No bio provided."
+      },
+      "membershipsUnavailable": "Classroom memberships are temporarily unavailable. The rest of the details are shown above.",
+      "teaching": {
+        "title": "Teaching",
+        "empty": "This user does not teach any classrooms."
+      },
+      "enrolled": {
+        "title": "Enrolled",
+        "empty": "This user is not enrolled in any classrooms."
+      },
+      "classroom": {
+        "students": "{{count}} students",
+        "files": "{{count}} files"
+      }
+    }
   }
 }

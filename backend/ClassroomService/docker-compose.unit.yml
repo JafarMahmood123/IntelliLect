@@ -40,6 +40,9 @@ services:
       - KnowledgeService__BaseUrl=http://knowledge-service:8080
       - KnowledgeService__InternalApiSecret=changeme-internal-secret
       - KnowledgeService__TimeoutSeconds=10
+      # Shared secret required on inbound internal calls (e.g. UserManagementService
+      # fetching a user's classroom memberships). Must match the caller's value.
+      - Internal__ApiSecret=changeme-internal-secret
     depends_on:
       classroom-db:
         condition: service_healthy

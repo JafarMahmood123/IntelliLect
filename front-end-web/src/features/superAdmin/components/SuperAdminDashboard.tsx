@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpDown,
@@ -6,6 +7,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -340,16 +342,26 @@ export const SuperAdminDashboard = () => {
             {t('dashboard.title')}
           </h1>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSuccessMessage(null);
-              setIsCreateDrawerOpen(true);
-            }}
-            className="rounded-md bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
-          >
-            + {t('dashboard.createNewAdmin')}
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/super-admin/users"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <Users size={16} />
+              {t('users.navLink')}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSuccessMessage(null);
+                setIsCreateDrawerOpen(true);
+              }}
+              className="rounded-md bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
+            >
+              + {t('dashboard.createNewAdmin')}
+            </button>
+          </div>
         </div>
 
         {successMessage && (

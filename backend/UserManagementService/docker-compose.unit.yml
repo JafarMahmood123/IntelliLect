@@ -29,6 +29,11 @@ services:
       - ConnectionStrings__Database=Host=user-management-db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
       - RabbitMq__Host=intellilect-mq
       - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      # Read a user's classroom memberships for the super admin user-detail view.
+      # InternalApiSecret must match ClassroomService's Internal__ApiSecret.
+      - ClassroomService__BaseUrl=http://classroom-service:8080
+      - ClassroomService__InternalApiSecret=changeme-internal-secret
+      - ClassroomService__TimeoutSeconds=10
     depends_on:
       user-db:
         condition: service_healthy

@@ -13,6 +13,7 @@ using UserManagementService.Infrastructure.Authentication;
 using UserManagementService.Infrastructure.Hashing;
 using UserManagementService.Infrastructure.Messaging;
 using UserManagementService.Infrastructure.Persistence;
+using UserManagementService.Infrastructure.Services;
 using UserManagementService.Infrastructure.Persistence.Repositories;
 
 namespace UserManagementService.Infrastructure;
@@ -81,6 +82,15 @@ public static class DependencyInjection
 
         services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
         services.AddSingleton<ITwoFactorCodeGenerator, TwoFactorCodeGenerator>();
+
+        // Typed HttpClient to ClassroomService's internal endpoint (super admin user-detail view).
+        var classroomBaseUrl = configuration["ClassroomService:BaseUrl"] ?? "http://classroom-service:8080";
+        var classroomTimeoutSeconds = int.TryParse(configuration["ClassroomService:TimeoutSeconds"], out var seconds) ? seconds : 10;
+        services.AddHttpClient<IClassroomInternalClient, ClassroomInternalClient>(client =>
+        {
+            client.BaseAddress = new Uri(classroomBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(classroomTimeoutSeconds);
+        });
 
         services.AddMassTransit(x =>
             {

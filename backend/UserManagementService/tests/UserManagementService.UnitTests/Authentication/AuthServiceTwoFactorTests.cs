@@ -312,6 +312,7 @@ internal sealed class StubUserRepository : IUserRepository
     public Task<User?> FindByResetToken(string token, CancellationToken ct) => throw new NotImplementedException();
     public Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
     public Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
+    public Task<(List<User> Items, int TotalCount)> SearchUsersAsync(UserManagementService.Application.Common.Users.UserQuerySpecification specification, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task AddAsync(User entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task UpdateAsync(User entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();

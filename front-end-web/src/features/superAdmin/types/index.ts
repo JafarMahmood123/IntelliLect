@@ -10,6 +10,54 @@ export interface AdminQueryResult {
   createdAtUtc: string;
 }
 
+// --- User directory (search users + view details) ---------------------------
+
+export interface UserSummary {
+  id: string;
+  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  roleName: string;
+  status: string;
+  bio?: string | null;
+  createdAtUtc: string;
+  version: string;
+}
+
+export type UserRoleValue = '' | 'Student' | 'Teacher' | 'Admin' | 'SuperAdmin';
+export type UserStatusValue = '' | 'Active' | 'Pending' | 'Rejected' | 'Deactivated';
+
+export interface SearchUsersParams {
+  searchTerm?: string;
+  role?: UserRoleValue;
+  status?: UserStatusValue;
+  createdFrom?: string;
+  createdTo?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: AdminSortField | 'role';
+  sortDirection?: SortDirection;
+}
+
+export interface ClassroomSummary {
+  id: string;
+  name: string;
+  description: string;
+  teacherId: string;
+  createdAtUtc: string;
+  fileCount: number;
+  studentCount: number;
+}
+
+export interface UserDetailResponse {
+  user: UserSummary;
+  teaching: ClassroomSummary[];
+  enrolled: ClassroomSummary[];
+  // Alternate path 7ب: memberships could not be loaded from ClassroomService.
+  membershipsUnavailable: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

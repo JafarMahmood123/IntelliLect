@@ -3,6 +3,8 @@ import { ThemeProvider } from "./components/ui/ThemeProvider";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { AppControls } from "./components/ui/AppControls";
 import { SuperAdminDashboard } from "./features/superAdmin/components/SuperAdminDashboard";
+import { UsersDirectoryPage } from "./features/superAdmin/components/UsersDirectoryPage";
+import { UserDetailPage } from "./features/superAdmin/components/UserDetailPage";
 import { LoginForm } from "./features/auth/components/LoginForm";
 import { RegisterForm } from "./features/auth/components/RegisterForm";
 import { AuthLayout } from "./layouts/AuthLayout";
@@ -82,6 +84,8 @@ function App() {
                 {/* Super Admin Routes */}
                 <Route element={<RoleProtectedRoute allowedRoles={["SuperAdmin"]} />}>
                   <Route path="/super-admin" element={<SuperAdminDashboard />} />
+                  <Route path="/super-admin/users" element={<UsersDirectoryPage />} />
+                  <Route path="/super-admin/users/:id" element={<UserDetailPage />} />
                 </Route>
               </Route>
 

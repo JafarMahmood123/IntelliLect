@@ -5,6 +5,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
+using UserManagementService.Application.DTOs.User;
 
 namespace UserManagementService.Presentation.Controllers;
 
@@ -14,10 +15,14 @@ namespace UserManagementService.Presentation.Controllers;
 public sealed class SuperAdminController : ControllerBase
 {
     private readonly ISuperAdminService _superAdminService;
+    private readonly IUserDirectoryService _userDirectoryService;
 
-    public SuperAdminController(ISuperAdminService superAdminService)
+    public SuperAdminController(
+        ISuperAdminService superAdminService,
+        IUserDirectoryService userDirectoryService)
     {
         _superAdminService = superAdminService;
+        _userDirectoryService = userDirectoryService;
     }
 
     [HttpGet("admins")]
@@ -40,6 +45,23 @@ public sealed class SuperAdminController : ControllerBase
     public async Task<IActionResult> SearchAdmins([FromQuery] SearchAdminsRequest request, CancellationToken ct)
     {
         var result = await _superAdminService.SearchAdminsAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("users")]
+    [ProducesResponseType(typeof(PagedResult<UserResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchUsers([FromQuery] SearchUsersRequest request, CancellationToken ct)
+    {
+        var result = await _userDirectoryService.SearchUsersAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id:guid}")]
+    [ProducesResponseType(typeof(UserDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUserDetail(Guid id, CancellationToken ct)
+    {
+        var result = await _userDirectoryService.GetUserDetailAsync(id, ct);
         return Ok(result);
     }
 

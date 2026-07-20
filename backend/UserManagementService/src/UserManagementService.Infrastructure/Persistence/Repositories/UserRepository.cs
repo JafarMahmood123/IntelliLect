@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
+using UserManagementService.Application.Common.Users;
 using UserManagementService.Domain.Entities;
 
 namespace UserManagementService.Infrastructure.Persistence.Repositories;
@@ -95,5 +96,76 @@ public sealed class UserRepository : IUserRepository
             .ToListAsync(ct);
 
         return (items, totalCount);
+    }
+
+    public async Task<(List<User> Items, int TotalCount)> SearchUsersAsync(UserQuerySpecification specification, CancellationToken ct = default)
+    {
+        var query = ApplyUserFilters(_context.Users.Include(u => u.Role), specification);
+
+        int totalCount = await query.CountAsync(ct);
+
+        var items = await ApplyUserSorting(query, specification)
+            .Skip((specification.Page - 1) * specification.PageSize)
+            .Take(specification.PageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    private static IQueryable<User> ApplyUserFilters(IQueryable<User> query, UserQuerySpecification specification)
+    {
+        if (!string.IsNullOrWhiteSpace(specification.SearchTerm))
+        {
+            // Free-text search across the human-facing identifiers (case-insensitive).
+            var term = $"%{specification.SearchTerm}%";
+            query = query.Where(user =>
+                EF.Functions.ILike(user.UserName, term) ||
+                EF.Functions.ILike(user.Email, term) ||
+                EF.Functions.ILike(user.FirstName, term) ||
+                EF.Functions.ILike(user.LastName, term));
+        }
+
+        if (specification.Role.HasValue)
+        {
+            query = query.Where(user => user.Role.Name == specification.Role.Value);
+        }
+
+        if (specification.Status.HasValue)
+        {
+            query = query.Where(user => user.Status == specification.Status.Value);
+        }
+
+        if (specification.CreatedFrom.HasValue)
+        {
+            query = query.Where(user => user.CreatedAtUtc >= specification.CreatedFrom.Value);
+        }
+
+        if (specification.CreatedTo.HasValue)
+        {
+            query = query.Where(user => user.CreatedAtUtc <= specification.CreatedTo.Value);
+        }
+
+        return query;
+    }
+
+    private static IOrderedQueryable<User> ApplyUserSorting(IQueryable<User> query, UserQuerySpecification specification)
+    {
+        return (specification.SortBy, specification.SortDescending) switch
+        {
+            (UserQuerySpecification.UserNameSortField, true) => query.OrderByDescending(u => u.UserName).ThenBy(u => u.Id),
+            (UserQuerySpecification.UserNameSortField, false) => query.OrderBy(u => u.UserName).ThenBy(u => u.Id),
+            (UserQuerySpecification.EmailSortField, true) => query.OrderByDescending(u => u.Email).ThenBy(u => u.Id),
+            (UserQuerySpecification.EmailSortField, false) => query.OrderBy(u => u.Email).ThenBy(u => u.Id),
+            (UserQuerySpecification.FirstNameSortField, true) => query.OrderByDescending(u => u.FirstName).ThenBy(u => u.Id),
+            (UserQuerySpecification.FirstNameSortField, false) => query.OrderBy(u => u.FirstName).ThenBy(u => u.Id),
+            (UserQuerySpecification.LastNameSortField, true) => query.OrderByDescending(u => u.LastName).ThenBy(u => u.Id),
+            (UserQuerySpecification.LastNameSortField, false) => query.OrderBy(u => u.LastName).ThenBy(u => u.Id),
+            (UserQuerySpecification.StatusSortField, true) => query.OrderByDescending(u => u.Status).ThenBy(u => u.Id),
+            (UserQuerySpecification.StatusSortField, false) => query.OrderBy(u => u.Status).ThenBy(u => u.Id),
+            (UserQuerySpecification.RoleSortField, true) => query.OrderByDescending(u => u.Role.Name).ThenBy(u => u.Id),
+            (UserQuerySpecification.RoleSortField, false) => query.OrderBy(u => u.Role.Name).ThenBy(u => u.Id),
+            (_, false) => query.OrderBy(u => u.CreatedAtUtc).ThenBy(u => u.Id),
+            _ => query.OrderByDescending(u => u.CreatedAtUtc).ThenBy(u => u.Id)
+        };
     }
 }
