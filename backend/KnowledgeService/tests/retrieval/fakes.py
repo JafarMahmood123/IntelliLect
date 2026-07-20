@@ -46,6 +46,9 @@ class FakeChunkRepository(ChunkRepository):
     async def delete_by_document_id(self, document_id: UUID) -> int:  # unused here
         return 0
 
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:  # unused here
+        return 0
+
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int
     ) -> list[ChunkSearchResult]:

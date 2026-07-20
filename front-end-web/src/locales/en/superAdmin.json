@@ -233,6 +233,8 @@
     "createNew": "New Classroom",
     "savedCreate": "Classroom \"{{name}}\" was created.",
     "savedEdit": "Classroom \"{{name}}\" was updated.",
+    "deletedMessage": "Classroom \"{{name}}\" was deleted.",
+    "pendingDeletion": "Deleting…",
     "searchLabel": "Search",
     "searchPlaceholder": "Search by classroom name or description",
     "loading": "Loading classrooms...",
@@ -248,7 +250,34 @@
       "students": "Students",
       "sessions": "Sessions",
       "files": "Files",
-      "edit": "Edit"
+      "edit": "Edit",
+      "delete": "Delete",
+      "retryDelete": "Resume delete"
+    },
+    "delete": {
+      "title": "Delete this classroom?",
+      "description": "Deleting \"{{name}}\" permanently removes it and everything below. This cannot be undone.",
+      "impactTitle": "What will be deleted",
+      "loadingImpact": "Calculating impact…",
+      "impactError": "Could not load the impact preview. You can still proceed, but review carefully.",
+      "stats": {
+        "sessions": "sessions",
+        "members": "members",
+        "files": "files",
+        "recordings": "recordings",
+        "summaries": "summaries",
+        "storage": "storage freed"
+      },
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. the course has ended and its data is no longer needed",
+      "reasonRequired": "Please provide a reason for deleting this classroom.",
+      "liveSessionBlock": "This classroom has a live session. End the session before deleting it.",
+      "confirm": "Delete classroom",
+      "deleting": "Deleting…",
+      "successTitle": "Classroom deleted",
+      "success": "\"{{name}}\" was deleted: {{sessions}} session(s) and {{files}} file(s) removed.",
+      "notFound": "This classroom no longer exists.",
+      "fallbackError": "Could not delete the classroom. It stays marked for deletion — you can retry to resume."
     },
     "pagination": {
       "showing": "Showing {{count}} of {{total}} classrooms"

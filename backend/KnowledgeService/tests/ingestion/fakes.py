@@ -203,6 +203,16 @@ class InMemoryDocumentRepository(DocumentRepository):
     async def delete_by_file_id(self, file_id: UUID) -> bool:
         return self._by_file_id.pop(file_id, None) is not None
 
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        doomed = [
+            file_id
+            for file_id, doc in self._by_file_id.items()
+            if doc.classroom_id == classroom_id
+        ]
+        for file_id in doomed:
+            del self._by_file_id[file_id]
+        return len(doomed)
+
     async def claim_for_processing(
         self, document: Document, now: datetime
     ) -> Document | None:
@@ -279,6 +289,15 @@ class InMemoryChunkRepository(ChunkRepository):
         removed = self.by_document.pop(document_id, [])
         self.delete_calls += 1
         return len(removed)
+
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        removed = 0
+        for document_id in list(self.by_document):
+            entries = self.by_document[document_id]
+            if entries and entries[0][0].classroom_id == classroom_id:
+                removed += len(entries)
+                del self.by_document[document_id]
+        return removed
 
     async def replace_for_document(self, document_id, chunks, embeddings) -> None:
         self.replace_calls += 1

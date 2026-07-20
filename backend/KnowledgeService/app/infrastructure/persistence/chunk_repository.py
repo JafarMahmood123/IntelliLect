@@ -46,6 +46,14 @@ class SqlAlchemyChunkRepository(ChunkRepository):
         await self._session.flush()
         return result.rowcount or 0
 
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        # Single statement over the indexed classroom_id column, rather than one
+        # round trip per document.
+        stmt = delete(ChunkModel).where(ChunkModel.classroom_id == classroom_id)
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount or 0
+
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int
     ) -> list[ChunkSearchResult]:

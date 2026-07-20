@@ -146,6 +146,45 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<ClassroomDeletionImpact?> GetClassroomDeletionImpactAsync(Guid id, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"api/internal/classrooms/{id}/deletion-impact"), ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null; // 5أ
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ClassroomDeletionImpact>(ct);
+    }
+
+    public async Task<ClassroomDeletionResult> DeleteClassroomAsync(Guid id, string reason, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/internal/classrooms/{id}")
+            {
+                Content = JsonContent.Create(new { reason })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom not found."); // 5أ
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The classroom has a live session. End the session before deleting the classroom."); // 5ب
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ClassroomDeletionResult>(ct);
+        return result ?? new ClassroomDeletionResult(id, 0, 0, 0, 0, 0);
+    }
+
     public async Task<AdminSessionPage> GetSessionsAsync(
         int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default)
     {

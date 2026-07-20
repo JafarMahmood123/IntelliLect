@@ -46,7 +46,8 @@ public sealed class ClassroomAdminService : IClassroomAdminService
                     c.FileCount,
                     c.StudentCount,
                     c.SessionCount,
-                    c.Version);
+                    c.Version,
+                    c.Status);
             })
             .ToList();
 
@@ -73,6 +74,52 @@ public sealed class ClassroomAdminService : IClassroomAdminService
         // The client maps ClassroomService's responses to NotFoundException (5ج, 404) and
         // InvalidOperationException (6أ concurrency, 409).
         await _classroomClient.UpdateClassroomAsync(classroomId, name, description, request.Version, ct);
+    }
+
+    // Step 3: read-only impact preview. Returns null (-> 404) if the classroom does not exist (5أ).
+    public async Task<ClassroomDeletionImpactResult?> GetDeletionImpactAsync(Guid classroomId, CancellationToken ct = default)
+    {
+        var impact = await _classroomClient.GetClassroomDeletionImpactAsync(classroomId, ct);
+        if (impact is null)
+        {
+            return null;
+        }
+
+        return new ClassroomDeletionImpactResult(
+            impact.ClassroomId,
+            impact.Name,
+            impact.Status,
+            impact.SessionCount,
+            impact.MemberCount,
+            impact.FileCount,
+            impact.RecordingCount,
+            impact.SummaryCount,
+            impact.StorageBytes,
+            impact.HasLiveSession);
+    }
+
+    public async Task<ClassroomDeletionSummary> DeleteClassroomAsync(
+        Guid classroomId, DeleteClassroomAdminRequest request, CancellationToken ct = default)
+    {
+        // 4أ: refuse without a reason (and thus without the deliberate confirmation it represents),
+        // guarding against an accidental deletion — validated here before the cross-service call, and
+        // again in ClassroomService.
+        if (string.IsNullOrWhiteSpace(request?.Reason))
+        {
+            throw new ArgumentException("A deletion reason is required.");
+        }
+
+        // The client maps ClassroomService's 404 -> NotFoundException (5أ) and 409 ->
+        // InvalidOperationException (5ب, live session).
+        var result = await _classroomClient.DeleteClassroomAsync(classroomId, request.Reason.Trim(), ct);
+
+        return new ClassroomDeletionSummary(
+            result.ClassroomId,
+            result.RecordingsDeleted,
+            result.SummariesDeleted,
+            result.FilesDeleted,
+            result.SessionsDeleted,
+            result.MembershipsDeleted);
     }
 
     private async Task EnsureValidTeacherAsync(Guid teacherId, CancellationToken ct)

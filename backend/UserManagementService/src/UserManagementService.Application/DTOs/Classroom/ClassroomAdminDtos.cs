@@ -30,4 +30,30 @@ public sealed record ClassroomAdminItem(
     int FileCount,
     int StudentCount,
     int SessionCount,
-    long Version);
+    long Version,
+    string Status);
+
+/// <summary>Body for deleting a classroom; the reason is mandatory (4أ).</summary>
+public sealed record DeleteClassroomAdminRequest(string Reason);
+
+/// <summary>What deleting a classroom will destroy (step 3), returned to the super admin for preview.</summary>
+public sealed record ClassroomDeletionImpactResult(
+    Guid ClassroomId,
+    string Name,
+    string Status,
+    int SessionCount,
+    int MemberCount,
+    int FileCount,
+    int RecordingCount,
+    int SummaryCount,
+    long StorageBytes,
+    bool HasLiveSession);
+
+/// <summary>Counts of what a completed deletion removed (step 8).</summary>
+public sealed record ClassroomDeletionSummary(
+    Guid ClassroomId,
+    int RecordingsDeleted,
+    int SummariesDeleted,
+    int FilesDeleted,
+    int SessionsDeleted,
+    int MembershipsDeleted);

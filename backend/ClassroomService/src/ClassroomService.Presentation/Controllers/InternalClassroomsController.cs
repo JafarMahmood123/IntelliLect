@@ -21,11 +21,16 @@ public sealed class InternalClassroomsController : ControllerBase
     private const string InternalSecretHeader = "X-Internal-Secret";
 
     private readonly IClassroomManagementService _classrooms;
+    private readonly IClassroomDeletionService _deletion;
     private readonly IConfiguration _configuration;
 
-    public InternalClassroomsController(IClassroomManagementService classrooms, IConfiguration configuration)
+    public InternalClassroomsController(
+        IClassroomManagementService classrooms,
+        IClassroomDeletionService deletion,
+        IConfiguration configuration)
     {
         _classrooms = classrooms;
+        _deletion = deletion;
         _configuration = configuration;
     }
 
@@ -101,6 +106,55 @@ public sealed class InternalClassroomsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Step 3: read-only deletion impact preview. 404 if the classroom does not exist (5أ).
+    /// </summary>
+    [HttpGet("{id:guid}/deletion-impact")]
+    [ProducesResponseType(typeof(ClassroomDeletionImpact), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDeletionImpact(Guid id, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        var impact = await _deletion.GetImpactAsync(id, ct);
+        return impact is null ? NotFound() : Ok(impact);
+    }
+
+    /// <summary>
+    /// Steps 5-6: delete the classroom and everything it owns. Idempotent/resumable — re-issuing a
+    /// delete that previously failed part-way continues from where it stopped (6أ).
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(ClassroomDeletionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(Guid id, [FromBody] InternalDeleteClassroomRequest request, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            var result = await _deletion.DeleteAsync(id, request?.Reason ?? string.Empty, ct);
+            return Ok(result);
+        }
+        catch (ArgumentException)
+        {
+            // 4أ: missing reason/confirmation.
+            return BadRequest();
+        }
+        catch (KeyNotFoundException)
+        {
+            // 5أ: classroom does not exist.
+            return NotFound();
+        }
+        catch (ConflictException)
+        {
+            // 5ب: a live session is in progress.
+            return Conflict();
+        }
+    }
+
     private bool IsInternalSecretValid()
     {
         var expected = _configuration["Internal:ApiSecret"];
@@ -116,3 +170,4 @@ public sealed class InternalClassroomsController : ControllerBase
 
 public sealed record InternalCreateClassroomRequest(Guid TeacherId, string Name, string Description);
 public sealed record InternalUpdateClassroomRequest(string Name, string Description, long Version);
+public sealed record InternalDeleteClassroomRequest(string Reason);

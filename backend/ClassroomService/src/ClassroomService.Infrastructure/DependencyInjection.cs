@@ -23,6 +23,10 @@ public static class DependencyInjection
     {
         services.AddScoped<IClassroomRepository, ClassroomRepository>();
         services.AddScoped<IMembershipRepository, MembershipRepository>();
+
+        // Super-admin classroom deletion (impact preview + phased purge).
+        services.AddScoped<IClassroomDeletionRepository, ClassroomDeletionRepository>();
+        services.AddScoped<IClassroomDeletionService, ClassroomDeletionService>();
         services.AddScoped<IClassroomManagementService, ClassroomManagementService>();
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();

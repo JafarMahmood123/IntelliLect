@@ -22,6 +22,16 @@ public interface IKnowledgeInternalClient
     Task NotifyFileDeletedAsync(Guid fileId, CancellationToken ct = default);
 
     /// <summary>
+    /// De-index an entire classroom in one call: drop every document, chunk and vector embedding for
+    /// it. Used by the classroom-deletion use-case instead of looping the per-file delete. Retries
+    /// transient faults and throws when they are exhausted — de-indexing is a real deletion step
+    /// (the classroom's indexed chunks / vector representations), so a hard failure must halt the
+    /// deletion with the classroom left in PendingDeletion for a resumable re-run (6أ). Idempotent
+    /// on KnowledgeService's side, so re-running is safe.
+    /// </summary>
+    Task DeIndexClassroomAsync(Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>
     /// Read a file's indexing status (Pending/Processing/Done/Failed) from KnowledgeService.
     /// Returns <c>null</c> when KnowledgeService has no document registered for the file yet
     /// (its 404), so the caller can present that as still-pending. The internal secret never

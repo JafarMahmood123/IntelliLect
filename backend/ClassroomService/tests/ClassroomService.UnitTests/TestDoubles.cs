@@ -103,6 +103,17 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
         return Task.CompletedTask;
     }
 
+    public int DeIndexClassroomCalls { get; private set; }
+    public Guid LastDeIndexedClassroomId { get; private set; }
+
+    public Task DeIndexClassroomAsync(Guid classroomId, CancellationToken ct = default)
+    {
+        DeIndexClassroomCalls++;
+        LastDeIndexedClassroomId = classroomId;
+        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        return Task.CompletedTask;
+    }
+
     public Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default)
     {
         StatusCalls++;

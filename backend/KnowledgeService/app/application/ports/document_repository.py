@@ -30,6 +30,15 @@ class DocumentRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        """Delete every document belonging to a classroom. Returns the number removed.
+
+        Chunks cascade at the DB level, but callers delete them explicitly first so
+        behaviour matches regardless of the backing store. Idempotent.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     async def claim_for_processing(
         self, document: Document, now: datetime
     ) -> Document | None:

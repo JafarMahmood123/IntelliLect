@@ -33,7 +33,9 @@ class DocumentModel(Base):
     __tablename__ = "documents"
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
-    classroom_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    classroom_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), nullable=False, index=True
+    )
     file_id: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True), nullable=False, unique=True, index=True
     )

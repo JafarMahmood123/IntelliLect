@@ -27,6 +27,20 @@ class IngestDocumentResponse(BaseModel):
     status: str
 
 
+class DeleteClassroomIndexResponse(BaseModel):
+    """Result of de-indexing a whole classroom.
+
+    Counts let the caller record how much was removed and, on a retry, see that a
+    second pass removed nothing because the first already succeeded.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    classroom_id: UUID = Field(alias="classroomId")
+    documents_deleted: int = Field(alias="documentsDeleted")
+    chunks_deleted: int = Field(alias="chunksDeleted")
+
+
 class DocumentStatusResponse(BaseModel):
     """Read model for a document's indexing status.
 

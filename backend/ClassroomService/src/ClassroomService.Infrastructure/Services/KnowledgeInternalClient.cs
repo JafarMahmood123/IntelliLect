@@ -67,6 +67,17 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
             ct);
     }
 
+    public Task DeIndexClassroomAsync(Guid classroomId, CancellationToken ct = default)
+    {
+        // Reuses the retry-then-throw send helper. The "fileId" slot carries the classroom id purely
+        // for log correlation — the route is classroom-scoped.
+        return SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"{DocumentsPath}/classrooms/{classroomId}"),
+            "classroom de-index",
+            classroomId,
+            ct);
+    }
+
     public async Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default)
     {
         for (var attempt = 1; ; attempt++)

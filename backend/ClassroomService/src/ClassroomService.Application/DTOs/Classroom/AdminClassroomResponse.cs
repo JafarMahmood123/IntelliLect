@@ -17,4 +17,11 @@ public sealed record AdminClassroomResponse
     public int StudentCount { get; init; }
     public int SessionCount { get; init; }
     public long Version { get; init; }
+
+    /// <summary>
+    /// "Active" or "PendingDeletion". A PendingDeletion row is shown so the super admin can see a
+    /// deletion in progress (or one that stalled and needs re-running), but it is hidden from every
+    /// teacher/student surface.
+    /// </summary>
+    public string Status { get; init; } = "Active";
 }

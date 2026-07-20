@@ -2,6 +2,7 @@ using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Classroom;
 using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
+using ClassroomService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ClassroomService.Infrastructure.Persistence.Repositories;
@@ -10,18 +11,22 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
 {
     public ClassroomRepository(ApplicationDbContext context) : base(context) { }
 
+    // A classroom being deleted (PendingDeletion) is out of use, so it must not appear on any
+    // teacher/student read path — these three all filter to Active only. The super-admin admin
+    // listing deliberately keeps PendingDeletion rows visible (see GetAdminPagedAsync) so a stuck
+    // deletion can be seen and re-run (6أ).
     public async Task<Classroom?> GetWithDetailsAsync(Guid id, CancellationToken ct)
     {
         return await _context.Set<Classroom>()
             .Include(c => c.Files)
             .Include(c => c.Memberships)
-            .FirstOrDefaultAsync(c => c.Id == id, ct);
+            .FirstOrDefaultAsync(c => c.Id == id && c.Status == ClassroomStatus.Active, ct);
     }
 
     public async Task<List<Classroom>> GetByTeacherIdAsync(Guid teacherId, CancellationToken ct)
     {
         return await _context.Set<Classroom>()
-            .Where(c => c.TeacherId == teacherId)
+            .Where(c => c.TeacherId == teacherId && c.Status == ClassroomStatus.Active)
             .Include(c => c.Files)
             .Include(c => c.Memberships)
             .ToListAsync(ct);
@@ -34,7 +39,7 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
             .Select(m => m.ClassroomId);
 
         return await _context.Set<Classroom>()
-            .Where(c => classroomIds.Contains(c.Id))
+            .Where(c => classroomIds.Contains(c.Id) && c.Status == ClassroomStatus.Active)
             .Include(c => c.Files)
             .Include(c => c.Memberships)
             .ToListAsync(ct);
@@ -74,6 +79,7 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
                 StudentCount = c.Memberships.Count,
                 SessionCount = _context.Set<Session>().Count(s => s.ClassroomId == c.Id),
                 Version = (long)EF.Property<uint>(c, "xmin"),
+                Status = c.Status == ClassroomStatus.PendingDeletion ? "PendingDeletion" : "Active",
             })
             .ToListAsync(ct);
 
@@ -96,6 +102,7 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
                 StudentCount = c.Memberships.Count,
                 SessionCount = _context.Set<Session>().Count(s => s.ClassroomId == c.Id),
                 Version = (long)EF.Property<uint>(c, "xmin"),
+                Status = c.Status == ClassroomStatus.PendingDeletion ? "PendingDeletion" : "Active",
             })
             .FirstOrDefaultAsync(ct);
     }

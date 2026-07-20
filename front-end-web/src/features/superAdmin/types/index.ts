@@ -88,6 +88,30 @@ export interface ClassroomAdminItem {
   studentCount: number;
   sessionCount: number;
   version: number;
+  // "Active" or "PendingDeletion" — a classroom mid-deletion is shown badged, hidden elsewhere.
+  status: string;
+}
+
+export interface ClassroomDeletionImpact {
+  classroomId: string;
+  name: string;
+  status: string;
+  sessionCount: number;
+  memberCount: number;
+  fileCount: number;
+  recordingCount: number;
+  summaryCount: number;
+  storageBytes: number;
+  hasLiveSession: boolean;
+}
+
+export interface ClassroomDeletionSummary {
+  classroomId: string;
+  recordingsDeleted: number;
+  summariesDeleted: number;
+  filesDeleted: number;
+  sessionsDeleted: number;
+  membershipsDeleted: number;
 }
 
 export interface SearchClassroomsParams {

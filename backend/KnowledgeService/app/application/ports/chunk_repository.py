@@ -25,6 +25,16 @@ class ChunkRepository(ABC):
         """Delete all chunks for a document. Returns the number removed."""
         raise NotImplementedError
 
+    @abstractmethod
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        """Delete every chunk belonging to a classroom. Returns the number removed.
+
+        Used when a classroom is deleted wholesale: looping the per-file delete would
+        cost one round trip per document, while `chunks.classroom_id` is indexed and
+        answers this in a single statement. Idempotent — a second call returns 0.
+        """
+        raise NotImplementedError
+
     async def replace_for_document(
         self,
         document_id: UUID,

@@ -183,10 +183,84 @@ public class ClassroomAdminServiceTests
             () => sut.UpdateClassroomAsync(Guid.NewGuid(), new UpdateClassroomAdminRequest("N", "D", 1)));
     }
 
+    // ----- deletion (impact preview + delete) ----------------------------------
+
+    [Fact]
+    public async Task GetDeletionImpact_WhenClassroomMissing_ReturnsNull()
+    {
+        var client = new FakeClassroomClient { ImpactToReturn = null };
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+
+        var result = await sut.GetDeletionImpactAsync(Guid.NewGuid());
+
+        Assert.Null(result); // 5أ -> controller turns this into 404
+    }
+
+    [Fact]
+    public async Task GetDeletionImpact_MapsClientImpactThrough()
+    {
+        var id = Guid.NewGuid();
+        var client = new FakeClassroomClient
+        {
+            ImpactToReturn = new ClassroomDeletionImpact(id, "Physics", "Active",
+                SessionCount: 3, MemberCount: 12, FileCount: 5, RecordingCount: 2, SummaryCount: 1,
+                StorageBytes: 1024, HasLiveSession: false),
+        };
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+
+        var result = await sut.GetDeletionImpactAsync(id);
+
+        Assert.NotNull(result);
+        Assert.Equal("Physics", result!.Name);
+        Assert.Equal(3, result.SessionCount);
+        Assert.Equal(1024, result.StorageBytes);
+        Assert.False(result.HasLiveSession);
+    }
+
+    [Fact]
+    public async Task Delete_WithoutReason_ThrowsAndDoesNotCallClient()
+    {
+        var client = new FakeClassroomClient();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+
+        // 4أ.
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => sut.DeleteClassroomAsync(Guid.NewGuid(), new DeleteClassroomAdminRequest("   ")));
+        Assert.False(client.DeleteCalled);
+    }
+
+    [Fact]
+    public async Task Delete_WithReason_TrimsAndDelegatesAndMapsResult()
+    {
+        var id = Guid.NewGuid();
+        var client = new FakeClassroomClient { DeleteResult = new ClassroomDeletionResult(id, 2, 1, 4, 6, 9) };
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+
+        var result = await sut.DeleteClassroomAsync(id, new DeleteClassroomAdminRequest("  course ended  "));
+
+        Assert.True(client.DeleteCalled);
+        Assert.Equal(id, client.DeletedId);
+        Assert.Equal("course ended", client.DeletedReason); // trimmed
+        Assert.Equal(2, result.RecordingsDeleted);
+        Assert.Equal(6, result.SessionsDeleted);
+        Assert.Equal(9, result.MembershipsDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_WhenClientReportsLiveSession_PropagatesInvalidOperation()
+    {
+        var client = new FakeClassroomClient { DeleteThrows = new InvalidOperationException("live") };
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+
+        // 5ب -> GlobalExceptionHandler maps InvalidOperationException to 409.
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => sut.DeleteClassroomAsync(Guid.NewGuid(), new DeleteClassroomAdminRequest("done")));
+    }
+
     // ----- helpers -------------------------------------------------------------
 
     private static AdminClassroom Classroom(string name, Guid teacherId) =>
-        new(Guid.NewGuid(), name, $"{name} desc", teacherId, DateTime.UtcNow, FileCount: 1, StudentCount: 2, SessionCount: 3, Version: 10);
+        new(Guid.NewGuid(), name, $"{name} desc", teacherId, DateTime.UtcNow, FileCount: 1, StudentCount: 2, SessionCount: 3, Version: 10, Status: "Active");
 
     private static AdminClassroomPage Page(params AdminClassroom[] items) =>
         new(items, items.Length, 1, 20, 1);
@@ -255,6 +329,27 @@ internal sealed class FakeClassroomClient : IClassroomInternalClient
         UpdatedName = name;
         UpdatedVersion = version;
         return _updateThrows is not null ? Task.FromException(_updateThrows) : Task.CompletedTask;
+    }
+
+    // --- deletion ---
+    public ClassroomDeletionImpact? ImpactToReturn { get; set; }
+    public bool DeleteCalled { get; private set; }
+    public Guid DeletedId { get; private set; }
+    public string? DeletedReason { get; private set; }
+    public Exception? DeleteThrows { get; set; }
+    public ClassroomDeletionResult DeleteResult { get; set; } = new(Guid.NewGuid(), 1, 2, 3, 4, 5);
+
+    public Task<ClassroomDeletionImpact?> GetClassroomDeletionImpactAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(ImpactToReturn);
+
+    public Task<ClassroomDeletionResult> DeleteClassroomAsync(Guid id, string reason, CancellationToken ct = default)
+    {
+        DeleteCalled = true;
+        DeletedId = id;
+        DeletedReason = reason;
+        return DeleteThrows is not null
+            ? Task.FromException<ClassroomDeletionResult>(DeleteThrows)
+            : Task.FromResult(DeleteResult);
     }
 
     public Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();

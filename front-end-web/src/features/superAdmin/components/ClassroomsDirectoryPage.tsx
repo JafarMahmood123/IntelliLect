@@ -9,10 +9,12 @@ import {
   PencilLine,
   Presentation,
   Search,
+  Trash2,
   Users as UsersIcon,
 } from 'lucide-react';
 import { useClassrooms } from '../hooks/useClassroomQueries';
 import { ClassroomFormDrawer } from './ClassroomFormDrawer';
+import { DeleteClassroomDialog } from './DeleteClassroomDialog';
 import type { ClassroomAdminItem } from '../types';
 
 const PAGE_SIZE = 20;
@@ -25,6 +27,7 @@ export const ClassroomsDirectoryPage = () => {
   const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ClassroomAdminItem | null>(null);
+  const [deleting, setDeleting] = useState<ClassroomAdminItem | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,6 +65,10 @@ export const ClassroomsDirectoryPage = () => {
     setSuccessMessage(
       editing ? t('classrooms.savedEdit', { name }) : t('classrooms.savedCreate', { name }),
     );
+  };
+
+  const handleDeleted = (name: string) => {
+    setSuccessMessage(t('classrooms.deletedMessage', { name }));
   };
 
   return (
@@ -145,10 +152,22 @@ export const ClassroomsDirectoryPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  classrooms.map((c) => (
-                    <tr key={c.id} className="border-b dark:border-gray-800">
+                  classrooms.map((c) => {
+                    const pendingDeletion = c.status === 'PendingDeletion';
+                    return (
+                    <tr
+                      key={c.id}
+                      className={`border-b dark:border-gray-800 ${pendingDeletion ? 'opacity-60' : ''}`}
+                    >
                       <td className="p-4 font-medium dark:text-gray-200">
-                        <div className="truncate">{c.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{c.name}</span>
+                          {pendingDeletion && (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                              {t('classrooms.pendingDeletion')}
+                            </span>
+                          )}
+                        </div>
                         <div className="truncate text-xs text-gray-500">{c.description}</div>
                       </td>
                       <td className="p-4 dark:text-gray-300">
@@ -178,19 +197,32 @@ export const ClassroomsDirectoryPage = () => {
                         {new Date(c.createdAtUtc).toLocaleDateString()}
                       </td>
                       <td className="p-4">
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => openEdit(c)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            disabled={pendingDeletion}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
                             <PencilLine size={14} />
                             {t('classrooms.table.edit')}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSuccessMessage(null);
+                              setDeleting(c);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 size={14} />
+                            {pendingDeletion ? t('classrooms.table.retryDelete') : t('classrooms.table.delete')}
+                          </button>
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -234,6 +266,13 @@ export const ClassroomsDirectoryPage = () => {
         onClose={() => setDrawerOpen(false)}
         classroom={editing}
         onSaved={handleSaved}
+      />
+
+      <DeleteClassroomDialog
+        classroomId={deleting?.id ?? null}
+        classroomName={deleting?.name ?? ''}
+        onClose={() => setDeleting(null)}
+        onDeleted={handleDeleted}
       />
     </div>
   );

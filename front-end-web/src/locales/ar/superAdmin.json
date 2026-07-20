@@ -251,7 +251,9 @@
       "students": "الطلاب",
       "sessions": "الجلسات",
       "files": "الملفات",
-      "edit": "تعديل"
+      "edit": "تعديل",
+      "delete": "حذف",
+      "retryDelete": "متابعة الحذف"
     },
     "pagination": {
       "showing": "عرض {{count}} من {{total}} فصل"
@@ -280,6 +282,33 @@
         "descriptionRequired": "الوصف مطلوب",
         "teacherRequired": "يرجى اختيار معلّم"
       }
+    },
+    "deletedMessage": "تم حذف الفصل «{{name}}».",
+    "pendingDeletion": "قيد الحذف…",
+    "delete": {
+      "title": "حذف هذا الفصل الدراسي؟",
+      "description": "حذف «{{name}}» يزيله نهائيًا مع كل ما هو مذكور أدناه. لا يمكن التراجع عن هذا الإجراء.",
+      "impactTitle": "ما الذي سيُحذف",
+      "loadingImpact": "جارٍ حساب الأثر…",
+      "impactError": "تعذّر تحميل معاينة الأثر. يمكنك المتابعة، لكن راجع بعناية.",
+      "stats": {
+        "sessions": "جلسة",
+        "members": "عضو",
+        "files": "ملف",
+        "recordings": "تسجيل",
+        "summaries": "ملخّص",
+        "storage": "مساحة محرَّرة"
+      },
+      "reasonLabel": "السبب (مطلوب)",
+      "reasonPlaceholder": "مثال: انتهى المقرّر ولم تعد بياناته لازمة",
+      "reasonRequired": "يرجى ذكر سبب حذف هذا الفصل.",
+      "liveSessionBlock": "يوجد في هذا الفصل جلسة مباشرة منعقدة. أنهِ الجلسة قبل حذفه.",
+      "confirm": "حذف الفصل",
+      "deleting": "جارٍ الحذف…",
+      "successTitle": "تم حذف الفصل",
+      "success": "تم حذف «{{name}}»: أُزيلت {{sessions}} جلسة و{{files}} ملف.",
+      "notFound": "لم يعد هذا الفصل موجودًا.",
+      "fallbackError": "تعذّر حذف الفصل. يبقى معلَّمًا للحذف — يمكنك إعادة المحاولة للمتابعة."
     }
   },
   "sessions": {

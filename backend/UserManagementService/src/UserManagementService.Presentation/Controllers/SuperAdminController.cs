@@ -116,6 +116,26 @@ public sealed class SuperAdminController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("classrooms/{id:guid}/deletion-impact")]
+    [ProducesResponseType(typeof(ClassroomDeletionImpactResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetClassroomDeletionImpact(Guid id, CancellationToken ct)
+    {
+        var impact = await _classroomAdminService.GetDeletionImpactAsync(id, ct);
+        return impact is null ? NotFound() : Ok(impact);
+    }
+
+    [HttpDelete("classrooms/{id:guid}")]
+    [ProducesResponseType(typeof(ClassroomDeletionSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteClassroom(Guid id, [FromBody] DeleteClassroomAdminRequest request, CancellationToken ct)
+    {
+        var result = await _classroomAdminService.DeleteClassroomAsync(id, request, ct);
+        return Ok(result);
+    }
+
     [HttpGet("sessions")]
     [ProducesResponseType(typeof(PagedResult<SessionMonitorItem>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSessions([FromQuery] SearchSessionsRequest request, CancellationToken ct)

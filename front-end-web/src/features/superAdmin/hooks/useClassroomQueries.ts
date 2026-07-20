@@ -4,7 +4,13 @@ import {
   useQueryClient,
   keepPreviousData,
 } from '@tanstack/react-query';
-import { searchClassrooms, createClassroom, updateClassroom } from '../api/classrooms';
+import {
+  searchClassrooms,
+  createClassroom,
+  updateClassroom,
+  getClassroomDeletionImpact,
+  deleteClassroom,
+} from '../api/classrooms';
 import type {
   CreateClassroomAdminRequest,
   SearchClassroomsParams,
@@ -35,6 +41,28 @@ export const useUpdateClassroom = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateClassroomAdminRequest }) =>
       updateClassroom(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['classrooms'] });
+    },
+  });
+};
+
+// Lazily fetched only when the delete dialog opens for a specific classroom (enabled by id).
+export const useClassroomDeletionImpact = (id: string | null) => {
+  return useQuery({
+    queryKey: ['classroom-deletion-impact', id],
+    queryFn: () => getClassroomDeletionImpact(id as string),
+    enabled: !!id,
+    staleTime: 0,
+    gcTime: 0,
+  });
+};
+
+export const useDeleteClassroom = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      deleteClassroom(id, reason),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['classrooms'] });
     },

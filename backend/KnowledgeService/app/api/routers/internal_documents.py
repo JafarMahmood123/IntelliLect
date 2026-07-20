@@ -11,6 +11,7 @@ from app.api.dependencies import (
     require_internal_secret,
 )
 from app.application.dtos.document_dtos import (
+    DeleteClassroomIndexResponse,
     DocumentStatusResponse,
     IngestDocumentRequest,
     IngestDocumentResponse,
@@ -126,6 +127,35 @@ async def get_document_status(
         )
 
     return DocumentStatusResponse(file_id=document.file_id, status=document.status.value)
+
+
+@router.delete(
+    "/classrooms/{classroom_id}",
+    response_model=DeleteClassroomIndexResponse,
+    response_model_by_alias=True,
+)
+async def delete_classroom_index(
+    classroom_id: UUID,
+    documents: DocumentRepositoryDep,
+    chunks: ChunkRepositoryDep,
+) -> DeleteClassroomIndexResponse:
+    """De-index an entire classroom: drop all its chunks, then all its documents.
+
+    Called once by ClassroomService when a classroom is deleted, instead of looping
+    the per-file DELETE (one round trip per document). Chunks go first so a failure
+    between the two statements leaves documents whose chunks are gone rather than
+    orphaned chunks that could still surface in search results.
+
+    Idempotent, so the caller can safely re-run a partially-completed deletion: a
+    second call finds nothing and reports zero counts.
+    """
+    chunks_deleted = await chunks.delete_by_classroom_id(classroom_id)
+    documents_deleted = await documents.delete_by_classroom_id(classroom_id)
+    return DeleteClassroomIndexResponse(
+        classroom_id=classroom_id,
+        documents_deleted=documents_deleted,
+        chunks_deleted=chunks_deleted,
+    )
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)

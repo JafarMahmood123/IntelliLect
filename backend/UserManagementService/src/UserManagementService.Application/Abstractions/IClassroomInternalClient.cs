@@ -22,6 +22,15 @@ public interface IClassroomInternalClient
     /// <exception cref="InvalidOperationException">The classroom was modified concurrently (6أ).</exception>
     Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default);
 
+    // --- Classroom deletion with impact preview ---
+
+    /// <returns>The deletion impact preview (step 3), or null if the classroom does not exist (5أ).</returns>
+    Task<ClassroomDeletionImpact?> GetClassroomDeletionImpactAsync(Guid id, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The classroom does not exist (5أ).</exception>
+    /// <exception cref="InvalidOperationException">The classroom has a live session (5ب).</exception>
+    Task<ClassroomDeletionResult> DeleteClassroomAsync(Guid id, string reason, CancellationToken ct = default);
+
     // --- Session monitoring / force-end ---
     Task<AdminSessionPage> GetSessionsAsync(
         int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default);
@@ -70,7 +79,30 @@ public sealed record AdminClassroom(
     int FileCount,
     int StudentCount,
     int SessionCount,
-    long Version);
+    long Version,
+    string Status);
+
+/// <summary>Deletion impact preview (mirrors ClassroomService's ClassroomDeletionImpact).</summary>
+public sealed record ClassroomDeletionImpact(
+    Guid ClassroomId,
+    string Name,
+    string Status,
+    int SessionCount,
+    int MemberCount,
+    int FileCount,
+    int RecordingCount,
+    int SummaryCount,
+    long StorageBytes,
+    bool HasLiveSession);
+
+/// <summary>Outcome of a completed classroom deletion (mirrors ClassroomService's ClassroomDeletionResult).</summary>
+public sealed record ClassroomDeletionResult(
+    Guid ClassroomId,
+    int RecordingsDeleted,
+    int SummariesDeleted,
+    int FilesDeleted,
+    int SessionsDeleted,
+    int MembershipsDeleted);
 
 /// <summary>A page of admin classrooms (mirrors ClassroomService's PagedResult).</summary>
 public sealed record AdminClassroomPage(

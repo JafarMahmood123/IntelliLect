@@ -1,6 +1,8 @@
 import { apiClient } from '../../../lib/axios';
 import type {
   ClassroomAdminItem,
+  ClassroomDeletionImpact,
+  ClassroomDeletionSummary,
   CreateClassroomAdminRequest,
   PagedResult,
   SearchClassroomsParams,
@@ -40,4 +42,26 @@ export const updateClassroom = async (
   data: UpdateClassroomAdminRequest,
 ): Promise<void> => {
   await apiClient.put(`/super-admin/classrooms/${id}`, data);
+};
+
+// Step 3: read-only preview of what deleting the classroom will destroy.
+export const getClassroomDeletionImpact = async (
+  id: string,
+): Promise<ClassroomDeletionImpact> => {
+  const response = await apiClient.get<ClassroomDeletionImpact>(
+    `/super-admin/classrooms/${id}/deletion-impact`,
+  );
+  return response.data;
+};
+
+// Steps 5-6: delete the classroom and everything it owns. The reason is mandatory (4أ).
+export const deleteClassroom = async (
+  id: string,
+  reason: string,
+): Promise<ClassroomDeletionSummary> => {
+  const response = await apiClient.delete<ClassroomDeletionSummary>(
+    `/super-admin/classrooms/${id}`,
+    { data: { reason } },
+  );
+  return response.data;
 };

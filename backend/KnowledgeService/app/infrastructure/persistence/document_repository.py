@@ -82,6 +82,12 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
         await self._session.flush()
         return (result.rowcount or 0) > 0
 
+    async def delete_by_classroom_id(self, classroom_id: UUID) -> int:
+        stmt = delete(DocumentModel).where(DocumentModel.classroom_id == classroom_id)
+        result = await self._session.execute(stmt)
+        await self._session.flush()
+        return result.rowcount or 0
+
     async def claim_for_processing(
         self, document: Document, now: datetime
     ) -> Document | None:

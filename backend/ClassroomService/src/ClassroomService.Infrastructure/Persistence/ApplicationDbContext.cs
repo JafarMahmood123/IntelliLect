@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ClassroomService.Domain.Entities;
+using ClassroomService.Domain.Enums;
 using MassTransit;
 
 namespace ClassroomService.Infrastructure.Persistence;
@@ -32,6 +33,24 @@ public sealed class ApplicationDbContext : DbContext
             .HasColumnType("xid")
             .ValueGeneratedOnAddOrUpdate()
             .IsConcurrencyToken();
+
+        // Deletion lifecycle (this use-case). Stored as int; defaults to Active so existing rows
+        // and new classrooms are usable. Indexed because every teacher/student read path filters
+        // it out to hide a classroom that is being deleted.
+        modelBuilder.Entity<Classroom>(classroom =>
+        {
+            classroom.Property(c => c.Status)
+                .HasConversion<int>()
+                .HasDefaultValue(ClassroomStatus.Active);
+            classroom.HasIndex(c => c.Status);
+        });
+
+        // Sessions carry a denormalized ClassroomId but have NO foreign key to Classroom (the FK was
+        // dropped in AddSessionLifecycleTimestamps), so deleting a classroom does not cascade to its
+        // sessions — the deletion service removes them explicitly by ClassroomId. Index that column
+        // so both the classroom-scoped purge and the impact report are index scans, not seq scans.
+        modelBuilder.Entity<Session>()
+            .HasIndex(s => s.ClassroomId);
 
         // Session recordings (R-1). Looked up by session on the recording-ready path and listed
         // by classroom (R-2), so both are indexed. EgressId is the LiveKit correlation id.
