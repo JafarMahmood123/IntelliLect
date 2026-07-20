@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddMassTransit(x =>
         {
             x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
+            x.AddConsumer<SendTwoFactorCodeConsumer>(typeof(SendTwoFactorCodeConsumerDefinition));
             x.AddConsumer<UserStatusChangedConsumer>();
 
             x.UsingRabbitMq((context, cfg) =>

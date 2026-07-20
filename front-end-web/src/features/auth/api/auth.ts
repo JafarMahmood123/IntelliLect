@@ -2,12 +2,21 @@ import { apiClient } from '../../../lib/axios';
 import type {
   LoginRequest,
   LoginResponse,
+  LoginResult,
   RegisterRequest,
   ResetPasswordRequest,
+  VerifyTwoFactorRequest,
 } from '../types';
 
-export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await apiClient.post<LoginResponse>('/auth/login', data);
+export const login = async (data: LoginRequest): Promise<LoginResult> => {
+  const response = await apiClient.post<LoginResult>('/auth/login', data);
+  return response.data;
+};
+
+export const verifyTwoFactor = async (
+  data: VerifyTwoFactorRequest,
+): Promise<LoginResponse> => {
+  const response = await apiClient.post<LoginResponse>('/auth/verify-2fa', data);
   return response.data;
 };
 

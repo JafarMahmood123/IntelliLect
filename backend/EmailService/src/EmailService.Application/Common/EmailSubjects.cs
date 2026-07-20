@@ -7,4 +7,5 @@ public static class EmailSubjects
     public const string AccountRejected = "Update Regarding Your Registration Request";
     public const string AccountDeactivated = "Your Account has been Deactivated";
     public const string PasswordReset = "Your Password Reset Code";
+    public const string TwoFactorCode = "Your IntelliLect Login Verification Code";
 }

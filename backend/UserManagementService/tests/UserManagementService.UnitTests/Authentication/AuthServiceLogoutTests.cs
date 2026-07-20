@@ -108,6 +108,8 @@ public class AuthServiceLogoutTests
             refreshTokens,
             resetPasswordRepository: null!,
             resetPasswordTokenGenerator: null!,
+            twoFactorRepository: null!,
+            twoFactorCodeGenerator: null!,
             mapper: null!,
             eventBus: null!);
 }
@@ -171,6 +173,6 @@ internal sealed class NotUsedHasher : IHasher
 
 internal sealed class NotUsedJwtProvider : IJwtProvider
 {
-    public string GenerateAccessToken(Guid userId, string roleName, string userName) => throw new NotImplementedException();
+    public string GenerateAccessToken(Guid userId, string roleName, string userName, bool twoFactorCompleted = false) => throw new NotImplementedException();
     public string GenerateRefreshToken() => throw new NotImplementedException();
 }

@@ -7,7 +7,8 @@ public interface IAuthService
 {
     Task<IReadOnlyList<RegistrationRoleResponse>> GetRegistrationRolesAsync(CancellationToken ct = default);
     Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
-    Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    Task<LoginResult> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    Task<LoginResponse> VerifyTwoFactorAsync(VerifyTwoFactorRequest request, CancellationToken ct = default);
     Task<LoginResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct = default);
     Task LogoutAsync(Guid userId, string refreshToken, CancellationToken ct = default);
     Task ForgotPasswordAsync(string email, CancellationToken ct = default);

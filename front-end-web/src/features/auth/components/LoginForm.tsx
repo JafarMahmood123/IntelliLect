@@ -6,9 +6,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { login } from '../api/auth';
+import { isTwoFactorRequired } from '../types';
 import { Input } from '../../../components/ui/Input';
 import { Button } from '../../../components/ui/Button';
 import { getDefaultRoute } from '../../../utils/getDefaultRoute';
+import { TwoFactorForm } from './TwoFactorForm';
 
 const buildSchema = (t: (key: string) => string) =>
   z.object({
@@ -21,6 +23,8 @@ type LoginFormData = z.infer<ReturnType<typeof buildSchema>>;
 export const LoginForm = () => {
   const { t } = useTranslation('auth');
   const [serverError, setServerError] = useState('');
+  // When a super admin passes the credential check, the flow switches to the code step.
+  const [twoFactorEmail, setTwoFactorEmail] = useState<string | null>(null);
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
 
@@ -39,12 +43,28 @@ export const LoginForm = () => {
 
     try {
       const result = await login(data);
+
+      // Super admin: no tokens yet — move to the verification-code step.
+      if (isTwoFactorRequired(result)) {
+        setTwoFactorEmail(result.email);
+        return;
+      }
+
       setAuth(result.response, result.accessToken, result.refreshToken);
       navigate(getDefaultRoute(result.response), { replace: true });
     } catch (error: any) {
       setServerError(error.response?.data?.detail || t('login.fallbackError'));
     }
   };
+
+  if (twoFactorEmail) {
+    return (
+      <TwoFactorForm
+        email={twoFactorEmail}
+        onBackToLogin={() => setTwoFactorEmail(null)}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-8 shadow-xl shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">

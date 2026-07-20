@@ -30,17 +30,23 @@ public sealed class JwtProvider : IJwtProvider
         _audience = audience ?? string.Empty;
     }
 
-    public string GenerateAccessToken(Guid userId, string roleName, string userName)
+    public string GenerateAccessToken(Guid userId, string roleName, string userName, bool twoFactorCompleted = false)
     {
         var signingKey = new SymmetricSecurityKey(_signingKey);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-        new Claim("uid", userId.ToString()),
-        new Claim(ClaimTypes.Role, roleName),
-        new Claim(ClaimTypes.Name, userName)
-    };
+            new Claim("uid", userId.ToString()),
+            new Claim(ClaimTypes.Role, roleName),
+            new Claim(ClaimTypes.Name, userName)
+        };
+
+        // Mark the token as having cleared two-factor authentication. Downstream
+        // authorization can require this "amr" (Authentication Methods References)
+        // claim before allowing access to sensitive super admin operations.
+        if (twoFactorCompleted)
+            claims.Add(new Claim("amr", "mfa"));
 
         var token = new JwtSecurityToken(
             _issuer,

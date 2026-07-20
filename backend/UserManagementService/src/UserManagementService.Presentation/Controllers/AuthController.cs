@@ -38,8 +38,27 @@ public sealed class AuthController : ControllerBase
     [FromBody] LoginRequest request,
     CancellationToken cancellationToken)
     {
-        // The service now handles the Status check
-        var response = await _authService.LoginAsync(request, cancellationToken);
+        // The service handles credential + status checks, and decides whether a second
+        // factor is required (super admins) or the session can be issued immediately.
+        var result = await _authService.LoginAsync(request, cancellationToken);
+
+        // Step 6: a 2FA-required login returns no tokens, only a prompt to enter the code.
+        if (result.RequiresTwoFactor)
+        {
+            return Ok(new TwoFactorRequiredResponse(
+                result.Email!,
+                "A verification code has been sent to your email. Enter it to complete sign-in."));
+        }
+
+        return Ok(result.Tokens);
+    }
+
+    [HttpPost("verify-2fa")]
+    public async Task<IActionResult> VerifyTwoFactor(
+    [FromBody] VerifyTwoFactorRequest request,
+    CancellationToken cancellationToken)
+    {
+        var response = await _authService.VerifyTwoFactorAsync(request, cancellationToken);
         return Ok(response);
     }
 

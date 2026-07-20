@@ -64,6 +64,9 @@ public static class DependencyInjection
         services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
         services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();
 
+        services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
+        services.AddSingleton<ITwoFactorCodeGenerator, TwoFactorCodeGenerator>();
+
         services.AddMassTransit(x =>
             {
                 x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>

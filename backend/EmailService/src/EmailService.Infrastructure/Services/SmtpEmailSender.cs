@@ -1,4 +1,5 @@
 using EmailService.Application.Abstractions;
+using EmailService.Application.Common;
 using MailKit.Net.Smtp;
 using Microsoft.Extensions.Configuration;
 using MimeKit;
@@ -19,7 +20,13 @@ public sealed class SmtpEmailSender : IEmailSender
     public async Task SendResetCodeAsync(string email, string code)
     {
         var body = _emailBodyFactory.CreatePasswordResetBody(code);
-        await SendHtmlEmailAsync(email, "Your Password Reset Code", body);
+        await SendHtmlEmailAsync(email, EmailSubjects.PasswordReset, body);
+    }
+
+    public async Task SendTwoFactorCodeAsync(string email, string code)
+    {
+        var body = _emailBodyFactory.CreateTwoFactorCodeBody(code);
+        await SendHtmlEmailAsync(email, EmailSubjects.TwoFactorCode, body);
     }
 
     public async Task SendHtmlEmailAsync(string to, string subject, string htmlBody)
