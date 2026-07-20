@@ -174,7 +174,24 @@
       "email": "Email",
       "role": "Role",
       "status": "Status",
-      "joined": "Joined"
+      "joined": "Joined",
+      "actions": "Actions"
+    },
+    "actions": {
+      "accept": "Accept",
+      "reject": "Reject",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "none": "—",
+      "selfDisabled": "Your account",
+      "successTitle": "Status updated",
+      "success": "Account status changed to {{status}}.",
+      "errorTitle": "Action failed",
+      "error": "Could not change the account status. Please try again.",
+      "confirm": {
+        "Reject": "Reject this registration request? The user will be notified and cannot sign in.",
+        "Deactivate": "Deactivate this account? The user will be signed out and cannot sign in until reactivated."
+      }
     },
     "pagination": {
       "showing": "Showing {{count}} of {{total}} users",

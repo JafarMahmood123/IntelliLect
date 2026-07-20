@@ -9,6 +9,7 @@ import {
   Users as UsersIcon,
 } from 'lucide-react';
 import { useUserDetail } from '../hooks/useUserQueries';
+import { UserStatusActions } from './UserStatusActions';
 import type { ClassroomSummary } from '../types';
 
 const getStatusBadgeClasses = (status: string) => {
@@ -119,13 +120,16 @@ export const UserDetailPage = () => {
               @{user.userName}
             </p>
           </div>
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClasses(
-              user.status,
-            )}`}
-          >
-            {user.status}
-          </span>
+          <div className="flex flex-col items-end gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusBadgeClasses(
+                user.status,
+              )}`}
+            >
+              {user.status}
+            </span>
+            <UserStatusActions userId={user.id} status={user.status} size="md" />
+          </div>
         </div>
 
         <dl className="mt-6 grid gap-4 sm:grid-cols-2">

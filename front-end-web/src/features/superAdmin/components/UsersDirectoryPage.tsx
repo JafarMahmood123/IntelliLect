@@ -9,6 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUserQueries';
+import { UserStatusActions } from './UserStatusActions';
 import type {
   SearchUsersParams,
   SortDirection,
@@ -264,9 +265,10 @@ export const UsersDirectoryPage = () => {
           <div className="overflow-hidden rounded-lg border bg-white shadow dark:border-gray-800 dark:bg-gray-900">
             <table className="w-full table-fixed text-left text-sm">
               <colgroup>
-                <col style={{ width: '28%' }} />
-                <col style={{ width: '26%' }} />
-                <col style={{ width: '14%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
                 <col style={{ width: '14%' }} />
                 <col style={{ width: '18%' }} />
               </colgroup>
@@ -277,12 +279,13 @@ export const UsersDirectoryPage = () => {
                   <th className="p-4 text-center">{t('users.table.role')}</th>
                   <th className="p-4 text-center">{t('users.table.status')}</th>
                   <th className="p-4 text-center">{t('users.table.joined')}</th>
+                  <th className="p-4 text-center">{t('users.table.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-500">
+                    <td colSpan={6} className="p-8 text-center text-gray-500">
                       {t('users.empty')}
                     </td>
                   </tr>
@@ -322,6 +325,12 @@ export const UsersDirectoryPage = () => {
                         </td>
                         <td className="p-4 text-center dark:text-gray-400">
                           {joined.toLocaleDateString()}
+                        </td>
+                        <td
+                          className="p-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <UserStatusActions userId={user.id} status={user.status} size="sm" />
                         </td>
                       </tr>
                     );

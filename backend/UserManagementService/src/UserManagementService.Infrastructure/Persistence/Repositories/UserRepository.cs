@@ -18,6 +18,12 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> FindByEmail(string email, CancellationToken ct) =>
         await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email, ct);
 
+    public async Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) =>
+        await _context.Users
+            .Include(u => u.Role)
+            .Include(u => u.RefreshTokens)
+            .FirstOrDefaultAsync(u => u.Id == id, ct);
+
     public async Task AddAsync(User user, CancellationToken ct) => await _context.Users.AddAsync(user, ct);
 
     public Task UpdateAsync(User user, CancellationToken ct)

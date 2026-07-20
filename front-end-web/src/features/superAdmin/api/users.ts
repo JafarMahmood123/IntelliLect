@@ -3,6 +3,7 @@ import type {
   PagedResult,
   SearchUsersParams,
   UserDetailResponse,
+  UserStatusAction,
   UserSummary,
 } from '../types';
 
@@ -34,6 +35,17 @@ export const getUserDetail = async (
 ): Promise<UserDetailResponse> => {
   const response = await apiClient.get<UserDetailResponse>(
     `/super-admin/users/${userId}`,
+  );
+  return response.data;
+};
+
+export const changeUserStatus = async (
+  userId: string,
+  action: UserStatusAction,
+): Promise<UserSummary> => {
+  const response = await apiClient.put<UserSummary>(
+    `/super-admin/users/${userId}/status`,
+    { action },
   );
   return response.data;
 };

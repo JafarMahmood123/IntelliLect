@@ -28,6 +28,22 @@ export interface UserSummary {
 export type UserRoleValue = '' | 'Student' | 'Teacher' | 'Admin' | 'SuperAdmin';
 export type UserStatusValue = '' | 'Active' | 'Pending' | 'Rejected' | 'Deactivated';
 
+export type UserStatusAction = 'Accept' | 'Reject' | 'Deactivate' | 'Reactivate';
+
+// The status transitions a super admin may apply from a given current status.
+export const getStatusActions = (status: string): UserStatusAction[] => {
+  switch (status) {
+    case 'Pending':
+      return ['Accept', 'Reject'];
+    case 'Active':
+      return ['Deactivate'];
+    case 'Deactivated':
+      return ['Reactivate'];
+    default: // Rejected is terminal
+      return [];
+  }
+};
+
 export interface SearchUsersParams {
   searchTerm?: string;
   role?: UserRoleValue;

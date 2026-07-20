@@ -16,13 +16,16 @@ public sealed class SuperAdminController : ControllerBase
 {
     private readonly ISuperAdminService _superAdminService;
     private readonly IUserDirectoryService _userDirectoryService;
+    private readonly IUserStatusService _userStatusService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
-        IUserDirectoryService userDirectoryService)
+        IUserDirectoryService userDirectoryService,
+        IUserStatusService userStatusService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
+        _userStatusService = userStatusService;
     }
 
     [HttpGet("admins")]
@@ -62,6 +65,19 @@ public sealed class SuperAdminController : ControllerBase
     public async Task<IActionResult> GetUserDetail(Guid id, CancellationToken ct)
     {
         var result = await _userDirectoryService.GetUserDetailAsync(id, ct);
+        return Ok(result);
+    }
+
+    [HttpPut("users/{id:guid}/status")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeUserStatus(
+        Guid id,
+        [FromBody] ChangeUserStatusRequest request,
+        CancellationToken ct)
+    {
+        var result = await _userStatusService.ChangeStatusAsync(id, request.Action, GetUserIdFromClaims(), ct);
         return Ok(result);
     }
 
