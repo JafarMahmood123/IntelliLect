@@ -74,6 +74,41 @@ export interface UserDetailResponse {
   membershipsUnavailable: boolean;
 }
 
+// --- Classroom administration -----------------------------------------------
+
+export interface ClassroomAdminItem {
+  id: string;
+  name: string;
+  description: string;
+  teacherId: string;
+  teacherName?: string | null;
+  teacherEmail?: string | null;
+  createdAtUtc: string;
+  fileCount: number;
+  studentCount: number;
+  sessionCount: number;
+  version: number;
+}
+
+export interface SearchClassroomsParams {
+  search?: string;
+  teacherId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CreateClassroomAdminRequest {
+  teacherId: string;
+  name: string;
+  description: string;
+}
+
+export interface UpdateClassroomAdminRequest {
+  name: string;
+  description: string;
+  version: number;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

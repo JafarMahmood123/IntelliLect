@@ -9,7 +9,39 @@ namespace UserManagementService.Application.Abstractions;
 public interface IClassroomInternalClient
 {
     Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default);
+
+    // --- Super-admin classroom administration (over ClassroomService's internal endpoints) ---
+    Task<AdminClassroomPage> GetClassroomsAsync(
+        int page, int pageSize, string? search, Guid? teacherId, CancellationToken ct = default);
+
+    Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default);
+
+    Task<Guid> CreateClassroomAsync(Guid teacherId, string name, string description, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The classroom does not exist (5ج).</exception>
+    /// <exception cref="InvalidOperationException">The classroom was modified concurrently (6أ).</exception>
+    Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default);
 }
+
+/// <summary>A classroom as administered by the super admin (mirrors ClassroomService's AdminClassroomResponse).</summary>
+public sealed record AdminClassroom(
+    Guid Id,
+    string Name,
+    string Description,
+    Guid TeacherId,
+    DateTime CreatedAtUtc,
+    int FileCount,
+    int StudentCount,
+    int SessionCount,
+    long Version);
+
+/// <summary>A page of admin classrooms (mirrors ClassroomService's PagedResult).</summary>
+public sealed record AdminClassroomPage(
+    IReadOnlyList<AdminClassroom> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    int TotalPages);
 
 /// <summary>A user's classroom memberships: what they teach and what they are enrolled in.</summary>
 public sealed record UserClassrooms(

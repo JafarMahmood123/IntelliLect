@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Authentication;
+using UserManagementService.Application.ClassroomAdministration;
 using UserManagementService.Application.SuperAdministration;
 using UserManagementService.Application.UserAccounts;
 using UserManagementService.Application.UserDirectory;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<IUserDirectoryService, UserDirectoryService>();
         services.AddScoped<IUserStatusService, UserStatusService>();
+        services.AddScoped<IClassroomAdminService, ClassroomAdminService>();
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
         return services;

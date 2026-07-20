@@ -22,6 +22,17 @@ public sealed class ApplicationDbContext : DbContext
 
         modelBuilder.AddTransactionalOutboxEntities();
 
+        // Optimistic concurrency for classrooms (use-case alternate path 6أ): map Postgres'
+        // system column "xmin" as a concurrency token. It is maintained by Postgres on every
+        // row update and needs no schema change, so a stale super-admin edit is rejected with
+        // a DbUpdateConcurrencyException instead of silently overwriting a concurrent change.
+        modelBuilder.Entity<Classroom>()
+            .Property<uint>("xmin")
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
         // Session recordings (R-1). Looked up by session on the recording-ready path and listed
         // by classroom (R-2), so both are indexed. EgressId is the LiveKit correlation id.
         modelBuilder.Entity<SessionRecording>(recording =>

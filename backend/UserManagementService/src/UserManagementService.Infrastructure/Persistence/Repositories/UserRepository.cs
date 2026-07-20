@@ -24,6 +24,19 @@ public sealed class UserRepository : IUserRepository
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    public async Task<List<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+        {
+            return new List<User>();
+        }
+
+        return await _context.Users
+            .Include(u => u.Role)
+            .Where(u => ids.Contains(u.Id))
+            .ToListAsync(ct);
+    }
+
     public async Task AddAsync(User user, CancellationToken ct) => await _context.Users.AddAsync(user, ct);
 
     public Task UpdateAsync(User user, CancellationToken ct)

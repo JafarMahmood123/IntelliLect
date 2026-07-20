@@ -5,6 +5,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
+using UserManagementService.Application.DTOs.Classroom;
 using UserManagementService.Application.DTOs.User;
 
 namespace UserManagementService.Presentation.Controllers;
@@ -17,15 +18,18 @@ public sealed class SuperAdminController : ControllerBase
     private readonly ISuperAdminService _superAdminService;
     private readonly IUserDirectoryService _userDirectoryService;
     private readonly IUserStatusService _userStatusService;
+    private readonly IClassroomAdminService _classroomAdminService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
         IUserDirectoryService userDirectoryService,
-        IUserStatusService userStatusService)
+        IUserStatusService userStatusService,
+        IClassroomAdminService classroomAdminService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
         _userStatusService = userStatusService;
+        _classroomAdminService = classroomAdminService;
     }
 
     [HttpGet("admins")]
@@ -79,6 +83,33 @@ public sealed class SuperAdminController : ControllerBase
     {
         var result = await _userStatusService.ChangeStatusAsync(id, request.Action, GetUserIdFromClaims(), ct);
         return Ok(result);
+    }
+
+    [HttpGet("classrooms")]
+    [ProducesResponseType(typeof(PagedResult<ClassroomAdminItem>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetClassrooms([FromQuery] SearchClassroomsRequest request, CancellationToken ct)
+    {
+        var result = await _classroomAdminService.GetClassroomsAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpPost("classrooms")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateClassroom([FromBody] CreateClassroomAdminRequest request, CancellationToken ct)
+    {
+        var id = await _classroomAdminService.CreateClassroomAsync(request, ct);
+        return StatusCode(StatusCodes.Status201Created, new { Message = "Classroom created successfully.", Id = id });
+    }
+
+    [HttpPut("classrooms/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateClassroom(Guid id, [FromBody] UpdateClassroomAdminRequest request, CancellationToken ct)
+    {
+        await _classroomAdminService.UpdateClassroomAsync(id, request, ct);
+        return NoContent();
     }
 
     [HttpPost("admins")]

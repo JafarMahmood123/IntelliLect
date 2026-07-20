@@ -78,4 +78,27 @@ public sealed class ClassroomManagementService : IClassroomManagementService
         await _classroomRepository.DeleteAsync(classroomId, ct);
         await _classroomRepository.SaveChangesAsync(ct);
     }
+
+    public async Task<PagedResult<AdminClassroomResponse>> GetAdminPagedAsync(
+        int page, int pageSize, string? search, Guid? teacherId, CancellationToken ct = default)
+    {
+        var (items, totalCount) = await _classroomRepository.GetAdminPagedAsync(page, pageSize, search, teacherId, ct);
+        return new PagedResult<AdminClassroomResponse>(items, totalCount, page, pageSize);
+    }
+
+    public Task<AdminClassroomResponse?> GetAdminByIdAsync(Guid id, CancellationToken ct = default)
+        => _classroomRepository.GetAdminByIdAsync(id, ct);
+
+    public async Task AdminUpdateAsync(Guid id, UpdateClassroomRequest request, long expectedVersion, CancellationToken ct = default)
+    {
+        // A stale version surfaces as DbUpdateConcurrencyException (6أ), handled by the caller.
+        var found = await _classroomRepository.UpdateWithConcurrencyAsync(
+            id, request.Name, request.Description, expectedVersion, ct);
+
+        // Alternate path 5ج: the classroom to edit does not exist.
+        if (!found)
+        {
+            throw new KeyNotFoundException("Classroom not found.");
+        }
+    }
 }

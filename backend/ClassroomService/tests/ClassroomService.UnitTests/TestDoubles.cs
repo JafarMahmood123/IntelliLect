@@ -180,6 +180,16 @@ public sealed class FakeClassroomRepository : IClassroomRepository
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(1);
     public Task<(IEnumerable<Classroom> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
         => Task.FromResult<(IEnumerable<Classroom>, int)>((_store.Values, _store.Count));
+
+    public Task<(List<ClassroomService.Application.DTOs.Classroom.AdminClassroomResponse> Items, int TotalCount)> GetAdminPagedAsync(
+        int page, int pageSize, string? search, Guid? teacherId, CancellationToken ct = default)
+        => throw new NotImplementedException();
+
+    public Task<ClassroomService.Application.DTOs.Classroom.AdminClassroomResponse?> GetAdminByIdAsync(Guid id, CancellationToken ct = default)
+        => throw new NotImplementedException();
+
+    public Task<bool> UpdateWithConcurrencyAsync(Guid id, string name, string description, long expectedVersion, CancellationToken ct = default)
+        => throw new NotImplementedException();
 }
 
 /// <summary>No-op file storage that returns a deterministic key / accepts deletes.</summary>

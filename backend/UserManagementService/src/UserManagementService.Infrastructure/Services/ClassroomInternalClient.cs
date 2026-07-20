@@ -1,6 +1,8 @@
+using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
 
 namespace UserManagementService.Infrastructure.Services;
 
@@ -73,10 +75,120 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         }
     }
 
+    public async Task<AdminClassroomPage> GetClassroomsAsync(
+        int page, int pageSize, string? search, Guid? teacherId, CancellationToken ct = default)
+    {
+        var url = $"api/internal/classrooms?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            url += $"&search={Uri.EscapeDataString(search)}";
+        }
+        if (teacherId.HasValue && teacherId.Value != Guid.Empty)
+        {
+            url += $"&teacherId={teacherId.Value}";
+        }
+
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AdminClassroomPage>(ct);
+        return payload ?? new AdminClassroomPage(Array.Empty<AdminClassroom>(), 0, page, pageSize, 0);
+    }
+
+    public async Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, $"api/internal/classrooms/{id}"), ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<AdminClassroom>(ct);
+    }
+
+    public async Task<Guid> CreateClassroomAsync(Guid teacherId, string name, string description, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, "api/internal/classrooms")
+            {
+                Content = JsonContent.Create(new { teacherId, name, description })
+            },
+            ct);
+
+        response.EnsureSuccessStatusCode();
+
+        var created = await response.Content.ReadFromJsonAsync<CreatedClassroom>(ct);
+        return created?.Id ?? Guid.Empty;
+    }
+
+    public async Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Put, $"api/internal/classrooms/{id}")
+            {
+                Content = JsonContent.Create(new { name, description, version })
+            },
+            ct);
+
+        // Translate ClassroomService's status codes into UMS domain exceptions.
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom not found."); // 5ج
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The classroom was modified by someone else. Reload the data and try again."); // 6أ
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    // Sends a request (recreated per attempt), adding the internal secret and retrying transient
+    // faults. Only idempotent-safe callers should retry POST; here create is a one-shot 201 so a
+    // duplicate is not created because the retry only fires on connection/5xx before a response.
+    private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var request = requestFactory();
+                if (!string.IsNullOrWhiteSpace(_internalSecret))
+                {
+                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _internalSecret);
+                }
+
+                var response = await _httpClient.SendAsync(request, ct);
+
+                if ((int)response.StatusCode >= 500 && attempt < MaxAttempts)
+                {
+                    response.Dispose();
+                    await Task.Delay(RetryDelay(attempt), ct);
+                    continue;
+                }
+
+                return response;
+            }
+            catch (HttpRequestException) when (attempt < MaxAttempts)
+            {
+                await Task.Delay(RetryDelay(attempt), ct);
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested && attempt < MaxAttempts)
+            {
+                await Task.Delay(RetryDelay(attempt), ct);
+            }
+        }
+    }
+
     private static TimeSpan RetryDelay(int attempt) => TimeSpan.FromMilliseconds(200 * attempt);
 
     // Deserialization shape of ClassroomService's UserClassroomsResponse.
     private sealed record UserClassroomsPayload(
         IReadOnlyList<ClassroomSummary>? Teaching,
         IReadOnlyList<ClassroomSummary>? Enrolled);
+
+    private sealed record CreatedClassroom(Guid Id);
 }

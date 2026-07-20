@@ -225,5 +225,58 @@
         "files": "{{count}} files"
       }
     }
+  },
+  "classrooms": {
+    "navLink": "Classrooms",
+    "title": "Classrooms",
+    "subtitle": "Browse, search, create, and edit every classroom on the platform.",
+    "createNew": "New Classroom",
+    "savedCreate": "Classroom \"{{name}}\" was created.",
+    "savedEdit": "Classroom \"{{name}}\" was updated.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by classroom name or description",
+    "loading": "Loading classrooms...",
+    "loadError": "Failed to load classrooms.",
+    "empty": "No classrooms match the search.",
+    "table": {
+      "name": "Classroom",
+      "teacher": "Teacher",
+      "counts": "Students / Sessions / Files",
+      "created": "Created",
+      "actions": "Actions",
+      "unknownTeacher": "Unknown teacher",
+      "students": "Students",
+      "sessions": "Sessions",
+      "files": "Files",
+      "edit": "Edit"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} classrooms"
+    },
+    "form": {
+      "createTitle": "New Classroom",
+      "editTitle": "Edit Classroom",
+      "description": "Set the classroom name, description, and assigned teacher.",
+      "name": "Name",
+      "descriptionLabel": "Description",
+      "teacher": "Teacher",
+      "teacherPlaceholder": "Search active teachers by name or email",
+      "teacherUnknown": "Unknown teacher",
+      "searching": "Searching...",
+      "noTeachers": "No matching active teachers.",
+      "submit": "Save",
+      "submitting": "Saving...",
+      "successTitle": "Saved",
+      "created": "The classroom was created successfully.",
+      "updated": "The classroom was updated successfully.",
+      "conflict": "This classroom was changed by someone else. Please reload the list and try again.",
+      "fallbackError": "Could not save the classroom. Please review the data and try again.",
+      "validation": {
+        "nameRequired": "Classroom name is required",
+        "nameTooLong": "Classroom name must be at most 100 characters",
+        "descriptionRequired": "Description is required",
+        "teacherRequired": "Please select a teacher"
+      }
+    }
   }
 }

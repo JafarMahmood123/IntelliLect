@@ -162,6 +162,7 @@ internal sealed class FakeUserDirectoryRepository : IUserRepository
 
     public Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<List<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<User?> FindByRefreshToken(string token, CancellationToken ct) => throw new NotImplementedException();
     public Task<User?> FindByResetToken(string token, CancellationToken ct) => throw new NotImplementedException();
     public Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
@@ -184,6 +185,12 @@ internal sealed class FakeClassroomClient : IClassroomInternalClient
     }
 
     public bool WasCalled { get; private set; }
+
+    // Admin classroom operations are not exercised by the user-directory use-case.
+    public Task<AdminClassroomPage> GetClassroomsAsync(int page, int pageSize, string? search, Guid? teacherId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<Guid> CreateClassroomAsync(Guid teacherId, string name, string description, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default)
     {

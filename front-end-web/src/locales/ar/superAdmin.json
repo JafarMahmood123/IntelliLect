@@ -228,5 +228,58 @@
         "files": "{{count}} ملف"
       }
     }
+  },
+  "classrooms": {
+    "navLink": "الفصول الدراسية",
+    "title": "الفصول الدراسية",
+    "subtitle": "استعرض وابحث وأنشئ وعدّل جميع الفصول الدراسية في المنصّة.",
+    "createNew": "فصل جديد",
+    "savedCreate": "تم إنشاء الفصل «{{name}}».",
+    "savedEdit": "تم تحديث الفصل «{{name}}».",
+    "searchLabel": "بحث",
+    "searchPlaceholder": "ابحث باسم الفصل أو وصفه",
+    "loading": "جارٍ تحميل الفصول...",
+    "loadError": "فشل تحميل الفصول.",
+    "empty": "لا توجد فصول مطابقة للبحث.",
+    "table": {
+      "name": "الفصل",
+      "teacher": "المعلّم",
+      "counts": "الطلاب / الجلسات / الملفات",
+      "created": "تاريخ الإنشاء",
+      "actions": "الإجراءات",
+      "unknownTeacher": "معلّم غير معروف",
+      "students": "الطلاب",
+      "sessions": "الجلسات",
+      "files": "الملفات",
+      "edit": "تعديل"
+    },
+    "pagination": {
+      "showing": "عرض {{count}} من {{total}} فصل"
+    },
+    "form": {
+      "createTitle": "فصل دراسي جديد",
+      "editTitle": "تعديل الفصل الدراسي",
+      "description": "حدّد اسم الفصل ووصفه والمعلّم المُسنَد إليه.",
+      "name": "الاسم",
+      "descriptionLabel": "الوصف",
+      "teacher": "المعلّم",
+      "teacherPlaceholder": "ابحث عن معلّم نشط بالاسم أو البريد الإلكتروني",
+      "teacherUnknown": "معلّم غير معروف",
+      "searching": "جارٍ البحث...",
+      "noTeachers": "لا يوجد معلّمون نشطون مطابقون.",
+      "submit": "حفظ",
+      "submitting": "جارٍ الحفظ...",
+      "successTitle": "تم الحفظ",
+      "created": "تم إنشاء الفصل بنجاح.",
+      "updated": "تم تحديث الفصل بنجاح.",
+      "conflict": "تم تعديل هذا الفصل من قِبل شخص آخر. يرجى إعادة تحميل القائمة والمحاولة مجددًا.",
+      "fallbackError": "تعذّر حفظ الفصل. راجع البيانات ثم حاول مرة أخرى.",
+      "validation": {
+        "nameRequired": "اسم الفصل مطلوب",
+        "nameTooLong": "يجب ألا يتجاوز اسم الفصل 100 حرف",
+        "descriptionRequired": "الوصف مطلوب",
+        "teacherRequired": "يرجى اختيار معلّم"
+      }
+    }
   }
 }
