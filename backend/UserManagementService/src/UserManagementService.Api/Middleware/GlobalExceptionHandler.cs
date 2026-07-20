@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UserManagementService.Application.Common;
 
 namespace UserManagementService.Api.Middleware;
 
@@ -23,6 +24,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         // Map specific exceptions to HTTP Status Codes
         var (statusCode, title) = exception switch
         {
+            NotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Data Conflict"),
             InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),

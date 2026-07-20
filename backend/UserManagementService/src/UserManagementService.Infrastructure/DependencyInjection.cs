@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -6,6 +7,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
+using UserManagementService.Domain.Entities;
 using UserManagementService.Infrastructure.Authentication;
 using UserManagementService.Infrastructure.Hashing;
 using UserManagementService.Infrastructure.Messaging;
@@ -47,6 +50,10 @@ public static class DependencyInjection
         })
         .AddJwtBearer(options =>
         {
+            // Keep JWT claim names as-issued (e.g. "amr", "uid") instead of remapping short
+            // names to long WS-* URIs, so the two-factor policy can match "amr" directly.
+            options.MapInboundClaims = false;
+
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -55,11 +62,19 @@ public static class DependencyInjection
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = issuer,
                 ValidAudience = audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+                RoleClaimType = ClaimTypes.Role
             };
         });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            // Admin-management actions require a super admin whose session has completed 2FA.
+            options.AddPolicy(AuthorizationPolicies.SuperAdminTwoFactor, policy =>
+                policy
+                    .RequireRole(RoleName.SuperAdmin.ToString())
+                    .RequireClaim(TwoFactorClaims.ClaimType, TwoFactorClaims.CompletedValue));
+        });
 
         services.AddScoped<IResetTokenRepository, ResetTokenRepository>();
         services.AddSingleton<IResetPasswordTokenGenerator, ResetPasswordTokenGenerator>();

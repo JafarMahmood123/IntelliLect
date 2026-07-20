@@ -10,6 +10,6 @@ public interface ISuperAdminService
     Task<GroupedAdminsResponse> GetGroupedAdminsAsync(GetAdminsRequest request, CancellationToken ct = default);
     Task<PagedResult<AdminQueryResult>> SearchAdminsAsync(SearchAdminsRequest request, CancellationToken ct = default);
     Task<Guid> CreateAdminAsync(CreateAdminRequest request, CancellationToken ct = default);
-    Task DeactivateAdminAsync(Guid adminId, CancellationToken ct = default);
-    Task ReactivateAdminAsync(Guid adminId, CancellationToken ct = default);
+    Task DeactivateAdminAsync(Guid adminId, Guid requestingSuperAdminId, CancellationToken ct = default);
+    Task ReactivateAdminAsync(Guid adminId, Guid requestingSuperAdminId, CancellationToken ct = default);
 }

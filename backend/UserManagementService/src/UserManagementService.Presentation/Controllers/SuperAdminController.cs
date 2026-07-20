@@ -8,7 +8,7 @@ using UserManagementService.Application.DTOs.Admin;
 
 namespace UserManagementService.Presentation.Controllers;
 
-[Authorize(Roles = "SuperAdmin")]
+[Authorize(Policy = AuthorizationPolicies.SuperAdminTwoFactor)]
 [ApiController]
 [Route("api/super-admin")]
 public sealed class SuperAdminController : ControllerBase
@@ -58,14 +58,24 @@ public sealed class SuperAdminController : ControllerBase
     [HttpPut("admins/{id:guid}/deactivate")]
     public async Task<IActionResult> DeactivateAdmin(Guid id, CancellationToken ct)
     {
-        await _superAdminService.DeactivateAdminAsync(id, ct);
+        await _superAdminService.DeactivateAdminAsync(id, GetUserIdFromClaims(), ct);
         return NoContent();
     }
 
     [HttpPut("admins/{id:guid}/reactivate")]
     public async Task<IActionResult> ReactivateAdmin(Guid id, CancellationToken ct)
     {
-        await _superAdminService.ReactivateAdminAsync(id, ct);
+        await _superAdminService.ReactivateAdminAsync(id, GetUserIdFromClaims(), ct);
         return NoContent();
+    }
+
+    private Guid GetUserIdFromClaims()
+    {
+        var userIdClaim = User.FindFirst("uid")?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new UnauthorizedAccessException("Invalid user claims.");
+        }
+        return userId;
     }
 }

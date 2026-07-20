@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using UserManagementService.Application.Abstractions;
+using UserManagementService.Application.Common;
 
 namespace UserManagementService.Infrastructure.Authentication;
 
@@ -46,7 +47,7 @@ public sealed class JwtProvider : IJwtProvider
         // authorization can require this "amr" (Authentication Methods References)
         // claim before allowing access to sensitive super admin operations.
         if (twoFactorCompleted)
-            claims.Add(new Claim("amr", "mfa"));
+            claims.Add(new Claim(TwoFactorClaims.ClaimType, TwoFactorClaims.CompletedValue));
 
         var token = new JwtSecurityToken(
             _issuer,

@@ -64,6 +64,10 @@ public sealed class SuperAdminService : ISuperAdminService
 
     public async Task<Guid> CreateAdminAsync(CreateAdminRequest request, CancellationToken ct = default)
     {
+        // Alternate path 5ب: reject missing or malformed input before touching the database.
+        ValidateCreateRequest(request);
+
+        // Alternate path 5أ: the email must not already belong to any account.
         var existingUser = await _userRepository.FindByEmail(request.Email, ct);
         if (existingUser != null)
         {
@@ -98,13 +102,12 @@ public sealed class SuperAdminService : ISuperAdminService
         return user.Id;
     }
 
-    public async Task DeactivateAdminAsync(Guid adminId, CancellationToken ct = default)
+    public async Task DeactivateAdminAsync(Guid adminId, Guid requestingSuperAdminId, CancellationToken ct = default)
     {
-        var admin = await _adminRepository.GetAdminByIdAsync(adminId, ct);
-        if (admin == null)
-        {
-            throw new ArgumentException("Admin not found.");
-        }
+        // Alternate path 5د: the super admin must not deactivate their own account.
+        GuardAgainstSelfTarget(adminId, requestingSuperAdminId);
+
+        var admin = await GetAdminOrThrowAsync(adminId, ct);
 
         admin.Deactivate();
         await _userRepository.UpdateAsync(admin, ct);
@@ -112,17 +115,59 @@ public sealed class SuperAdminService : ISuperAdminService
         await _userRepository.SaveChangesAsync(ct);
     }
 
-    public async Task ReactivateAdminAsync(Guid adminId, CancellationToken ct = default)
+    public async Task ReactivateAdminAsync(Guid adminId, Guid requestingSuperAdminId, CancellationToken ct = default)
     {
-        var admin = await _adminRepository.GetAdminByIdAsync(adminId, ct);
-        if (admin == null)
-        {
-            throw new ArgumentException("Admin not found.");
-        }
+        // Alternate path 5د: symmetrical guard for reactivation of the caller's own account.
+        GuardAgainstSelfTarget(adminId, requestingSuperAdminId);
+
+        var admin = await GetAdminOrThrowAsync(adminId, ct);
 
         admin.Reactivate();
         await _userRepository.UpdateAsync(admin, ct);
         await _eventBus.PublishAsync(new UserStatusChangedMessage(admin.Email, admin.FirstName, UserStatus.Active.ToString()), ct);
         await _userRepository.SaveChangesAsync(ct);
+    }
+
+    // Alternate path 5ج: a missing target admin is reported as a 404, not a generic error.
+    private async Task<User> GetAdminOrThrowAsync(Guid adminId, CancellationToken ct)
+    {
+        var admin = await _adminRepository.GetAdminByIdAsync(adminId, ct);
+        if (admin == null)
+        {
+            throw new NotFoundException("Admin not found.");
+        }
+
+        return admin;
+    }
+
+    private static void GuardAgainstSelfTarget(Guid adminId, Guid requestingSuperAdminId)
+    {
+        if (adminId == requestingSuperAdminId)
+        {
+            throw new InvalidOperationException("You cannot change the status of your own account.");
+        }
+    }
+
+    private static void ValidateCreateRequest(CreateAdminRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserName))
+            throw new ArgumentException("Username is required.");
+
+        if (string.IsNullOrWhiteSpace(request.FirstName))
+            throw new ArgumentException("First name is required.");
+
+        if (string.IsNullOrWhiteSpace(request.LastName))
+            throw new ArgumentException("Last name is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Email) || !IsValidEmail(request.Email))
+            throw new ArgumentException("A valid email address is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+            throw new ArgumentException("Password must be at least 6 characters.");
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        return System.Net.Mail.MailAddress.TryCreate(email, out _);
     }
 }
