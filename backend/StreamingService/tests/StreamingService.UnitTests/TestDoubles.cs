@@ -244,6 +244,9 @@ public sealed class FakeStreamRepository : IStreamRepository
     public Task<LiveStream?> GetByEgressIdAsync(string egressId, CancellationToken ct = default)
         => Task.FromResult<LiveStream?>(_streams.FirstOrDefault(s => s.EgressId == egressId));
 
+    public Task<List<LiveStream>> GetLiveStreamsAsync(CancellationToken ct = default)
+        => Task.FromResult(_streams.Where(s => s.Status == StreamStatus.Live).ToList());
+
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {
         _streams.Add(entity);

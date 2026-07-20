@@ -36,4 +36,11 @@ public interface IKnowledgeInternalClient
     /// </summary>
     Task<KnowledgeAnswerResult> GetAnswerAsync(
         Guid classroomId, string question, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ask KnowledgeService to generate the summary for a session (enqueues the pipeline).
+    /// Best-effort: returns false instead of throwing so a force-end can complete its other
+    /// steps (alternate path 7أ). The internal secret never leaves this client.
+    /// </summary>
+    Task<bool> TriggerSummaryAsync(Guid sessionId, Guid classroomId, CancellationToken ct = default);
 }

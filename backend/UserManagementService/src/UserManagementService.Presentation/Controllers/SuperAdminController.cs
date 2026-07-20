@@ -6,6 +6,7 @@ using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Application.DTOs.Classroom;
+using UserManagementService.Application.DTOs.Session;
 using UserManagementService.Application.DTOs.User;
 
 namespace UserManagementService.Presentation.Controllers;
@@ -19,17 +20,20 @@ public sealed class SuperAdminController : ControllerBase
     private readonly IUserDirectoryService _userDirectoryService;
     private readonly IUserStatusService _userStatusService;
     private readonly IClassroomAdminService _classroomAdminService;
+    private readonly ISessionMonitorService _sessionMonitorService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
         IUserDirectoryService userDirectoryService,
         IUserStatusService userStatusService,
-        IClassroomAdminService classroomAdminService)
+        IClassroomAdminService classroomAdminService,
+        ISessionMonitorService sessionMonitorService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
         _userStatusService = userStatusService;
         _classroomAdminService = classroomAdminService;
+        _sessionMonitorService = sessionMonitorService;
     }
 
     [HttpGet("admins")]
@@ -110,6 +114,32 @@ public sealed class SuperAdminController : ControllerBase
     {
         await _classroomAdminService.UpdateClassroomAsync(id, request, ct);
         return NoContent();
+    }
+
+    [HttpGet("sessions")]
+    [ProducesResponseType(typeof(PagedResult<SessionMonitorItem>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSessions([FromQuery] SearchSessionsRequest request, CancellationToken ct)
+    {
+        var result = await _sessionMonitorService.GetSessionsAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("sessions/live")]
+    [ProducesResponseType(typeof(LiveSessionsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetLiveSessions(CancellationToken ct)
+    {
+        var result = await _sessionMonitorService.GetLiveSessionsAsync(ct);
+        return Ok(result);
+    }
+
+    [HttpPost("sessions/{id:guid}/force-end")]
+    [ProducesResponseType(typeof(ForceEndSessionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ForceEndSession(Guid id, [FromBody] ForceEndSessionRequest request, CancellationToken ct)
+    {
+        var result = await _sessionMonitorService.ForceEndAsync(id, request.Reason, ct);
+        return Ok(result);
     }
 
     [HttpPost("admins")]

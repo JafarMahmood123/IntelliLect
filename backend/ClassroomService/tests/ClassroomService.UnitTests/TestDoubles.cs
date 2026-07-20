@@ -75,6 +75,18 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
 
     public RecordingKnowledgeClient(bool throwOnCall = false) => _throwOnCall = throwOnCall;
 
+    /// <summary>Records summary triggers; returns <see cref="SummaryTriggerResult"/>.</summary>
+    public int SummaryCalls { get; private set; }
+    public Guid LastSummarySessionId { get; private set; }
+    public bool SummaryTriggerResult { get; set; } = true;
+
+    public Task<bool> TriggerSummaryAsync(Guid sessionId, Guid classroomId, CancellationToken ct = default)
+    {
+        SummaryCalls++;
+        LastSummarySessionId = sessionId;
+        return Task.FromResult(SummaryTriggerResult);
+    }
+
     public Task NotifyFileUploadedAsync(Guid fileId, Guid classroomId, string s3Key, string fileName, string contentType, CancellationToken ct = default)
     {
         UploadCalls++;

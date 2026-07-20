@@ -192,6 +192,38 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
         }
     }
 
+    public async Task<bool> TriggerSummaryAsync(Guid sessionId, Guid classroomId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"api/internal/sessions/{sessionId}/summarize")
+            {
+                Content = JsonContent.Create(new SummarizeRequest(classroomId)),
+            };
+            if (!string.IsNullOrWhiteSpace(_options.InternalApiSecret))
+            {
+                request.Headers.TryAddWithoutValidation(InternalSecretHeader, _options.InternalApiSecret);
+            }
+
+            using var response = await _httpClient.SendAsync(request, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            _logger.LogWarning(
+                "KnowledgeService summarize for session {SessionId} returned {StatusCode}.",
+                sessionId, (int)response.StatusCode);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            // Best-effort (7أ): a summary-trigger failure must not fail the force-end.
+            _logger.LogWarning(ex, "KnowledgeService summarize for session {SessionId} could not be reached.", sessionId);
+            return false;
+        }
+    }
+
     private async Task SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         string operation,
@@ -268,6 +300,10 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
     private sealed record AnswerRequest(
         [property: JsonPropertyName("classroomId")] Guid ClassroomId,
         [property: JsonPropertyName("question")] string Question);
+
+    /// <summary>Matches KnowledgeService's summarize request ({ classroomId }).</summary>
+    private sealed record SummarizeRequest(
+        [property: JsonPropertyName("classroomId")] Guid ClassroomId);
 
     /// <summary>Subset of KnowledgeService's answer response we forward (ignores chunkId/score).</summary>
     private sealed record AnswerResponseBody(

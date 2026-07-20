@@ -1,0 +1,189 @@
+using ClassroomService.Application.Abstractions;
+using ClassroomService.Application.DTOs.Session;
+using ClassroomService.Application.Services;
+using ClassroomService.Domain.Entities;
+using ClassroomService.Domain.Enums;
+
+namespace ClassroomService.UnitTests;
+
+// Unit tests for SessionAdminService.ForceEndAsync — the orchestration behind the super-admin
+// "الإنهاء القسري" step 7: the session reaches Ended, then the stream-end path and the summary
+// trigger run best-effort.
+//   6أ -> session not found. 6ب -> not active (no-op). 7أ -> a step fails, the rest still run.
+public class SessionAdminServiceTests
+{
+    [Fact]
+    public async Task ForceEnd_OnLiveSession_EndsSessionThenStreamThenSummary()
+    {
+        var session = LiveSession();
+        var sessions = new FakeSessionRepository(session);
+        var streaming = new RecordingStreamingClient(endResult: true);
+        var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
+        var sut = new SessionAdminService(sessions, streaming, knowledge);
+
+        var result = await sut.ForceEndAsync(session.Id, "Teacher disconnected");
+
+        // Postcondition: the session is Ended and persisted.
+        Assert.Equal(SessionStatus.Ended, session.Status);
+        Assert.NotNull(session.EndedAtUtc);
+        Assert.Equal(1, sessions.SaveCalls);
+
+        // The end path ran, then the summary trigger.
+        Assert.Equal(session.Id, streaming.LastEndedSessionId);
+        Assert.Equal(1, knowledge.SummaryCalls);
+        Assert.Equal(session.Id, knowledge.LastSummarySessionId);
+
+        Assert.Equal("Ended", result.Status);
+        Assert.False(result.AlreadyEnded);
+        Assert.True(result.StreamEnded);
+        Assert.True(result.SummaryTriggered);
+    }
+
+    [Fact]
+    public async Task ForceEnd_WhenStreamEndFails_StillEndsSessionAndTriggersSummary()
+    {
+        // Alternate path 7أ: one failing step must not block the others.
+        var session = LiveSession();
+        var sessions = new FakeSessionRepository(session);
+        var streaming = new RecordingStreamingClient(endResult: false); // stream end failed
+        var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
+        var sut = new SessionAdminService(sessions, streaming, knowledge);
+
+        var result = await sut.ForceEndAsync(session.Id, "stalled");
+
+        Assert.Equal(SessionStatus.Ended, session.Status); // reached Ended regardless
+        Assert.False(result.StreamEnded);
+        Assert.True(result.SummaryTriggered);              // the next step still ran
+        Assert.Equal(1, knowledge.SummaryCalls);
+    }
+
+    [Fact]
+    public async Task ForceEnd_WhenSummaryTriggerFails_SessionStillEnded()
+    {
+        // Alternate path 7أ, other direction.
+        var session = LiveSession();
+        var sessions = new FakeSessionRepository(session);
+        var streaming = new RecordingStreamingClient(endResult: true);
+        var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = false };
+        var sut = new SessionAdminService(sessions, streaming, knowledge);
+
+        var result = await sut.ForceEndAsync(session.Id, "stalled");
+
+        Assert.Equal(SessionStatus.Ended, session.Status);
+        Assert.Equal("Ended", result.Status);
+        Assert.True(result.StreamEnded);
+        Assert.False(result.SummaryTriggered);
+    }
+
+    [Fact]
+    public async Task ForceEnd_WhenSessionMissing_ThrowsNotFound()
+    {
+        // Alternate path 6أ.
+        var sessions = new FakeSessionRepository();
+        var streaming = new RecordingStreamingClient(endResult: true);
+        var knowledge = new RecordingKnowledgeClient();
+        var sut = new SessionAdminService(sessions, streaming, knowledge);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => sut.ForceEndAsync(Guid.NewGuid(), "stalled"));
+
+        Assert.Equal(0, sessions.SaveCalls);
+        Assert.Null(streaming.LastEndedSessionId);
+        Assert.Equal(0, knowledge.SummaryCalls);
+    }
+
+    [Theory]
+    [InlineData(SessionStatus.Ended)]
+    [InlineData(SessionStatus.Scheduled)]
+    public async Task ForceEnd_WhenSessionNotLive_IsNoOp(SessionStatus status)
+    {
+        // Alternate path 6ب: nothing is changed and no downstream step runs.
+        var session = LiveSession();
+        session.Status = status;
+        var sessions = new FakeSessionRepository(session);
+        var streaming = new RecordingStreamingClient(endResult: true);
+        var knowledge = new RecordingKnowledgeClient();
+        var sut = new SessionAdminService(sessions, streaming, knowledge);
+
+        var result = await sut.ForceEndAsync(session.Id, "stalled");
+
+        Assert.Equal(status, session.Status);
+        Assert.Equal(0, sessions.SaveCalls);
+        Assert.Null(streaming.LastEndedSessionId);
+        Assert.Equal(0, knowledge.SummaryCalls);
+        Assert.Equal(status == SessionStatus.Ended, result.AlreadyEnded);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ForceEnd_WithoutReason_Throws(string reason)
+    {
+        // Alternate path 5أ (defence in depth; also validated upstream).
+        var session = LiveSession();
+        var sessions = new FakeSessionRepository(session);
+        var sut = new SessionAdminService(sessions, new RecordingStreamingClient(true), new RecordingKnowledgeClient());
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.ForceEndAsync(session.Id, reason));
+
+        Assert.Equal(SessionStatus.Live, session.Status);
+        Assert.Equal(0, sessions.SaveCalls);
+    }
+
+    private static Session LiveSession() => new()
+    {
+        Id = Guid.NewGuid(),
+        ClassroomId = Guid.NewGuid(),
+        Title = "Lecture",
+        Status = SessionStatus.Live,
+        ScheduledAtUtc = DateTime.UtcNow.AddHours(-1),
+        StartedAtUtc = DateTime.UtcNow.AddMinutes(-50),
+    };
+}
+
+/// <summary>In-memory session store recording saves.</summary>
+public sealed class FakeSessionRepository : ISessionRepository
+{
+    private readonly Dictionary<Guid, Session> _store = new();
+    public int SaveCalls { get; private set; }
+
+    public FakeSessionRepository(params Session[] seed)
+    {
+        foreach (var s in seed) _store[s.Id] = s;
+    }
+
+    public Task<Session?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(_store.GetValueOrDefault(id));
+
+    public Task UpdateAsync(Session session, CancellationToken ct = default) => Task.CompletedTask;
+
+    public Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveCalls++;
+        return Task.CompletedTask;
+    }
+
+    public Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task AddAsync(Session session, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<(List<AdminSessionResponse> Items, int TotalCount)> GetAdminSessionsPagedAsync(
+        int page, int pageSize, string? search, SessionStatus? status, Guid? classroomId, CancellationToken ct = default)
+        => throw new NotImplementedException();
+}
+
+/// <summary>Streaming client double recording the end call and its configured outcome.</summary>
+public sealed class RecordingStreamingClient : IStreamingInternalClient
+{
+    private readonly bool _endResult;
+    public RecordingStreamingClient(bool endResult) => _endResult = endResult;
+
+    public Guid? LastEndedSessionId { get; private set; }
+
+    public Task<bool> EndStreamAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        LastEndedSessionId = sessionId;
+        return Task.FromResult(_endResult);
+    }
+
+    public Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, CancellationToken ct = default)
+        => throw new NotImplementedException();
+}

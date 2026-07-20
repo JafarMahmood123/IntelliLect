@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Users,
   School,
+  Radio,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -358,6 +359,14 @@ export const SuperAdminDashboard = () => {
             >
               <School size={16} />
               {t('classrooms.navLink')}
+            </Link>
+
+            <Link
+              to="/super-admin/sessions"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <Radio size={16} />
+              {t('sessions.navLink')}
             </Link>
 
             <button

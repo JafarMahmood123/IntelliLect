@@ -29,6 +29,9 @@ public static class DependencyInjection
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
         services.AddScoped<IRecordingRepository, RecordingRepository>();
 
+        // Super-admin session monitoring + force-end orchestration.
+        services.AddScoped<ISessionAdminService, SessionAdminService>();
+
         // Session summaries (S-4): read-side service + repository. Reuses the recording S3 signer
         // (registered below); only the download-URL TTL is a new "Summaries" option.
         services.AddScoped<IClassroomSummaryService, ClassroomSummaryService>();

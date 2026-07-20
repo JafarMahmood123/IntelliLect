@@ -32,4 +32,14 @@ public sealed class StreamRepository : GenericRepository<LiveStream>, IStreamRep
     {
         return await _streamingContext.Streams.FirstOrDefaultAsync(s => s.EgressId == egressId, ct);
     }
+
+    public async Task<List<LiveStream>> GetLiveStreamsAsync(CancellationToken ct = default)
+    {
+        return await _streamingContext.Streams
+            .AsNoTracking()
+            .Include(s => s.Participants)
+            .Where(s => s.Status == StreamStatus.Live)
+            .OrderByDescending(s => s.StartedAtUtc)
+            .ToListAsync(ct);
+    }
 }

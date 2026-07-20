@@ -21,7 +21,44 @@ public interface IClassroomInternalClient
     /// <exception cref="Common.NotFoundException">The classroom does not exist (5ج).</exception>
     /// <exception cref="InvalidOperationException">The classroom was modified concurrently (6أ).</exception>
     Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default);
+
+    // --- Session monitoring / force-end ---
+    Task<AdminSessionPage> GetSessionsAsync(
+        int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The session does not exist (6أ).</exception>
+    Task<ForceEndResult> ForceEndSessionAsync(Guid sessionId, string reason, CancellationToken ct = default);
 }
+
+/// <summary>A session row for the super-admin monitor (mirrors ClassroomService's AdminSessionResponse).</summary>
+public sealed record AdminSession(
+    Guid SessionId,
+    Guid ClassroomId,
+    string ClassName,
+    Guid TeacherId,
+    string Title,
+    string Status,
+    DateTime ScheduledAtUtc,
+    DateTime? StartedAtUtc,
+    DateTime? EndedAtUtc,
+    string? RecordingStatus,
+    string? SummaryStatus,
+    DateTime CreatedAtUtc);
+
+public sealed record AdminSessionPage(
+    IReadOnlyList<AdminSession> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize,
+    int TotalPages);
+
+/// <summary>Outcome of a force-end, including each best-effort step's result (step 8 / 7أ).</summary>
+public sealed record ForceEndResult(
+    Guid SessionId,
+    string Status,
+    bool AlreadyEnded,
+    bool StreamEnded,
+    bool SummaryTriggered);
 
 /// <summary>A classroom as administered by the super admin (mirrors ClassroomService's AdminClassroomResponse).</summary>
 public sealed record AdminClassroom(

@@ -146,6 +146,41 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<AdminSessionPage> GetSessionsAsync(
+        int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default)
+    {
+        var url = $"api/internal/sessions?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(search)) url += $"&search={Uri.EscapeDataString(search)}";
+        if (!string.IsNullOrWhiteSpace(status)) url += $"&status={Uri.EscapeDataString(status)}";
+        if (classroomId.HasValue && classroomId.Value != Guid.Empty) url += $"&classroomId={classroomId.Value}";
+
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AdminSessionPage>(ct);
+        return payload ?? new AdminSessionPage(Array.Empty<AdminSession>(), 0, page, pageSize, 0);
+    }
+
+    public async Task<ForceEndResult> ForceEndSessionAsync(Guid sessionId, string reason, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, $"api/internal/sessions/{sessionId}/force-end")
+            {
+                Content = JsonContent.Create(new { reason })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Session not found."); // 6أ
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ForceEndResult>(ct);
+        return result ?? new ForceEndResult(sessionId, "Unknown", false, false, false);
+    }
+
     // Sends a request (recreated per attempt), adding the internal secret and retrying transient
     // faults. Only idempotent-safe callers should retry POST; here create is a one-shot 201 so a
     // duplicate is not created because the retry only fires on connection/5xx before a response.

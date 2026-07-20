@@ -278,5 +278,69 @@
         "teacherRequired": "Please select a teacher"
       }
     }
+  },
+  "sessions": {
+    "navLink": "Sessions",
+    "title": "Learning Sessions",
+    "subtitle": "Monitor every session, watch live ones in real time, and force-end a stalled session.",
+    "tabs": {
+      "all": "All sessions",
+      "live": "Live now"
+    },
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by session title",
+    "statusLabel": "Status",
+    "statuses": {
+      "all": "All statuses",
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "ended": "Ended"
+    },
+    "loading": "Loading sessions...",
+    "loadError": "Failed to load sessions.",
+    "empty": "No sessions match the criteria.",
+    "table": {
+      "session": "Session",
+      "classroom": "Classroom / Teacher",
+      "status": "Status",
+      "schedule": "Scheduled",
+      "artifacts": "Recording / Summary",
+      "actions": "Actions",
+      "duration": "Duration",
+      "recording": "Rec",
+      "summary": "Sum",
+      "unknownTeacher": "Unknown teacher"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} sessions"
+    },
+    "live": {
+      "empty": "There are no live sessions right now.",
+      "participants": "Participants",
+      "recording": "Recording",
+      "assistant": "AI Assistant",
+      "on": "On",
+      "off": "Off",
+      "realtimeUnavailable": "Live details are temporarily unavailable. Sessions are shown from stored data."
+    },
+    "forceEnd": {
+      "action": "Force end",
+      "title": "Force-end this session?",
+      "description": "\"{{title}}\" will be ended, its recording finalized, the AI assistant stopped, the room closed, and a summary generated.",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. the teacher disconnected and the session is stalled",
+      "reasonRequired": "Please provide a reason for force-ending this session.",
+      "confirm": "Force end session",
+      "ending": "Ending...",
+      "successTitle": "Session ended",
+      "success": "The session was ended, the room closed, and the summary was requested.",
+      "partial": "The session was ended. Stream close: {{stream}} · Summary trigger: {{summary}}.",
+      "ok": "ok",
+      "failed": "failed",
+      "noActionTitle": "No action needed",
+      "alreadyEnded": "This session is not active — it has already ended.",
+      "notFound": "This session no longer exists.",
+      "fallbackError": "Could not force-end the session. Please try again."
+    }
   }
 }

@@ -92,6 +92,22 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(classroomTimeoutSeconds);
         });
 
+        // Real-time inputs for the super-admin session monitor. Both are best-effort at the
+        // call site: a failure degrades the live view instead of blocking it (4أ).
+        var streamingBaseUrl = configuration["StreamingService:BaseUrl"] ?? "http://streaming-service:8080";
+        services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>(client =>
+        {
+            client.BaseAddress = new Uri(streamingBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
+        var liveAssistantBaseUrl = configuration["LiveAssistant:BaseUrl"] ?? "http://live-assistant-service:8080";
+        services.AddHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient>(client =>
+        {
+            client.BaseAddress = new Uri(liveAssistantBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
         services.AddMassTransit(x =>
             {
                 x.AddEntityFrameworkOutbox<ApplicationDbContext>(o =>

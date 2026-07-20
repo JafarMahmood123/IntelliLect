@@ -62,6 +62,26 @@ public sealed class InternalStreamsController : ControllerBase
         return CreatedAtAction(nameof(InitializeStream), new { id = stream.Id });
     }
 
+    /// <summary>
+    /// Live-stream snapshot for the super-admin monitor: one row per currently-live stream with
+    /// its participant count and whether a recording egress is running.
+    /// </summary>
+    [HttpGet("live")]
+    public async Task<IActionResult> GetLiveStreams(CancellationToken ct)
+    {
+        var streams = await _streamRepository.GetLiveStreamsAsync(ct);
+
+        var items = streams.Select(s => new LiveStreamSnapshot(
+            s.SessionId,
+            s.ClassroomId,
+            s.TeacherId,
+            s.Participants?.Count ?? 0,
+            !string.IsNullOrWhiteSpace(s.EgressId),
+            s.StartedAtUtc)).ToList();
+
+        return Ok(new { items });
+    }
+
     [HttpPost("{sessionId:guid}/end")]
     public async Task<IActionResult> EndStream(Guid sessionId, CancellationToken ct)
     {
@@ -162,3 +182,12 @@ public sealed class InternalStreamsController : ControllerBase
 }
 
 public record InitializeStreamRequest(Guid SessionId, Guid ClassroomId, Guid TeacherId, StudentParticipationMode ParticipationMode);
+
+/// <summary>One live stream's real-time snapshot for the super-admin monitor.</summary>
+public record LiveStreamSnapshot(
+    Guid SessionId,
+    Guid ClassroomId,
+    Guid TeacherId,
+    int ParticipantCount,
+    bool IsRecording,
+    DateTime? StartedAtUtc);

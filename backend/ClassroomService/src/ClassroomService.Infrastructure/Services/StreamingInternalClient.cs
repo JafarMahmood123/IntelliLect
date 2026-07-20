@@ -31,4 +31,22 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
             return false;
         }
     }
+
+    public async Task<bool> EndStreamAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        try
+        {
+            // Reuses StreamingService's existing end path (stop egress, notify assistant, close room).
+            // A 404 means no live stream exists for this session (nothing to close) — treat as success.
+            var response = await _httpClient.PostAsync(
+                $"http://streaming-service:8080/api/internal/streams/{sessionId}/end", content: null, ct);
+
+            return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to end Streaming room for Session {SessionId}", sessionId);
+            return false;
+        }
+    }
 }

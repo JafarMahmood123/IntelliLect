@@ -109,6 +109,61 @@ export interface UpdateClassroomAdminRequest {
   version: number;
 }
 
+// --- Session monitoring / force-end -----------------------------------------
+
+export type SessionStatusValue = '' | 'Scheduled' | 'Live' | 'Ended';
+
+export interface SessionMonitorItem {
+  sessionId: string;
+  classroomId: string;
+  className: string;
+  teacherId: string;
+  teacherName?: string | null;
+  teacherEmail?: string | null;
+  title: string;
+  status: string;
+  scheduledAtUtc: string;
+  startedAtUtc?: string | null;
+  endedAtUtc?: string | null;
+  recordingStatus?: string | null;
+  summaryStatus?: string | null;
+}
+
+export interface SearchSessionsParams {
+  search?: string;
+  status?: SessionStatusValue;
+  classroomId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface LiveSessionItem {
+  sessionId: string;
+  classroomId: string;
+  className: string;
+  teacherId: string;
+  teacherName?: string | null;
+  title: string;
+  startedAtUtc?: string | null;
+  // Null when the real-time snapshot could not be fetched (alt 4أ).
+  participantCount?: number | null;
+  isRecording?: boolean | null;
+  assistantRunning?: boolean | null;
+}
+
+export interface LiveSessionsResponse {
+  items: LiveSessionItem[];
+  realtimeUnavailable: boolean;
+}
+
+export interface ForceEndSessionResult {
+  sessionId: string;
+  status: string;
+  alreadyEnded: boolean;
+  streamEnded: boolean;
+  summaryTriggered: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;
