@@ -201,6 +201,9 @@ internal sealed class FakeClassroomClient : IClassroomInternalClient
     public Task<IReadOnlyList<AdminFile>> GetFilesByIdsAsync(IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<IReadOnlyList<ClassroomName>> GetClassroomNamesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<AdminOutputPage> GetOutputsAsync(int page, int pageSize, string? search, string? type, string? status, Guid? classroomId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<OutputDeletionResult> DeleteRecordingAsync(Guid recordingId, string reason, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<OutputDeletionResult> DeleteSummaryAsync(Guid summaryId, string reason, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default)
     {

@@ -1,5 +1,6 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Domain.Entities;
+using ClassroomService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ClassroomService.Infrastructure.Persistence.Repositories;
@@ -37,9 +38,10 @@ public sealed class SummaryRepository : ISummaryRepository
         int pageSize,
         CancellationToken ct = default)
     {
-        // Filter directly on the denormalized (indexed) ClassroomId column — no join needed.
+        // Filter directly on the denormalized (indexed) ClassroomId column — no join needed. A summary
+        // being deleted (PendingDeletion) is hidden here; the super-admin outputs listing keeps it.
         var query = _context.SessionSummaries
-            .Where(s => s.ClassroomId == classroomId);
+            .Where(s => s.ClassroomId == classroomId && s.Status != SummaryStatus.PendingDeletion);
 
         if (sessionId.HasValue)
         {

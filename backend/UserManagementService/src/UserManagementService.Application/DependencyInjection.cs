@@ -4,6 +4,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Authentication;
 using UserManagementService.Application.ClassroomAdministration;
 using UserManagementService.Application.KnowledgeAdministration;
+using UserManagementService.Application.OutputAdministration;
 using UserManagementService.Application.SessionMonitoring;
 using UserManagementService.Application.SuperAdministration;
 using UserManagementService.Application.UserAccounts;
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IClassroomAdminService, ClassroomAdminService>();
         services.AddScoped<ISessionMonitorService, SessionMonitorService>();
         services.AddScoped<IKnowledgeAdminService, KnowledgeAdminService>();
+        services.AddScoped<IOutputAdminService, OutputAdminService>();
         services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
         return services;

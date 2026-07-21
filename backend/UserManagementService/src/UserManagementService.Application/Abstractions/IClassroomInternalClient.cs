@@ -61,7 +61,40 @@ public interface IClassroomInternalClient
 
     /// <exception cref="Common.NotFoundException">The file does not exist (7أ).</exception>
     Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default);
+
+    // --- Session outputs (recordings + summaries), owned by ClassroomService ---
+
+    Task<AdminOutputPage> GetOutputsAsync(
+        int page, int pageSize, string? search, string? type, string? status, Guid? classroomId, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The recording does not exist (5أ).</exception>
+    /// <exception cref="InvalidOperationException">The recording's session is live (5ب).</exception>
+    Task<OutputDeletionResult> DeleteRecordingAsync(Guid recordingId, string reason, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The summary does not exist (5أ).</exception>
+    /// <exception cref="InvalidOperationException">The summary's session is live (5ب).</exception>
+    Task<OutputDeletionResult> DeleteSummaryAsync(Guid summaryId, string reason, CancellationToken ct = default);
 }
+
+/// <summary>A session output row (mirrors ClassroomService's AdminOutputRow).</summary>
+public sealed record AdminOutput(
+    Guid OutputId,
+    string Type,
+    Guid SessionId,
+    string SessionTitle,
+    Guid ClassroomId,
+    string ClassName,
+    string Status,
+    long SizeBytes,
+    DateTime CreatedAtUtc);
+
+public sealed record AdminOutputPage(
+    IReadOnlyList<AdminOutput> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
+public sealed record OutputDeletionResult(Guid OutputId, string Type, bool StorageDeleted, bool RowDeleted);
 
 /// <summary>A file registry row (mirrors ClassroomService's AdminFileRow).</summary>
 public sealed record AdminFile(

@@ -308,6 +308,58 @@
       }
     }
   },
+  "outputs": {
+    "navLink": "Recordings & Summaries",
+    "title": "Recordings & Summaries",
+    "subtitle": "Browse every lecture recording and session summary, and remove ones no longer needed.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by session title",
+    "typeLabel": "Type",
+    "statusLabel": "Status",
+    "types": {
+      "all": "All types",
+      "recording": "Recording",
+      "summary": "Summary"
+    },
+    "statuses": {
+      "all": "All statuses",
+      "available": "Available",
+      "processing": "Processing",
+      "generating": "Generating",
+      "failed": "Failed",
+      "pendingDeletion": "Deleting…"
+    },
+    "loading": "Loading outputs...",
+    "loadError": "Failed to load outputs.",
+    "empty": "No recordings or summaries match the criteria.",
+    "table": {
+      "type": "Type",
+      "session": "Session",
+      "classroom": "Classroom",
+      "status": "Status",
+      "size": "Size",
+      "created": "Created",
+      "actions": "Actions",
+      "delete": "Delete"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} outputs"
+    },
+    "delete": {
+      "title": "Delete this {{type}}?",
+      "description": "The {{type}} for \"{{session}}\" will be removed from storage and the database. This cannot be undone.",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. storage cleanup — this output is no longer needed",
+      "reasonRequired": "Please provide a reason for deleting this output.",
+      "liveBlock": "This output's session is live. End the session before deleting it.",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "successTitle": "Output deleted",
+      "success": "The {{type}} was deleted.",
+      "notFound": "This output no longer exists.",
+      "fallbackError": "Could not delete the output. It stays marked for deletion — you can retry to resume."
+    }
+  },
   "knowledge": {
     "navLink": "Knowledge Base",
     "title": "Content & Knowledge Base",

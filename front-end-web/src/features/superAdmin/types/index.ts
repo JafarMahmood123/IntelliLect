@@ -276,6 +276,52 @@ export interface FileDeletionResponse {
   deIndexed: boolean;
 }
 
+// --- Recordings & summaries management --------------------------------------
+
+export type OutputTypeValue = '' | 'Recording' | 'Summary';
+export type OutputStatusValue =
+  | ''
+  | 'Processing'
+  | 'Available'
+  | 'Failed'
+  | 'Generating'
+  | 'PendingDeletion';
+
+export interface OutputItem {
+  outputId: string;
+  type: string; // "Recording" | "Summary"
+  sessionId: string;
+  sessionTitle: string;
+  classroomId: string;
+  className: string;
+  status: string;
+  sizeBytes: number;
+  createdAtUtc: string;
+}
+
+export interface OutputListResult {
+  items: OutputItem[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+export interface SearchOutputsParams {
+  search?: string;
+  type?: OutputTypeValue;
+  status?: OutputStatusValue;
+  classroomId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface OutputDeletionSummary {
+  outputId: string;
+  type: string;
+  storageDeleted: boolean;
+  rowDeleted: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

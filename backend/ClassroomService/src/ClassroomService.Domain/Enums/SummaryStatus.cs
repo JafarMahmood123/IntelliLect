@@ -8,5 +8,12 @@ public enum SummaryStatus
 {
     Generating = 0,
     Available = 1,
-    Failed = 2
+    Failed = 2,
+
+    /// <summary>
+    /// The super admin is deleting this summary. Hidden from teacher/student listings while its files
+    /// are removed; the row stays in this state on a failed file delete so the deletion can resume
+    /// (alternate path 6ب). Appended last so existing stored int values are unchanged.
+    /// </summary>
+    PendingDeletion = 3
 }

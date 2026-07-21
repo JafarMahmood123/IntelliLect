@@ -333,6 +333,54 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         return result ?? new FileDeletionResult(fileId, false, false);
     }
 
+    public async Task<AdminOutputPage> GetOutputsAsync(
+        int page, int pageSize, string? search, string? type, string? status, Guid? classroomId, CancellationToken ct = default)
+    {
+        var url = $"api/internal/outputs?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(search)) url += $"&search={Uri.EscapeDataString(search)}";
+        if (!string.IsNullOrWhiteSpace(type)) url += $"&type={Uri.EscapeDataString(type)}";
+        if (!string.IsNullOrWhiteSpace(status)) url += $"&status={Uri.EscapeDataString(status)}";
+        if (classroomId.HasValue && classroomId.Value != Guid.Empty) url += $"&classroomId={classroomId.Value}";
+
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AdminOutputPage>(ct);
+        return payload ?? new AdminOutputPage(Array.Empty<AdminOutput>(), 0, page, pageSize);
+    }
+
+    public Task<OutputDeletionResult> DeleteRecordingAsync(Guid recordingId, string reason, CancellationToken ct = default)
+        => DeleteOutputAsync($"api/internal/outputs/recordings/{recordingId}", recordingId, "Recording", reason, ct);
+
+    public Task<OutputDeletionResult> DeleteSummaryAsync(Guid summaryId, string reason, CancellationToken ct = default)
+        => DeleteOutputAsync($"api/internal/outputs/summaries/{summaryId}", summaryId, "Summary", reason, ct);
+
+    private async Task<OutputDeletionResult> DeleteOutputAsync(
+        string path, Guid id, string type, string reason, CancellationToken ct)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, path)
+            {
+                Content = JsonContent.Create(new { reason })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Output not found."); // 5أ
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The output's session is live. End the session before deleting the output."); // 5ب
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<OutputDeletionResult>(ct);
+        return result ?? new OutputDeletionResult(id, type, false, false);
+    }
+
     // Sends a request (recreated per attempt), adding the internal secret and retrying transient
     // faults. Only idempotent-safe callers should retry POST; here create is a one-shot 201 so a
     // duplicate is not created because the retry only fires on connection/5xx before a response.

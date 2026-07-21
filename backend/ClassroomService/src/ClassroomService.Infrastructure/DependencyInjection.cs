@@ -31,6 +31,10 @@ public static class DependencyInjection
         // Super-admin knowledge-base file administration (list/by-ids/delete).
         services.AddScoped<IFileAdminRepository, FileAdminRepository>();
         services.AddScoped<IFileAdminService, FileAdminService>();
+
+        // Super-admin recordings/summaries management (combined listing + delete).
+        services.AddScoped<IOutputAdminRepository, OutputAdminRepository>();
+        services.AddScoped<IOutputAdminService, OutputAdminService>();
         services.AddScoped<IClassroomManagementService, ClassroomManagementService>();
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();

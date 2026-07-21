@@ -7,6 +7,7 @@ using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Application.DTOs.Classroom;
 using UserManagementService.Application.DTOs.Knowledge;
+using UserManagementService.Application.DTOs.Output;
 using UserManagementService.Application.DTOs.Session;
 using UserManagementService.Application.DTOs.User;
 
@@ -23,6 +24,7 @@ public sealed class SuperAdminController : ControllerBase
     private readonly IClassroomAdminService _classroomAdminService;
     private readonly ISessionMonitorService _sessionMonitorService;
     private readonly IKnowledgeAdminService _knowledgeAdminService;
+    private readonly IOutputAdminService _outputAdminService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
@@ -30,7 +32,8 @@ public sealed class SuperAdminController : ControllerBase
         IUserStatusService userStatusService,
         IClassroomAdminService classroomAdminService,
         ISessionMonitorService sessionMonitorService,
-        IKnowledgeAdminService knowledgeAdminService)
+        IKnowledgeAdminService knowledgeAdminService,
+        IOutputAdminService outputAdminService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
@@ -38,6 +41,7 @@ public sealed class SuperAdminController : ControllerBase
         _classroomAdminService = classroomAdminService;
         _sessionMonitorService = sessionMonitorService;
         _knowledgeAdminService = knowledgeAdminService;
+        _outputAdminService = outputAdminService;
     }
 
     [HttpGet("admins")]
@@ -267,6 +271,38 @@ public sealed class SuperAdminController : ControllerBase
     public async Task<IActionResult> DeleteKnowledgeFile(Guid fileId, [FromBody] DeleteFileAdminRequest request, CancellationToken ct)
     {
         var result = await _knowledgeAdminService.DeleteFileAsync(fileId, request, ct);
+        return Ok(result);
+    }
+
+    // --- Recordings & summaries management ---
+
+    [HttpGet("outputs")]
+    [ProducesResponseType(typeof(OutputListResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOutputs([FromQuery] SearchOutputsRequest request, CancellationToken ct)
+    {
+        var result = await _outputAdminService.GetOutputsAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("outputs/recordings/{id:guid}")]
+    [ProducesResponseType(typeof(OutputDeletionSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteRecording(Guid id, [FromBody] DeleteOutputRequest request, CancellationToken ct)
+    {
+        var result = await _outputAdminService.DeleteRecordingAsync(id, request.Reason, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("outputs/summaries/{id:guid}")]
+    [ProducesResponseType(typeof(OutputDeletionSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteSummary(Guid id, [FromBody] DeleteOutputRequest request, CancellationToken ct)
+    {
+        var result = await _outputAdminService.DeleteSummaryAsync(id, request.Reason, ct);
         return Ok(result);
     }
 

@@ -40,8 +40,10 @@ public sealed class RecordingRepository : IRecordingRepository
         CancellationToken ct = default)
     {
         // Filter directly on the denormalized ClassroomId column (indexed in R-1) — no join needed.
+        // A recording being deleted (PendingDeletion) is out of use, so it is hidden here; the
+        // super-admin outputs listing keeps it visible for a resumable retry.
         var query = _context.SessionRecordings
-            .Where(r => r.ClassroomId == classroomId);
+            .Where(r => r.ClassroomId == classroomId && r.Status != RecordingStatus.PendingDeletion);
 
         if (sessionId.HasValue)
         {

@@ -11,6 +11,7 @@ import {
   School,
   Radio,
   Database,
+  FileVideo,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -376,6 +377,14 @@ export const SuperAdminDashboard = () => {
             >
               <Database size={16} />
               {t('knowledge.navLink')}
+            </Link>
+
+            <Link
+              to="/super-admin/outputs"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              <FileVideo size={16} />
+              {t('outputs.navLink')}
             </Link>
 
             <button
