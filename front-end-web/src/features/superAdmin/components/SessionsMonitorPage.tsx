@@ -10,10 +10,12 @@ import {
   Search,
   Radio,
   Square,
+  Trash2,
   Users as UsersIcon,
 } from 'lucide-react';
 import { useLiveSessions, useSessions } from '../hooks/useSessionQueries';
 import { ForceEndSessionDialog } from './ForceEndSessionDialog';
+import { DeleteSessionDialog } from './DeleteSessionDialog';
 import type { SessionStatusValue } from '../types';
 
 const PAGE_SIZE = 20;
@@ -27,6 +29,8 @@ const statusBadge = (status: string) => {
       return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
     case 'Scheduled':
       return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+    case 'PendingDeletion':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300';
     default:
       return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   }
@@ -65,6 +69,7 @@ export const SessionsMonitorPage = () => {
   const [status, setStatus] = useState<SessionStatusValue>('');
   const [page, setPage] = useState(1);
   const [forceEndTarget, setForceEndTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 300);
@@ -210,7 +215,7 @@ export const SessionsMonitorPage = () => {
                           <td className="p-4">
                             <div className="flex justify-center">
                               <span className={`inline-flex min-w-[80px] items-center justify-center rounded-full px-2 py-1 text-xs font-medium ${statusBadge(s.status)}`}>
-                                {s.status}
+                                {s.status === 'PendingDeletion' ? t('sessions.statuses.pendingDeletion') : s.status}
                               </span>
                             </div>
                           </td>
@@ -231,7 +236,7 @@ export const SessionsMonitorPage = () => {
                             </div>
                           </td>
                           <td className="p-4">
-                            <div className="flex justify-center">
+                            <div className="flex justify-center gap-2">
                               {s.status === 'Live' ? (
                                 <button
                                   type="button"
@@ -242,7 +247,16 @@ export const SessionsMonitorPage = () => {
                                   {t('sessions.forceEnd.action')}
                                 </button>
                               ) : (
-                                <span className="text-xs text-slate-400">—</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget({ id: s.sessionId, title: s.title })}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                >
+                                  <Trash2 size={12} />
+                                  {s.status === 'PendingDeletion'
+                                    ? t('sessions.delete.retry')
+                                    : t('sessions.delete.action')}
+                                </button>
                               )}
                             </div>
                           </td>
@@ -376,6 +390,13 @@ export const SessionsMonitorPage = () => {
         sessionId={forceEndTarget?.id ?? null}
         sessionTitle={forceEndTarget?.title ?? ''}
         onClose={() => setForceEndTarget(null)}
+      />
+
+      <DeleteSessionDialog
+        sessionId={deleteTarget?.id ?? null}
+        sessionTitle={deleteTarget?.title ?? ''}
+        onClose={() => setDeleteTarget(null)}
+        onDeleted={() => setDeleteTarget(null)}
       />
     </div>
   );

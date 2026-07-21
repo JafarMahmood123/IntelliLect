@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -93,6 +93,47 @@ class SqlAlchemyTranscriptRepository(TranscriptRepository):
         async with self._session_factory() as session:
             model = await session.get(SessionTranscriptModel, session_id)
         return self._to_header(model) if model is not None else None
+
+    async def delete_by_session(self, session_id: UUID) -> bool:
+        # Deleting the header cascades to transcript_segments (FK ON DELETE CASCADE), but we
+        # delete segments explicitly first so behaviour is identical regardless of the store.
+        async with self._session_factory() as session:
+            await session.execute(
+                delete(TranscriptSegmentModel).where(
+                    TranscriptSegmentModel.session_id == session_id
+                )
+            )
+            result = await session.execute(
+                delete(SessionTranscriptModel).where(
+                    SessionTranscriptModel.session_id == session_id
+                )
+            )
+            await session.commit()
+            return (result.rowcount or 0) > 0
+
+    async def delete_by_classroom(self, classroom_id: UUID) -> int:
+        async with self._session_factory() as session:
+            # Segments have no classroom_id, so delete them via their session headers first.
+            session_ids = (
+                await session.execute(
+                    select(SessionTranscriptModel.session_id).where(
+                        SessionTranscriptModel.classroom_id == classroom_id
+                    )
+                )
+            ).scalars().all()
+            if session_ids:
+                await session.execute(
+                    delete(TranscriptSegmentModel).where(
+                        TranscriptSegmentModel.session_id.in_(session_ids)
+                    )
+                )
+            result = await session.execute(
+                delete(SessionTranscriptModel).where(
+                    SessionTranscriptModel.classroom_id == classroom_id
+                )
+            )
+            await session.commit()
+            return result.rowcount or 0
 
     @staticmethod
     def _to_segment(model: TranscriptSegmentModel) -> StoredSegment:

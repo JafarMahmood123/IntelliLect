@@ -36,6 +36,10 @@ public static class DependencyInjection
         // Super-admin session monitoring + force-end orchestration.
         services.AddScoped<ISessionAdminService, SessionAdminService>();
 
+        // Super-admin session deletion (impact preview + phased purge of recording/summary/transcript).
+        services.AddScoped<ISessionDeletionRepository, SessionDeletionRepository>();
+        services.AddScoped<ISessionDeletionService, SessionDeletionService>();
+
         // Session summaries (S-4): read-side service + repository. Reuses the recording S3 signer
         // (registered below); only the download-URL TTL is a new "Summaries" option.
         services.AddScoped<IClassroomSummaryService, ClassroomSummaryService>();
@@ -57,6 +61,24 @@ public static class DependencyInjection
             var options = sp.GetRequiredService<IOptions<KnowledgeServiceOptions>>().Value;
             var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
                 ? "http://knowledge-service:8080"
+                : options.BaseUrl;
+            if (!baseUrl.EndsWith('/'))
+            {
+                baseUrl += "/";
+            }
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+        });
+
+        // LiveAssistantService internal client: owns session transcripts, called when a session or
+        // classroom is deleted. Same shape as the KnowledgeService client.
+        services.Configure<LiveAssistantOptions>(
+            configuration.GetSection(LiveAssistantOptions.SectionName));
+        services.AddHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<LiveAssistantOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? "http://live-assistant-service:8080"
                 : options.BaseUrl;
             if (!baseUrl.EndsWith('/'))
             {

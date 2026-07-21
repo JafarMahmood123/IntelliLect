@@ -20,11 +20,16 @@ public sealed class InternalSessionsController : ControllerBase
     private const string InternalSecretHeader = "X-Internal-Secret";
 
     private readonly ISessionAdminService _sessions;
+    private readonly ISessionDeletionService _deletion;
     private readonly IConfiguration _configuration;
 
-    public InternalSessionsController(ISessionAdminService sessions, IConfiguration configuration)
+    public InternalSessionsController(
+        ISessionAdminService sessions,
+        ISessionDeletionService deletion,
+        IConfiguration configuration)
     {
         _sessions = sessions;
+        _deletion = deletion;
         _configuration = configuration;
     }
 
@@ -75,6 +80,53 @@ public sealed class InternalSessionsController : ControllerBase
         }
     }
 
+    /// <summary>Step 3: read-only deletion impact preview. 404 if the session does not exist (5أ).</summary>
+    [HttpGet("{id:guid}/deletion-impact")]
+    [ProducesResponseType(typeof(SessionDeletionImpact), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDeletionImpact(Guid id, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        var impact = await _deletion.GetImpactAsync(id, ct);
+        return impact is null ? NotFound() : Ok(impact);
+    }
+
+    /// <summary>
+    /// Steps 5-6: delete the session and its outputs. Idempotent/resumable — re-issuing a delete
+    /// that previously failed part-way continues from where it stopped (6ب).
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(SessionDeletionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(Guid id, [FromBody] DeleteSessionRequest request, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            var result = await _deletion.DeleteAsync(id, request?.Reason ?? string.Empty, ct);
+            return Ok(result);
+        }
+        catch (ArgumentException)
+        {
+            // 4أ: missing reason/confirmation.
+            return BadRequest();
+        }
+        catch (KeyNotFoundException)
+        {
+            // 5أ: session does not exist.
+            return NotFound();
+        }
+        catch (Application.Exceptions.ConflictException)
+        {
+            // 5ب: the session is live.
+            return Conflict();
+        }
+    }
+
     private bool IsInternalSecretValid()
     {
         var expected = _configuration["Internal:ApiSecret"];
@@ -89,3 +141,4 @@ public sealed class InternalSessionsController : ControllerBase
 }
 
 public sealed record ForceEndRequest(string Reason);
+public sealed record DeleteSessionRequest(string Reason);

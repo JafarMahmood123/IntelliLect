@@ -18,4 +18,10 @@ public interface ISessionMonitorService
     /// <exception cref="ArgumentException">No reason supplied (5أ).</exception>
     /// <exception cref="NotFoundException">The session does not exist (6أ).</exception>
     Task<ForceEndSessionResult> ForceEndAsync(Guid sessionId, string reason, CancellationToken ct = default);
+
+    /// <returns>The deletion impact preview (step 3), or null if the session does not exist (5أ).</returns>
+    Task<SessionDeletionImpactResult?> GetDeletionImpactAsync(Guid sessionId, CancellationToken ct = default);
+
+    /// <exception cref="ArgumentException">The confirmation/reason is missing (4أ).</exception>
+    Task<SessionDeletionSummary> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default);
 }

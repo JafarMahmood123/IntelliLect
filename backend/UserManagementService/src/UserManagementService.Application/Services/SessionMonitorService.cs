@@ -117,6 +117,45 @@ public sealed class SessionMonitorService : ISessionMonitorService
             result.SessionId, result.Status, result.AlreadyEnded, result.StreamEnded, result.SummaryTriggered);
     }
 
+    // Step 3: read-only impact preview. Returns null (-> 404) if the session does not exist (5أ).
+    public async Task<SessionDeletionImpactResult?> GetDeletionImpactAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        var impact = await _classroomClient.GetSessionDeletionImpactAsync(sessionId, ct);
+        if (impact is null)
+        {
+            return null;
+        }
+
+        return new SessionDeletionImpactResult(
+            impact.SessionId,
+            impact.Title,
+            impact.Status,
+            impact.HasRecording,
+            impact.HasSummary,
+            impact.HasTranscript,
+            impact.StorageBytes,
+            impact.IsLive,
+            impact.TranscriptUnavailable);
+    }
+
+    // Steps 5-8: validate the reason (4أ), then delegate to ClassroomService, which owns the session
+    // and purges its recording/summary/transcript.
+    public async Task<SessionDeletionSummary> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default)
+    {
+        var trimmedReason = (reason ?? string.Empty).Trim();
+        if (trimmedReason.Length == 0)
+        {
+            throw new ArgumentException("A deletion reason is required.");
+        }
+
+        // The client maps ClassroomService's 404 -> NotFoundException (5أ) and 409 ->
+        // InvalidOperationException (5ب, live session).
+        var result = await _classroomClient.DeleteSessionAsync(sessionId, trimmedReason, ct);
+
+        return new SessionDeletionSummary(
+            result.SessionId, result.RecordingDeleted, result.SummaryDeleted, result.TranscriptDeleted);
+    }
+
     private async Task<Dictionary<Guid, User>> LoadTeachersAsync(IEnumerable<Guid> teacherIds, CancellationToken ct)
     {
         var ids = teacherIds.Where(id => id != Guid.Empty).Distinct().ToList();

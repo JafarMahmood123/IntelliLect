@@ -25,7 +25,9 @@ public class SessionRepository : ISessionRepository
     public async Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default)
     {
         return await _context.Sessions
-            .Where(s => s.ClassroomId == classroomId)
+            // A session being deleted (PendingDeletion) is out of use, so it must not appear on the
+            // teacher/student classroom session list. The super-admin admin listing keeps it visible.
+            .Where(s => s.ClassroomId == classroomId && s.Status != SessionStatus.PendingDeletion)
             // We use AsNoTracking() for read-only lists to improve performance
             .AsNoTracking()
             .OrderByDescending(s => s.ScheduledAtUtc)

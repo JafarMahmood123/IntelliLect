@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 
 from app.api.dependencies import TranscriptRepositoryDep, require_internal_secret
@@ -20,6 +20,18 @@ router = APIRouter(
     tags=["transcripts"],
     dependencies=[Depends(require_internal_secret)],
 )
+
+# Classroom-scoped transcript maintenance lives under its own prefix but shares the guard.
+classrooms_router = APIRouter(
+    prefix="/api/internal/classrooms",
+    tags=["transcripts"],
+    dependencies=[Depends(require_internal_secret)],
+)
+
+
+class DeleteClassroomTranscriptsResponse(BaseModel):
+    classroomId: UUID
+    transcriptsDeleted: int
 
 
 class TranscriptResponse(BaseModel):
@@ -51,4 +63,33 @@ async def get_transcript(
         status=header.status.value,
         segmentCount=len(segments),
         text=text,
+    )
+
+
+@router.delete("/{session_id}/transcript", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transcript(
+    session_id: UUID, repository: TranscriptRepositoryDep
+) -> Response:
+    """Delete a session's transcript (header + segments).
+
+    Called when the super admin deletes a session and its outputs. Idempotent: a session
+    with no transcript still returns 204, so a re-run of a partially-completed deletion or
+    a session that was never transcribed is a success, not a 404 (alternate path 6أ).
+    """
+    await repository.delete_by_session(session_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@classrooms_router.delete(
+    "/{classroom_id}/transcripts",
+    response_model=DeleteClassroomTranscriptsResponse,
+)
+async def delete_classroom_transcripts(
+    classroom_id: UUID, repository: TranscriptRepositoryDep
+) -> DeleteClassroomTranscriptsResponse:
+    """Delete every transcript for a classroom. Used when a whole classroom is deleted so
+    its sessions' transcripts do not outlive it. Idempotent — reports how many were removed."""
+    removed = await repository.delete_by_classroom(classroom_id)
+    return DeleteClassroomTranscriptsResponse(
+        classroomId=classroom_id, transcriptsDeleted=removed
     )

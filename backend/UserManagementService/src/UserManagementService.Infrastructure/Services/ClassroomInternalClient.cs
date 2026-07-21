@@ -220,6 +220,45 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         return result ?? new ForceEndResult(sessionId, "Unknown", false, false, false);
     }
 
+    public async Task<SessionDeletionImpact?> GetSessionDeletionImpactAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"api/internal/sessions/{sessionId}/deletion-impact"), ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null; // 5أ
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SessionDeletionImpact>(ct);
+    }
+
+    public async Task<SessionDeletionResult> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/internal/sessions/{sessionId}")
+            {
+                Content = JsonContent.Create(new { reason })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Session not found."); // 5أ
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The session is live. End the session before deleting it."); // 5ب
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<SessionDeletionResult>(ct);
+        return result ?? new SessionDeletionResult(sessionId, false, false, false);
+    }
+
     // Sends a request (recreated per attempt), adding the internal secret and retrying transient
     // faults. Only idempotent-safe callers should retry POST; here create is a one-shot 201 so a
     // duplicate is not created because the retry only fires on connection/5xx before a response.

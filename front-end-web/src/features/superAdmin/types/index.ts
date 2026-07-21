@@ -188,6 +188,26 @@ export interface ForceEndSessionResult {
   summaryTriggered: boolean;
 }
 
+export interface SessionDeletionImpact {
+  sessionId: string;
+  title: string;
+  status: string;
+  hasRecording: boolean;
+  hasSummary: boolean;
+  hasTranscript: boolean;
+  storageBytes: number;
+  isLive: boolean;
+  // True when LiveAssistantService could not be reached to check the transcript (best-effort).
+  transcriptUnavailable: boolean;
+}
+
+export interface SessionDeletionSummary {
+  sessionId: string;
+  recordingDeleted: boolean;
+  summaryDeleted: boolean;
+  transcriptDeleted: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

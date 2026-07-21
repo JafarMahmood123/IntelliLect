@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(internal_sessions.router)
     app.include_router(internal_transcripts.router)
+    app.include_router(internal_transcripts.classrooms_router)
     if settings.metrics_enabled:
         app.include_router(metrics_router.router)
     return app

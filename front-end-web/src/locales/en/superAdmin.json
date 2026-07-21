@@ -323,7 +323,8 @@
       "all": "All statuses",
       "scheduled": "Scheduled",
       "live": "Live",
-      "ended": "Ended"
+      "ended": "Ended",
+      "pendingDeletion": "Deleting…"
     },
     "loading": "Loading sessions...",
     "loadError": "Failed to load sessions.",
@@ -351,6 +352,32 @@
       "on": "On",
       "off": "Off",
       "realtimeUnavailable": "Live details are temporarily unavailable. Sessions are shown from stored data."
+    },
+    "delete": {
+      "action": "Delete",
+      "retry": "Resume delete",
+      "title": "Delete this session?",
+      "description": "Deleting \"{{title}}\" permanently removes the session and its outputs below. This cannot be undone.",
+      "impactTitle": "What will be deleted",
+      "loadingImpact": "Calculating impact…",
+      "impactError": "Could not load the impact preview. You can still proceed, but review carefully.",
+      "outputs": {
+        "recording": "Recording",
+        "summary": "Summary",
+        "transcript": "Transcript",
+        "storage": "Storage freed"
+      },
+      "transcriptUnavailable": "unavailable",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. the session was a duplicate and should be removed",
+      "reasonRequired": "Please provide a reason for deleting this session.",
+      "liveBlock": "This session is live. End the session before deleting it.",
+      "confirm": "Delete session",
+      "deleting": "Deleting…",
+      "successTitle": "Session deleted",
+      "success": "\"{{title}}\" and its outputs were deleted.",
+      "notFound": "This session no longer exists.",
+      "fallbackError": "Could not delete the session. It stays marked for deletion — you can retry to resume."
     },
     "forceEnd": {
       "action": "Force end",

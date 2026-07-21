@@ -162,6 +162,26 @@ public sealed class SuperAdminController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("sessions/{id:guid}/deletion-impact")]
+    [ProducesResponseType(typeof(SessionDeletionImpactResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSessionDeletionImpact(Guid id, CancellationToken ct)
+    {
+        var impact = await _sessionMonitorService.GetDeletionImpactAsync(id, ct);
+        return impact is null ? NotFound() : Ok(impact);
+    }
+
+    [HttpDelete("sessions/{id:guid}")]
+    [ProducesResponseType(typeof(SessionDeletionSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteSession(Guid id, [FromBody] DeleteSessionRequest request, CancellationToken ct)
+    {
+        var result = await _sessionMonitorService.DeleteSessionAsync(id, request.Reason, ct);
+        return Ok(result);
+    }
+
     [HttpPost("admins")]
     public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminRequest request, CancellationToken ct)
     {

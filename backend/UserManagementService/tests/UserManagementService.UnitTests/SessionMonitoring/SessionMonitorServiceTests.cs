@@ -182,6 +182,81 @@ public class SessionMonitorServiceTests
         Assert.False(result.SummaryTriggered);
     }
 
+    // ----- deletion (impact preview + delete) -----------------------------------
+
+    [Fact]
+    public async Task GetDeletionImpact_WhenSessionMissing_ReturnsNull()
+    {
+        var client = new FakeSessionClassroomClient(SessionPage()) { DeletionImpactToReturn = null };
+        var sut = CreateSut(client);
+
+        Assert.Null(await sut.GetDeletionImpactAsync(Guid.NewGuid())); // 5أ
+    }
+
+    [Fact]
+    public async Task GetDeletionImpact_MapsImpactThrough()
+    {
+        var id = Guid.NewGuid();
+        var client = new FakeSessionClassroomClient(SessionPage())
+        {
+            DeletionImpactToReturn = new SessionDeletionImpact(id, "Week 1", "Ended",
+                HasRecording: true, HasSummary: false, HasTranscript: true,
+                StorageBytes: 4096, IsLive: false, TranscriptUnavailable: false),
+        };
+        var sut = CreateSut(client);
+
+        var impact = await sut.GetDeletionImpactAsync(id);
+
+        Assert.NotNull(impact);
+        Assert.True(impact!.HasRecording);
+        Assert.False(impact.HasSummary);
+        Assert.True(impact.HasTranscript);
+        Assert.Equal(4096, impact.StorageBytes);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Delete_WithoutReason_ThrowsAndDoesNotCallClient(string reason)
+    {
+        var client = new FakeSessionClassroomClient(SessionPage());
+        var sut = CreateSut(client);
+
+        // 4أ.
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.DeleteSessionAsync(Guid.NewGuid(), reason));
+        Assert.False(client.DeleteCalled);
+    }
+
+    [Fact]
+    public async Task Delete_WithReason_TrimsAndDelegatesAndMapsResult()
+    {
+        var id = Guid.NewGuid();
+        var client = new FakeSessionClassroomClient(SessionPage())
+        {
+            DeleteResult = new SessionDeletionResult(id, RecordingDeleted: true, SummaryDeleted: false, TranscriptDeleted: true),
+        };
+        var sut = CreateSut(client);
+
+        var result = await sut.DeleteSessionAsync(id, "  duplicate  ");
+
+        Assert.True(client.DeleteCalled);
+        Assert.Equal(id, client.DeletedSessionId);
+        Assert.Equal("duplicate", client.DeleteReason); // trimmed
+        Assert.True(result.RecordingDeleted);
+        Assert.False(result.SummaryDeleted);
+        Assert.True(result.TranscriptDeleted);
+    }
+
+    [Fact]
+    public async Task Delete_WhenClientReportsLiveSession_PropagatesInvalidOperation()
+    {
+        var client = new FakeSessionClassroomClient(SessionPage()) { DeleteThrows = new InvalidOperationException("live") };
+        var sut = CreateSut(client);
+
+        // 5ب -> GlobalExceptionHandler maps InvalidOperationException to 409.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sut.DeleteSessionAsync(Guid.NewGuid(), "done"));
+    }
+
     // ----- helpers --------------------------------------------------------------
 
     private static SessionMonitorService CreateSut(
@@ -242,6 +317,14 @@ internal sealed class FakeSessionClassroomClient : IClassroomInternalClient
     public bool ForceEndCalled { get; private set; }
     public string? LastReason { get; private set; }
 
+    // --- session deletion ---
+    public SessionDeletionImpact? DeletionImpactToReturn { get; set; }
+    public bool DeleteCalled { get; private set; }
+    public Guid DeletedSessionId { get; private set; }
+    public string? DeleteReason { get; private set; }
+    public Exception? DeleteThrows { get; set; }
+    public SessionDeletionResult DeleteResult { get; set; } = new(Guid.NewGuid(), true, true, true);
+
     public Task<AdminSessionPage> GetSessionsAsync(int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default)
     {
         LastStatusFilter = status;
@@ -266,6 +349,19 @@ internal sealed class FakeSessionClassroomClient : IClassroomInternalClient
     public Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<ClassroomDeletionImpact?> GetClassroomDeletionImpactAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<ClassroomDeletionResult> DeleteClassroomAsync(Guid id, string reason, CancellationToken ct = default) => throw new NotImplementedException();
+
+    public Task<SessionDeletionImpact?> GetSessionDeletionImpactAsync(Guid sessionId, CancellationToken ct = default)
+        => Task.FromResult(DeletionImpactToReturn);
+
+    public Task<SessionDeletionResult> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default)
+    {
+        DeleteCalled = true;
+        DeletedSessionId = sessionId;
+        DeleteReason = reason;
+        return DeleteThrows is not null
+            ? Task.FromException<SessionDeletionResult>(DeleteThrows)
+            : Task.FromResult(DeleteResult);
+    }
 }
 
 internal sealed class FakeStreamingClient : IStreamingInternalClient

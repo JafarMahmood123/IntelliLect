@@ -60,3 +60,25 @@ public sealed record ForceEndSessionResult(
     bool AlreadyEnded,
     bool StreamEnded,
     bool SummaryTriggered);
+
+/// <summary>Body for deleting a session; the reason is mandatory (4أ).</summary>
+public sealed record DeleteSessionRequest(string Reason);
+
+/// <summary>What deleting a session will destroy (step 3), returned to the super admin for preview.</summary>
+public sealed record SessionDeletionImpactResult(
+    Guid SessionId,
+    string Title,
+    string Status,
+    bool HasRecording,
+    bool HasSummary,
+    bool HasTranscript,
+    long StorageBytes,
+    bool IsLive,
+    bool TranscriptUnavailable);
+
+/// <summary>What a completed session deletion removed (step 8).</summary>
+public sealed record SessionDeletionSummary(
+    Guid SessionId,
+    bool RecordingDeleted,
+    bool SummaryDeleted,
+    bool TranscriptDeleted);

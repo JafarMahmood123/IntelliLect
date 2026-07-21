@@ -190,7 +190,7 @@ public class ClassroomDeletionServiceTests
 
     private static ClassroomDeletionService Build(
         FakeDeletionRepo repo, FakeObjectStorage storage, FakeFileStorage files, FakeKnowledge knowledge)
-        => new(repo, files, storage, knowledge, NullLogger<ClassroomDeletionService>.Instance);
+        => new(repo, files, storage, knowledge, new FakeLiveAssistant(), NullLogger<ClassroomDeletionService>.Instance);
 
     private sealed class FakeDeletionRepo : IClassroomDeletionRepository
     {
@@ -252,6 +252,16 @@ public class ClassroomDeletionServiceTests
             }
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeLiveAssistant : ILiveAssistantInternalClient
+    {
+        public Task<int?> GetTranscriptSegmentCountAsync(Guid sessionId, CancellationToken ct = default)
+            => Task.FromResult<int?>(0);
+        public Task DeleteSessionTranscriptAsync(Guid sessionId, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task<int> DeleteClassroomTranscriptsAsync(Guid classroomId, CancellationToken ct = default)
+            => Task.FromResult(0);
     }
 
     private sealed class FakeObjectStorage : IRecordingStorage

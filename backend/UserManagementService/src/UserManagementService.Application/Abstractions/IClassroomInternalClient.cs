@@ -37,6 +37,15 @@ public interface IClassroomInternalClient
 
     /// <exception cref="Common.NotFoundException">The session does not exist (6أ).</exception>
     Task<ForceEndResult> ForceEndSessionAsync(Guid sessionId, string reason, CancellationToken ct = default);
+
+    // --- Session deletion with impact preview ---
+
+    /// <returns>The deletion impact preview (step 3), or null if the session does not exist (5أ).</returns>
+    Task<SessionDeletionImpact?> GetSessionDeletionImpactAsync(Guid sessionId, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The session does not exist (5أ).</exception>
+    /// <exception cref="InvalidOperationException">The session is currently live (5ب).</exception>
+    Task<SessionDeletionResult> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default);
 }
 
 /// <summary>A session row for the super-admin monitor (mirrors ClassroomService's AdminSessionResponse).</summary>
@@ -68,6 +77,25 @@ public sealed record ForceEndResult(
     bool AlreadyEnded,
     bool StreamEnded,
     bool SummaryTriggered);
+
+/// <summary>Session deletion impact preview (mirrors ClassroomService's SessionDeletionImpact).</summary>
+public sealed record SessionDeletionImpact(
+    Guid SessionId,
+    string Title,
+    string Status,
+    bool HasRecording,
+    bool HasSummary,
+    bool HasTranscript,
+    long StorageBytes,
+    bool IsLive,
+    bool TranscriptUnavailable);
+
+/// <summary>Outcome of a completed session deletion (mirrors ClassroomService's SessionDeletionResult).</summary>
+public sealed record SessionDeletionResult(
+    Guid SessionId,
+    bool RecordingDeleted,
+    bool SummaryDeleted,
+    bool TranscriptDeleted);
 
 /// <summary>A classroom as administered by the super admin (mirrors ClassroomService's AdminClassroomResponse).</summary>
 public sealed record AdminClassroom(

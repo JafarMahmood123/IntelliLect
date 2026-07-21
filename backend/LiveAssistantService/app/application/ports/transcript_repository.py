@@ -63,3 +63,21 @@ class TranscriptRepository(ABC):
         and status alongside the assembled text.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    async def delete_by_session(self, session_id: UUID) -> bool:
+        """Delete a session's transcript (header + all segments). Returns True if a header
+        existed and was removed, False if there was nothing to delete.
+
+        Used when the super admin deletes a session and its outputs: idempotent, so a
+        re-run of a partially-completed deletion (or a session that never had a transcript)
+        is a no-op that returns False rather than an error.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_by_classroom(self, classroom_id: UUID) -> int:
+        """Delete every transcript belonging to a classroom (headers + segments). Returns the
+        number of transcript headers removed. Used when a whole classroom is deleted so its
+        sessions' transcripts do not outlive it. Idempotent."""
+        raise NotImplementedError

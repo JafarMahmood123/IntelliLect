@@ -92,6 +92,21 @@ class InMemoryTranscriptRepository(TranscriptRepository):
             entry = self._sessions.get(session_id)
             return entry.header if entry is not None else None
 
+    async def delete_by_session(self, session_id: UUID) -> bool:
+        async with self._lock:
+            return self._sessions.pop(session_id, None) is not None
+
+    async def delete_by_classroom(self, classroom_id: UUID) -> int:
+        async with self._lock:
+            doomed = [
+                sid
+                for sid, entry in self._sessions.items()
+                if entry.header.classroom_id == classroom_id
+            ]
+            for sid in doomed:
+                del self._sessions[sid]
+            return len(doomed)
+
 
 def _touch(
     header: SessionTranscript, *, status: TranscriptStatus | None = None

@@ -27,6 +27,7 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
     private readonly IFileStorageService _fileStorage;
     private readonly IRecordingStorage _objectStorage;
     private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly ILiveAssistantInternalClient _liveAssistant;
     private readonly ILogger<ClassroomDeletionService> _logger;
 
     public ClassroomDeletionService(
@@ -34,12 +35,14 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
         IFileStorageService fileStorage,
         IRecordingStorage objectStorage,
         IKnowledgeInternalClient knowledgeClient,
+        ILiveAssistantInternalClient liveAssistant,
         ILogger<ClassroomDeletionService> logger)
     {
         _repository = repository;
         _fileStorage = fileStorage;
         _objectStorage = objectStorage;
         _knowledgeClient = knowledgeClient;
+        _liveAssistant = liveAssistant;
         _logger = logger;
     }
 
@@ -108,7 +111,12 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
             await _repository.SaveChangesAsync(ct);
         }
 
-        // Phase 3 — files: object first, then the row; then de-index the classroom in KnowledgeService
+        // Phase 3 — transcripts (LiveAssistantService): a session's transcript lives in another
+        // service, so a classroom delete would otherwise leave them behind. Idempotent + retried,
+        // throwing on a hard failure so the deletion halts with the classroom still PendingDeletion.
+        await _liveAssistant.DeleteClassroomTranscriptsAsync(classroomId, ct);
+
+        // Phase 4 — files: object first, then the row; then de-index the classroom in KnowledgeService
         // (drops its documents, chunks and vector embeddings). De-index runs after the file rows are
         // gone and is idempotent + retried, throwing on a hard failure so the deletion halts here and
         // the classroom stays PendingDeletion for a resumable re-run.
@@ -124,12 +132,12 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
         }
         await _knowledgeClient.DeIndexClassroomAsync(classroomId, ct);
 
-        // Phase 4 — sessions & memberships: no object-storage artifacts of their own, so a single
+        // Phase 5 — sessions & memberships: no object-storage artifacts of their own, so a single
         // bulk delete each.
         var sessionsDeleted = await _repository.DeleteSessionsAsync(classroomId, ct);
         var membershipsDeleted = await _repository.DeleteMembershipsAsync(classroomId, ct);
 
-        // Phase 5 — the classroom itself.
+        // Phase 6 — the classroom itself.
         _repository.RemoveClassroom(classroom);
         await _repository.SaveChangesAsync(ct);
 
