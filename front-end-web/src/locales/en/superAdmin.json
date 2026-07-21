@@ -308,6 +308,82 @@
       }
     }
   },
+  "knowledge": {
+    "navLink": "Knowledge Base",
+    "title": "Content & Knowledge Base",
+    "subtitle": "Browse uploaded files, diagnose indexing failures, reindex, and remove unneeded files.",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by file name",
+    "statusLabel": "Indexing status",
+    "statuses": {
+      "all": "All statuses",
+      "pending": "Pending",
+      "processing": "Processing",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "stats": {
+      "documents": "Documents",
+      "chunks": "Indexed chunks",
+      "failed": "Failed",
+      "storage": "Storage used"
+    },
+    "indexingUnavailable": "Indexing status is temporarily unavailable. Files are listed from the registry; their status is shown as unknown.",
+    "loading": "Loading files...",
+    "loadError": "Failed to load files.",
+    "empty": "No files match the criteria.",
+    "table": {
+      "file": "File",
+      "classroom": "Classroom",
+      "size": "Size",
+      "status": "Status",
+      "chunks": "Chunks",
+      "actions": "Actions",
+      "unknownClassroom": "Unknown classroom",
+      "statusUnknown": "Unknown",
+      "detail": "Details",
+      "reindexFile": "Reindex file",
+      "reindexClassroom": "Reindex classroom",
+      "delete": "Delete file"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} files"
+    },
+    "detail": {
+      "title": "File details",
+      "loading": "Loading details...",
+      "loadError": "Could not load the file details.",
+      "fileName": "File name",
+      "classroom": "Classroom",
+      "size": "Size",
+      "status": "Indexing status",
+      "attempts": "Attempts",
+      "chunks": "Indexed chunks",
+      "lastError": "Failure reason"
+    },
+    "actions": {
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "Why are you performing this action?",
+      "reasonRequired": "Please provide a reason for this action.",
+      "failedOnly": "Only reindex files that failed",
+      "reindexFileTitle": "Reindex this file?",
+      "reindexFileDescription": "\"{{name}}\" will be queued for re-indexing.",
+      "reindexClassroomTitle": "Reindex this classroom?",
+      "reindexClassroomDescription": "Files in \"{{name}}\" will be queued for re-indexing, within the processing limit.",
+      "reindexConfirm": "Queue reindex",
+      "reindexing": "Queuing...",
+      "reindexQueuedTitle": "Reindex queued",
+      "reindexFileQueued": "The file was queued for re-indexing.",
+      "reindexClassroomQueued": "Queued {{enqueued}} file(s); {{skipped}} skipped.",
+      "deleteTitle": "Delete this file?",
+      "deleteDescription": "\"{{name}}\" will be removed from storage along with its indexed chunks. This cannot be undone.",
+      "deleteConfirm": "Delete file",
+      "deleting": "Deleting...",
+      "deletedTitle": "File deleted",
+      "deleted": "\"{{name}}\" and its indexed chunks were deleted.",
+      "fallbackError": "The action could not be completed. Please try again."
+    }
+  },
   "sessions": {
     "navLink": "Sessions",
     "title": "Learning Sessions",

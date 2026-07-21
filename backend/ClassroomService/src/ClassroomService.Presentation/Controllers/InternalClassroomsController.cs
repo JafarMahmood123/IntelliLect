@@ -22,15 +22,18 @@ public sealed class InternalClassroomsController : ControllerBase
 
     private readonly IClassroomManagementService _classrooms;
     private readonly IClassroomDeletionService _deletion;
+    private readonly IClassroomRepository _classroomRepository;
     private readonly IConfiguration _configuration;
 
     public InternalClassroomsController(
         IClassroomManagementService classrooms,
         IClassroomDeletionService deletion,
+        IClassroomRepository classroomRepository,
         IConfiguration configuration)
     {
         _classrooms = classrooms;
         _deletion = deletion;
+        _classroomRepository = classroomRepository;
         _configuration = configuration;
     }
 
@@ -155,6 +158,17 @@ public sealed class InternalClassroomsController : ControllerBase
         }
     }
 
+    /// <summary>Batch classroom-name resolution for enriching file/other listings by classroom id.</summary>
+    [HttpPost("names")]
+    [ProducesResponseType(typeof(IReadOnlyList<ClassroomNameDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetNames([FromBody] ClassroomIdsRequest request, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        var names = await _classroomRepository.GetNamesByIdsAsync(request?.Ids ?? Array.Empty<Guid>(), ct);
+        return Ok(names.Select(n => new ClassroomNameDto(n.Id, n.Name)).ToList());
+    }
+
     private bool IsInternalSecretValid()
     {
         var expected = _configuration["Internal:ApiSecret"];
@@ -171,3 +185,5 @@ public sealed class InternalClassroomsController : ControllerBase
 public sealed record InternalCreateClassroomRequest(Guid TeacherId, string Name, string Description);
 public sealed record InternalUpdateClassroomRequest(string Name, string Description, long Version);
 public sealed record InternalDeleteClassroomRequest(string Reason);
+public sealed record ClassroomIdsRequest(IReadOnlyCollection<Guid> Ids);
+public sealed record ClassroomNameDto(Guid Id, string Name);

@@ -46,7 +46,40 @@ public interface IClassroomInternalClient
     /// <exception cref="Common.NotFoundException">The session does not exist (5أ).</exception>
     /// <exception cref="InvalidOperationException">The session is currently live (5ب).</exception>
     Task<SessionDeletionResult> DeleteSessionAsync(Guid sessionId, string reason, CancellationToken ct = default);
+
+    // --- Knowledge-base file registry (ClassroomService owns the files) ---
+
+    /// <summary>Authoritative cross-classroom file page (drives the list when no status filter is set).</summary>
+    Task<AdminFilePage> GetFilesAsync(
+        int page, int pageSize, string? search, Guid? classroomId, CancellationToken ct = default);
+
+    /// <summary>File registry rows for a set of ids (enriches a KnowledgeService-driven filtered list).</summary>
+    Task<IReadOnlyList<AdminFile>> GetFilesByIdsAsync(IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default);
+
+    /// <summary>Batch classroom-name resolution for a set of classroom ids.</summary>
+    Task<IReadOnlyList<ClassroomName>> GetClassroomNamesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The file does not exist (7أ).</exception>
+    Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default);
 }
+
+/// <summary>A file registry row (mirrors ClassroomService's AdminFileRow).</summary>
+public sealed record AdminFile(
+    Guid FileId,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    Guid ClassroomId);
+
+public sealed record AdminFilePage(
+    IReadOnlyList<AdminFile> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
+public sealed record ClassroomName(Guid Id, string Name);
+
+public sealed record FileDeletionResult(Guid FileId, bool StorageDeleted, bool DeIndexed);
 
 /// <summary>A session row for the super-admin monitor (mirrors ClassroomService's AdminSessionResponse).</summary>
 public sealed record AdminSession(

@@ -107,6 +107,23 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
             .FirstOrDefaultAsync(ct);
     }
 
+    public async Task<List<(Guid Id, string Name)>> GetNamesByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+        {
+            return new List<(Guid, string)>();
+        }
+
+        var rows = await _context.Set<Classroom>()
+            .AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToListAsync(ct);
+
+        return rows.Select(r => (r.Id, r.Name)).ToList();
+    }
+
     public async Task<bool> UpdateWithConcurrencyAsync(
         Guid id, string name, string description, long expectedVersion, CancellationToken ct = default)
     {

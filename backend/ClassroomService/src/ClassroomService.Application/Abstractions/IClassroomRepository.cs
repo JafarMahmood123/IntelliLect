@@ -19,4 +19,7 @@ public interface IClassroomRepository : IRepository<Classroom>
     /// <returns>false if the classroom does not exist. Throws DbUpdateConcurrencyException on a stale version.</returns>
     Task<bool> UpdateWithConcurrencyAsync(
         Guid id, string name, string description, long expectedVersion, CancellationToken ct = default);
+
+    /// <summary>Resolves classroom names for a set of ids (batch enrichment). Missing ids are omitted.</summary>
+    Task<List<(Guid Id, string Name)>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
 }

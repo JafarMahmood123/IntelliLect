@@ -45,9 +45,10 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
         string s3Key,
         string fileName,
         string contentType,
+        long sizeBytes,
         CancellationToken ct = default)
     {
-        var body = new IngestDocumentRequest(fileId, classroomId, s3Key, fileName, contentType);
+        var body = new IngestDocumentRequest(fileId, classroomId, s3Key, fileName, contentType, sizeBytes);
         return SendWithRetryAsync(
             () => new HttpRequestMessage(HttpMethod.Post, IngestPath)
             {
@@ -334,5 +335,6 @@ public sealed class KnowledgeInternalClient : IKnowledgeInternalClient
         [property: JsonPropertyName("classroomId")] Guid ClassroomId,
         [property: JsonPropertyName("s3Key")] string S3Key,
         [property: JsonPropertyName("fileName")] string FileName,
-        [property: JsonPropertyName("contentType")] string ContentType);
+        [property: JsonPropertyName("contentType")] string ContentType,
+        [property: JsonPropertyName("sizeBytes")] long SizeBytes);
 }

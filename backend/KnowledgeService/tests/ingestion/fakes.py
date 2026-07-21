@@ -16,7 +16,11 @@ from uuid import UUID, uuid4
 import pymupdf
 
 from app.application.ports.chunk_repository import ChunkRepository
-from app.application.ports.document_repository import DocumentRepository
+from app.application.ports.document_repository import (
+    DocumentListItem,
+    DocumentRepository,
+    KnowledgeStats,
+)
 from app.application.ports.embedding_provider import EmbeddingProvider
 from app.application.ports.file_storage import FileStorage
 from app.application.services.ingestion_errors import TransientIngestionError
@@ -165,6 +169,8 @@ class InMemoryDocumentRepository(DocumentRepository):
     def __init__(self) -> None:
         self._by_file_id: dict[UUID, Document] = {}
         self.status_history: dict[UUID, list[DocumentStatus]] = {}
+        # Chunk counts keyed by document id, set by tests exercising the admin read side.
+        self.chunk_counts: dict[UUID, int] = {}
 
     def seed(self, document: Document) -> None:
         self._by_file_id[document.file_id] = document
@@ -262,6 +268,69 @@ class InMemoryDocumentRepository(DocumentRepository):
             stored.attempts = 0
         self._record(file_id, DocumentStatus.PENDING)
         return replace(stored)
+
+    def _item(self, doc: Document) -> DocumentListItem:
+        return DocumentListItem(
+            file_id=doc.file_id,
+            classroom_id=doc.classroom_id,
+            file_name=doc.file_name,
+            content_type=doc.content_type,
+            size_bytes=doc.size_bytes,
+            status=doc.status,
+            attempts=doc.attempts,
+            chunk_count=self.chunk_counts.get(doc.id, 0),
+        )
+
+    async def list_paged(self, *, page, page_size, status, classroom_id, search):
+        docs = [
+            d for d in self._by_file_id.values()
+            if (status is None or d.status == status)
+            and (classroom_id is None or d.classroom_id == classroom_id)
+            and (not search or search.lower() in d.file_name.lower())
+        ]
+        docs.sort(key=lambda d: d.created_at_utc, reverse=True)
+        total = len(docs)
+        start = (page - 1) * page_size
+        return [self._item(d) for d in docs[start:start + page_size]], total
+
+    async def get_statuses(self, file_ids):
+        wanted = set(file_ids)
+        return [self._item(d) for d in self._by_file_id.values() if d.file_id in wanted]
+
+    async def stats(self, classroom_id):
+        docs = [
+            d for d in self._by_file_id.values()
+            if classroom_id is None or d.classroom_id == classroom_id
+        ]
+        status_counts: dict[str, int] = {}
+        storage = 0
+        for d in docs:
+            status_counts[d.status.value] = status_counts.get(d.status.value, 0) + 1
+            storage += d.size_bytes
+        total_chunks = sum(
+            self.chunk_counts.get(d.id, 0) for d in docs
+        )
+        return KnowledgeStats(
+            document_count=len(docs),
+            status_counts=status_counts,
+            total_chunks=total_chunks,
+            failed_count=status_counts.get(DocumentStatus.FAILED.value, 0),
+            storage_bytes=storage,
+        )
+
+    async def list_file_ids_for_reindex(self, classroom_id, *, failed_only):
+        return [
+            d.file_id for d in self._by_file_id.values()
+            if d.classroom_id == classroom_id
+            and (not failed_only or d.status == DocumentStatus.FAILED)
+        ]
+
+    async def count_active(self, classroom_id):
+        return sum(
+            1 for d in self._by_file_id.values()
+            if d.classroom_id == classroom_id
+            and d.status in (DocumentStatus.PENDING, DocumentStatus.PROCESSING)
+        )
 
 
 class InMemoryChunkRepository(ChunkRepository):

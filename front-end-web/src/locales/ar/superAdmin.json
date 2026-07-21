@@ -401,5 +401,81 @@
       "notFound": "لم تعد هذه الجلسة موجودة.",
       "fallbackError": "تعذّر حذف الجلسة. تبقى معلَّمة للحذف — يمكنك إعادة المحاولة للمتابعة."
     }
+  },
+  "knowledge": {
+    "navLink": "قاعدة المعرفة",
+    "title": "المحتوى وقاعدة المعرفة",
+    "subtitle": "استعرض الملفات المرفوعة، وشخّص أخطاء الفهرسة، وأعد الفهرسة، واحذف ما لا حاجة إليه.",
+    "searchLabel": "بحث",
+    "searchPlaceholder": "ابحث باسم الملف",
+    "statusLabel": "حالة الفهرسة",
+    "statuses": {
+      "all": "كل الحالات",
+      "pending": "قيد الانتظار",
+      "processing": "قيد المعالجة",
+      "done": "مكتملة",
+      "failed": "أخفقت"
+    },
+    "stats": {
+      "documents": "المستندات",
+      "chunks": "المقاطع المفهرسة",
+      "failed": "الإخفاقات",
+      "storage": "المساحة المستهلكة"
+    },
+    "indexingUnavailable": "حالة الفهرسة غير متاحة مؤقتًا. تُعرض الملفات من السجل، وتظهر حالتها كغير معروفة.",
+    "loading": "جارٍ تحميل الملفات...",
+    "loadError": "فشل تحميل الملفات.",
+    "empty": "لا توجد ملفات مطابقة.",
+    "table": {
+      "file": "الملف",
+      "classroom": "الفصل",
+      "size": "الحجم",
+      "status": "الحالة",
+      "chunks": "المقاطع",
+      "actions": "الإجراءات",
+      "unknownClassroom": "فصل غير معروف",
+      "statusUnknown": "غير معروفة",
+      "detail": "التفاصيل",
+      "reindexFile": "إعادة فهرسة الملف",
+      "reindexClassroom": "إعادة فهرسة الفصل",
+      "delete": "حذف الملف"
+    },
+    "pagination": {
+      "showing": "عرض {{count}} من {{total}} ملف"
+    },
+    "detail": {
+      "title": "تفاصيل الملف",
+      "loading": "جارٍ تحميل التفاصيل...",
+      "loadError": "تعذّر تحميل تفاصيل الملف.",
+      "fileName": "اسم الملف",
+      "classroom": "الفصل",
+      "size": "الحجم",
+      "status": "حالة الفهرسة",
+      "attempts": "عدد المحاولات",
+      "chunks": "المقاطع المفهرسة",
+      "lastError": "سبب الإخفاق"
+    },
+    "actions": {
+      "reasonLabel": "السبب (مطلوب)",
+      "reasonPlaceholder": "لماذا تنفّذ هذا الإجراء؟",
+      "reasonRequired": "يرجى ذكر سبب هذا الإجراء.",
+      "failedOnly": "إعادة فهرسة الملفات التي أخفقت فقط",
+      "reindexFileTitle": "إعادة فهرسة هذا الملف؟",
+      "reindexFileDescription": "سيُدرَج «{{name}}» في قائمة إعادة الفهرسة.",
+      "reindexClassroomTitle": "إعادة فهرسة هذا الفصل؟",
+      "reindexClassroomDescription": "ستُدرَج ملفات «{{name}}» في قائمة إعادة الفهرسة ضمن حدّ المعالجة.",
+      "reindexConfirm": "إدراج إعادة الفهرسة",
+      "reindexing": "جارٍ الإدراج...",
+      "reindexQueuedTitle": "تم إدراج إعادة الفهرسة",
+      "reindexFileQueued": "أُدرِج الملف لإعادة الفهرسة.",
+      "reindexClassroomQueued": "أُدرِج {{enqueued}} ملف؛ وتُخطّي {{skipped}}.",
+      "deleteTitle": "حذف هذا الملف؟",
+      "deleteDescription": "سيُزال «{{name}}» من المخزن مع مقاطعه المفهرسة. لا يمكن التراجع عن هذا الإجراء.",
+      "deleteConfirm": "حذف الملف",
+      "deleting": "جارٍ الحذف...",
+      "deletedTitle": "تم حذف الملف",
+      "deleted": "تم حذف «{{name}}» ومقاطعه المفهرسة.",
+      "fallbackError": "تعذّر إتمام الإجراء. حاول مرة أخرى."
+    }
   }
 }

@@ -208,6 +208,74 @@ export interface SessionDeletionSummary {
   transcriptDeleted: boolean;
 }
 
+// --- Content & knowledge-base management ------------------------------------
+
+export type IndexingStatusValue = '' | 'Pending' | 'Processing' | 'Done' | 'Failed';
+
+export interface AdminFileItem {
+  fileId: string;
+  classroomId: string;
+  className?: string | null;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  // Null when indexing status could not be fetched (3أ).
+  status?: string | null;
+  attempts?: number | null;
+  chunkCount?: number | null;
+}
+
+export interface FileListResult {
+  items: AdminFileItem[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  indexingUnavailable: boolean;
+}
+
+export interface FileDetailResult {
+  fileId: string;
+  classroomId: string;
+  className?: string | null;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  status: string;
+  attempts: number;
+  chunkCount: number;
+  lastError?: string | null;
+}
+
+export interface KnowledgeStatsResponse {
+  classroomId?: string | null;
+  documentCount: number;
+  statusCounts: Record<string, number>;
+  totalChunks: number;
+  failedCount: number;
+  storageBytes: number;
+}
+
+export interface SearchFilesParams {
+  search?: string;
+  status?: IndexingStatusValue;
+  classroomId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface BulkReindexResponse {
+  classroomId: string;
+  requested: number;
+  enqueued: number;
+  skipped: number;
+}
+
+export interface FileDeletionResponse {
+  fileId: string;
+  storageDeleted: boolean;
+  deIndexed: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;

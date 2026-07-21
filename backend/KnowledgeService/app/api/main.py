@@ -15,6 +15,7 @@ from app.api.routers import (
     answer,
     health,
     internal_documents,
+    internal_knowledge,
     internal_summaries,
     metrics as metrics_router,
     search,
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(internal_documents.router)
+    app.include_router(internal_knowledge.router)
     app.include_router(internal_summaries.router)
     app.include_router(search.router)
     app.include_router(answer.router)

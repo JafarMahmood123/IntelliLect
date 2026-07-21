@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     ingest_queue_max: int = 100  # bounded in-process job queue size
     embed_batch_size: int = 32  # chunk texts per embed_documents call
 
+    # --- Super-admin knowledge-base management ---
+    admin_list_default_page_size: int = 20
+    admin_list_max_page_size: int = 100
+    reindex_bulk_max: int = 50  # max files a single classroom bulk-reindex may enqueue (7ب)
+    reindex_enqueue_retries: int = 3  # per-file retries when the queue is momentarily full (7د)
+    reindex_enqueue_retry_seconds: float = 0.2
+
     # --- Ingestion lifecycle & robustness (Phase 8) ---
     ingest_max_attempts: int = 3  # after this many attempts, mark permanently Failed
     ingest_retry_base_seconds: float = 2.0  # exponential backoff base

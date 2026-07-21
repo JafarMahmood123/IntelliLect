@@ -32,7 +32,7 @@ public sealed class KnowledgeInternalClientTests
 
         var fileId = Guid.NewGuid();
         var classroomId = Guid.NewGuid();
-        await client.NotifyFileUploadedAsync(fileId, classroomId, "classrooms/x/key.pdf", "lecture.pdf", "application/pdf");
+        await client.NotifyFileUploadedAsync(fileId, classroomId, "classrooms/x/key.pdf", "lecture.pdf", "application/pdf", 1024);
 
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
@@ -46,6 +46,7 @@ public sealed class KnowledgeInternalClientTests
         Assert.Contains("\"s3Key\":\"classrooms/x/key.pdf\"", body);
         Assert.Contains("\"fileName\":\"lecture.pdf\"", body);
         Assert.Contains("\"contentType\":\"application/pdf\"", body);
+        Assert.Contains("\"sizeBytes\":1024", body);
     }
 
     [Fact]
@@ -71,7 +72,7 @@ public sealed class KnowledgeInternalClientTests
         var client = CreateClient(handler);
 
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => client.NotifyFileUploadedAsync(Guid.NewGuid(), Guid.NewGuid(), "k", "f.pdf", "application/pdf"));
+            () => client.NotifyFileUploadedAsync(Guid.NewGuid(), Guid.NewGuid(), "k", "f.pdf", "application/pdf", 1024));
 
         // Three attempts total (initial + 2 retries).
         Assert.Equal(3, handler.Requests.Count);

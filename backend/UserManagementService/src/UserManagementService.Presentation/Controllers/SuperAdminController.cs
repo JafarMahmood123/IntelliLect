@@ -6,6 +6,7 @@ using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Application.DTOs.Classroom;
+using UserManagementService.Application.DTOs.Knowledge;
 using UserManagementService.Application.DTOs.Session;
 using UserManagementService.Application.DTOs.User;
 
@@ -21,19 +22,22 @@ public sealed class SuperAdminController : ControllerBase
     private readonly IUserStatusService _userStatusService;
     private readonly IClassroomAdminService _classroomAdminService;
     private readonly ISessionMonitorService _sessionMonitorService;
+    private readonly IKnowledgeAdminService _knowledgeAdminService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
         IUserDirectoryService userDirectoryService,
         IUserStatusService userStatusService,
         IClassroomAdminService classroomAdminService,
-        ISessionMonitorService sessionMonitorService)
+        ISessionMonitorService sessionMonitorService,
+        IKnowledgeAdminService knowledgeAdminService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
         _userStatusService = userStatusService;
         _classroomAdminService = classroomAdminService;
         _sessionMonitorService = sessionMonitorService;
+        _knowledgeAdminService = knowledgeAdminService;
     }
 
     [HttpGet("admins")]
@@ -206,6 +210,64 @@ public sealed class SuperAdminController : ControllerBase
     {
         await _superAdminService.ReactivateAdminAsync(id, GetUserIdFromClaims(), ct);
         return NoContent();
+    }
+
+    // --- Content & knowledge-base management ---
+
+    [HttpGet("knowledge/files")]
+    [ProducesResponseType(typeof(FileListResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetKnowledgeFiles([FromQuery] SearchFilesRequest request, CancellationToken ct)
+    {
+        var result = await _knowledgeAdminService.GetFilesAsync(request, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("knowledge/files/{fileId:guid}")]
+    [ProducesResponseType(typeof(FileDetailResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetKnowledgeFileDetail(Guid fileId, CancellationToken ct)
+    {
+        var detail = await _knowledgeAdminService.GetFileDetailAsync(fileId, ct);
+        return detail is null ? NotFound() : Ok(detail);
+    }
+
+    [HttpGet("knowledge/stats")]
+    [ProducesResponseType(typeof(KnowledgeStatsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetKnowledgeStats([FromQuery] Guid? classroomId, CancellationToken ct)
+    {
+        var stats = await _knowledgeAdminService.GetStatsAsync(classroomId, ct);
+        return Ok(stats);
+    }
+
+    [HttpPost("knowledge/files/{fileId:guid}/reindex")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReindexFile(Guid fileId, [FromBody] ReindexFileRequest request, CancellationToken ct)
+    {
+        await _knowledgeAdminService.ReindexFileAsync(fileId, request, ct);
+        return Accepted();
+    }
+
+    [HttpPost("knowledge/classrooms/{classroomId:guid}/reindex")]
+    [ProducesResponseType(typeof(BulkReindexResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReindexClassroom(Guid classroomId, [FromBody] ReindexClassroomRequest request, CancellationToken ct)
+    {
+        var result = await _knowledgeAdminService.ReindexClassroomAsync(classroomId, request, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("knowledge/files/{fileId:guid}")]
+    [ProducesResponseType(typeof(FileDeletionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteKnowledgeFile(Guid fileId, [FromBody] DeleteFileAdminRequest request, CancellationToken ct)
+    {
+        var result = await _knowledgeAdminService.DeleteFileAsync(fileId, request, ct);
+        return Ok(result);
     }
 
     private Guid GetUserIdFromClaims()

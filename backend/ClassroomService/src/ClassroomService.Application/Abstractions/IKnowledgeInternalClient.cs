@@ -16,6 +16,7 @@ public interface IKnowledgeInternalClient
         string s3Key,
         string fileName,
         string contentType,
+        long sizeBytes,
         CancellationToken ct = default);
 
     /// <summary>Notify KnowledgeService that a file was deleted (removes its index entry).</summary>

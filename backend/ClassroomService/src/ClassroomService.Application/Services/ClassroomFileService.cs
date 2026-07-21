@@ -72,6 +72,7 @@ public sealed class ClassroomFileService : IClassroomFileService
                 classroomFile.S3Key,
                 classroomFile.FileName,
                 classroomFile.ContentType,
+                classroomFile.SizeBytes,
                 ct);
         }
         catch (Exception ex)

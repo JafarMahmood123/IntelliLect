@@ -259,6 +259,80 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         return result ?? new SessionDeletionResult(sessionId, false, false, false);
     }
 
+    public async Task<AdminFilePage> GetFilesAsync(
+        int page, int pageSize, string? search, Guid? classroomId, CancellationToken ct = default)
+    {
+        var url = $"api/internal/files?page={page}&pageSize={pageSize}";
+        if (!string.IsNullOrWhiteSpace(search)) url += $"&search={Uri.EscapeDataString(search)}";
+        if (classroomId.HasValue && classroomId.Value != Guid.Empty) url += $"&classroomId={classroomId.Value}";
+
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, url), ct);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AdminFilePage>(ct);
+        return payload ?? new AdminFilePage(Array.Empty<AdminFile>(), 0, page, pageSize);
+    }
+
+    public async Task<IReadOnlyList<AdminFile>> GetFilesByIdsAsync(
+        IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default)
+    {
+        if (fileIds.Count == 0)
+        {
+            return Array.Empty<AdminFile>();
+        }
+
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, "api/internal/files/by-ids")
+            {
+                Content = JsonContent.Create(new { fileIds })
+            },
+            ct);
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<List<AdminFile>>(ct);
+        return payload ?? new List<AdminFile>();
+    }
+
+    public async Task<IReadOnlyList<ClassroomName>> GetClassroomNamesAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+        {
+            return Array.Empty<ClassroomName>();
+        }
+
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, "api/internal/classrooms/names")
+            {
+                Content = JsonContent.Create(new { ids })
+            },
+            ct);
+
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<List<ClassroomName>>(ct);
+        return payload ?? new List<ClassroomName>();
+    }
+
+    public async Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/internal/files/{fileId}")
+            {
+                Content = JsonContent.Create(new { reason })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("File not found."); // 7أ
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<FileDeletionResult>(ct);
+        return result ?? new FileDeletionResult(fileId, false, false);
+    }
+
     // Sends a request (recreated per attempt), adding the internal secret and retrying transient
     // faults. Only idempotent-safe callers should retry POST; here create is a one-shot 201 so a
     // duplicate is not created because the retry only fires on connection/5xx before a response.

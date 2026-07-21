@@ -7,6 +7,7 @@ import { UsersDirectoryPage } from "./features/superAdmin/components/UsersDirect
 import { UserDetailPage } from "./features/superAdmin/components/UserDetailPage";
 import { ClassroomsDirectoryPage } from "./features/superAdmin/components/ClassroomsDirectoryPage";
 import { SessionsMonitorPage } from "./features/superAdmin/components/SessionsMonitorPage";
+import { KnowledgeBasePage } from "./features/superAdmin/components/KnowledgeBasePage";
 import { LoginForm } from "./features/auth/components/LoginForm";
 import { RegisterForm } from "./features/auth/components/RegisterForm";
 import { AuthLayout } from "./layouts/AuthLayout";
@@ -90,6 +91,7 @@ function App() {
                   <Route path="/super-admin/users/:id" element={<UserDetailPage />} />
                   <Route path="/super-admin/classrooms" element={<ClassroomsDirectoryPage />} />
                   <Route path="/super-admin/sessions" element={<SessionsMonitorPage />} />
+                  <Route path="/super-admin/knowledge" element={<KnowledgeBasePage />} />
                 </Route>
               </Route>
 

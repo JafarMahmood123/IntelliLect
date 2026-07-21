@@ -312,7 +312,7 @@ public class ClassroomDeletionServiceTests
         }
 
         // Unused by the deletion service.
-        public Task NotifyFileUploadedAsync(Guid fileId, Guid classroomId, string s3Key, string fileName, string contentType, CancellationToken ct = default)
+        public Task NotifyFileUploadedAsync(Guid fileId, Guid classroomId, string s3Key, string fileName, string contentType, long sizeBytes, CancellationToken ct = default)
             => Task.CompletedTask;
         public Task NotifyFileDeletedAsync(Guid fileId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<string?> GetIndexingStatusAsync(Guid fileId, CancellationToken ct = default) => Task.FromResult<string?>(null);

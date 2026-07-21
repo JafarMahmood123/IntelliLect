@@ -87,7 +87,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
         return Task.FromResult(SummaryTriggerResult);
     }
 
-    public Task NotifyFileUploadedAsync(Guid fileId, Guid classroomId, string s3Key, string fileName, string contentType, CancellationToken ct = default)
+    public Task NotifyFileUploadedAsync(Guid fileId, Guid classroomId, string s3Key, string fileName, string contentType, long sizeBytes, CancellationToken ct = default)
     {
         UploadCalls++;
         LastFileId = fileId;
@@ -213,6 +213,9 @@ public sealed class FakeClassroomRepository : IClassroomRepository
 
     public Task<bool> UpdateWithConcurrencyAsync(Guid id, string name, string description, long expectedVersion, CancellationToken ct = default)
         => throw new NotImplementedException();
+
+    public Task<List<(Guid Id, string Name)>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+        => Task.FromResult(_store.Values.Where(c => ids.Contains(c.Id)).Select(c => (c.Id, c.Name)).ToList());
 }
 
 /// <summary>No-op file storage that returns a deterministic key / accepts deletes.</summary>

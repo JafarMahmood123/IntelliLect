@@ -1,9 +1,36 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
+
+
+@dataclass(frozen=True)
+class DocumentListItem:
+    """A document plus its chunk count, for the super-admin knowledge-base list."""
+
+    file_id: UUID
+    classroom_id: UUID
+    file_name: str
+    content_type: str
+    size_bytes: int
+    status: DocumentStatus
+    attempts: int
+    chunk_count: int
+
+
+@dataclass(frozen=True)
+class KnowledgeStats:
+    """Aggregate knowledge-base figures for a classroom or the whole platform."""
+
+    document_count: int
+    status_counts: dict[str, int]
+    total_chunks: int
+    failed_count: int
+    storage_bytes: int
 
 
 class DocumentRepository(ABC):
@@ -67,4 +94,44 @@ class DocumentRepository(ABC):
         the manual reindex endpoint (reset_attempts=True, start fresh). Returns the
         updated Document, or None if the file_id is unknown.
         """
+        raise NotImplementedError
+
+    # --- Super-admin knowledge-base management (read side) ---
+
+    @abstractmethod
+    async def list_paged(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        status: DocumentStatus | None,
+        classroom_id: UUID | None,
+        search: str | None,
+    ) -> tuple[list[DocumentListItem], int]:
+        """A page of documents (newest first) with each one's chunk count, plus the total
+        matching count. Optional filters: indexing status, classroom, and a filename search."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_statuses(self, file_ids: Sequence[UUID]) -> list[DocumentListItem]:
+        """Batch status/chunk-count lookup for a set of file ids (enrichment for a file list
+        whose registry lives in another service). Unknown ids are simply absent from the result."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def stats(self, classroom_id: UUID | None) -> KnowledgeStats:
+        """Aggregate figures for a classroom (or the whole platform when None)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_file_ids_for_reindex(
+        self, classroom_id: UUID, *, failed_only: bool
+    ) -> list[UUID]:
+        """File ids of a classroom's documents to re-index (all, or only Failed ones)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def count_active(self, classroom_id: UUID) -> int:
+        """How many of a classroom's documents are Pending or Processing. A non-zero count
+        means indexing work is already in flight (used to reject a piling-on bulk reindex, 7ج)."""
         raise NotImplementedError

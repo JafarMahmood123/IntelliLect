@@ -24,6 +24,10 @@ class Document:
     s3_key: str
     file_name: str
     content_type: str
+    # Size of the source file in bytes, denormalized from ClassroomService at ingest so the
+    # knowledge-base admin list/stats are self-contained. 0 for documents ingested before this
+    # field existed (until they are re-ingested).
+    size_bytes: int = 0
     content_hash: str | None = None
     status: DocumentStatus = DocumentStatus.PENDING
     last_error: str | None = None

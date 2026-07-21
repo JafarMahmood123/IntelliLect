@@ -362,6 +362,11 @@ internal sealed class FakeSessionClassroomClient : IClassroomInternalClient
             ? Task.FromException<SessionDeletionResult>(DeleteThrows)
             : Task.FromResult(DeleteResult);
     }
+
+    public Task<AdminFilePage> GetFilesAsync(int page, int pageSize, string? search, Guid? classroomId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<IReadOnlyList<AdminFile>> GetFilesByIdsAsync(IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<IReadOnlyList<ClassroomName>> GetClassroomNamesAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default) => throw new NotImplementedException();
 }
 
 internal sealed class FakeStreamingClient : IStreamingInternalClient

@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    BigInteger,
     DateTime,
     ForeignKey,
     Integer,
@@ -42,6 +43,10 @@ class DocumentModel(Base):
     s3_key: Mapped[str] = mapped_column(String(1024), nullable=False)
     file_name: Mapped[str] = mapped_column(String(512), nullable=False)
     content_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Source-file size in bytes, denormalized from ClassroomService at ingest (see Document).
+    size_bytes: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default="0"
+    )
     content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[DocumentStatus] = mapped_column(
         String(32), nullable=False, default=DocumentStatus.PENDING.value
