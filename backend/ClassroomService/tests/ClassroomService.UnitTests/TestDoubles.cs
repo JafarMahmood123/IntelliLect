@@ -216,6 +216,24 @@ public sealed class FakeClassroomRepository : IClassroomRepository
 
     public Task<List<(Guid Id, string Name)>> GetNamesByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
         => Task.FromResult(_store.Values.Where(c => ids.Contains(c.Id)).Select(c => (c.Id, c.Name)).ToList());
+
+    public Task<ClassroomService.Application.DTOs.Classroom.ClassroomTeacherInfo?> GetTeacherInfoAsync(Guid id, CancellationToken ct = default)
+    {
+        var classroom = _store.GetValueOrDefault(id);
+        return Task.FromResult(classroom is null
+            ? null
+            : new ClassroomService.Application.DTOs.Classroom.ClassroomTeacherInfo(classroom.TeacherId, classroom.Name));
+    }
+
+    public Task<bool> HasLiveSessionAsync(Guid classroomId, CancellationToken ct = default) => Task.FromResult(false);
+
+    public Task<bool> ChangeTeacherWithConcurrencyAsync(Guid id, Guid newTeacherId, long expectedVersion, CancellationToken ct = default)
+    {
+        var classroom = _store.GetValueOrDefault(id);
+        if (classroom is null) return Task.FromResult(false);
+        classroom.TeacherId = newTeacherId;
+        return Task.FromResult(true);
+    }
 }
 
 /// <summary>No-op file storage that returns a deterministic key / accepts deletes.</summary>

@@ -133,6 +133,22 @@ export interface UpdateClassroomAdminRequest {
   version: number;
 }
 
+// --- Change classroom teacher (ownership transfer) --------------------------
+
+export interface ChangeClassroomTeacherRequest {
+  newTeacherId: string;
+  version: number;
+  reason: string;
+}
+
+export interface ClassroomTeacherChangeSummary {
+  classroomId: string;
+  changed: boolean;
+  previousTeacherId: string;
+  newTeacherId: string;
+  className: string;
+}
+
 // --- Session monitoring / force-end -----------------------------------------
 
 export type SessionStatusValue = '' | 'Scheduled' | 'Live' | 'Ended';

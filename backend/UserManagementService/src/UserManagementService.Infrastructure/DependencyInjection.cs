@@ -139,6 +139,7 @@ public static class DependencyInjection
             });
 
         services.AddScoped<IEventBus, MassTransitEventBus>();
+        services.AddScoped<INotificationBus, DirectNotificationBus>();
         services.AddScoped<IRoleRepository, RoleRepository>();
 
 

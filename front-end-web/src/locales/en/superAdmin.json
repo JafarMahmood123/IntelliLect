@@ -251,6 +251,7 @@
       "sessions": "Sessions",
       "files": "Files",
       "edit": "Edit",
+      "changeTeacher": "Change teacher",
       "delete": "Delete",
       "retryDelete": "Resume delete"
     },
@@ -305,6 +306,27 @@
         "nameTooLong": "Classroom name must be at most 100 characters",
         "descriptionRequired": "Description is required",
         "teacherRequired": "Please select a teacher"
+      }
+    },
+    "changeTeacher": {
+      "title": "Change the classroom teacher",
+      "description": "Transfer \"{{name}}\" to another teacher. The classroom's content and outputs stay unchanged.",
+      "currentTeacher": "Current teacher",
+      "newTeacher": "New teacher",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. the previous teacher no longer teaches this course",
+      "submit": "Transfer classroom",
+      "submitting": "Transferring…",
+      "successTitle": "Teacher changed",
+      "success": "\"{{name}}\" was transferred to {{teacher}}.",
+      "changedMessage": "The teacher of \"{{name}}\" was changed.",
+      "notFound": "This classroom no longer exists.",
+      "conflict": "This classroom has a live session, or it was changed by someone else. End the session or reload the list and try again.",
+      "invalidTeacher": "The selected teacher must be an existing, active user with the Teacher role.",
+      "fallbackError": "Could not change the teacher. Please review the data and try again.",
+      "validation": {
+        "teacherRequired": "Please select a new teacher",
+        "reasonRequired": "Please provide a reason for the change"
       }
     }
   },

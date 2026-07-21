@@ -152,4 +152,46 @@ public sealed class ClassroomRepository : GenericRepository<Classroom>, IClassro
 
         return true;
     }
+
+    public async Task<ClassroomTeacherInfo?> GetTeacherInfoAsync(Guid id, CancellationToken ct = default)
+    {
+        return await _context.Set<Classroom>()
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new ClassroomTeacherInfo(c.TeacherId, c.Name))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<bool> HasLiveSessionAsync(Guid classroomId, CancellationToken ct = default)
+    {
+        return await _context.Set<Session>()
+            .AnyAsync(s => s.ClassroomId == classroomId && s.Status == SessionStatus.Live, ct);
+    }
+
+    public async Task<bool> ChangeTeacherWithConcurrencyAsync(
+        Guid id, Guid newTeacherId, long expectedVersion, CancellationToken ct = default)
+    {
+        var classroom = await _context.Set<Classroom>().FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (classroom == null)
+        {
+            return false;
+        }
+
+        classroom.TeacherId = newTeacherId;
+
+        // Same optimistic-concurrency guard as the edit path (6أ): a row changed since the caller
+        // last read its version yields zero affected rows -> ConflictException (HTTP 409).
+        _context.Entry(classroom).Property("xmin").OriginalValue = (uint)expectedVersion;
+
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConflictException("The classroom was modified by someone else. Reload and try again.");
+        }
+
+        return true;
+    }
 }

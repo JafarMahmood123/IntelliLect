@@ -2,6 +2,7 @@ using AutoMapper;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs;
 using ClassroomService.Application.DTOs.Classroom;
+using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
 
 namespace ClassroomService.Application.Services;
@@ -100,5 +101,39 @@ public sealed class ClassroomManagementService : IClassroomManagementService
         {
             throw new KeyNotFoundException("Classroom not found.");
         }
+    }
+
+    public async Task<ChangeTeacherResult> ChangeTeacherAsync(
+        Guid id, Guid newTeacherId, long expectedVersion, CancellationToken ct = default)
+    {
+        // 3أ: the classroom must exist.
+        var info = await _classroomRepository.GetTeacherInfoAsync(id, ct);
+        if (info is null)
+        {
+            throw new KeyNotFoundException("Classroom not found.");
+        }
+
+        // 3ب: refuse to move ownership while a lecture is live.
+        if (await _classroomRepository.HasLiveSessionAsync(id, ct))
+        {
+            throw new ConflictException(
+                "The classroom has a live session. End the session before changing its teacher.");
+        }
+
+        // 4ب: the new teacher already owns the classroom — treat as a no-op, no change, no notify.
+        if (info.TeacherId == newTeacherId)
+        {
+            return new ChangeTeacherResult(false, info.TeacherId, newTeacherId, info.Name);
+        }
+
+        // Step 5: transfer ownership. A stale version surfaces as ConflictException (409).
+        var found = await _classroomRepository.ChangeTeacherWithConcurrencyAsync(id, newTeacherId, expectedVersion, ct);
+        if (!found)
+        {
+            // The classroom was deleted between the read above and the write (a rare race).
+            throw new KeyNotFoundException("Classroom not found.");
+        }
+
+        return new ChangeTeacherResult(true, info.TeacherId, newTeacherId, info.Name);
     }
 }

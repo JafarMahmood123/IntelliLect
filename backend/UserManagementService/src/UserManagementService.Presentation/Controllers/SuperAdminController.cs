@@ -144,6 +144,19 @@ public sealed class SuperAdminController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("classrooms/{id:guid}/teacher")]
+    [ProducesResponseType(typeof(ClassroomTeacherChangeSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeClassroomTeacher(Guid id, [FromBody] ChangeClassroomTeacherRequest request, CancellationToken ct)
+    {
+        // 1أ/4أ -> ArgumentException (400), 3أ -> NotFoundException (404),
+        // 3ب/concurrency -> InvalidOperationException (409), all mapped by GlobalExceptionHandler.
+        var result = await _classroomAdminService.ChangeTeacherAsync(id, request, ct);
+        return Ok(result);
+    }
+
     [HttpGet("sessions")]
     [ProducesResponseType(typeof(PagedResult<SessionMonitorItem>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSessions([FromQuery] SearchSessionsRequest request, CancellationToken ct)

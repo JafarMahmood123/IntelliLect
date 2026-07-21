@@ -1,3 +1,4 @@
+using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Application.DTOs.Classroom;
@@ -11,11 +12,16 @@ public sealed class ClassroomAdminService : IClassroomAdminService
 
     private readonly IClassroomInternalClient _classroomClient;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationBus _notificationBus;
 
-    public ClassroomAdminService(IClassroomInternalClient classroomClient, IUserRepository userRepository)
+    public ClassroomAdminService(
+        IClassroomInternalClient classroomClient,
+        IUserRepository userRepository,
+        INotificationBus notificationBus)
     {
         _classroomClient = classroomClient;
         _userRepository = userRepository;
+        _notificationBus = notificationBus;
     }
 
     // Steps 3-5 (list): fetch the classroom page from ClassroomService, then attach each
@@ -122,7 +128,61 @@ public sealed class ClassroomAdminService : IClassroomAdminService
             result.MembershipsDeleted);
     }
 
-    private async Task EnsureValidTeacherAsync(Guid teacherId, CancellationToken ct)
+    public async Task<ClassroomTeacherChangeSummary> ChangeTeacherAsync(
+        Guid classroomId, ChangeClassroomTeacherRequest request, CancellationToken ct = default)
+    {
+        // 1أ: a reason is mandatory — it documents why ownership moved (validated here before the
+        // cross-service call, and again in ClassroomService).
+        if (string.IsNullOrWhiteSpace(request?.Reason))
+        {
+            throw new ArgumentException("A reason for the teacher change is required.");
+        }
+
+        // 4أ: the new teacher must be an existing, active user with the Teacher role.
+        var newTeacher = await EnsureValidTeacherAsync(request.NewTeacherId, ct);
+
+        // ClassroomService verifies the classroom exists (3أ -> NotFoundException), that no live
+        // session is running (3ب -> InvalidOperationException), performs the 4ب no-op when the new
+        // teacher already owns it, and transfers ownership under optimistic concurrency (step 5).
+        var change = await _classroomClient.ChangeClassroomTeacherAsync(
+            classroomId, request.NewTeacherId, request.Version, ct);
+
+        // Step 6: notify both teachers — only when ownership actually moved (skip the 4ب no-op).
+        if (change.Changed)
+        {
+            await NotifyTeachersAsync(change, newTeacher, ct);
+        }
+
+        return new ClassroomTeacherChangeSummary(
+            classroomId, change.Changed, change.PreviousTeacherId, change.NewTeacherId, change.ClassroomName);
+    }
+
+    // Step 6: best-effort notification. The transfer is already committed in ClassroomService, so a
+    // broker outage must not fail the operation; delivery is direct (not through the outbox) because
+    // this path performs no local database write to flush one.
+    private async Task NotifyTeachersAsync(ClassroomTeacherChange change, User newTeacher, CancellationToken ct)
+    {
+        try
+        {
+            var previous = (await _userRepository.GetByIdsAsync(new[] { change.PreviousTeacherId }, ct)).FirstOrDefault();
+            if (previous is not null)
+            {
+                await _notificationBus.PublishAsync(
+                    new ClassroomTeacherChangedMessage(previous.Email, previous.FirstName, change.ClassroomName, IsNewTeacher: false),
+                    ct);
+            }
+
+            await _notificationBus.PublishAsync(
+                new ClassroomTeacherChangedMessage(newTeacher.Email, newTeacher.FirstName, change.ClassroomName, IsNewTeacher: true),
+                ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Notification delivery is a non-critical side-effect of a completed transfer — swallow.
+        }
+    }
+
+    private async Task<User> EnsureValidTeacherAsync(Guid teacherId, CancellationToken ct)
     {
         var teacher = (await _userRepository.GetByIdsAsync(new[] { teacherId }, ct)).FirstOrDefault();
 
@@ -130,6 +190,8 @@ public sealed class ClassroomAdminService : IClassroomAdminService
         {
             throw new ArgumentException("The assigned teacher must be an existing, active user with the Teacher role.");
         }
+
+        return teacher;
     }
 
     private static string ValidateName(string? name)

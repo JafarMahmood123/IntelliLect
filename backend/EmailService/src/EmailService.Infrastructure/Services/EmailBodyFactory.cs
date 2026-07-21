@@ -73,4 +73,23 @@ public sealed class EmailBodyFactory : IEmailBodyFactory
             <p style='font-size: 12px; color: #9ca3af;'>&copy; {DateTime.UtcNow.Year} IntelliLect Team</p>
         </div>";
     }
+
+    public string CreateTeacherChangedBody(string firstName, string classroomName, bool isNewTeacher)
+    {
+        var (title, message) = isNewTeacher
+            ? ("You Have a New Classroom",
+               $"You have been assigned as the teacher of the classroom \"{classroomName}\". You can now manage it and hold its sessions.")
+            : ("Classroom Reassigned",
+               $"The classroom \"{classroomName}\" has been reassigned to another teacher, and it is no longer under your management. Its content and outputs are unchanged.");
+
+        return $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e4e7; border-radius: 8px; padding: 20px;'>
+            <h1 style='color: #08060d;'>IntelliLect</h1>
+            <h2 style='color: #aa3bff;'>{title}</h2>
+            <p>Hello {firstName},</p>
+            <p>{message}</p>
+            <hr style='border: 0; border-top: 1px solid #e5e4e7; margin: 20px 0;' />
+            <p style='font-size: 12px; color: #9ca3af;'>&copy; {DateTime.UtcNow.Year} IntelliLect Team</p>
+        </div>";
+    }
 }

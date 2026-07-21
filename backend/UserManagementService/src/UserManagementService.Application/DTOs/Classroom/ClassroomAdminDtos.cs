@@ -36,6 +36,21 @@ public sealed record ClassroomAdminItem(
 /// <summary>Body for deleting a classroom; the reason is mandatory (4أ).</summary>
 public sealed record DeleteClassroomAdminRequest(string Reason);
 
+/// <summary>
+/// Body for transferring a classroom to a new teacher. <see cref="Reason"/> is mandatory (1أ);
+/// <see cref="Version"/> carries the concurrency token guarding the transfer.
+/// </summary>
+public sealed record ChangeClassroomTeacherRequest(Guid NewTeacherId, long Version, string Reason);
+
+/// <summary>Outcome of an ownership transfer returned to the super admin. <see cref="Changed"/> is
+/// false for the 4ب no-op (the new teacher already owned the classroom).</summary>
+public sealed record ClassroomTeacherChangeSummary(
+    Guid ClassroomId,
+    bool Changed,
+    Guid PreviousTeacherId,
+    Guid NewTeacherId,
+    string ClassroomName);
+
 /// <summary>What deleting a classroom will destroy (step 3), returned to the super admin for preview.</summary>
 public sealed record ClassroomDeletionImpactResult(
     Guid ClassroomId,

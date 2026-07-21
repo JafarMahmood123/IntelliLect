@@ -22,6 +22,13 @@ public interface IClassroomInternalClient
     /// <exception cref="InvalidOperationException">The classroom was modified concurrently (6أ).</exception>
     Task UpdateClassroomAsync(Guid id, string name, string description, long version, CancellationToken ct = default);
 
+    // --- Teacher reassignment (ownership transfer) ---
+
+    /// <exception cref="Common.NotFoundException">The classroom does not exist (3أ).</exception>
+    /// <exception cref="InvalidOperationException">A live session is in progress (3ب) or the version is stale.</exception>
+    Task<ClassroomTeacherChange> ChangeClassroomTeacherAsync(
+        Guid id, Guid newTeacherId, long version, CancellationToken ct = default);
+
     // --- Classroom deletion with impact preview ---
 
     /// <returns>The deletion impact preview (step 3), or null if the classroom does not exist (5أ).</returns>
@@ -175,6 +182,14 @@ public sealed record AdminClassroom(
     int SessionCount,
     long Version,
     string Status);
+
+/// <summary>Outcome of an ownership transfer (mirrors ClassroomService's ChangeTeacherResult).
+/// <see cref="Changed"/> is false for the 4ب no-op (the new teacher already owned it).</summary>
+public sealed record ClassroomTeacherChange(
+    bool Changed,
+    Guid PreviousTeacherId,
+    Guid NewTeacherId,
+    string ClassroomName);
 
 /// <summary>Deletion impact preview (mirrors ClassroomService's ClassroomDeletionImpact).</summary>
 public sealed record ClassroomDeletionImpact(

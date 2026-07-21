@@ -24,4 +24,13 @@ public interface IClassroomManagementService
     /// <summary>Updates a classroom without an owner check, using optimistic concurrency.</summary>
     /// <exception cref="KeyNotFoundException">The classroom does not exist.</exception>
     Task AdminUpdateAsync(Guid id, UpdateClassroomRequest request, long expectedVersion, CancellationToken ct = default);
+
+    /// <summary>
+    /// Transfers a classroom to a new teacher (ownership transfer). The caller
+    /// (UserManagementService) has already validated that the new teacher is an active Teacher.
+    /// </summary>
+    /// <exception cref="KeyNotFoundException">The classroom does not exist (3أ).</exception>
+    /// <exception cref="Exceptions.ConflictException">A live session is in progress (3ب) or the version is stale.</exception>
+    Task<ChangeTeacherResult> ChangeTeacherAsync(
+        Guid id, Guid newTeacherId, long expectedVersion, CancellationToken ct = default);
 }

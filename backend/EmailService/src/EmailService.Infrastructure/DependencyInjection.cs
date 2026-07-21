@@ -19,6 +19,7 @@ public static class DependencyInjection
             x.AddConsumer<SendResetCodeConsumer>(typeof(SendResetCodeConsumerDefinition));
             x.AddConsumer<SendTwoFactorCodeConsumer>(typeof(SendTwoFactorCodeConsumerDefinition));
             x.AddConsumer<UserStatusChangedConsumer>();
+            x.AddConsumer<ClassroomTeacherChangedConsumer>();
 
             x.UsingRabbitMq((context, cfg) =>
             {

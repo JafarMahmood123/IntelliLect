@@ -1,8 +1,10 @@
 import { apiClient } from '../../../lib/axios';
 import type {
+  ChangeClassroomTeacherRequest,
   ClassroomAdminItem,
   ClassroomDeletionImpact,
   ClassroomDeletionSummary,
+  ClassroomTeacherChangeSummary,
   CreateClassroomAdminRequest,
   PagedResult,
   SearchClassroomsParams,
@@ -42,6 +44,19 @@ export const updateClassroom = async (
   data: UpdateClassroomAdminRequest,
 ): Promise<void> => {
   await apiClient.put(`/super-admin/classrooms/${id}`, data);
+};
+
+// Ownership transfer: reassign the classroom to a new teacher. The reason is mandatory (1أ) and
+// the version guards against a concurrent edit.
+export const changeClassroomTeacher = async (
+  id: string,
+  data: ChangeClassroomTeacherRequest,
+): Promise<ClassroomTeacherChangeSummary> => {
+  const response = await apiClient.put<ClassroomTeacherChangeSummary>(
+    `/super-admin/classrooms/${id}/teacher`,
+    data,
+  );
+  return response.data;
 };
 
 // Step 3: read-only preview of what deleting the classroom will destroy.

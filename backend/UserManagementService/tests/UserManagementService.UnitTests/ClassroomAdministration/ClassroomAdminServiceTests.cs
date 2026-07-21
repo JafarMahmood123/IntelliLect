@@ -1,3 +1,4 @@
+using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.ClassroomAdministration;
 using UserManagementService.Application.Common;
@@ -24,7 +25,7 @@ public class ClassroomAdminServiceTests
             Classroom("CS", t2.Id));
         var client = new FakeClassroomClient(page);
         var users = new FakeClassroomUserRepository(t1, t2);
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         var result = await sut.GetClassroomsAsync(new SearchClassroomsRequest { Page = 1, PageSize = 20 });
 
@@ -41,7 +42,7 @@ public class ClassroomAdminServiceTests
         var page = Page(Classroom("Orphan", Guid.NewGuid()));
         var client = new FakeClassroomClient(page);
         var users = new FakeClassroomUserRepository(); // no matching teacher
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         var result = await sut.GetClassroomsAsync(new SearchClassroomsRequest());
 
@@ -58,7 +59,7 @@ public class ClassroomAdminServiceTests
         var teacher = Teacher("Grace", "Hopper");
         var client = new FakeClassroomClient(createdId: Guid.NewGuid());
         var users = new FakeClassroomUserRepository(teacher);
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         var request = new CreateClassroomAdminRequest(teacher.Id, "  Compilers  ", "  Intro  ");
         var id = await sut.CreateClassroomAsync(request);
@@ -78,7 +79,7 @@ public class ClassroomAdminServiceTests
         var teacher = Teacher("Grace", "Hopper");
         var client = new FakeClassroomClient(createdId: Guid.NewGuid());
         var users = new FakeClassroomUserRepository(teacher);
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => sut.CreateClassroomAsync(new CreateClassroomAdminRequest(teacher.Id, name, description)));
@@ -92,7 +93,7 @@ public class ClassroomAdminServiceTests
         // Alternate path 5ب.
         var client = new FakeClassroomClient(createdId: Guid.NewGuid());
         var users = new FakeClassroomUserRepository(); // empty
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => sut.CreateClassroomAsync(new CreateClassroomAdminRequest(Guid.NewGuid(), "Name", "Desc")));
@@ -107,7 +108,7 @@ public class ClassroomAdminServiceTests
         var student = ActiveUser("Sam", "Student", RoleName.Student);
         var client = new FakeClassroomClient(createdId: Guid.NewGuid());
         var users = new FakeClassroomUserRepository(student);
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => sut.CreateClassroomAsync(new CreateClassroomAdminRequest(student.Id, "Name", "Desc")));
@@ -123,7 +124,7 @@ public class ClassroomAdminServiceTests
         teacher.Deactivate();
         var client = new FakeClassroomClient(createdId: Guid.NewGuid());
         var users = new FakeClassroomUserRepository(teacher);
-        var sut = new ClassroomAdminService(client, users);
+        var sut = new ClassroomAdminService(client, users, new FakeNotificationBus());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => sut.CreateClassroomAsync(new CreateClassroomAdminRequest(teacher.Id, "Name", "Desc")));
@@ -137,7 +138,7 @@ public class ClassroomAdminServiceTests
     public async Task Update_WithValidData_CallsClientWithVersion()
     {
         var client = new FakeClassroomClient();
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
         var id = Guid.NewGuid();
 
         await sut.UpdateClassroomAsync(id, new UpdateClassroomAdminRequest("New name", "New desc", 42));
@@ -153,7 +154,7 @@ public class ClassroomAdminServiceTests
     {
         // Alternate path 5أ.
         var client = new FakeClassroomClient();
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => sut.UpdateClassroomAsync(Guid.NewGuid(), new UpdateClassroomAdminRequest("", "desc", 1)));
@@ -166,7 +167,7 @@ public class ClassroomAdminServiceTests
     {
         // Alternate path 5ج: the client surfaces a 404 as NotFoundException.
         var client = new FakeClassroomClient(updateThrows: new NotFoundException("Classroom not found."));
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => sut.UpdateClassroomAsync(Guid.NewGuid(), new UpdateClassroomAdminRequest("N", "D", 1)));
@@ -177,7 +178,7 @@ public class ClassroomAdminServiceTests
     {
         // Alternate path 6أ: the client surfaces a 409 as InvalidOperationException.
         var client = new FakeClassroomClient(updateThrows: new InvalidOperationException("modified concurrently"));
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => sut.UpdateClassroomAsync(Guid.NewGuid(), new UpdateClassroomAdminRequest("N", "D", 1)));
@@ -189,7 +190,7 @@ public class ClassroomAdminServiceTests
     public async Task GetDeletionImpact_WhenClassroomMissing_ReturnsNull()
     {
         var client = new FakeClassroomClient { ImpactToReturn = null };
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         var result = await sut.GetDeletionImpactAsync(Guid.NewGuid());
 
@@ -206,7 +207,7 @@ public class ClassroomAdminServiceTests
                 SessionCount: 3, MemberCount: 12, FileCount: 5, RecordingCount: 2, SummaryCount: 1,
                 StorageBytes: 1024, HasLiveSession: false),
         };
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         var result = await sut.GetDeletionImpactAsync(id);
 
@@ -221,7 +222,7 @@ public class ClassroomAdminServiceTests
     public async Task Delete_WithoutReason_ThrowsAndDoesNotCallClient()
     {
         var client = new FakeClassroomClient();
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         // 4أ.
         await Assert.ThrowsAsync<ArgumentException>(
@@ -234,7 +235,7 @@ public class ClassroomAdminServiceTests
     {
         var id = Guid.NewGuid();
         var client = new FakeClassroomClient { DeleteResult = new ClassroomDeletionResult(id, 2, 1, 4, 6, 9) };
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         var result = await sut.DeleteClassroomAsync(id, new DeleteClassroomAdminRequest("  course ended  "));
 
@@ -250,11 +251,149 @@ public class ClassroomAdminServiceTests
     public async Task Delete_WhenClientReportsLiveSession_PropagatesInvalidOperation()
     {
         var client = new FakeClassroomClient { DeleteThrows = new InvalidOperationException("live") };
-        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository());
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), new FakeNotificationBus());
 
         // 5ب -> GlobalExceptionHandler maps InvalidOperationException to 409.
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => sut.DeleteClassroomAsync(Guid.NewGuid(), new DeleteClassroomAdminRequest("done")));
+    }
+
+    // ----- teacher reassignment (ownership transfer) ---------------------------
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ChangeTeacher_WithoutReason_ThrowsAndDoesNotCallClient(string reason)
+    {
+        // 1أ: a reason is mandatory.
+        var teacher = Teacher("Grace", "Hopper");
+        var client = new FakeClassroomClient();
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(teacher), bus);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => sut.ChangeTeacherAsync(Guid.NewGuid(), new ChangeClassroomTeacherRequest(teacher.Id, 1, reason)));
+
+        Assert.False(client.ChangeTeacherCalled);
+        Assert.Empty(bus.Published);
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_WhenNewTeacherInvalid_ThrowsAndDoesNotCallClient()
+    {
+        // 4أ: the new teacher is not an existing, active Teacher (here: unknown user).
+        var client = new FakeClassroomClient();
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(), bus);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => sut.ChangeTeacherAsync(Guid.NewGuid(), new ChangeClassroomTeacherRequest(Guid.NewGuid(), 1, "reassign")));
+
+        Assert.False(client.ChangeTeacherCalled);
+        Assert.Empty(bus.Published);
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_HappyPath_TransfersAndNotifiesBothTeachers()
+    {
+        var previous = Teacher("Ada", "Byron");
+        var incoming = Teacher("Grace", "Hopper");
+        var classroomId = Guid.NewGuid();
+        var client = new FakeClassroomClient
+        {
+            TeacherChangeResult = new ClassroomTeacherChange(true, previous.Id, incoming.Id, "Physics"),
+        };
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(previous, incoming), bus);
+
+        var result = await sut.ChangeTeacherAsync(
+            classroomId, new ChangeClassroomTeacherRequest(incoming.Id, 42, "  taught elsewhere  "));
+
+        // Delegated with the right arguments.
+        Assert.True(client.ChangeTeacherCalled);
+        Assert.Equal(classroomId, client.ChangedClassroomId);
+        Assert.Equal(incoming.Id, client.ChangedNewTeacherId);
+        Assert.Equal(42, client.ChangedVersion);
+
+        // Summary reflects the transfer.
+        Assert.True(result.Changed);
+        Assert.Equal(previous.Id, result.PreviousTeacherId);
+        Assert.Equal(incoming.Id, result.NewTeacherId);
+        Assert.Equal("Physics", result.ClassroomName);
+
+        // Step 6: both teachers notified — the loser (IsNewTeacher=false) and the winner (true).
+        Assert.Equal(2, bus.Published.Count);
+        var lost = Assert.Single(bus.Published, m => m.Email == previous.Email);
+        Assert.False(lost.IsNewTeacher);
+        Assert.Equal("Physics", lost.ClassroomName);
+        var gained = Assert.Single(bus.Published, m => m.Email == incoming.Email);
+        Assert.True(gained.IsNewTeacher);
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_WhenNoOp_DoesNotNotify()
+    {
+        // 4ب: the new teacher already owns the classroom -> ClassroomService reports Changed=false.
+        var incoming = Teacher("Grace", "Hopper");
+        var client = new FakeClassroomClient
+        {
+            TeacherChangeResult = new ClassroomTeacherChange(false, incoming.Id, incoming.Id, "Physics"),
+        };
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(incoming), bus);
+
+        var result = await sut.ChangeTeacherAsync(
+            Guid.NewGuid(), new ChangeClassroomTeacherRequest(incoming.Id, 1, "no change"));
+
+        Assert.False(result.Changed);
+        Assert.Empty(bus.Published); // no notification for a no-op
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_WhenClassroomNotFound_PropagatesNotFound()
+    {
+        // 3أ: the client surfaces ClassroomService's 404 as NotFoundException.
+        var incoming = Teacher("Grace", "Hopper");
+        var client = new FakeClassroomClient { ChangeTeacherThrows = new NotFoundException("Classroom not found.") };
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(incoming), bus);
+
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => sut.ChangeTeacherAsync(Guid.NewGuid(), new ChangeClassroomTeacherRequest(incoming.Id, 1, "reassign")));
+        Assert.Empty(bus.Published);
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_WhenLiveSessionOrStaleVersion_PropagatesInvalidOperation()
+    {
+        // 3ب / concurrency: the client surfaces a 409 as InvalidOperationException.
+        var incoming = Teacher("Grace", "Hopper");
+        var client = new FakeClassroomClient { ChangeTeacherThrows = new InvalidOperationException("live") };
+        var bus = new FakeNotificationBus();
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(incoming), bus);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => sut.ChangeTeacherAsync(Guid.NewGuid(), new ChangeClassroomTeacherRequest(incoming.Id, 1, "reassign")));
+        Assert.Empty(bus.Published);
+    }
+
+    [Fact]
+    public async Task ChangeTeacher_WhenNotificationFails_StillSucceeds()
+    {
+        // A broker outage during step 6 must not fail a transfer already committed in ClassroomService.
+        var previous = Teacher("Ada", "Byron");
+        var incoming = Teacher("Grace", "Hopper");
+        var client = new FakeClassroomClient
+        {
+            TeacherChangeResult = new ClassroomTeacherChange(true, previous.Id, incoming.Id, "Physics"),
+        };
+        var bus = new FakeNotificationBus { Throw = true };
+        var sut = new ClassroomAdminService(client, new FakeClassroomUserRepository(previous, incoming), bus);
+
+        var result = await sut.ChangeTeacherAsync(
+            Guid.NewGuid(), new ChangeClassroomTeacherRequest(incoming.Id, 1, "reassign"));
+
+        Assert.True(result.Changed); // the transfer outcome is returned regardless of notify failure
     }
 
     // ----- helpers -------------------------------------------------------------
@@ -352,6 +491,26 @@ internal sealed class FakeClassroomClient : IClassroomInternalClient
             : Task.FromResult(DeleteResult);
     }
 
+    // --- teacher reassignment ---
+    public bool ChangeTeacherCalled { get; private set; }
+    public Guid ChangedClassroomId { get; private set; }
+    public Guid ChangedNewTeacherId { get; private set; }
+    public long ChangedVersion { get; private set; }
+    public Exception? ChangeTeacherThrows { get; set; }
+    public ClassroomTeacherChange TeacherChangeResult { get; set; } =
+        new(Changed: true, PreviousTeacherId: Guid.NewGuid(), NewTeacherId: Guid.NewGuid(), ClassroomName: "Physics");
+
+    public Task<ClassroomTeacherChange> ChangeClassroomTeacherAsync(Guid id, Guid newTeacherId, long version, CancellationToken ct = default)
+    {
+        ChangeTeacherCalled = true;
+        ChangedClassroomId = id;
+        ChangedNewTeacherId = newTeacherId;
+        ChangedVersion = version;
+        return ChangeTeacherThrows is not null
+            ? Task.FromException<ClassroomTeacherChange>(ChangeTeacherThrows)
+            : Task.FromResult(TeacherChangeResult);
+    }
+
     public Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<AdminSessionPage> GetSessionsAsync(int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default) => throw new NotImplementedException();
@@ -387,4 +546,18 @@ internal sealed class FakeClassroomUserRepository : IUserRepository
     public Task UpdateAsync(User entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+}
+
+// Records the notifications published for the transfer (step 6). Throw simulates a broker outage.
+internal sealed class FakeNotificationBus : INotificationBus
+{
+    public List<ClassroomTeacherChangedMessage> Published { get; } = new();
+    public bool Throw { get; set; }
+
+    public Task PublishAsync<T>(T message, CancellationToken ct = default) where T : class
+    {
+        if (Throw) throw new InvalidOperationException("broker down");
+        if (message is ClassroomTeacherChangedMessage m) Published.Add(m);
+        return Task.CompletedTask;
+    }
 }

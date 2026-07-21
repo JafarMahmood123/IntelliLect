@@ -8,10 +8,12 @@ import {
   searchClassrooms,
   createClassroom,
   updateClassroom,
+  changeClassroomTeacher,
   getClassroomDeletionImpact,
   deleteClassroom,
 } from '../api/classrooms';
 import type {
+  ChangeClassroomTeacherRequest,
   CreateClassroomAdminRequest,
   SearchClassroomsParams,
   UpdateClassroomAdminRequest,
@@ -41,6 +43,17 @@ export const useUpdateClassroom = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateClassroomAdminRequest }) =>
       updateClassroom(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['classrooms'] });
+    },
+  });
+};
+
+export const useChangeClassroomTeacher = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ChangeClassroomTeacherRequest }) =>
+      changeClassroomTeacher(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['classrooms'] });
     },

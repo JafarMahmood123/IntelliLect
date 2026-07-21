@@ -10,10 +10,12 @@ import {
   Presentation,
   Search,
   Trash2,
+  UserCog,
   Users as UsersIcon,
 } from 'lucide-react';
 import { useClassrooms } from '../hooks/useClassroomQueries';
 import { ClassroomFormDrawer } from './ClassroomFormDrawer';
+import { ChangeTeacherDialog } from './ChangeTeacherDialog';
 import { DeleteClassroomDialog } from './DeleteClassroomDialog';
 import type { ClassroomAdminItem } from '../types';
 
@@ -27,6 +29,7 @@ export const ClassroomsDirectoryPage = () => {
   const [page, setPage] = useState(1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ClassroomAdminItem | null>(null);
+  const [changingTeacher, setChangingTeacher] = useState<ClassroomAdminItem | null>(null);
   const [deleting, setDeleting] = useState<ClassroomAdminItem | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -65,6 +68,10 @@ export const ClassroomsDirectoryPage = () => {
     setSuccessMessage(
       editing ? t('classrooms.savedEdit', { name }) : t('classrooms.savedCreate', { name }),
     );
+  };
+
+  const handleTeacherChanged = (name: string) => {
+    setSuccessMessage(t('classrooms.changeTeacher.changedMessage', { name }));
   };
 
   const handleDeleted = (name: string) => {
@@ -211,6 +218,18 @@ export const ClassroomsDirectoryPage = () => {
                             type="button"
                             onClick={() => {
                               setSuccessMessage(null);
+                              setChangingTeacher(c);
+                            }}
+                            disabled={pendingDeletion}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            <UserCog size={14} />
+                            {t('classrooms.table.changeTeacher')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSuccessMessage(null);
                               setDeleting(c);
                             }}
                             className="inline-flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
@@ -266,6 +285,12 @@ export const ClassroomsDirectoryPage = () => {
         onClose={() => setDrawerOpen(false)}
         classroom={editing}
         onSaved={handleSaved}
+      />
+
+      <ChangeTeacherDialog
+        classroom={changingTeacher}
+        onClose={() => setChangingTeacher(null)}
+        onChanged={handleTeacherChanged}
       />
 
       <DeleteClassroomDialog

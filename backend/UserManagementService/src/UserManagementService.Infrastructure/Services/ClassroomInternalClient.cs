@@ -146,6 +146,32 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<ClassroomTeacherChange> ChangeClassroomTeacherAsync(
+        Guid id, Guid newTeacherId, long version, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Put, $"api/internal/classrooms/{id}/teacher")
+            {
+                Content = JsonContent.Create(new { newTeacherId, version })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom not found."); // 3أ
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The classroom has a live session or was modified by someone else. End the session or reload and try again."); // 3ب / concurrency
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ClassroomTeacherChange>(ct);
+        return result ?? new ClassroomTeacherChange(false, Guid.Empty, newTeacherId, string.Empty);
+    }
+
     public async Task<ClassroomDeletionImpact?> GetClassroomDeletionImpactAsync(Guid id, CancellationToken ct = default)
     {
         using var response = await SendAsync(

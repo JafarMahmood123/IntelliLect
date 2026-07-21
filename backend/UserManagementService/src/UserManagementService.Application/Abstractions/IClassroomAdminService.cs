@@ -19,4 +19,10 @@ public interface IClassroomAdminService
 
     /// <exception cref="ArgumentException">The confirmation/reason is missing (4أ).</exception>
     Task<ClassroomDeletionSummary> DeleteClassroomAsync(Guid classroomId, DeleteClassroomAdminRequest request, CancellationToken ct = default);
+
+    /// <summary>Transfers a classroom to a new teacher (ownership transfer), then notifies both teachers (step 6).</summary>
+    /// <exception cref="ArgumentException">The reason is missing (1أ) or the new teacher is not an active Teacher (4أ).</exception>
+    /// <exception cref="NotFoundException">The classroom does not exist (3أ).</exception>
+    /// <exception cref="InvalidOperationException">A live session is in progress (3ب) or the version is stale.</exception>
+    Task<ClassroomTeacherChangeSummary> ChangeTeacherAsync(Guid classroomId, ChangeClassroomTeacherRequest request, CancellationToken ct = default);
 }

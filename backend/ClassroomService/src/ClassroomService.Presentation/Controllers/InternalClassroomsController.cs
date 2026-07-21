@@ -110,6 +110,35 @@ public sealed class InternalClassroomsController : ControllerBase
     }
 
     /// <summary>
+    /// Ownership transfer: reassign the classroom to a new teacher. The caller has already
+    /// validated the new teacher (active Teacher, 4أ) and the reason (1أ).
+    /// </summary>
+    [HttpPut("{id:guid}/teacher")]
+    [ProducesResponseType(typeof(ChangeTeacherResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeTeacher(Guid id, [FromBody] InternalChangeTeacherRequest request, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            var result = await _classrooms.ChangeTeacherAsync(id, request.NewTeacherId, request.Version, ct);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            // 3أ: the classroom does not exist.
+            return NotFound();
+        }
+        catch (ConflictException)
+        {
+            // 3ب: a live session is in progress, or the version is stale.
+            return Conflict();
+        }
+    }
+
+    /// <summary>
     /// Step 3: read-only deletion impact preview. 404 if the classroom does not exist (5أ).
     /// </summary>
     [HttpGet("{id:guid}/deletion-impact")]
@@ -184,6 +213,7 @@ public sealed class InternalClassroomsController : ControllerBase
 
 public sealed record InternalCreateClassroomRequest(Guid TeacherId, string Name, string Description);
 public sealed record InternalUpdateClassroomRequest(string Name, string Description, long Version);
+public sealed record InternalChangeTeacherRequest(Guid NewTeacherId, long Version);
 public sealed record InternalDeleteClassroomRequest(string Reason);
 public sealed record ClassroomIdsRequest(IReadOnlyCollection<Guid> Ids);
 public sealed record ClassroomNameDto(Guid Id, string Name);

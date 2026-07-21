@@ -8,4 +8,6 @@ public static class EmailSubjects
     public const string AccountDeactivated = "Your Account has been Deactivated";
     public const string PasswordReset = "Your Password Reset Code";
     public const string TwoFactorCode = "Your IntelliLect Login Verification Code";
+    public const string ClassroomAssigned = "A Classroom Has Been Assigned to You";
+    public const string ClassroomUnassigned = "A Classroom Has Been Reassigned";
 }
