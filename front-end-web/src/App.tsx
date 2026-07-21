@@ -6,6 +6,7 @@ import { SuperAdminDashboard } from "./features/superAdmin/components/SuperAdmin
 import { UsersDirectoryPage } from "./features/superAdmin/components/UsersDirectoryPage";
 import { UserDetailPage } from "./features/superAdmin/components/UserDetailPage";
 import { ClassroomsDirectoryPage } from "./features/superAdmin/components/ClassroomsDirectoryPage";
+import { ClassroomMembersPage } from "./features/superAdmin/components/ClassroomMembersPage";
 import { SessionsMonitorPage } from "./features/superAdmin/components/SessionsMonitorPage";
 import { KnowledgeBasePage } from "./features/superAdmin/components/KnowledgeBasePage";
 import { OutputsPage } from "./features/superAdmin/components/OutputsPage";
@@ -91,6 +92,7 @@ function App() {
                   <Route path="/super-admin/users" element={<UsersDirectoryPage />} />
                   <Route path="/super-admin/users/:id" element={<UserDetailPage />} />
                   <Route path="/super-admin/classrooms" element={<ClassroomsDirectoryPage />} />
+          <Route path="/super-admin/classrooms/:id/members" element={<ClassroomMembersPage />} />
                   <Route path="/super-admin/sessions" element={<SessionsMonitorPage />} />
                   <Route path="/super-admin/knowledge" element={<KnowledgeBasePage />} />
                   <Route path="/super-admin/outputs" element={<OutputsPage />} />

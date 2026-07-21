@@ -92,4 +92,23 @@ public sealed class EmailBodyFactory : IEmailBodyFactory
             <p style='font-size: 12px; color: #9ca3af;'>&copy; {DateTime.UtcNow.Year} IntelliLect Team</p>
         </div>";
     }
+
+    public string CreateMembershipChangedBody(string firstName, string classroomName, bool isAdded)
+    {
+        var (title, message) = isAdded
+            ? ("Added to a Classroom",
+               $"You have been added to the classroom \"{classroomName}\". You can now access its sessions and materials.")
+            : ("Removed from a Classroom",
+               $"You have been removed from the classroom \"{classroomName}\" and no longer have access to it.");
+
+        return $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e4e7; border-radius: 8px; padding: 20px;'>
+            <h1 style='color: #08060d;'>IntelliLect</h1>
+            <h2 style='color: #aa3bff;'>{title}</h2>
+            <p>Hello {firstName},</p>
+            <p>{message}</p>
+            <hr style='border: 0; border-top: 1px solid #e5e4e7; margin: 20px 0;' />
+            <p style='font-size: 12px; color: #9ca3af;'>&copy; {DateTime.UtcNow.Year} IntelliLect Team</p>
+        </div>";
+    }
 }

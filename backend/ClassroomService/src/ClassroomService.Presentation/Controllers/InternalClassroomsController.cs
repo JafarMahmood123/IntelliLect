@@ -1,5 +1,6 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Classroom;
+using ClassroomService.Application.DTOs.Membership;
 using ClassroomService.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,17 +23,20 @@ public sealed class InternalClassroomsController : ControllerBase
 
     private readonly IClassroomManagementService _classrooms;
     private readonly IClassroomDeletionService _deletion;
+    private readonly IClassroomMemberAdminService _members;
     private readonly IClassroomRepository _classroomRepository;
     private readonly IConfiguration _configuration;
 
     public InternalClassroomsController(
         IClassroomManagementService classrooms,
         IClassroomDeletionService deletion,
+        IClassroomMemberAdminService members,
         IClassroomRepository classroomRepository,
         IConfiguration configuration)
     {
         _classrooms = classrooms;
         _deletion = deletion;
+        _members = members;
         _classroomRepository = classroomRepository;
         _configuration = configuration;
     }
@@ -187,6 +191,68 @@ public sealed class InternalClassroomsController : ControllerBase
         }
     }
 
+    // ----- Member management (list / add / remove students) --------------------
+
+    /// <summary>Step 3: the full membership set (teacher + students) for the super-admin member view.
+    /// 404 if the classroom does not exist (5أ).</summary>
+    [HttpGet("{id:guid}/members")]
+    [ProducesResponseType(typeof(ClassroomMembersResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMembers(Guid id, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            return Ok(await _members.GetMembersAsync(id, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(); // 5أ
+        }
+    }
+
+    /// <summary>Steps 5-6: add a student. No-op (Changed=false) when already a member (5ج).</summary>
+    [HttpPost("{id:guid}/members")]
+    [ProducesResponseType(typeof(MemberMutationResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddMember(Guid id, [FromBody] InternalAddMemberRequest request, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            return Ok(await _members.AddMemberAsync(id, request.StudentId, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(); // 5أ
+        }
+    }
+
+    /// <summary>Steps 5-6: remove a member. The removal reason is validated by the caller (4أ).</summary>
+    [HttpDelete("{id:guid}/members/{studentId:guid}")]
+    [ProducesResponseType(typeof(MemberMutationResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveMember(Guid id, Guid studentId, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try
+        {
+            return Ok(await _members.RemoveMemberAsync(id, studentId, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(); // 5أ (classroom) / 5د (membership)
+        }
+        catch (ConflictException)
+        {
+            return Conflict(); // 5هـ: target is the classroom teacher
+        }
+    }
+
     /// <summary>Batch classroom-name resolution for enriching file/other listings by classroom id.</summary>
     [HttpPost("names")]
     [ProducesResponseType(typeof(IReadOnlyList<ClassroomNameDto>), StatusCodes.Status200OK)]
@@ -214,6 +280,7 @@ public sealed class InternalClassroomsController : ControllerBase
 public sealed record InternalCreateClassroomRequest(Guid TeacherId, string Name, string Description);
 public sealed record InternalUpdateClassroomRequest(string Name, string Description, long Version);
 public sealed record InternalChangeTeacherRequest(Guid NewTeacherId, long Version);
+public sealed record InternalAddMemberRequest(Guid StudentId);
 public sealed record InternalDeleteClassroomRequest(string Reason);
 public sealed record ClassroomIdsRequest(IReadOnlyCollection<Guid> Ids);
 public sealed record ClassroomNameDto(Guid Id, string Name);

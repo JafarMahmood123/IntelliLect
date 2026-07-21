@@ -6,4 +6,5 @@ public interface IEmailBodyFactory
     string CreateTwoFactorCodeBody(string code);
     string CreateStatusChangedBody(string firstName, string status);
     string CreateTeacherChangedBody(string firstName, string classroomName, bool isNewTeacher);
+    string CreateMembershipChangedBody(string firstName, string classroomName, bool isAdded);
 }

@@ -253,6 +253,7 @@
       "files": "الملفات",
       "edit": "تعديل",
       "changeTeacher": "تغيير المعلّم",
+      "members": "الأعضاء",
       "delete": "حذف",
       "retryDelete": "متابعة الحذف"
     },
@@ -331,6 +332,71 @@
         "teacherRequired": "يرجى اختيار معلّم جديد",
         "reasonRequired": "يرجى ذكر سبب التغيير"
       }
+    }
+  },
+  "members": {
+    "backToClassrooms": "العودة إلى الفصول",
+    "title": "أعضاء الفصل",
+    "subtitle": "استعرض أعضاء هذا الفصل وأضِف إليه أو أزِل منه.",
+    "subtitleNamed": "أعضاء «{{name}}».",
+    "addStudent": "إضافة طالب",
+    "searchLabel": "بحث",
+    "searchPlaceholder": "ابحث عن الأعضاء بالاسم أو البريد الإلكتروني",
+    "loading": "جارٍ تحميل الأعضاء...",
+    "loadError": "فشل تحميل الأعضاء. قد يكون الفصل غير موجود.",
+    "empty": "لا يوجد أعضاء مطابقون للبحث.",
+    "addedMessage": "تمت إضافة {{name}} إلى الفصل.",
+    "removedMessage": "تمت إزالة {{name}} من الفصل.",
+    "roles": {
+      "teacher": "معلّم",
+      "student": "طالب"
+    },
+    "table": {
+      "name": "الاسم",
+      "email": "البريد الإلكتروني",
+      "role": "الدور",
+      "joined": "تاريخ الانضمام",
+      "actions": "الإجراءات",
+      "unknownUser": "مستخدم غير معروف",
+      "owner": "المالك",
+      "remove": "إزالة"
+    },
+    "pagination": {
+      "showing": "عرض {{count}} من {{total}} عضو"
+    },
+    "add": {
+      "title": "إضافة طالب",
+      "description": "أضِف طالبًا إلى هذا الفصل متجاوزًا مسار الانضمام المعتاد.",
+      "student": "الطالب",
+      "studentPlaceholder": "ابحث عن طالب نشط بالاسم أو البريد الإلكتروني",
+      "searching": "جارٍ البحث...",
+      "noStudents": "لا يوجد طلاب نشطون مطابقون.",
+      "submit": "إضافة الطالب",
+      "submitting": "جارٍ الإضافة...",
+      "successTitle": "تمت إضافة الطالب",
+      "success": "تمت إضافة {{student}} إلى الفصل.",
+      "alreadyTitle": "عضو بالفعل",
+      "already": "{{student}} عضو في هذا الفصل بالفعل.",
+      "classroomNotFound": "لم يعد هذا الفصل موجودًا.",
+      "invalidStudent": "يجب أن يكون العضو المضاف طالبًا نشطًا موجودًا.",
+      "fallbackError": "تعذّرت إضافة الطالب. حاول مرة أخرى.",
+      "validation": {
+        "studentRequired": "يرجى اختيار طالب"
+      }
+    },
+    "remove": {
+      "title": "إزالة هذا العضو؟",
+      "description": "إزالة {{member}} من الفصل. سيفقد إمكانية الوصول إليه.",
+      "reasonLabel": "السبب (مطلوب)",
+      "reasonPlaceholder": "مثال: أُضيف بالخطأ",
+      "reasonRequired": "يرجى ذكر سبب إزالة هذا العضو.",
+      "confirm": "إزالة العضو",
+      "removing": "جارٍ الإزالة...",
+      "successTitle": "تمت إزالة العضو",
+      "success": "تمت إزالة {{member}} من الفصل.",
+      "notFound": "لم تعد هذه العضوية موجودة.",
+      "teacherBlock": "لا يمكن إزالة معلّم الفصل من هنا. استخدم «تغيير المعلّم» لإعادة إسناد الفصل.",
+      "fallbackError": "تعذّرت إزالة العضو. حاول مرة أخرى."
     }
   },
   "sessions": {

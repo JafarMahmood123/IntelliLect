@@ -252,6 +252,7 @@
       "files": "Files",
       "edit": "Edit",
       "changeTeacher": "Change teacher",
+      "members": "Members",
       "delete": "Delete",
       "retryDelete": "Resume delete"
     },
@@ -328,6 +329,71 @@
         "teacherRequired": "Please select a new teacher",
         "reasonRequired": "Please provide a reason for the change"
       }
+    }
+  },
+  "members": {
+    "backToClassrooms": "Back to classrooms",
+    "title": "Classroom Members",
+    "subtitle": "View, add, and remove the members of this classroom.",
+    "subtitleNamed": "Members of \"{{name}}\".",
+    "addStudent": "Add student",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search members by name or email",
+    "loading": "Loading members...",
+    "loadError": "Failed to load members. The classroom may not exist.",
+    "empty": "No members match the search.",
+    "addedMessage": "{{name}} was added to the classroom.",
+    "removedMessage": "{{name}} was removed from the classroom.",
+    "roles": {
+      "teacher": "Teacher",
+      "student": "Student"
+    },
+    "table": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "joined": "Joined",
+      "actions": "Actions",
+      "unknownUser": "Unknown user",
+      "owner": "Owner",
+      "remove": "Remove"
+    },
+    "pagination": {
+      "showing": "Showing {{count}} of {{total}} members"
+    },
+    "add": {
+      "title": "Add a student",
+      "description": "Add a student to this classroom, bypassing the usual join flow.",
+      "student": "Student",
+      "studentPlaceholder": "Search active students by name or email",
+      "searching": "Searching...",
+      "noStudents": "No matching active students.",
+      "submit": "Add student",
+      "submitting": "Adding...",
+      "successTitle": "Student added",
+      "success": "{{student}} was added to the classroom.",
+      "alreadyTitle": "Already a member",
+      "already": "{{student}} is already a member of this classroom.",
+      "classroomNotFound": "This classroom no longer exists.",
+      "invalidStudent": "The member to add must be an existing, active student.",
+      "fallbackError": "Could not add the student. Please try again.",
+      "validation": {
+        "studentRequired": "Please select a student"
+      }
+    },
+    "remove": {
+      "title": "Remove this member?",
+      "description": "Remove {{member}} from the classroom. They will lose access to it.",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "e.g. enrolled by mistake",
+      "reasonRequired": "Please provide a reason for removing this member.",
+      "confirm": "Remove member",
+      "removing": "Removing...",
+      "successTitle": "Member removed",
+      "success": "{{member}} was removed from the classroom.",
+      "notFound": "This membership no longer exists.",
+      "teacherBlock": "The classroom teacher cannot be removed here. Use \"Change teacher\" to reassign the classroom.",
+      "fallbackError": "Could not remove the member. Please try again."
     }
   },
   "outputs": {

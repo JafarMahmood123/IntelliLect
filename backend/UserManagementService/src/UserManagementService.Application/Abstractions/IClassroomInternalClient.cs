@@ -69,6 +69,19 @@ public interface IClassroomInternalClient
     /// <exception cref="Common.NotFoundException">The file does not exist (7أ).</exception>
     Task<FileDeletionResult> DeleteFileAsync(Guid fileId, string reason, CancellationToken ct = default);
 
+    // --- Classroom member management (list/add/remove students) ---
+
+    /// <exception cref="Common.NotFoundException">The classroom does not exist (5أ).</exception>
+    Task<ClassroomMembersData> GetClassroomMembersAsync(Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>Adds a student. Changed=false when the student already belongs (5ج).</summary>
+    /// <exception cref="Common.NotFoundException">The classroom does not exist (5أ).</exception>
+    Task<MemberChangeResult> AddClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default);
+
+    /// <exception cref="Common.NotFoundException">The classroom (5أ) or membership (5د) does not exist.</exception>
+    /// <exception cref="InvalidOperationException">The target is the classroom teacher (5هـ).</exception>
+    Task<MemberChangeResult> RemoveClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default);
+
     // --- Session outputs (recordings + summaries), owned by ClassroomService ---
 
     Task<AdminOutputPage> GetOutputsAsync(
@@ -182,6 +195,21 @@ public sealed record AdminClassroom(
     int SessionCount,
     long Version,
     string Status);
+
+/// <summary>A student membership row (mirrors ClassroomService's ClassroomMemberRow).</summary>
+public sealed record ClassroomMemberRow(Guid StudentId, DateTime JoinedAtUtc);
+
+/// <summary>A classroom's full membership set: the owning teacher plus every enrolled student
+/// (mirrors ClassroomService's ClassroomMembersResult).</summary>
+public sealed record ClassroomMembersData(
+    Guid ClassroomId,
+    string ClassroomName,
+    Guid TeacherId,
+    IReadOnlyList<ClassroomMemberRow> Students);
+
+/// <summary>Outcome of an add/remove (mirrors ClassroomService's MemberMutationResult).
+/// <see cref="Changed"/> is false for the 5ج no-op.</summary>
+public sealed record MemberChangeResult(bool Changed, Guid ClassroomId, string ClassroomName, Guid StudentId);
 
 /// <summary>Outcome of an ownership transfer (mirrors ClassroomService's ChangeTeacherResult).
 /// <see cref="Changed"/> is false for the 4ب no-op (the new teacher already owned it).</summary>

@@ -10,4 +10,6 @@ public static class EmailSubjects
     public const string TwoFactorCode = "Your IntelliLect Login Verification Code";
     public const string ClassroomAssigned = "A Classroom Has Been Assigned to You";
     public const string ClassroomUnassigned = "A Classroom Has Been Reassigned";
+    public const string ClassroomMemberAdded = "You Have Been Added to a Classroom";
+    public const string ClassroomMemberRemoved = "You Have Been Removed from a Classroom";
 }

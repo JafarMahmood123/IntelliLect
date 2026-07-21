@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ const PAGE_SIZE = 20;
 
 export const ClassroomsDirectoryPage = () => {
   const { t } = useTranslation('superAdmin');
+  const navigate = useNavigate();
 
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -205,6 +206,19 @@ export const ClassroomsDirectoryPage = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/super-admin/classrooms/${c.id}/members`, {
+                                state: { name: c.name },
+                              })
+                            }
+                            disabled={pendingDeletion}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            <UsersIcon size={14} />
+                            {t('classrooms.table.members')}
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEdit(c)}

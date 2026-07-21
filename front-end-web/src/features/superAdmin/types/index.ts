@@ -149,6 +149,31 @@ export interface ClassroomTeacherChangeSummary {
   className: string;
 }
 
+// --- Classroom member management --------------------------------------------
+
+export interface ClassroomMemberItem {
+  userId: string;
+  name?: string | null;
+  email?: string | null;
+  roleInClass: string; // "Teacher" | "Student"
+  joinedAtUtc?: string | null;
+  isTeacher: boolean;
+}
+
+export interface SearchMembersParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface MemberChangeSummary {
+  changed: boolean;
+  classroomId: string;
+  className: string;
+  studentId: string;
+  action: string; // "Added" | "Removed"
+}
+
 // --- Session monitoring / force-end -----------------------------------------
 
 export type SessionStatusValue = '' | 'Scheduled' | 'Live' | 'Ended';

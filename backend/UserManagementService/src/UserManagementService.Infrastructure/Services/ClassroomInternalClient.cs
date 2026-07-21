@@ -359,6 +359,63 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
         return result ?? new FileDeletionResult(fileId, false, false);
     }
 
+    public async Task<ClassroomMembersData> GetClassroomMembersAsync(Guid classroomId, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"api/internal/classrooms/{classroomId}/members"), ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom not found."); // 5أ
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ClassroomMembersData>(ct);
+        return payload ?? new ClassroomMembersData(classroomId, string.Empty, Guid.Empty, Array.Empty<ClassroomMemberRow>());
+    }
+
+    public async Task<MemberChangeResult> AddClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, $"api/internal/classrooms/{classroomId}/members")
+            {
+                Content = JsonContent.Create(new { studentId })
+            },
+            ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom not found."); // 5أ
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<MemberChangeResult>(ct);
+        return result ?? new MemberChangeResult(false, classroomId, string.Empty, studentId);
+    }
+
+    public async Task<MemberChangeResult> RemoveClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
+    {
+        using var response = await SendAsync(
+            () => new HttpRequestMessage(HttpMethod.Delete, $"api/internal/classrooms/{classroomId}/members/{studentId}"), ct);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new NotFoundException("Classroom or membership not found."); // 5أ / 5د
+        }
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "The classroom teacher cannot be removed here. Use teacher reassignment to change the owner."); // 5هـ
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<MemberChangeResult>(ct);
+        return result ?? new MemberChangeResult(true, classroomId, string.Empty, studentId);
+    }
+
     public async Task<AdminOutputPage> GetOutputsAsync(
         int page, int pageSize, string? search, string? type, string? status, Guid? classroomId, CancellationToken ct = default)
     {

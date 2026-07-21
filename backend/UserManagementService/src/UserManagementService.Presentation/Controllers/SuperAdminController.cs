@@ -7,6 +7,7 @@ using UserManagementService.Application.Common.Admins;
 using UserManagementService.Application.DTOs.Admin;
 using UserManagementService.Application.DTOs.Classroom;
 using UserManagementService.Application.DTOs.Knowledge;
+using UserManagementService.Application.DTOs.Member;
 using UserManagementService.Application.DTOs.Output;
 using UserManagementService.Application.DTOs.Session;
 using UserManagementService.Application.DTOs.User;
@@ -25,6 +26,7 @@ public sealed class SuperAdminController : ControllerBase
     private readonly ISessionMonitorService _sessionMonitorService;
     private readonly IKnowledgeAdminService _knowledgeAdminService;
     private readonly IOutputAdminService _outputAdminService;
+    private readonly IClassroomMemberAdminService _memberAdminService;
 
     public SuperAdminController(
         ISuperAdminService superAdminService,
@@ -33,7 +35,8 @@ public sealed class SuperAdminController : ControllerBase
         IClassroomAdminService classroomAdminService,
         ISessionMonitorService sessionMonitorService,
         IKnowledgeAdminService knowledgeAdminService,
-        IOutputAdminService outputAdminService)
+        IOutputAdminService outputAdminService,
+        IClassroomMemberAdminService memberAdminService)
     {
         _superAdminService = superAdminService;
         _userDirectoryService = userDirectoryService;
@@ -42,6 +45,7 @@ public sealed class SuperAdminController : ControllerBase
         _sessionMonitorService = sessionMonitorService;
         _knowledgeAdminService = knowledgeAdminService;
         _outputAdminService = outputAdminService;
+        _memberAdminService = memberAdminService;
     }
 
     [HttpGet("admins")]
@@ -154,6 +158,42 @@ public sealed class SuperAdminController : ControllerBase
         // 1أ/4أ -> ArgumentException (400), 3أ -> NotFoundException (404),
         // 3ب/concurrency -> InvalidOperationException (409), all mapped by GlobalExceptionHandler.
         var result = await _classroomAdminService.ChangeTeacherAsync(id, request, ct);
+        return Ok(result);
+    }
+
+    // ----- Classroom member management -----------------------------------------
+
+    [HttpGet("classrooms/{id:guid}/members")]
+    [ProducesResponseType(typeof(PagedResult<ClassroomMemberItem>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetClassroomMembers(Guid id, [FromQuery] SearchMembersRequest request, CancellationToken ct)
+    {
+        // 5أ -> NotFoundException (404), mapped by GlobalExceptionHandler.
+        var result = await _memberAdminService.GetMembersAsync(id, request, ct);
+        return Ok(result);
+    }
+
+    [HttpPost("classrooms/{id:guid}/members")]
+    [ProducesResponseType(typeof(MemberChangeSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddClassroomMember(Guid id, [FromBody] AddMemberRequest request, CancellationToken ct)
+    {
+        // 5ب -> ArgumentException (400), 5أ -> NotFoundException (404).
+        var result = await _memberAdminService.AddMemberAsync(id, request, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("classrooms/{id:guid}/members/{studentId:guid}")]
+    [ProducesResponseType(typeof(MemberChangeSummary), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveClassroomMember(Guid id, Guid studentId, [FromBody] RemoveMemberRequest request, CancellationToken ct)
+    {
+        // 4أ -> ArgumentException (400), 5أ/5د -> NotFoundException (404),
+        // 5هـ -> InvalidOperationException (409).
+        var result = await _memberAdminService.RemoveMemberAsync(id, studentId, request, ct);
         return Ok(result);
     }
 

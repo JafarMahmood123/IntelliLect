@@ -512,6 +512,9 @@ internal sealed class FakeClassroomClient : IClassroomInternalClient
     }
 
     public Task<AdminClassroom?> GetClassroomByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<ClassroomMembersData> GetClassroomMembersAsync(Guid classroomId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<MemberChangeResult> AddClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<MemberChangeResult> RemoveClassroomMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<AdminSessionPage> GetSessionsAsync(int page, int pageSize, string? search, string? status, Guid? classroomId, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<ForceEndResult> ForceEndSessionAsync(Guid sessionId, string reason, CancellationToken ct = default) => throw new NotImplementedException();

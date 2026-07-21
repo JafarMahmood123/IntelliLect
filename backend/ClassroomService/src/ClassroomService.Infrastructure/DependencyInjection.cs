@@ -38,6 +38,9 @@ public static class DependencyInjection
         services.AddScoped<IClassroomManagementService, ClassroomManagementService>();
         services.AddScoped<IClassroomFileService, ClassroomFileService>();
         services.AddScoped<IMembershipService, MembershipService>();
+
+        // Super-admin classroom member management (list/add/remove students).
+        services.AddScoped<IClassroomMemberAdminService, ClassroomMemberAdminService>();
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
         services.AddScoped<IRecordingRepository, RecordingRepository>();
 

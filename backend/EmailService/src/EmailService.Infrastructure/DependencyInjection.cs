@@ -20,6 +20,7 @@ public static class DependencyInjection
             x.AddConsumer<SendTwoFactorCodeConsumer>(typeof(SendTwoFactorCodeConsumerDefinition));
             x.AddConsumer<UserStatusChangedConsumer>();
             x.AddConsumer<ClassroomTeacherChangedConsumer>();
+            x.AddConsumer<ClassroomMembershipChangedConsumer>();
 
             x.UsingRabbitMq((context, cfg) =>
             {
