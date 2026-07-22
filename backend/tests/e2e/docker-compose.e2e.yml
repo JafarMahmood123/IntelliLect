@@ -1,0 +1,25 @@
+# E2E override: run the LiveAssistant agent in FAKE-AUDIO mode.
+#
+# Why: the full "teacher teaches -> gets feedback" loop needs the teacher's audio to
+# reach the agent. In production that audio arrives as WebRTC media over LiveKit. In
+# CI / Docker Desktop / behind a VPN, WebRTC media often cannot be established, which
+# would make the core scenario untestable. Fake-audio mode plays a local WAV of the
+# teacher speaking through the REAL rest of the pipeline (STT -> idea boundary ->
+# KnowledgeService retrieval -> Ollama brain -> pacing), and records the delivered
+# feedback in-process so the test can read it via GET /api/internal/sessions/{id}/feedback.
+# The feedback INTELLIGENCE is exercised for real; only the WebRTC transport is bypassed.
+#
+# Applied automatically by run-in-network.sh. Manual:
+#   E2E_WAV_HOST_PATH=$(pwd)/tests/e2e/assets/teacher_line.wav \
+#   docker compose -f docker-compose.yml -f tests/e2e/docker-compose.e2e.yml up -d --build live-assistant-service
+#
+# Revert to normal (LiveKit audio) with:  docker compose up -d live-assistant-service
+
+services:
+  live-assistant-service:
+    environment:
+      - AGENT_AUDIO_SOURCE=fake
+      - FAKE_AUDIO_WAV_PATH=/fake_teacher.wav
+    volumes:
+      # Absolute host path supplied by run-in-network.sh (compose var substitution).
+      - ${E2E_WAV_HOST_PATH:-./tests/e2e/assets/teacher_line.wav}:/fake_teacher.wav:ro

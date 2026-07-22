@@ -32,6 +32,10 @@ from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
 )
 from app.infrastructure.feedback.livekit_feedback_sink import LiveKitFeedbackSink
+from app.infrastructure.feedback.recording_feedback_sink import (
+    FeedbackRecorder,
+    RecordingFeedbackSink,
+)
 from app.infrastructure.persistence.database import get_session_factory
 from app.infrastructure.persistence.in_memory_transcript_repository import (
     InMemoryTranscriptRepository,
@@ -204,18 +208,47 @@ TranscriptRepositoryDep = Annotated[
 ]
 
 
+# --- Feedback recording (integration testing: AGENT_AUDIO_SOURCE=fake) ---------
+def build_feedback_recorder() -> FeedbackRecorder:
+    """Process-wide store of delivered feedback, shared by fake-mode pipelines and the
+    feedback read endpoint. Harmless in production (nothing records into it)."""
+    return FeedbackRecorder()
+
+
+def get_feedback_recorder(request: Request) -> FeedbackRecorder:
+    recorder: FeedbackRecorder | None = getattr(
+        request.app.state, "feedback_recorder", None
+    )
+    if recorder is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Feedback recorder is not running.",
+        )
+    return recorder
+
+
+FeedbackRecorderDep = Annotated[FeedbackRecorder, Depends(get_feedback_recorder)]
+
+
 # --- Session lifecycle (LA-6) -------------------------------------------------
 def build_session_pipeline_factory(
-    settings: Settings, transcript_repository: TranscriptRepository
+    settings: Settings,
+    transcript_repository: TranscriptRepository,
+    feedback_recorder: FeedbackRecorder,
 ) -> SessionPipelineFactory:
     """Factory that assembles the full per-session loop from the phase components.
 
-    Each session gets its OWN LiveKit agent (its own room connection + boundary
-    buffer). The agent is used BOTH as the capture ``AudioSource`` and — because it
-    implements ``AgentDataChannel`` — as the feedback channel, so feedback flows back
-    over the same single connection (no second connection). Stateless HTTP clients
-    (embedder / retrieval / brain) are constructed per session too; they hold no
-    per-session state.
+    In production (``AGENT_AUDIO_SOURCE == "livekit"``) each session gets its OWN
+    LiveKit agent, used BOTH as the capture ``AudioSource`` and — because it implements
+    ``AgentDataChannel`` — as the feedback channel, so feedback flows back over the same
+    single connection. Stateless HTTP clients (embedder / retrieval / brain) are
+    constructed per session too; they hold no per-session state.
+
+    For integration testing (``AGENT_AUDIO_SOURCE == "fake"``) the audio ingress is a
+    local WAV (``FakeAudioSource``) and feedback is recorded in-process
+    (``RecordingFeedbackSink``) instead of published over LiveKit — so the FULL feedback
+    intelligence (STT, boundary, retrieval, brain, pacing) still runs for real, without
+    needing WebRTC media. Everything else is identical.
 
     One shared ``FeedbackPacer`` (LA-7) serves all sessions, keyed by session_id — the
     pipeline resets its session's pacing state on teardown. The shared
@@ -223,15 +256,33 @@ def build_session_pipeline_factory(
     ``TranscriptRecorder`` (per-session writer state) over it.
     """
     pacer = build_feedback_pacer(settings)
+    fake_audio = settings.agent_audio_source.lower() == "fake"
+    if fake_audio:
+        logger.warning(
+            "AGENT_AUDIO_SOURCE=fake — playing %s through the real pipeline; feedback "
+            "is recorded in-process, not sent over LiveKit.",
+            settings.fake_audio_wav_path or "<synth tone>",
+        )
 
     def factory(session: SessionContext) -> SessionPipeline:
-        agent = LiveKitAudioSource(settings)  # AudioSource + AgentDataChannel
+        if fake_audio:
+            # Audio comes from a WAV; feedback is recorded (no LiveKit connection).
+            audio: AudioSource = build_fake_audio_source(
+                settings, settings.fake_audio_wav_path or None
+            )
+            sink: FeedbackSink = RecordingFeedbackSink(
+                feedback_recorder, message_version=settings.feedback_message_version
+            )
+        else:
+            agent = LiveKitAudioSource(settings)  # AudioSource + AgentDataChannel
+            audio = agent
+            sink = build_feedback_sink(settings, agent)
         stt = FasterWhisperSpeechToText(settings)
         boundary = build_boundary_detector(settings, OllamaEmbeddingProvider(settings))
         evaluator = build_idea_evaluator(
             settings, KnowledgeRetrievalClient(settings), OllamaBrainClient(settings)
         )
-        dispatcher = build_feedback_dispatcher(build_feedback_sink(settings, agent))
+        dispatcher = build_feedback_dispatcher(sink)
         recorder = TranscriptRecorder(
             transcript_repository,
             session.session_id,
@@ -239,23 +290,28 @@ def build_session_pipeline_factory(
             batch=settings.transcript_persist_batch,
         )
         return SessionPipeline(
-            session, agent, stt, boundary, evaluator, pacer, dispatcher, recorder
+            session, audio, stt, boundary, evaluator, pacer, dispatcher, recorder
         )
 
     return factory
 
 
 def build_session_manager(
-    settings: Settings, transcript_repository: TranscriptRepository
+    settings: Settings,
+    transcript_repository: TranscriptRepository,
+    feedback_recorder: FeedbackRecorder,
 ) -> SessionManager:
     """The session registry/lifecycle, capped by MAX_CONCURRENT_SESSIONS.
 
     Built once at app startup and stored on ``app.state`` (see the app factory's
     lifespan). The pipeline factory is injected so tests can supply fakes; the shared
-    transcript store (S-0) is threaded in so every pipeline persists through it.
+    transcript store (S-0) and feedback recorder are threaded in so every pipeline
+    persists / records through them.
     """
     return SessionManager(
-        build_session_pipeline_factory(settings, transcript_repository),
+        build_session_pipeline_factory(
+            settings, transcript_repository, feedback_recorder
+        ),
         settings.max_concurrent_sessions,
     )
 

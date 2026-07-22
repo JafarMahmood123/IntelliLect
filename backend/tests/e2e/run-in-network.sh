@@ -1,36 +1,67 @@
 #!/usr/bin/env bash
-# Run the E2E suite INSIDE the compose network so the synthetic teacher's LiveKit
-# media flows container<->container. This is the reliable way to run the media loop
-# on Docker Desktop or behind a VPN, where host<->container WebRTC ICE fails.
+# Run the full "teacher teaches -> gets feedback" E2E reliably.
+#
+# It puts the LiveAssistant agent in fake-audio mode (AGENT_AUDIO_SOURCE=fake): the
+# agent plays a WAV of the teacher through the REAL pipeline (STT -> idea boundary ->
+# KnowledgeService retrieval -> Ollama brain -> pacing) and records the delivered
+# feedback, which the test reads back. This exercises the real feedback intelligence
+# and the full cross-service flow without needing WebRTC media (which Docker Desktop /
+# a VPN often block). The test then runs INSIDE the compose network so it reaches
+# services directly (no nginx 60s cap).
 #
 # Usage:
-#   ./run-in-network.sh                # media test (default)
-#   ./run-in-network.sh -m "not media" # just the orchestration seams
-#   ./run-in-network.sh -k feedback -s # any pytest args
+#   ./run-in-network.sh                 # the feedback loop (default)
+#   ./run-in-network.sh -m "not media"  # just the cross-service wiring
+#   ./run-in-network.sh -m media        # the real-WebRTC path (needs media to flow)
+#   ./run-in-network.sh -k xyz -s       # any pytest args
+#
+# Revert LiveAssistant to normal (LiveKit audio) afterwards:
+#   cd <backend> && docker compose up -d live-assistant-service
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND="$(cd "$DIR/../.." && pwd)"
 NET="${E2E_NETWORK:-intellilect-platform_intellilect-net}"
 IMAGE="${E2E_IMAGE:-intellilect-e2e}"
+WAV="$DIR/assets/teacher_line.wav"
 
-echo ">>> Building $IMAGE ..."
+# 1) Ensure the teacher voice WAV exists (mounted into LiveAssistant + used by the
+#    real-media path). Generated from the test's TEACHER_WRONG_LINE via the host venv.
+if [ ! -f "$WAV" ]; then
+  echo ">>> Synthesizing teacher voice ($WAV) ..."
+  if [ -x "$DIR/.venv/bin/python" ]; then
+    ( cd "$DIR" && .venv/bin/python - <<'PY'
+import test_teaching_feedback_e2e as t
+from support.tts import synthesize_teacher_wav
+print("wrote", synthesize_teacher_wav(t.TEACHER_WRONG_LINE, teacher_wav_path="", piper_model_path=""))
+PY
+    )
+  else
+    echo "!!! No $DIR/.venv and no $WAV. Create the venv (see README) or set E2E_TEACHER_WAV." >&2
+    exit 1
+  fi
+fi
+
+echo ">>> Building test runner image ($IMAGE) ..."
 docker build -t "$IMAGE" "$DIR"
 
-# Ensure the teacher voice exists on the host so it can be mounted (no in-container
-# TTS/network needed). Falls back to in-container gTTS if this step is skipped.
-WAV_ARG=()
-if [ -f "$DIR/assets/teacher_line.wav" ]; then
-  WAV_ARG=(-e E2E_TEACHER_WAV=/work/assets/teacher_line.wav)
-fi
+# 2) Put LiveAssistant in fake-audio mode (rebuild to pick up code, mount the WAV).
+echo ">>> Reconfiguring live-assistant-service for fake-audio mode ..."
+export E2E_WAV_HOST_PATH="$WAV"
+( cd "$BACKEND" && docker compose -f docker-compose.yml -f tests/e2e/docker-compose.e2e.yml \
+    up -d --build live-assistant-service )
+
+# Wait for it to come back healthy.
+echo ">>> Waiting for live-assistant-service ..."
+until curl -sf -o /dev/null "http://localhost:8084/health"; do sleep 2; done
 
 PYTEST_ARGS=("$@")
 if [ ${#PYTEST_ARGS[@]} -eq 0 ]; then
-  PYTEST_ARGS=(-m media -s)
+  PYTEST_ARGS=(-m feedback -s)
 fi
 
 echo ">>> Running pytest on network $NET ..."
-# NET_ADMIN lets the entrypoint DNAT LiveKit's advertised node-ip to the reachable
-# livekit-server container IP so WebRTC media works container<->container.
+# NET_ADMIN is only needed by the real-media (-m media) path's DNAT; harmless otherwise.
 exec docker run --rm --network "$NET" --cap-add=NET_ADMIN \
   -e E2E_GATEWAY_URL="http://intellilect-gateway" \
   -e E2E_USER_URL="http://user-management-service:8080" \
@@ -42,7 +73,8 @@ exec docker run --rm --network "$NET" --cap-add=NET_ADMIN \
   -e E2E_LIVEKIT_WS_URL="ws://livekit-server:7880" \
   -e E2E_MINIO_ENDPOINT="intellilect-s3:9000" \
   -e E2E_INTERNAL_SECRET="${E2E_INTERNAL_SECRET:-changeme-internal-secret}" \
-  "${WAV_ARG[@]}" \
+  -e E2E_FAKE_AUDIO="1" \
+  -e E2E_TEACHER_WAV="/work/assets/teacher_line.wav" \
   -v "$DIR:/work" -w /work \
   "$IMAGE" \
   pytest "${PYTEST_ARGS[@]}"

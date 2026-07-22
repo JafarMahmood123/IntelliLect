@@ -74,6 +74,11 @@ class Config:
     # Number of students to enroll in the scenario.
     student_count: int = int(_env("E2E_STUDENT_COUNT", "2"))
 
+    # Set when the LiveAssistant agent runs in fake-audio mode (AGENT_AUDIO_SOURCE=fake):
+    # the feedback loop is driven from a WAV and read back via the feedback endpoint
+    # instead of a synthetic LiveKit teacher. run-in-network.sh sets this.
+    fake_audio_mode: bool = _env("E2E_FAKE_AUDIO", "").lower() in ("1", "true", "yes")
+
     def internal_headers(self) -> dict[str, str]:
         return {"X-Internal-Secret": self.internal_secret}
 

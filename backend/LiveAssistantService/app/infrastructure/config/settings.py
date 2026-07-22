@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     # Identity the agent joins the room under (kept distinct from any teacher/student).
     agent_identity: str = "ai-assistant"
 
+    # --- Audio ingress selection (integration testing) ---
+    # "livekit" (default, production): capture the teacher's audio from the LiveKit
+    # room. "fake": play a local WAV through the REAL rest of the pipeline (STT ->
+    # boundary -> retrieval -> brain -> pacing) instead of joining LiveKit. This exists
+    # so the full feedback loop can be exercised end-to-end in environments where WebRTC
+    # media cannot flow (e.g. CI, Docker Desktop + VPN). When "fake", feedback is
+    # recorded in-process (readable via GET /api/internal/sessions/{id}/feedback) rather
+    # than published over a LiveKit data channel. Production behavior is unchanged unless
+    # AGENT_AUDIO_SOURCE is explicitly set to "fake".
+    agent_audio_source: str = "livekit"
+    fake_audio_wav_path: str = ""  # WAV played when agent_audio_source == "fake"
+
     # --- Audio normalization target (what downstream STT consumes) ---
     # Incoming LiveKit audio is resampled/downmixed to this so later stages are
     # decoupled from LiveKit's native capture format. STT (faster-whisper) assumes

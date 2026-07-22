@@ -5,7 +5,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.dependencies import build_session_manager, build_transcript_repository
+from app.api.dependencies import (
+    build_feedback_recorder,
+    build_session_manager,
+    build_transcript_repository,
+)
 from app.api.routers import health, internal_sessions, internal_transcripts
 from app.api.routers import metrics as metrics_router
 from app.infrastructure.config.settings import get_settings
@@ -23,8 +27,11 @@ async def lifespan(app: FastAPI):
     # through backs the transcript endpoint, so reads see exactly what was persisted.
     settings = get_settings()
     app.state.transcript_repository = build_transcript_repository(settings)
+    # Shared feedback store (used when AGENT_AUDIO_SOURCE=fake); the read endpoint and
+    # every pipeline share this one instance, so reads see exactly what was delivered.
+    app.state.feedback_recorder = build_feedback_recorder()
     app.state.session_manager = build_session_manager(
-        settings, app.state.transcript_repository
+        settings, app.state.transcript_repository, app.state.feedback_recorder
     )
     try:
         yield

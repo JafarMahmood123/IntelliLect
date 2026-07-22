@@ -64,6 +64,14 @@ class LiveAssistantClient:
         resp = self._http.post(f"/api/internal/sessions/{session_id}/stop")
         expect_ok(resp)
 
+    def get_feedback(self, session_id: str) -> list[dict]:
+        """Feedback suggestions delivered for a session (fake-audio mode). [] if none."""
+        resp = self._http.get(f"/api/internal/sessions/{session_id}/feedback")
+        if resp.status_code == 404:
+            return []
+        expect_ok(resp)
+        return get_ci(resp.json(), "feedback", [])
+
     # --- metrics -------------------------------------------------------------
     def metrics(self) -> str:
         return expect_ok(self._http.get("/metrics")).text

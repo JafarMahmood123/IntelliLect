@@ -13,7 +13,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 
-from app.api.dependencies import TranscriptRepositoryDep, require_internal_secret
+from app.api.dependencies import (
+    FeedbackRecorderDep,
+    TranscriptRepositoryDep,
+    require_internal_secret,
+)
 
 router = APIRouter(
     prefix="/api/internal/sessions",
@@ -64,6 +68,21 @@ async def get_transcript(
         segmentCount=len(segments),
         text=text,
     )
+
+
+@router.get("/{session_id}/feedback")
+async def get_feedback(
+    session_id: UUID, recorder: FeedbackRecorderDep
+) -> dict:
+    """Return the feedback suggestions delivered for a session (integration testing).
+
+    Populated only when the agent runs with ``AGENT_AUDIO_SOURCE=fake`` (feedback is
+    recorded in-process instead of published over LiveKit). Each item is the same
+    versioned payload the teacher's frontend would receive. Empty list if none yet /
+    not in fake mode.
+    """
+    items = recorder.get(session_id)
+    return {"sessionId": str(session_id), "count": len(items), "feedback": items}
 
 
 @router.delete("/{session_id}/transcript", status_code=status.HTTP_204_NO_CONTENT)

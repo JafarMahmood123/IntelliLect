@@ -22,7 +22,8 @@ asyncio_mode = "auto"
 testpaths = ["."]
 addopts = "-ra -v"
 markers = [
-    "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit + Ollama + a TTS.",
+    "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit WebRTC media + Ollama + a TTS.",
+    "feedback: exercises the full feedback loop via fake audio (real STT/retrieval/LLM), no WebRTC. Needs the LiveAssistant in AGENT_AUDIO_SOURCE=fake mode (run-in-network.sh).",
     "recording: exercises the egress/recording + summary path. Needs the docker-compose.e2e.yml overlay.",
 ]
 log_cli = true

@@ -167,6 +167,11 @@ async def test_teacher_teaches_and_gets_feedback(
     knowledge: KnowledgeClient,
     config: Config,
 ) -> None:
+    if config.fake_audio_mode:
+        pytest.skip(
+            "Agent is in fake-audio mode; the real-media synthetic-teacher path does "
+            "not apply — see test_teacher_teaches_and_gets_feedback_fake_audio."
+        )
     # Synthesize the teacher's spoken line first — if no TTS is available, skip the
     # media loop cleanly (the orchestration test above still covers the wiring).
     try:
@@ -288,3 +293,97 @@ async def test_teacher_teaches_and_gets_feedback(
 
     # --- Teardown -------------------------------------------------------------
     liveassistant.stop_session(session_id)
+
+
+# ---------------------------------------------------------------------------
+# Test 3 — the AI feedback loop via fake audio (reliable; no WebRTC needed).
+#
+# Same real cross-service flow and the same REAL feedback intelligence (STT, idea
+# boundary, KnowledgeService retrieval, Ollama brain, pacing). The ONLY difference vs
+# test 2 is how the teacher's audio reaches the agent and how feedback is observed:
+# the agent plays a mounted WAV of the teacher (AGENT_AUDIO_SOURCE=fake) and records
+# the delivered suggestion in-process, read back via the feedback endpoint. This is
+# the dependable way to prove the core scenario where WebRTC media can't flow.
+# ---------------------------------------------------------------------------
+@pytest.mark.feedback
+def test_teacher_teaches_and_gets_feedback_fake_audio(
+    make_user,
+    classroom: ClassroomClient,
+    streaming: StreamingClient,
+    liveassistant: LiveAssistantClient,
+    knowledge: KnowledgeClient,
+    config: Config,
+) -> None:
+    if not config.fake_audio_mode:
+        pytest.skip(
+            "Requires the LiveAssistant in fake-audio mode. Run ./run-in-network.sh "
+            "(it applies docker-compose.e2e.yml and sets E2E_FAKE_AUDIO=1)."
+        )
+
+    ctx = provision_classroom(
+        make_user, classroom, student_count=config.student_count,
+        classroom_name="E2E Feedback (fake audio)",
+    )
+
+    # --- Seed the classroom with material the teacher (in the WAV) contradicts ---
+    seeder = MinioSeeder(
+        config.minio_endpoint, config.minio_access_key, config.minio_secret_key,
+        secure=config.minio_secure, bucket=config.s3_bucket,
+    )
+    file_id = str(uuid.uuid4())
+    s3_key = f"e2e/{ctx.classroom_id}/{file_id}.pdf"
+    pdf = make_pdf_bytes(SEEDED_FACT_TITLE, SEEDED_FACT_PARAGRAPHS)
+    seeder.put(s3_key, pdf, "application/pdf")
+    knowledge.ingest(
+        file_id=file_id, classroom_id=ctx.classroom_id, s3_key=s3_key,
+        file_name="boiling-point.pdf", content_type="application/pdf", size_bytes=len(pdf),
+    )
+    def _final_status() -> str | None:
+        status = knowledge.document_status(file_id)
+        return status if status in ("Done", "Failed") else None
+
+    status = poll_until(
+        _final_status,
+        timeout_s=config.ingest_timeout_s,
+        description="KnowledgeService to index the seeded document",
+    )
+    assert status == "Done", f"document ingestion ended in status {status!r}"
+    results = poll_until(
+        lambda: knowledge.search(ctx.classroom_id, "boiling point of water", top_k=6) or None,
+        timeout_s=90,
+        description="seeded material to become searchable",
+    )
+    assert results, "seeded material is not searchable — retrieval would short-circuit"
+
+    # --- Start the live session (cascades to Streaming + LiveAssistant) ----------
+    # The agent plays the mounted teacher WAV through the real pipeline on start.
+    session_id = classroom.create_session(
+        ctx.teacher, ctx.classroom_id,
+        title="Water lesson", scheduled_at_utc=_now_iso(), participation_mode=1,
+    )
+    _start_session_resiliently(classroom, streaming, ctx.teacher, ctx.classroom_id, session_id)
+
+    # --- The headline: the teacher gets an improvement suggestion ----------------
+    feedback_items = poll_until(
+        lambda: liveassistant.get_feedback(session_id) or None,
+        timeout_s=config.feedback_timeout_s,
+        interval_s=2.0,
+        description="the agent to evaluate the lesson and deliver feedback",
+    )
+    feedback = feedback_items[0]
+    assert feedback.get("type") == "teaching_suggestion"
+    assert str(feedback.get("session_id")) == str(session_id)
+    assert feedback.get("text"), "feedback payload carried no suggestion text"
+    logger.info(
+        "Teacher received feedback [%s]: %s",
+        feedback.get("feedback_type"), feedback.get("text"),
+    )
+
+    # The transcript proves STT actually ran on the teacher's audio.
+    transcript = poll_until(
+        lambda: (t := liveassistant.get_transcript(session_id)) and t.segment_count > 0 and t,
+        timeout_s=30,
+        description="the transcript to capture the teacher's speech",
+    )
+    logger.info("Transcript (%d segments): %r", transcript.segment_count, transcript.text)
+    assert transcript.segment_count > 0
