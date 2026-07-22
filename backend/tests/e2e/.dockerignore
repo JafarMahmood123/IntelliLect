@@ -1,0 +1,6 @@
+.venv
+assets/.cache
+assets/.hfcache
+**/__pycache__
+*.pyc
+.pytest_cache

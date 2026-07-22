@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Cached synthesized teacher voice + any downloaded TTS voice models.
+assets/*.wav
+assets/*.mp3
+assets/*.onnx
+assets/*.onnx.json
+assets/.cache/
+assets/.hfcache/

@@ -1,0 +1,29 @@
+[project]
+name = "intellilect-e2e"
+version = "0.1.0"
+description = "Cross-service end-to-end test for the IntelliLect 'teacher teaches -> gets feedback' scenario."
+requires-python = ">=3.12"
+dependencies = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    # Synthetic teacher participant: join a real LiveKit room, publish audio, receive feedback.
+    "livekit>=1.0",
+    # Seed classroom material: upload a PDF to MinIO, then ingest it via KnowledgeService.
+    "minio>=7.2",
+    "reportlab>=4.0",
+    # Teacher-voice TTS: tiny network request decoded to WAV via ffmpeg (needs ffmpeg
+    # on PATH). One of several TTS backends; see support/tts.py.
+    "gTTS>=2.5",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["."]
+addopts = "-ra -v"
+markers = [
+    "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit + Ollama + a TTS.",
+    "recording: exercises the egress/recording + summary path. Needs the docker-compose.e2e.yml overlay.",
+]
+log_cli = true
+log_cli_level = "INFO"
