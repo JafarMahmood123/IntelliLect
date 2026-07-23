@@ -39,7 +39,7 @@ export interface LearningSession {
   id: string;
   title: string;
   description: string;
-  status: "Scheduled" | "Live" | "Completed" | "Cancelled";
+  status: "Scheduled" | "Live" | "Ended" | "Completed" | "Cancelled";
   scheduledAtUtc: string;
   startedAtUtc?: string;
   classroomId: string;
@@ -75,6 +75,20 @@ export interface Session {
   startedAtUtc?: string;
   endedAtUtc?: string;
   participationMode: number; // Added
+}
+
+/**
+ * Result of a teacher ending a session. `status`/`endedAtUtc` are authoritative; the two flags
+ * report the best-effort teardown, so the UI can say "the session ended, but its summary could
+ * not be started" instead of pretending everything worked.
+ */
+export interface SessionEndOutcome {
+  sessionId: string;
+  status: SessionStatus;
+  alreadyEnded: boolean;
+  streamEnded: boolean;
+  summaryTriggered: boolean;
+  endedAtUtc?: string;
 }
 
 export interface PagedResult<T> {

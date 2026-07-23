@@ -1,8 +1,8 @@
 import { LiveKitRoom, ControlBar, RoomAudioRenderer } from "@livekit/components-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
-import { Users } from "lucide-react";
+import { Users, StopCircle } from "lucide-react";
 import {
   useJoinStream,
   useLeaveStream,
@@ -12,7 +12,14 @@ import { InteractionSidebar } from "./InteractionSidebar";
 import { TeacherFeedbackPanel } from "./TeacherFeedbackPanel";
 import { useStreamHub } from "../hooks/useStreamHub";
 import { Button } from "../../../components/ui/Button";
+import { ConfirmationModal } from "../../../components/ui/ConfirmationModal";
+import { useToast } from "../../../components/ui/ToastProvider";
 import { useAuthStore } from "../../../store/useAuthStore";
+import { useEndSession } from "../../classrooms/hooks/useClassroomQueries";
+import {
+  describeSessionEnd,
+  describeSessionEndError,
+} from "../../classrooms/utils/sessionEnd";
 import { TeacherStage } from "./stage/TeacherStage";
 import { StudentStage } from "./stage/StudentStage";
 
@@ -32,14 +39,61 @@ export const LiveRoomPage = () => {
   const { user } = useAuthStore();
   const { classroomId, sessionId = "" } = useParams<{ classroomId: string; sessionId: string }>();
 
+  const { showToast } = useToast();
+
   const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
-  const { participantCount } = useStreamHub(sessionId);
+  const { participantCount, hasEnded } = useStreamHub(sessionId);
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
+  const endSessionMutation = useEndSession(classroomId ?? "");
 
   const hasJoinedApi = useRef(false);
+  const hasLeftRoom = useRef(false);
+  const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
 
   const isTeacher = user?.roleName === "Teacher";
+
+  // Single exit path, so leaving is idempotent: the teacher's own end, the "session ended"
+  // broadcast and LiveKit's disconnect can all fire for the same session end.
+  const exitToClassroom = useCallback(() => {
+    if (hasLeftRoom.current) return;
+    hasLeftRoom.current = true;
+    navigate(`/classrooms/${classroomId}`);
+  }, [classroomId, navigate]);
+
+  // The server announced the session is over. Everyone is told why and sent back to the
+  // classroom; the media room is closed right behind this, so lingering here is not an option.
+  useEffect(() => {
+    if (!hasEnded || hasLeftRoom.current) return;
+
+    showToast({
+      type: "info",
+      title: "Session Ended",
+      // The teacher already saw the result of their own action.
+      message: isTeacher
+        ? "This session has been closed."
+        : "The teacher has ended this session. The summary will appear in your classroom shortly.",
+    });
+    exitToClassroom();
+  }, [hasEnded, isTeacher, showToast, exitToClassroom]);
+
+  const handleEndSession = async () => {
+    if (!sessionId) return;
+
+    try {
+      const outcome = await endSessionMutation.mutateAsync(sessionId);
+      showToast(describeSessionEnd(outcome));
+      setIsConfirmingEnd(false);
+      exitToClassroom();
+    } catch (err) {
+      setIsConfirmingEnd(false);
+      showToast({
+        type: "error",
+        title: "Could Not End Session",
+        message: describeSessionEndError(err),
+      });
+    }
+  };
 
   // Participation logic: 0 = ViewOnly, 1 = AudioOnly, 2 = AudioAndVideo. This governs what a
   // student may PUBLISH; it does not affect what the teacher sees (see TeacherStage).
@@ -98,9 +152,25 @@ export const LiveRoomPage = () => {
           <h1 className="text-sm font-bold text-white">Live Classroom</h1>
           <StatusBadge status={data?.status || "Live"} />
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-white text-[10px] font-bold">
-          <Users size={12} className="text-violet-400" />
-          {participantCount} Online
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-white text-[10px] font-bold">
+            <Users size={12} className="text-violet-400" />
+            {participantCount} Online
+          </div>
+
+          {/* Ending the session is the teacher's alone, and it is deliberately distinct from
+              leaving the room: leaving keeps the session live for the students. */}
+          {isTeacher && (
+            <Button
+              variant="danger"
+              onClick={() => setIsConfirmingEnd(true)}
+              isLoading={endSessionMutation.isPending}
+              className="!py-1.5 !px-3 text-xs"
+            >
+              <StopCircle size={14} />
+              End Session
+            </Button>
+          )}
         </div>
       </header>
 
@@ -114,7 +184,9 @@ export const LiveRoomPage = () => {
               // Initial device request based on this participant's publish permissions.
               video={canPublishVideo}
               audio={canPublishAudio}
-              onDisconnected={() => navigate(`/classrooms/${classroomId}`)}
+              // Fires both when the user leaves and when the media server closes the room on
+              // session end — either way the destination is the classroom.
+              onDisconnected={exitToClassroom}
               className="flex flex-col h-full w-full"
             >
               <div className="flex-1 min-h-0 bg-slate-900">
@@ -149,6 +221,17 @@ export const LiveRoomPage = () => {
         </main>
         <InteractionSidebar />
       </div>
+
+      <ConfirmationModal
+        isOpen={isConfirmingEnd}
+        onClose={() => setIsConfirmingEnd(false)}
+        onConfirm={handleEndSession}
+        title="End this session for everyone?"
+        description="All students will be disconnected immediately. The recording will be finalized and the session summary and notes generated. This cannot be undone."
+        confirmText="End Session"
+        variant="danger"
+        isLoading={endSessionMutation.isPending}
+      />
     </div>
   );
 };

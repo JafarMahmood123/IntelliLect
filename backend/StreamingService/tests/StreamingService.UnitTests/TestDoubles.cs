@@ -119,6 +119,46 @@ public sealed class FakeRecordingEgressService : IRecordingEgressService
     }
 }
 
+/// <summary>Records room closures; optionally throws to simulate an unreachable media server.</summary>
+public sealed class FakeRoomLifecycleService : IRoomLifecycleService
+{
+    private readonly bool _throwOnCall;
+    public int CloseCalls { get; private set; }
+    public string? LastClosedRoom { get; private set; }
+
+    public FakeRoomLifecycleService(bool throwOnCall = false) => _throwOnCall = throwOnCall;
+
+    public Task CloseRoomAsync(string roomName, CancellationToken ct = default)
+    {
+        CloseCalls++;
+        LastClosedRoom = roomName;
+        if (_throwOnCall) throw new InvalidOperationException("media server unreachable");
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Records the hub broadcasts so tests can assert clients were told the session ended.</summary>
+public sealed class RecordingStreamHubContext : IStreamHubContext
+{
+    private readonly bool _throwOnStatusChange;
+    public List<(Guid SessionId, string Status)> StatusChanges { get; } = new();
+
+    public RecordingStreamHubContext(bool throwOnStatusChange = false)
+        => _throwOnStatusChange = throwOnStatusChange;
+
+    public Task NotifyStreamStatusChangedAsync(Guid sessionId, string status)
+    {
+        StatusChanges.Add((sessionId, status));
+        if (_throwOnStatusChange) throw new InvalidOperationException("hub unavailable");
+        return Task.CompletedTask;
+    }
+
+    public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised) => Task.CompletedTask;
+    public Task NotifyParticipantCountAsync(Guid sessionId, int count) => Task.CompletedTask;
+    public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message) => Task.CompletedTask;
+    public Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji) => Task.CompletedTask;
+}
+
 /// <summary>Captures the requests handed to the LiveKit egress client and returns a canned
 /// <see cref="EgressInfo"/>, so the recording service can be tested with no live server.</summary>
 public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient

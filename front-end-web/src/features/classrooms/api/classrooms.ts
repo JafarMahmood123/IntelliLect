@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, FileIndexingStatusResponse, LearningSession, Session, PagedResult } from '../types';
+import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, FileIndexingStatusResponse, LearningSession, Session, SessionEndOutcome, PagedResult } from '../types';
 
 export const getTeacherClassrooms = async (): Promise<Classroom[]> => {
   const response = await apiClient.get<Classroom[]>('/classrooms/teacher');
@@ -44,6 +44,21 @@ export const getSessions = async (classroomId: string): Promise<LearningSession[
 
 export const startSession = async (classroomId: string, sessionId: string): Promise<void> => {
   await apiClient.post(`/classrooms/${classroomId}/sessions/${sessionId}/start`);
+};
+
+/**
+ * Closes a live session: the students are disconnected from the room and the backend starts
+ * finalizing the recording and generating the summary/notes. Teacher-only, and idempotent — a
+ * session that is already over comes back as `alreadyEnded` rather than an error.
+ */
+export const endSession = async (
+  classroomId: string,
+  sessionId: string,
+): Promise<SessionEndOutcome> => {
+  const { data } = await apiClient.post<SessionEndOutcome>(
+    `/classrooms/${classroomId}/sessions/${sessionId}/end`,
+  );
+  return data;
 };
 
 export const deleteFile = async (classroomId: string, fileId: string): Promise<void> => {

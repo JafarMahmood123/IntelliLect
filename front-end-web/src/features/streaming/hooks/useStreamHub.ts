@@ -12,6 +12,10 @@ export const useStreamHub = (sessionId: string | undefined) => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [participantCount, setParticipantCount] = useState(0);
+  // Set when the server announces the session is over (the teacher ended it, a super admin
+  // force-ended it, or the stalled-session sweep closed it). The media room is torn down right
+  // after the broadcast, so this is the participants' only chance at a graceful exit.
+  const [endedStatus, setEndedStatus] = useState<string | null>(null);
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const accessToken = localStorage.getItem("accessToken");
@@ -20,6 +24,10 @@ export const useStreamHub = (sessionId: string | undefined) => {
     if (!sessionId || !accessToken) return;
 
     let isMounted = true;
+
+    // A new session id starts clean — otherwise a previously ended session would immediately
+    // eject the user from the next room they open.
+    setEndedStatus(null);
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`/hubs/stream?access_token=${accessToken}`, {
@@ -44,6 +52,12 @@ export const useStreamHub = (sessionId: string | undefined) => {
 
     connection.on("UpdateParticipantCount", (count: number) => {
       if (isMounted) setParticipantCount(count);
+    });
+
+    connection.on("StreamStatusChanged", (status: string) => {
+      if (!isMounted) return;
+      console.log(`[SignalR] Stream status changed: ${status}`);
+      if (status?.toLowerCase() === "ended") setEndedStatus(status);
     });
 
     const startConnection = async () => {
@@ -102,5 +116,11 @@ export const useStreamHub = (sessionId: string | undefined) => {
     [sessionId],
   );
 
-  return { isConnected, messages, participantCount, sendMessage };
+  return {
+    isConnected,
+    messages,
+    participantCount,
+    sendMessage,
+    hasEnded: endedStatus !== null,
+  };
 };

@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Video, Clock, Plus, PlayCircle } from "lucide-react";
+import { Calendar, Video, Clock, Plus, PlayCircle, StopCircle } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { ConfirmationModal } from "../../../components/ui/ConfirmationModal";
 import {
   useClassroomSessions,
+  useEndSession,
   useStartSession,
 } from "../hooks/useClassroomQueries";
 import { CreateSessionDrawer } from "./CreateSessionDrawer";
 import { useToast } from "../../../components/ui/ToastProvider";
+import { describeSessionEnd, describeSessionEndError } from "../utils/sessionEnd";
 
 interface ClassroomSessionListProps {
   classroomId: string;
@@ -20,11 +23,32 @@ export const ClassroomSessionList = ({
   isTeacher,
 }: ClassroomSessionListProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // The session awaiting end confirmation — ending is destructive for everyone in the room, so it
+  // is never a single click.
+  const [sessionPendingEnd, setSessionPendingEnd] = useState<{ id: string; title: string } | null>(null);
   const navigate = useNavigate();
   const { showToast } = useToast();
 
   const { data: sessions = [], isLoading } = useClassroomSessions(classroomId);
   const startSessionMutation = useStartSession(classroomId);
+  const endSessionMutation = useEndSession(classroomId);
+
+  const handleEndSession = async () => {
+    if (!sessionPendingEnd) return;
+
+    try {
+      const outcome = await endSessionMutation.mutateAsync(sessionPendingEnd.id);
+      showToast(describeSessionEnd(outcome));
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "Could Not End Session",
+        message: describeSessionEndError(error),
+      });
+    } finally {
+      setSessionPendingEnd(null);
+    }
+  };
 
   const handleStartSession = async (sessionId: string) => {
     try {
@@ -118,6 +142,19 @@ export const ClassroomSessionList = ({
                     </Button>
                   )}
 
+                  {/* The teacher can close a live session from here without having to re-enter
+                      the room — e.g. after their browser dropped out of it. */}
+                  {isTeacher && isLive && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSessionPendingEnd({ id: session.id, title: session.title })}
+                      isLoading={endSessionMutation.isPending && endSessionMutation.variables === session.id}
+                    >
+                      <StopCircle size={18} />
+                      End Session
+                    </Button>
+                  )}
+
                   <Button
                     variant={isLive ? "danger" : "secondary"}
                     disabled={!isLive}
@@ -137,6 +174,17 @@ export const ClassroomSessionList = ({
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         classroomId={classroomId}
+      />
+
+      <ConfirmationModal
+        isOpen={sessionPendingEnd !== null}
+        onClose={() => setSessionPendingEnd(null)}
+        onConfirm={handleEndSession}
+        title="End this session?"
+        description={`"${sessionPendingEnd?.title ?? ''}" will be closed and every student removed from the room. The recording will be finalized and the summary and notes generated. This cannot be undone.`}
+        confirmText="End Session"
+        variant="danger"
+        isLoading={endSessionMutation.isPending}
       />
     </div>
   );

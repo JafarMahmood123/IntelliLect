@@ -51,6 +51,47 @@ public class SessionRepository : ISessionRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    public async Task<bool> TryMarkEndedAsync(Guid sessionId, DateTime endedAtUtc, CancellationToken ct = default)
+    {
+        // Single UPDATE ... WHERE Status = Live. The database arbitrates the race, so a teacher
+        // and the stalled sweeper firing together cannot both run the teardown.
+        var rows = await _context.Sessions
+            .Where(s => s.Id == sessionId && s.Status == SessionStatus.Live)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(s => s.Status, SessionStatus.Ended)
+                    .SetProperty(s => s.EndedAtUtc, endedAtUtc),
+                ct);
+
+        if (rows > 0)
+        {
+            // ExecuteUpdate bypasses the change tracker; drop any stale tracked copy so a later
+            // read in the same scope does not resurrect the old status.
+            var tracked = _context.ChangeTracker.Entries<Session>()
+                .FirstOrDefault(e => e.Entity.Id == sessionId);
+            if (tracked is not null)
+            {
+                tracked.State = EntityState.Detached;
+            }
+        }
+
+        return rows > 0;
+    }
+
+    public async Task<List<Guid>> GetStalledLiveSessionIdsAsync(
+        DateTime startedBeforeUtc, int limit, CancellationToken ct = default)
+    {
+        return await _context.Sessions
+            .AsNoTracking()
+            .Where(s => s.Status == SessionStatus.Live
+                        && (s.StartedAtUtc.HasValue ? s.StartedAtUtc.Value : s.CreatedAtUtc) <= startedBeforeUtc)
+            // Oldest first: the most overdue sessions are closed even when a cycle hits the limit.
+            .OrderBy(s => s.StartedAtUtc ?? s.CreatedAtUtc)
+            .Take(limit)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+    }
+
     public async Task<(List<AdminSessionResponse> Items, int TotalCount)> GetAdminSessionsPagedAsync(
         int page, int pageSize, string? search, SessionStatus? status, Guid? classroomId, CancellationToken ct = default)
     {

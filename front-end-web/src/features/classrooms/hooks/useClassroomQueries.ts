@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeacherClassrooms, createClassroom, startSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom, getFileIndexingStatus } from '../api/classrooms';
+import { getTeacherClassrooms, createClassroom, startSession, endSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom, getFileIndexingStatus } from '../api/classrooms';
 import type { CreateClassroomRequest, CreateSessionRequest, FileIndexingStatus } from '../types';
 
 export const classroomKeys = {
@@ -67,6 +67,23 @@ export const useStartSession = (classroomId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'sessions'] });
     }
+  });
+};
+
+/**
+ * Teacher-initiated end of a live session. On success the session list is refreshed (the row
+ * flips Live -> Ended) and the recordings/summaries lists are invalidated, since ending a session
+ * is what kicks off producing them.
+ */
+export const useEndSession = (classroomId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) => endSession(classroomId, sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...classroomKeys.detail(classroomId), 'sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['recordings'] });
+      queryClient.invalidateQueries({ queryKey: ['summaries'] });
+    },
   });
 };
 

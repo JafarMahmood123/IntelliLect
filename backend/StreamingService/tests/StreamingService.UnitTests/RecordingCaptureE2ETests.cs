@@ -39,7 +39,8 @@ public sealed class RecordingCaptureE2ETests
         // Step 1 (R-0): session goes live -> egress started, id persisted on the LiveStream.
         var egress = new FakeRecordingEgressService(egressId: EgressId);
         var streamController = new InternalStreamsController(
-            repo, new RecordingLiveAssistantClient(), egress, new RecordingLogger<InternalStreamsController>());
+            repo, new RecordingLiveAssistantClient(), egress, new FakeRoomLifecycleService(),
+            new RecordingStreamHubContext(), new RecordingLogger<InternalStreamsController>());
 
         await streamController.InitializeStream(
             new InitializeStreamRequest(sessionId, classroomId, Guid.NewGuid(), default), default);
@@ -72,7 +73,8 @@ public sealed class RecordingCaptureE2ETests
         var repo = new FakeStreamRepository();
         var egress = new FakeRecordingEgressService(egressId: EgressId);
         var streamController = new InternalStreamsController(
-            repo, new RecordingLiveAssistantClient(), egress, new RecordingLogger<InternalStreamsController>());
+            repo, new RecordingLiveAssistantClient(), egress, new FakeRoomLifecycleService(),
+            new RecordingStreamHubContext(), new RecordingLogger<InternalStreamsController>());
         await streamController.InitializeStream(
             new InitializeStreamRequest(sessionId, Guid.NewGuid(), Guid.NewGuid(), default), default);
 

@@ -37,6 +37,17 @@ public sealed class StreamService : IStreamService
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null) throw new KeyNotFoundException("Stream not found.");
 
+        // No join token once the session is over — for anyone, teacher included. LiveKit re-creates
+        // a room on demand for any valid token, so without this an evicted student could simply
+        // reload the page and land back in a freshly created room after the session ended.
+        if (stream.Status != StreamStatus.Live)
+        {
+            _logger.LogInformation(
+                "Refused a join token for session {SessionId}: the stream is {Status}.",
+                sessionId, stream.Status);
+            throw new InvalidOperationException("This session has ended.");
+        }
+
         bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
         bool canPublish = isTeacher || stream.ParticipationMode != StudentParticipationMode.ViewOnly;
 

@@ -44,6 +44,10 @@ public static class DependencyInjection
         services.AddScoped<IClassroomRecordingService, ClassroomRecordingService>();
         services.AddScoped<IRecordingRepository, RecordingRepository>();
 
+        // The one path that brings a live session to Ended — shared by the teacher's end button,
+        // the super-admin force-end and the stalled-session sweep.
+        services.AddScoped<ISessionTerminationService, SessionTerminationService>();
+
         // Super-admin session monitoring + force-end orchestration.
         services.AddScoped<ISessionAdminService, SessionAdminService>();
 
@@ -163,6 +167,21 @@ public static class DependencyInjection
         if (recordingsOptions.ReconcileEnabled || recordingsOptions.RetentionEnabled)
         {
             services.AddHostedService<RecordingReconcileHostedService>();
+        }
+
+        // Stalled-session safety net: closes sessions a teacher never ended. The background job is
+        // only registered when the sweep is enabled; the sweeper itself stays registered either
+        // way so it can be invoked/tested without the timer.
+        var sessionsSection = configuration.GetSection(SessionsOptions.SectionName);
+        services.Configure<SessionsOptions>(sessionsSection);
+        services.AddSingleton<IStalledSessionSettings>(sp =>
+            sp.GetRequiredService<IOptions<SessionsOptions>>().Value);
+        services.AddScoped<IStalledSessionSweeper, StalledSessionSweeper>();
+
+        var sessionsOptions = sessionsSection.Get<SessionsOptions>() ?? new SessionsOptions();
+        if (sessionsOptions.StalledSweepEnabled)
+        {
+            services.AddHostedService<StalledSessionSweepHostedService>();
         }
 
         // 1. Database Configuration

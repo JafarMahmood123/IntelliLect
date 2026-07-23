@@ -13,17 +13,23 @@ public sealed class InternalStreamsController : ControllerBase
     private readonly IStreamRepository _streamRepository;
     private readonly ILiveAssistantInternalClient _liveAssistant;
     private readonly IRecordingEgressService _recordingEgress;
+    private readonly IRoomLifecycleService _roomLifecycle;
+    private readonly IStreamHubContext _hubContext;
     private readonly ILogger<InternalStreamsController> _logger;
 
     public InternalStreamsController(
         IStreamRepository streamRepository,
         ILiveAssistantInternalClient liveAssistant,
         IRecordingEgressService recordingEgress,
+        IRoomLifecycleService roomLifecycle,
+        IStreamHubContext hubContext,
         ILogger<InternalStreamsController> logger)
     {
         _streamRepository = streamRepository;
         _liveAssistant = liveAssistant;
         _recordingEgress = recordingEgress;
+        _roomLifecycle = roomLifecycle;
+        _hubContext = hubContext;
         _logger = logger;
     }
 
@@ -96,12 +102,26 @@ public sealed class InternalStreamsController : ControllerBase
             await _streamRepository.SaveChangesAsync(ct);
         }
 
-        // Stop the recording so LiveKit finalizes and uploads the MP4. Best-effort — see above.
+        // From here on every step is best-effort and independent: the stream is already Ended, and
+        // one unreachable dependency must not stop the others from running.
+
+        // Tell the browsers first — they get a "the session ended" message and leave gracefully,
+        // instead of being dropped by the room close below with no explanation.
+        await NotifyParticipantsEndedAsync(sessionId);
+
+        // Stop the recording so LiveKit finalizes and uploads the MP4. Must happen BEFORE the room
+        // is closed, so the egress shuts down cleanly rather than being cut off with the room.
         // Readiness of the uploaded file is reported later via the egress webhook (R-1).
         await TryStopRecordingAsync(stream, ct);
 
-        // Tell the assistant to tear down. Best-effort — see above.
+        // Tell the assistant to tear down (this is what flushes the transcript the summary is
+        // generated from). Best-effort — see above.
         await NotifyAssistantEndedAsync(sessionId, ct);
+
+        // Finally, close the room itself. This is the authoritative eviction: anyone still
+        // connected — a student who ignored the broadcast, or a tab left open in the background —
+        // is disconnected by the media server. Room name == sessionId (LiveKitMediaProvider).
+        await TryCloseRoomAsync(sessionId, ct);
 
         return NoContent();
     }
@@ -162,6 +182,37 @@ public sealed class InternalStreamsController : ControllerBase
                 ex,
                 "Could not notify LiveAssistant that session {SessionId} started; continuing without the assistant.",
                 stream.SessionId);
+        }
+    }
+
+    private async Task NotifyParticipantsEndedAsync(Guid sessionId)
+    {
+        try
+        {
+            await _hubContext.NotifyStreamStatusChangedAsync(sessionId, StreamStatus.Ended.ToString());
+        }
+        catch (Exception ex)
+        {
+            // The room close below still evicts them, so this is not fatal.
+            _logger.LogWarning(
+                ex,
+                "Could not broadcast the end of session {SessionId} to connected clients; continuing.",
+                sessionId);
+        }
+    }
+
+    private async Task TryCloseRoomAsync(Guid sessionId, CancellationToken ct)
+    {
+        try
+        {
+            await _roomLifecycle.CloseRoomAsync(sessionId.ToString(), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not close the media room for session {SessionId}; participants may need to leave manually.",
+                sessionId);
         }
     }
 

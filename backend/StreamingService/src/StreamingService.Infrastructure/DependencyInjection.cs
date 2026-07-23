@@ -124,6 +124,10 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
         services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
 
+        // Server-side room control: closing a room on session end disconnects every remaining
+        // participant. Stateless wrapper over the SDK's RoomServiceClient -> singleton.
+        services.AddSingleton<IRoomLifecycleService, LiveKitRoomLifecycleService>();
+
         // Session recording via LiveKit Room Composite Egress (R-0). The typed egress options
         // sit alongside the LiveKit registration; the egress client wraps the SDK's
         // EgressServiceClient (reusing the same API key/secret) and is stateless -> singleton.

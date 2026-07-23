@@ -3,6 +3,7 @@ using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Application.Services;
 using ClassroomService.Domain.Entities;
 using ClassroomService.Domain.Enums;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ClassroomService.UnitTests;
 
@@ -19,7 +20,7 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = new SessionAdminService(sessions, streaming, knowledge);
+        var sut = CreateSut(sessions, streaming, knowledge);
 
         var result = await sut.ForceEndAsync(session.Id, "Teacher disconnected");
 
@@ -47,7 +48,7 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: false); // stream end failed
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = new SessionAdminService(sessions, streaming, knowledge);
+        var sut = CreateSut(sessions, streaming, knowledge);
 
         var result = await sut.ForceEndAsync(session.Id, "stalled");
 
@@ -65,7 +66,7 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = false };
-        var sut = new SessionAdminService(sessions, streaming, knowledge);
+        var sut = CreateSut(sessions, streaming, knowledge);
 
         var result = await sut.ForceEndAsync(session.Id, "stalled");
 
@@ -82,7 +83,7 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository();
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient();
-        var sut = new SessionAdminService(sessions, streaming, knowledge);
+        var sut = CreateSut(sessions, streaming, knowledge);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(
             () => sut.ForceEndAsync(Guid.NewGuid(), "stalled"));
@@ -103,7 +104,7 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient();
-        var sut = new SessionAdminService(sessions, streaming, knowledge);
+        var sut = CreateSut(sessions, streaming, knowledge);
 
         var result = await sut.ForceEndAsync(session.Id, "stalled");
 
@@ -122,13 +123,19 @@ public class SessionAdminServiceTests
         // Alternate path 5أ (defence in depth; also validated upstream).
         var session = LiveSession();
         var sessions = new FakeSessionRepository(session);
-        var sut = new SessionAdminService(sessions, new RecordingStreamingClient(true), new RecordingKnowledgeClient());
+        var sut = CreateSut(sessions, new RecordingStreamingClient(true), new RecordingKnowledgeClient());
 
         await Assert.ThrowsAsync<ArgumentException>(() => sut.ForceEndAsync(session.Id, reason));
 
         Assert.Equal(SessionStatus.Live, session.Status);
         Assert.Equal(0, sessions.SaveCalls);
     }
+
+    // The admin force-end delegates to the shared termination path, so the real one is wired in:
+    // these tests cover the whole teardown, not just the admin wrapper.
+    private static SessionAdminService CreateSut(
+        FakeSessionRepository sessions, RecordingStreamingClient streaming, RecordingKnowledgeClient knowledge)
+        => new(sessions, SessionTerminationTestFactory.Create(sessions, streaming, knowledge));
 
     private static Session LiveSession() => new()
     {
@@ -141,11 +148,29 @@ public class SessionAdminServiceTests
     };
 }
 
+/// <summary>Builds a real <see cref="SessionTerminationService"/> over test doubles.</summary>
+public static class SessionTerminationTestFactory
+{
+    public static SessionTerminationService Create(
+        ISessionRepository sessions,
+        IStreamingInternalClient streaming,
+        IKnowledgeInternalClient knowledge,
+        IClock? clock = null)
+        => new(sessions, streaming, knowledge, clock ?? new FakeClock(),
+            NullLogger<SessionTerminationService>.Instance);
+}
+
 /// <summary>In-memory session store recording saves.</summary>
 public sealed class FakeSessionRepository : ISessionRepository
 {
     private readonly Dictionary<Guid, Session> _store = new();
     public int SaveCalls { get; private set; }
+
+    /// <summary>
+    /// Simulates losing the Live -> Ended race (another caller ended the session first), which the
+    /// database arbitrates in production.
+    /// </summary>
+    public bool FailEndClaim { get; set; }
 
     public FakeSessionRepository(params Session[] seed)
     {
@@ -154,6 +179,30 @@ public sealed class FakeSessionRepository : ISessionRepository
 
     public Task<Session?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => Task.FromResult(_store.GetValueOrDefault(id));
+
+    public Task<bool> TryMarkEndedAsync(Guid sessionId, DateTime endedAtUtc, CancellationToken ct = default)
+    {
+        var session = _store.GetValueOrDefault(sessionId);
+        if (FailEndClaim || session is null || session.Status != SessionStatus.Live)
+        {
+            return Task.FromResult(false);
+        }
+
+        session.Status = SessionStatus.Ended;
+        session.EndedAtUtc = endedAtUtc;
+        SaveCalls++; // the claim IS the persist
+        return Task.FromResult(true);
+    }
+
+    public Task<List<Guid>> GetStalledLiveSessionIdsAsync(
+        DateTime startedBeforeUtc, int limit, CancellationToken ct = default)
+        => Task.FromResult(_store.Values
+            .Where(s => s.Status == SessionStatus.Live
+                        && (s.StartedAtUtc ?? s.CreatedAtUtc) <= startedBeforeUtc)
+            .OrderBy(s => s.StartedAtUtc ?? s.CreatedAtUtc)
+            .Take(limit)
+            .Select(s => s.Id)
+            .ToList());
 
     public Task UpdateAsync(Session session, CancellationToken ct = default) => Task.CompletedTask;
 

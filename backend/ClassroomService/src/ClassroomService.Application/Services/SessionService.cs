@@ -10,17 +10,20 @@ public class SessionService : ISessionService
     private readonly ISessionRepository _sessionRepository;
     private readonly IClassroomRepository _classroomRepository;
     private readonly IStreamingInternalClient _streamingClient;
+    private readonly ISessionTerminationService _termination;
     private readonly IUnitOfWork _unitOfWork;
 
     public SessionService(
         ISessionRepository sessionRepository,
         IClassroomRepository classroomRepository,
         IStreamingInternalClient streamingClient,
+        ISessionTerminationService termination,
         IUnitOfWork unitOfWork)
     {
         _sessionRepository = sessionRepository;
         _classroomRepository = classroomRepository;
         _streamingClient = streamingClient;
+        _termination = termination;
         _unitOfWork = unitOfWork;
     }
 
@@ -90,5 +93,33 @@ public class SessionService : ISessionService
             await _unitOfWork.RollbackAsync(ct);
             throw;
         }
+    }
+
+    public async Task<SessionEndOutcome> EndSessionAsync(
+        Guid classroomId, Guid sessionId, Guid requestingUserId, CancellationToken ct = default)
+    {
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+
+        // A session addressed under the wrong classroom is treated as missing rather than
+        // forbidden, so the route cannot be used to probe for sessions in other classrooms.
+        if (session is null || session.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("Session not found.");
+        }
+
+        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct);
+        if (classroom is null)
+        {
+            throw new KeyNotFoundException("Associated classroom not found.");
+        }
+
+        // Only the teacher who owns the classroom may close its sessions. Another teacher holding
+        // a valid Teacher role token is still refused.
+        if (classroom.TeacherId != requestingUserId)
+        {
+            throw new ForbiddenAccessException("Only the classroom's teacher can end this session.");
+        }
+
+        return await _termination.EndAsync(sessionId, SessionEndTrigger.Teacher, "Ended by the teacher.", ct);
     }
 }

@@ -1,8 +1,10 @@
-"""ClassroomService client: classrooms, enrollment, sessions, session start.
+"""ClassroomService client: classrooms, enrollment, sessions, session start/end.
 
 Through the gateway (`/api/classrooms/*`). Starting a session is the trigger that
 makes ClassroomService call StreamingService, which in turn spins up the LiveKit
-room and notifies LiveAssistantService to start the agent pipeline.
+room and notifies LiveAssistantService to start the agent pipeline. Ending it runs
+the same path in reverse: participants are disconnected, the recording is finalized
+and the summary is generated.
 """
 
 from __future__ import annotations
@@ -75,3 +77,27 @@ class ClassroomClient:
                 headers=teacher.auth,
             )
         )
+
+    def end_session(self, teacher: Account, classroom_id: str, session_id: str) -> dict:
+        """Flip the session Ended -> disconnects participants, stops the recording,
+        tears the agent pipeline down and triggers summary generation.
+
+        Returns the outcome body, whose ``streamEnded``/``summaryTriggered`` flags report
+        the best-effort steps (the session is Ended either way).
+        """
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/sessions/{session_id}/end",
+                headers=teacher.auth,
+            )
+        )
+        return resp.json()
+
+    def get_sessions(self, account: Account, classroom_id: str) -> list[dict]:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/sessions",
+                headers=account.auth,
+            )
+        )
+        return resp.json()

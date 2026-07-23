@@ -11,8 +11,16 @@ public sealed class InternalStreamsControllerTests
         FakeStreamRepository repo,
         RecordingLiveAssistantClient assistant,
         RecordingLogger<InternalStreamsController> logger,
-        FakeRecordingEgressService? egress = null)
-        => new(repo, assistant, egress ?? new FakeRecordingEgressService(), logger);
+        FakeRecordingEgressService? egress = null,
+        FakeRoomLifecycleService? rooms = null,
+        RecordingStreamHubContext? hub = null)
+        => new(
+            repo,
+            assistant,
+            egress ?? new FakeRecordingEgressService(),
+            rooms ?? new FakeRoomLifecycleService(),
+            hub ?? new RecordingStreamHubContext(),
+            logger);
 
     private static InitializeStreamRequest StartRequest(Guid sessionId, Guid classroomId, Guid teacherId)
         => new(sessionId, classroomId, teacherId, default);
@@ -95,6 +103,99 @@ public sealed class InternalStreamsControllerTests
         Assert.Equal(StreamStatus.Ended, stream.Status);
         Assert.Equal(1, logger.WarningCount);
     }
+
+    [Fact]
+    public async Task EndStream_evicts_participants_by_telling_them_and_closing_the_room()
+    {
+        // Ending a session must actually remove the students: they are told over the hub so they
+        // leave gracefully, and the room is closed so anyone still connected is disconnected by
+        // the media server regardless.
+        var sessionId = Guid.NewGuid();
+        var repo = new FakeStreamRepository(LiveStream(sessionId));
+        var rooms = new FakeRoomLifecycleService();
+        var hub = new RecordingStreamHubContext();
+        var controller = CreateController(
+            repo, new RecordingLiveAssistantClient(), new RecordingLogger<InternalStreamsController>(),
+            rooms: rooms, hub: hub);
+
+        var result = await controller.EndStream(sessionId, default);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal((sessionId, "Ended"), Assert.Single(hub.StatusChanges));
+        // Room name == sessionId (the LiveKitMediaProvider token convention).
+        Assert.Equal(1, rooms.CloseCalls);
+        Assert.Equal(sessionId.ToString(), rooms.LastClosedRoom);
+    }
+
+    [Fact]
+    public async Task EndStream_closes_the_room_even_when_the_broadcast_fails()
+    {
+        // If the hub is down the students never hear about it — the room close is what still
+        // gets them out, so it must not be skipped.
+        var sessionId = Guid.NewGuid();
+        var repo = new FakeStreamRepository(LiveStream(sessionId));
+        var rooms = new FakeRoomLifecycleService();
+        var logger = new RecordingLogger<InternalStreamsController>();
+        var controller = CreateController(
+            repo, new RecordingLiveAssistantClient(), logger,
+            rooms: rooms, hub: new RecordingStreamHubContext(throwOnStatusChange: true));
+
+        var result = await controller.EndStream(sessionId, default);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(1, rooms.CloseCalls);
+        Assert.Equal(1, logger.WarningCount);
+    }
+
+    [Fact]
+    public async Task EndStream_still_succeeds_when_the_room_cannot_be_closed()
+    {
+        // The stream is already Ended in our own store; an unreachable media server must not turn
+        // that into a failed request, or the caller would retry an end that already happened.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        var repo = new FakeStreamRepository(stream);
+        var logger = new RecordingLogger<InternalStreamsController>();
+        var controller = CreateController(
+            repo, new RecordingLiveAssistantClient(), logger,
+            rooms: new FakeRoomLifecycleService(throwOnCall: true));
+
+        var result = await controller.EndStream(sessionId, default);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(StreamStatus.Ended, stream.Status);
+        Assert.Equal(1, logger.WarningCount);
+    }
+
+    [Fact]
+    public async Task EndStream_stops_the_recording_before_closing_the_room()
+    {
+        // Closing the room kills the egress mid-flight; stopping it first lets LiveKit finalize
+        // and upload the MP4.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        stream.EgressId = "EG_end_order";
+        var egress = new FakeRecordingEgressService();
+        var rooms = new FakeRoomLifecycleService();
+        var controller = CreateController(
+            new FakeStreamRepository(stream), new RecordingLiveAssistantClient(),
+            new RecordingLogger<InternalStreamsController>(), egress, rooms);
+
+        await controller.EndStream(sessionId, default);
+
+        Assert.Equal("EG_end_order", egress.LastStoppedEgressId);
+        Assert.Equal(1, rooms.CloseCalls);
+    }
+
+    private static LiveStream LiveStream(Guid sessionId) => new()
+    {
+        Id = Guid.NewGuid(),
+        SessionId = sessionId,
+        ClassroomId = Guid.NewGuid(),
+        TeacherId = Guid.NewGuid(),
+        Status = StreamStatus.Live,
+        StreamKey = "k",
+    };
 
     [Fact]
     public async Task EndStream_returns_not_found_for_unknown_session()
