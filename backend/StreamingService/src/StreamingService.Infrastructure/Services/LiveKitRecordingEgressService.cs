@@ -48,6 +48,14 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
         {
             RoomName = roomName,
             Layout = DefaultLayout,
+            // Modest, explicit encode (see EgressOptions): keeps the Chrome+GStreamer pipeline from
+            // starving and freezing the muxer at finalization on constrained/virtualized hosts.
+            Advanced = new EncodingOptions
+            {
+                Width = _options.Width,
+                Height = _options.Height,
+                Framerate = _options.Framerate,
+            },
         };
 
         // A single MP4 written directly to S3 by LiveKit — bytes never touch this service.

@@ -132,6 +132,11 @@ services:
       # container name (which egress, on host networking, cannot resolve).
       - Egress__Enabled=true
       - Egress__KeyTemplate=recordings/{room_name}/{time}.mp4
+      # Modest composite encode so the egress pipeline doesn't starve/freeze at finalization on
+      # this virtualized host (Docker Desktop). Raise on a beefier machine for a sharper capture.
+      - Egress__Width=1280
+      - Egress__Height=720
+      - Egress__Framerate=15
       - Egress__S3__Bucket=intellilect-files
       - Egress__S3__Region=us-east-1
       - Egress__S3__AccessKey=testuser
