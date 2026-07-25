@@ -209,7 +209,7 @@ public sealed class InternalStreamsControllerTests
     }
 
     [Fact]
-    public async Task InitializeStream_starts_recording_for_room_and_persists_egress_id()
+    public async Task InitializeStream_does_not_start_recording_because_the_room_does_not_exist_yet()
     {
         var repo = new FakeStreamRepository();
         var egress = new FakeRecordingEgressService(egressId: "EG_session42");
@@ -219,30 +219,29 @@ public sealed class InternalStreamsControllerTests
         var result = await controller.InitializeStream(StartRequest(sessionId, Guid.NewGuid(), Guid.NewGuid()), default);
 
         Assert.IsType<CreatedAtActionResult>(result);
-        // Room name == sessionId (LiveKitMediaProvider convention).
-        Assert.Equal(1, egress.StartCalls);
-        Assert.Equal(sessionId.ToString(), egress.LastRoomName);
-        // The returned egress id is persisted on the LiveStream.
-        Assert.Equal("EG_session42", repo.Find(sessionId)!.EgressId);
+        // Recording is started later, on the room_started webhook (see LiveKitRecordingWebhookHandler),
+        // because at this point the LiveKit room does not exist yet and egress would 404.
+        Assert.Equal(0, egress.StartCalls);
+        Assert.Null(repo.Find(sessionId)!.EgressId);
     }
 
     [Fact]
-    public async Task InitializeStream_still_succeeds_when_recording_cannot_start()
+    public async Task InitializeStream_creates_the_stream_without_touching_the_egress_service()
     {
+        // Even an egress service that throws on any call must not affect stream creation, since
+        // InitializeStream never calls it.
         var repo = new FakeStreamRepository();
         var egress = new FakeRecordingEgressService(throwOnCall: true);
-        var logger = new RecordingLogger<InternalStreamsController>();
-        var controller = CreateController(repo, new RecordingLiveAssistantClient(), logger, egress);
+        var controller = CreateController(repo, new RecordingLiveAssistantClient(), new RecordingLogger<InternalStreamsController>(), egress);
 
         var sessionId = Guid.NewGuid();
         var result = await controller.InitializeStream(StartRequest(sessionId, Guid.NewGuid(), Guid.NewGuid()), default);
 
-        // Recording is an enhancement: an egress failure is swallowed + logged, stream still created.
         Assert.IsType<CreatedAtActionResult>(result);
         var stream = repo.Find(sessionId);
         Assert.NotNull(stream);
         Assert.Null(stream!.EgressId);
-        Assert.Equal(1, logger.WarningCount);
+        Assert.Equal(0, egress.StartCalls);
     }
 
     [Fact]

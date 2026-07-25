@@ -15,10 +15,14 @@ namespace StreamingService.Infrastructure.Services;
 /// </summary>
 public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
 {
-    // The Room (twirp) API is reached over HTTP(S), but LiveKitSettings.Host is the ws(s):// URL
-    // the realtime SDK uses — normalised the same way LiveKitEgressClient does.
+    // The Room (twirp) API is reached over HTTP(S) at the server-side API endpoint
+    // (internal, LAN-IP-independent) — never the browser-facing ws Host.
     private readonly RoomServiceClient _client;
     private readonly ILogger<LiveKitRoomLifecycleService> _logger;
+
+    // Closing a room is on the session-end path, so an unreachable LiveKit must fail fast
+    // rather than blocking on the HttpClient's 100s default.
+    private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(5);
 
     public LiveKitRoomLifecycleService(
         IOptions<LiveKitSettings> livekit,
@@ -26,7 +30,10 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
     {
         var settings = livekit.Value;
         _client = new RoomServiceClient(
-            ToHttpUrl(settings.Host), settings.ApiKey, settings.ApiSecret, new HttpClient());
+            settings.ApiHttpUrl,
+            settings.ApiKey,
+            settings.ApiSecret,
+            new HttpClient { Timeout = ApiTimeout });
         _logger = logger;
     }
 
@@ -37,15 +44,5 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
         await _client.DeleteRoom(new DeleteRoomRequest { Room = roomName });
 
         _logger.LogInformation("Closed LiveKit room {RoomName}; all participants disconnected.", roomName);
-    }
-
-    private static string ToHttpUrl(string host)
-    {
-        if (string.IsNullOrWhiteSpace(host)) return host;
-        if (host.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
-            return string.Concat("https://", host.AsSpan("wss://".Length));
-        if (host.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
-            return string.Concat("http://", host.AsSpan("ws://".Length));
-        return host;
     }
 }

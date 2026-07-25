@@ -42,6 +42,7 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(evt),
             repo,
+            new FakeRecordingEgressService(egressId: EgressId),
             publish,
             new RecordingLogger<LiveKitRecordingWebhookHandler>());
         return (handler, publish, repo);
@@ -130,5 +131,56 @@ public sealed class LiveKitRecordingWebhookHandlerTests
 
         Assert.Empty(publish.Published);
         Assert.False(stream.RecordingReadyPublished);
+    }
+
+    [Fact]
+    public async Task Room_started_starts_recording_and_persists_egress_id()
+    {
+        var sessionId = Guid.NewGuid();
+        // A live stream with no egress yet — the room has just been created.
+        var stream = new LiveStream
+        {
+            Id = Guid.NewGuid(),
+            SessionId = sessionId,
+            ClassroomId = Guid.NewGuid(),
+            TeacherId = Guid.NewGuid(),
+            Status = StreamStatus.Live,
+            StreamKey = "k",
+        };
+        var repo = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+        var handler = new LiveKitRecordingWebhookHandler(
+            new FakeLiveKitWebhookVerifier(
+                new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
+            repo,
+            egress,
+            new FakePublishEndpoint(),
+            new RecordingLogger<LiveKitRecordingWebhookHandler>());
+
+        await handler.HandleAsync("body", "auth");
+
+        Assert.Equal(1, egress.StartCalls);
+        Assert.Equal(EgressId, repo.Find(sessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Room_started_is_idempotent_when_egress_already_running()
+    {
+        // Stream() seeds an EgressId, so a repeat room_started must not start a second egress.
+        var sessionId = Guid.NewGuid();
+        var stream = Stream(sessionId, Guid.NewGuid());
+        var repo = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+        var handler = new LiveKitRecordingWebhookHandler(
+            new FakeLiveKitWebhookVerifier(
+                new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
+            repo,
+            egress,
+            new FakePublishEndpoint(),
+            new RecordingLogger<LiveKitRecordingWebhookHandler>());
+
+        await handler.HandleAsync("body", "auth");
+
+        Assert.Equal(0, egress.StartCalls);
     }
 }

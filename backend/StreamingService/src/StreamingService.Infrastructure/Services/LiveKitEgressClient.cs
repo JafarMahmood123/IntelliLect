@@ -14,13 +14,19 @@ public sealed class LiveKitEgressClient : ILiveKitEgressClient
     // EgressServiceClient (SDK 1.2.1) ctor: (host, apiKey, apiSecret, HttpClient).
     private readonly EgressServiceClient _client;
 
+    // Recording is best-effort and on the session-start path, so a LiveKit that is slow or
+    // unreachable must fail FAST rather than blocking on the HttpClient's 100s default.
+    private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(5);
+
     public LiveKitEgressClient(IOptions<LiveKitSettings> livekit)
     {
         var settings = livekit.Value;
-        // The Egress (twirp) API is reached over HTTP(S). LiveKitSettings.Host is a ws(s)://
-        // URL used by the realtime SDK for token conventions, so normalise the scheme here.
+        // Use the server-side API endpoint (internal, LAN-IP-independent), not the browser Host.
         _client = new EgressServiceClient(
-            ToHttpUrl(settings.Host), settings.ApiKey, settings.ApiSecret, new HttpClient());
+            settings.ApiHttpUrl,
+            settings.ApiKey,
+            settings.ApiSecret,
+            new HttpClient { Timeout = ApiTimeout });
     }
 
     public Task<EgressInfo> StartRoomCompositeEgressAsync(RoomCompositeEgressRequest request)
@@ -28,14 +34,4 @@ public sealed class LiveKitEgressClient : ILiveKitEgressClient
 
     public Task<EgressInfo> StopEgressAsync(StopEgressRequest request)
         => _client.StopEgress(request);
-
-    private static string ToHttpUrl(string host)
-    {
-        if (string.IsNullOrWhiteSpace(host)) return host;
-        if (host.StartsWith("wss://", StringComparison.OrdinalIgnoreCase))
-            return string.Concat("https://", host.AsSpan("wss://".Length));
-        if (host.StartsWith("ws://", StringComparison.OrdinalIgnoreCase))
-            return string.Concat("http://", host.AsSpan("ws://".Length));
-        return host;
-    }
 }

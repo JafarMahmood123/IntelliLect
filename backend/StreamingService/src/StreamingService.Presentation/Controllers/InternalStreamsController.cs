@@ -51,11 +51,10 @@ public sealed class InternalStreamsController : ControllerBase
             StreamKey = Guid.NewGuid().ToString("N")
         };
 
-        // Start recording the room before the first save so the egress id is persisted in one
-        // write. Best-effort — recording is an enhancement, so a failure must NOT fail stream
-        // creation. Room name matches LiveKitMediaProvider's convention: room == sessionId.
-        await TryStartRecordingAsync(stream, ct);
-
+        // NOTE: recording is NOT started here. At this point the LiveKit room does not exist yet
+        // (it is created when the first participant joins), so starting egress now fails with
+        // "requested room does not exist". Recording is started when LiveKit fires the
+        // `room_started` webhook — see LiveKitRecordingWebhookHandler.
         await _streamRepository.AddAsync(stream, ct);
         await _streamRepository.SaveChangesAsync(ct);
 
@@ -124,28 +123,6 @@ public sealed class InternalStreamsController : ControllerBase
         await TryCloseRoomAsync(sessionId, ct);
 
         return NoContent();
-    }
-
-    private async Task TryStartRecordingAsync(LiveStream stream, CancellationToken ct)
-    {
-        try
-        {
-            var egressId = await _recordingEgress.StartRoomRecordingAsync(stream.SessionId.ToString(), ct);
-            if (!string.IsNullOrWhiteSpace(egressId))
-            {
-                stream.EgressId = egressId;
-                _logger.LogInformation(
-                    "Recording egress {EgressId} started for session {SessionId}.",
-                    egressId, stream.SessionId);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Could not start recording egress for session {SessionId}; continuing without recording.",
-                stream.SessionId);
-        }
     }
 
     private async Task TryStopRecordingAsync(LiveStream stream, CancellationToken ct)

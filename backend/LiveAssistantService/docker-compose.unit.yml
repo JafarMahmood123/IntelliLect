@@ -29,9 +29,11 @@ services:
       - path: .env
         required: false
     environment:
-      # Reach the LiveKit dev server defined in StreamingService/docker-compose.unit.yml
-      # (same intellilect-net). These match its --dev key/secret.
-      - LIVEKIT_URL=ws://livekit-server:7880
+      # Reach the LiveKit dev server defined in StreamingService/docker-compose.unit.yml.
+      # livekit-server runs on HOST networking (for WebRTC), so it is no longer on intellilect-net
+      # and cannot be reached by container name — reach it via the host gateway (this service
+      # already maps host.docker.internal below). Key/secret match its --dev values.
+      - LIVEKIT_URL=ws://host.docker.internal:7880
       - LIVEKIT_API_KEY=devkey
       - LIVEKIT_API_SECRET=super_secret_livekit_key_for_development
       - AGENT_IDENTITY=ai-assistant

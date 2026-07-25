@@ -1,0 +1,14 @@
+# LiveKit Egress worker config. Runs on HOST networking alongside livekit-server + livekit-redis,
+# so every dependency is reached over the host loopback:
+#   - redis: coordination with livekit-server (job dispatch)
+#   - ws_url: the egress Chrome joins the room over WebRTC to composite it
+# insecure: allow plain ws/http to the local dev server (no TLS).
+# The S3 upload target is NOT set here — StreamingService supplies it per request (bucket, keys,
+# and MinIO endpoint) when it starts the egress.
+redis:
+  address: 127.0.0.1:6379
+api_key: devkey
+api_secret: super_secret_livekit_key_for_development
+ws_url: ws://127.0.0.1:7880
+insecure: true
+log_level: info

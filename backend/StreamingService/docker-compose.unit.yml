@@ -18,30 +18,48 @@ services:
     volumes:
       - streaming_db_data:/var/lib/postgresql/data
 
+  # Redis backs the LiveKit server <-> egress worker coordination (egress jobs are dispatched
+  # over Redis pub/sub). Host networking so the host-networked livekit-server and egress
+  # containers both reach it at 127.0.0.1:6379 with no cross-namespace NAT. Bound to loopback
+  # so it is not exposed on the LAN. No persistence needed — it is pure coordination state.
+  livekit-redis:
+    image: redis:7-alpine
+    container_name: livekit-redis
+    command: ["redis-server", "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"]
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   livekit-server:
     image: livekit/livekit-server:latest
     container_name: livekit-server
+    # HOST NETWORKING (not bridge + published ports). WebRTC host candidates only work when
+    # LiveKit's media sockets live in the host network namespace: with Docker's bridge + NAT,
+    # LiveKit's STUN replies leave with the container IP (172.18.x) instead of the advertised
+    # node-ip, the browser's ICE agent rejects them, and every media pair fails ("could not
+    # establish pc connection") — kicking participants out. On host networking there is no NAT,
+    # so 7880 (signal), 7881 (WebRTC TCP) and 7882/udp (media) bind straight to the host.
+    network_mode: host
     command:
       - --dev
-      # Force the advertised WebRTC media IP to the host LAN IP. --dev otherwise STUN-discovers
-      # the machine's PUBLIC IP and hands browsers an unroutable media candidate, so peer
-      # connections fail and clients get kicked out of the room. Must match the join URL host.
+      # Advertised WebRTC media IP = host LAN IP. --dev otherwise STUN-discovers the machine's
+      # PUBLIC IP and hands browsers an unroutable candidate. Must match the browser join URL
+      # host (LiveKit__Host). Update this when the host LAN IP changes (see livekit.yaml node_ip).
       - --node-ip
-      - 192.168.1.104
+      - 192.168.105.28
       - --config
       - /livekit.yaml
     volumes:
       - ./livekit.yaml:/livekit.yaml
     environment:
-      - LIVEKIT_NODE_IP=192.168.1.104
+      - LIVEKIT_NODE_IP=192.168.105.28
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      - LiveKit__Host=ws://192.168.1.104:7880
+      - LiveKit__Host=ws://192.168.105.28:7880
       - LOG_LEVEL=info,pion:warn,transport:warn
-    ports:
-      - "7880:7880" # HTTP Signal
-      - "7881:7881" # WebRTC TCP (ICE/TURN fallback)
-      - "7882:7882/udp" # WebRTC UDP — single multiplexed media port (rtc.udp_port)
     # Fail loudly if the media server is down. A bad livekit.yaml previously let this
     # container exit(0) while streaming-service came up regardless, silently bouncing
     # everyone out of live sessions. The HTTP signal port returns "OK" once serving;
@@ -52,8 +70,31 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    networks:
-      - intellilect-net
+    depends_on:
+      livekit-redis:
+        condition: service_healthy
+
+  # LiveKit Egress worker (R-0): records room-composite MP4s straight to MinIO. Runs headless
+  # Chrome to composite the room, so it needs CAP_SYS_ADMIN + a larger /dev/shm. Host networking
+  # for the same reason as livekit-server — the egress Chrome joins the room over WebRTC and would
+  # otherwise hit the same NAT wall. Config in egress.yaml (Redis + LiveKit ws, all on localhost).
+  livekit-egress:
+    image: livekit/egress:latest
+    container_name: livekit-egress
+    network_mode: host
+    cap_add:
+      - CAP_SYS_ADMIN
+    shm_size: "1gb"
+    environment:
+      - EGRESS_CONFIG_FILE=/egress.yaml
+    volumes:
+      - ./egress.yaml:/egress.yaml
+    restart: unless-stopped
+    depends_on:
+      livekit-redis:
+        condition: service_healthy
+      livekit-server:
+        condition: service_healthy
 
   streaming-service:
     build:
@@ -72,22 +113,37 @@ services:
       - Jwt__Audience=IntelliLect
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      - LiveKit__Host=ws://192.168.1.104:7880
+      # Host is the ws URL handed to BROWSERS for media — must be the host's LAN IP and changes
+      # when the machine moves networks (see livekit.yaml node_ip).
+      - LiveKit__Host=ws://192.168.105.28:7880
+      # ApiUrl is the SERVER-SIDE endpoint this service uses for LiveKit's Room/Egress twirp APIs.
+      # livekit-server runs on HOST networking (for WebRTC), so it is no longer on intellilect-net
+      # and cannot be reached by container name — this service reaches it via the host gateway.
+      - LiveKit__ApiUrl=http://host.docker.internal:7880
       # LiveAssistantService trigger (LA-6): notify it on session start/end. Secret
       # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
       # (which is also what live-assistant presents to KnowledgeService). One value everywhere.
       - LiveAssistant__InternalApiSecret=changeme-internal-secret
-      # Session recording via LiveKit Room Composite Egress (R-0). LiveKit writes the MP4
-      # straight to the shared MinIO (intellilect-s3) — matches livekit.yaml's egress.s3.
+      # Session recording via LiveKit Room Composite Egress (R-0). This endpoint is used BY the
+      # host-networked egress worker to upload the MP4 to MinIO, so it must be an address egress
+      # can reach from the host namespace — MinIO's host-published port, NOT the intellilect-s3
+      # container name (which egress, on host networking, cannot resolve).
       - Egress__Enabled=true
       - Egress__KeyTemplate=recordings/{room_name}/{time}.mp4
       - Egress__S3__Bucket=intellilect-files
       - Egress__S3__Region=us-east-1
       - Egress__S3__AccessKey=testuser
       - Egress__S3__Secret=testpassword123!
-      - Egress__S3__Endpoint=http://intellilect-s3:9000
+      - Egress__S3__Endpoint=http://127.0.0.1:9000
+    # livekit-server (host networking) delivers its egress/room webhooks to this service. It can
+    # only reach it via a host-published port, so expose 8080 on the host as 8085.
+    ports:
+      - "8085:8080"
+    # Reach the host-networked livekit-server via the host gateway (host.docker.internal).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       streaming-db:
         condition: service_healthy

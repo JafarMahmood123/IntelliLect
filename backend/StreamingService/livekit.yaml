@@ -1,6 +1,12 @@
 logging:
   level: info
 
+# Redis is required for the server to dispatch recording jobs to the egress worker. Both this
+# server and the egress worker run on HOST networking, so they share the host loopback and reach
+# livekit-redis (bound to 127.0.0.1) here. Without redis, egress requests are never handed off.
+redis:
+  address: 127.0.0.1:6379
+
 port: 7880
 bind_addresses:
   - ""
@@ -14,10 +20,10 @@ rtc:
   # Local/LAN dev: advertise the host's LAN IP for WebRTC media. With use_external_ip:true
   # LiveKit STUN-discovers the machine's PUBLIC IP (149.40.58.152) and hands that to browsers
   # as the media (ICE) candidate — unroutable for UDP from a LAN client. node_ip must match
-  # the host in the join URL StreamingService returns (ws://192.168.1.104:7880). NOTE: --dev
+  # the host in the join URL StreamingService returns (ws://192.168.105.28:7880). NOTE: --dev
   # overrides these yaml keys, so the authoritative value is the --node-ip flag in compose.
   use_external_ip: false
-  node_ip: 192.168.1.104
+  node_ip: 192.168.105.28
   enable_loopback_candidate: true
 
 # NOTE: The LiveKit *server* config has no top-level `egress` section — that field
@@ -27,12 +33,14 @@ rtc:
 # via the Egress__S3__* env vars and require a livekit/egress container to actually run;
 # without it, StreamingService logs a warning and continues without recording.
 
-# Egress lifecycle webhooks -> StreamingService (R-1). LiveKit signs each POST with the api_key
-# below; the receiver verifies it with the matching secret in `keys`.
+# Egress/room lifecycle webhooks -> StreamingService (R-0 start on room_started, R-1 ready on
+# egress_ended). LiveKit signs each POST with the api_key below; the receiver verifies it with the
+# matching secret in `keys`. This server is on HOST networking so it cannot resolve the
+# streaming-service container name — it posts to the service's host-published port (8085->8080).
 webhook:
   api_key: devkey
   urls:
-    - http://streaming-service:8080/api/webhooks/livekit
+    - http://127.0.0.1:8085/api/webhooks/livekit
 
 keys:
   devkey: super_secret_livekit_key_for_development

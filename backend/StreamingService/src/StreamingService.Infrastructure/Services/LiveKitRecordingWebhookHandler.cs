@@ -15,23 +15,29 @@ namespace StreamingService.Infrastructure.Services;
 /// </summary>
 public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
 {
+    // LiveKit fires room_started when the room is first created (first participant joins) — the
+    // moment the room actually exists and egress can attach to it.
+    private const string RoomStartedEvent = "room_started";
     // LiveKit fires this once an egress reaches a terminal state; EgressInfo.Status says which.
     private const string EgressEndedEvent = "egress_ended";
     private const string RecordingContentType = "video/mp4";
 
     private readonly ILiveKitWebhookVerifier _verifier;
     private readonly IStreamRepository _streamRepository;
+    private readonly IRecordingEgressService _recordingEgress;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<LiveKitRecordingWebhookHandler> _logger;
 
     public LiveKitRecordingWebhookHandler(
         ILiveKitWebhookVerifier verifier,
         IStreamRepository streamRepository,
+        IRecordingEgressService recordingEgress,
         IPublishEndpoint publishEndpoint,
         ILogger<LiveKitRecordingWebhookHandler> logger)
     {
         _verifier = verifier;
         _streamRepository = streamRepository;
+        _recordingEgress = recordingEgress;
         _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
@@ -40,6 +46,14 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
     {
         // Throws WebhookVerificationException on a bad signature -> the endpoint returns 401.
         var webhookEvent = _verifier.Verify(body, authHeader);
+
+        // room_started: the room now exists, so start recording it (R-0). Kept off the
+        // session-start request path precisely because the room does not exist there yet.
+        if (string.Equals(webhookEvent.Event, RoomStartedEvent, StringComparison.Ordinal))
+        {
+            await StartRecordingForRoomAsync(webhookEvent, ct);
+            return;
+        }
 
         if (webhookEvent.EgressInfo is null ||
             !string.Equals(webhookEvent.Event, EgressEndedEvent, StringComparison.Ordinal))
@@ -81,6 +95,64 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
         stream.RecordingReadyPublished = true;
         await _streamRepository.UpdateAsync(stream, ct);
         await _streamRepository.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Starts room-composite egress for a room that has just gone live. Best-effort: recording is
+    /// an enhancement, so any failure is logged and the session continues. Idempotent — a repeat
+    /// room_started (or a stream that already has an egress id) is ignored. The room name is the
+    /// sessionId (LiveKitMediaProvider convention).
+    /// </summary>
+    private async Task StartRecordingForRoomAsync(WebhookEvent webhookEvent, CancellationToken ct)
+    {
+        var roomName = webhookEvent.Room?.Name;
+        if (string.IsNullOrWhiteSpace(roomName) || !Guid.TryParse(roomName, out var sessionId))
+        {
+            _logger.LogDebug(
+                "Ignoring room_started webhook without a session-id room name ({RoomName}).", roomName);
+            return;
+        }
+
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
+        if (stream is null)
+        {
+            _logger.LogWarning(
+                "No LiveStream for room {SessionId} on room_started; not recording.", sessionId);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(stream.EgressId))
+        {
+            _logger.LogInformation(
+                "Recording already running (egress {EgressId}) for session {SessionId}; ignoring room_started.",
+                stream.EgressId, sessionId);
+            return;
+        }
+
+        try
+        {
+            var egressId = await _recordingEgress.StartRoomRecordingAsync(roomName, ct);
+            if (string.IsNullOrWhiteSpace(egressId))
+            {
+                // Recording disabled — nothing to persist.
+                return;
+            }
+
+            stream.EgressId = egressId;
+            await _streamRepository.UpdateAsync(stream, ct);
+            await _streamRepository.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "Recording egress {EgressId} started for session {SessionId} on room_started.",
+                egressId, sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not start recording for session {SessionId}; continuing without recording.",
+                sessionId);
+        }
     }
 
     private SessionRecordingReadyMessage BuildMessage(Guid sessionId, Guid classroomId, EgressInfo egress)

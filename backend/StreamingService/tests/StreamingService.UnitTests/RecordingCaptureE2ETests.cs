@@ -29,22 +29,32 @@ public sealed class RecordingCaptureE2ETests
         return new WebhookEvent { Event = "egress_ended", EgressInfo = info };
     }
 
+    private static WebhookEvent RoomStarted(Guid sessionId)
+        => new() { Event = "room_started", Room = new Room { Name = sessionId.ToString() } };
+
     [Fact]
     public async Task Full_capture_flow_persists_egress_id_then_publishes_recording_ready()
     {
         var sessionId = Guid.NewGuid();
         var classroomId = Guid.NewGuid();
         var repo = new FakeStreamRepository();
-
-        // Step 1 (R-0): session goes live -> egress started, id persisted on the LiveStream.
         var egress = new FakeRecordingEgressService(egressId: EgressId);
+
+        // Step 0: session goes live -> stream row persisted. Egress is NOT started here: the
+        // LiveKit room does not exist yet, so starting egress now would 404.
         var streamController = new InternalStreamsController(
             repo, new RecordingLiveAssistantClient(), egress, new FakeRoomLifecycleService(),
             new RecordingStreamHubContext(), new RecordingLogger<InternalStreamsController>());
-
         await streamController.InitializeStream(
             new InitializeStreamRequest(sessionId, classroomId, Guid.NewGuid(), default), default);
+        Assert.Null(repo.Find(sessionId)!.EgressId);
+        Assert.Equal(0, egress.StartCalls);
 
+        // Step 1 (R-0): room_started webhook -> egress started, id persisted on the LiveStream.
+        var startHandler = new LiveKitRecordingWebhookHandler(
+            new FakeLiveKitWebhookVerifier(RoomStarted(sessionId)),
+            repo, egress, new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>());
+        await startHandler.HandleAsync("body", "auth");
         Assert.Equal(EgressId, repo.Find(sessionId)!.EgressId);
         Assert.Equal(1, egress.StartCalls);
 
@@ -52,7 +62,7 @@ public sealed class RecordingCaptureE2ETests
         var publish = new FakePublishEndpoint();
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(EgressEnded(EgressStatus.EgressComplete, size: 4096, durationNs: 8_000_000_000)),
-            repo, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
+            repo, egress, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
 
         await handler.HandleAsync("body", "auth");
 
@@ -78,10 +88,16 @@ public sealed class RecordingCaptureE2ETests
         await streamController.InitializeStream(
             new InitializeStreamRequest(sessionId, Guid.NewGuid(), Guid.NewGuid(), default), default);
 
+        // room_started -> egress started + id persisted, so the egress_ended below can correlate.
+        await new LiveKitRecordingWebhookHandler(
+            new FakeLiveKitWebhookVerifier(RoomStarted(sessionId)),
+            repo, egress, new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>())
+            .HandleAsync("body", "auth");
+
         var publish = new FakePublishEndpoint();
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(EgressEnded(EgressStatus.EgressFailed, error: "encoder crashed")),
-            repo, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
+            repo, egress, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
 
         await handler.HandleAsync("body", "auth");
 
