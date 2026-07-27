@@ -18,7 +18,21 @@ public sealed class LiveStream
     public StreamStatus Status { get; set; } = StreamStatus.Planned;
     public DateTime? StartedAtUtc { get; set; }
     public DateTime? EndedAtUtc { get; set; }
+
+    /// <summary>The mode the session was created with. Kept as the initial seed for the two
+    /// runtime flags below; the teacher's in-session "Session Settings" toggles change those
+    /// flags, not this.</summary>
     public StudentParticipationMode ParticipationMode { get; set; }
+
+    /// <summary>Whether students are currently allowed to publish their microphone. Toggled live
+    /// by the teacher from inside the session (enforced on connected students via LiveKit
+    /// UpdateParticipant, and baked into the join token for late arrivals). Seeded from
+    /// <see cref="ParticipationMode"/> when the stream is created.</summary>
+    public bool StudentsCanPublishAudio { get; set; }
+
+    /// <summary>Whether students are currently allowed to publish their camera. See
+    /// <see cref="StudentsCanPublishAudio"/>.</summary>
+    public bool StudentsCanPublishVideo { get; set; }
 
 
     // Navigation

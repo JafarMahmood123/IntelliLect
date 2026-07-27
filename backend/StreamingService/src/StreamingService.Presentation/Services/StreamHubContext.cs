@@ -28,6 +28,16 @@ public sealed class StreamHubContext : IStreamHubContext
             .ReceiveHandRaise(userId, isRaised);
     }
 
+    public async Task NotifyPublishPolicyChangedAsync(Guid sessionId, bool canPublishAudio, bool canPublishVideo)
+    {
+        _logger.LogDebug(
+            "Broadcasting publish policy change. SessionId: {SessionId}, Audio: {Audio}, Video: {Video}",
+            sessionId, canPublishAudio, canPublishVideo);
+
+        await _hubContext.Clients.Group(sessionId.ToString())
+            .PublishPolicyChanged(canPublishAudio, canPublishVideo);
+    }
+
     public async Task NotifyParticipantCountAsync(Guid sessionId, int count)
     {
         _logger.LogDebug(

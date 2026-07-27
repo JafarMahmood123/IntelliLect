@@ -8,4 +8,6 @@ public record StreamResponse(
     DateTime? StartedAtUtc,
     string JoinToken,
     string LiveKitHost,
-    int ParticipationMode);
+    int ParticipationMode,
+    bool StudentsCanPublishAudio,
+    bool StudentsCanPublishVideo);

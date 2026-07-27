@@ -28,3 +28,12 @@ class BrainClient(ABC):
         error for the caller to handle.
         """
         raise NotImplementedError
+
+    async def smoke_complete(self, transcript_text: str) -> str:
+        """SMOKE-TEST ONLY (temporary): send raw transcript text to the model and return its raw
+        reply, bypassing the grounded evaluation prompt + JSON contract.
+
+        Concrete, non-abstract on purpose so test fakes need not implement it; the real
+        ``OllamaBrainClient`` overrides it. Remove with the smoke branch once verified.
+        """
+        raise NotImplementedError

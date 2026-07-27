@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -44,5 +45,88 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
         await _client.DeleteRoom(new DeleteRoomRequest { Room = roomName });
 
         _logger.LogInformation("Closed LiveKit room {RoomName}; all participants disconnected.", roomName);
+    }
+
+    public async Task ApplyStudentPublishPolicyAsync(
+        Guid sessionId,
+        bool canPublishAudio,
+        bool canPublishVideo,
+        CancellationToken ct = default)
+    {
+        var roomName = sessionId.ToString();
+
+        ListParticipantsResponse participants;
+        try
+        {
+            participants = await _client.ListParticipants(new ListParticipantsRequest { Room = roomName });
+        }
+        catch (Exception ex)
+        {
+            // No room yet (nobody connected) or LiveKit unreachable: the persisted policy + the join
+            // token still cover anyone who joins later, so this is not fatal.
+            _logger.LogWarning(
+                ex,
+                "Could not list participants for session {SessionId}; skipping live enforcement (token still applies).",
+                sessionId);
+            return;
+        }
+
+        // Precompute the runtime source list once; the same policy applies to every student.
+        var sources = PublishSourceMap.StudentRuntimeSources(canPublishAudio, canPublishVideo).ToList();
+        int updated = 0;
+
+        foreach (var participant in participants.Participants)
+        {
+            if (!IsStudent(participant.Metadata)) continue; // never touch the teacher or the AI assistant
+
+            var permission = new ParticipantPermission
+            {
+                CanSubscribe = true,
+                CanPublishData = true,
+                CanPublish = sources.Count > 0
+            };
+            permission.CanPublishSources.AddRange(sources);
+
+            try
+            {
+                await _client.UpdateParticipant(new UpdateParticipantRequest
+                {
+                    Room = roomName,
+                    Identity = participant.Identity,
+                    Permission = permission
+                });
+                updated++;
+            }
+            catch (Exception ex)
+            {
+                // One student failing (e.g. just disconnected) must not stop the rest.
+                _logger.LogWarning(
+                    ex,
+                    "Could not update publish permissions for participant {Identity} in session {SessionId}; continuing.",
+                    participant.Identity, sessionId);
+            }
+        }
+
+        _logger.LogInformation(
+            "Applied student publish policy to session {SessionId} (audio={Audio}, video={Video}); {Count} student(s) updated.",
+            sessionId, canPublishAudio, canPublishVideo, updated);
+    }
+
+    /// <summary>True when a participant's LiveKit metadata declares the "Student" role. Anything
+    /// else — the teacher, the AI assistant, or malformed/empty metadata — is treated as non-student
+    /// and left alone.</summary>
+    private static bool IsStudent(string? metadata)
+    {
+        if (string.IsNullOrWhiteSpace(metadata)) return false;
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<ParticipantMetadata>(metadata);
+            return parsed is not null
+                && string.Equals(parsed.Role, "Student", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

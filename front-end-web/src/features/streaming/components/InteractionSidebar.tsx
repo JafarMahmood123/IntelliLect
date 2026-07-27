@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
-import { MessageSquare, Send, HelpCircle } from 'lucide-react';
+import { MessageSquare, Send, HelpCircle, SlidersHorizontal } from 'lucide-react';
 import { useStreamHub } from '../hooks/useStreamHub';
 import { Button } from '../../../components/ui/Button';
 import { Tabs } from '../../../components/ui/Tabs';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { SessionSettingsPanel } from './SessionSettingsPanel';
 
 export const InteractionSidebar = () => {
-  const { t } = useTranslation('streaming');
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuthStore();
-  const { messages, sendMessage, isConnected } = useStreamHub(sessionId);
-  
+  const { messages, sendMessage, isConnected, publishPolicy } = useStreamHub(sessionId);
+  const isTeacher = user?.roleName === 'Teacher';
+
   const [activeTab, setActiveTab] = useState('chat');
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -33,6 +33,10 @@ export const InteractionSidebar = () => {
   const tabs = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={16} /> },
     { id: 'qa', label: 'Q&A', icon: <HelpCircle size={16} /> },
+    // The teacher's live student-permission controls; hidden from students.
+    ...(isTeacher
+      ? [{ id: 'settings', label: 'Session Settings', icon: <SlidersHorizontal size={16} /> }]
+      : []),
   ];
 
   return (
@@ -44,7 +48,9 @@ export const InteractionSidebar = () => {
 
       {/* Scrollable Message List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 bg-slate-900/20 custom-scrollbar">
-        {activeTab === 'chat' ? (
+        {activeTab === 'settings' && isTeacher && sessionId ? (
+          <SessionSettingsPanel sessionId={sessionId} livePolicy={publishPolicy} />
+        ) : activeTab === 'chat' ? (
           <div className="p-4 space-y-5">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-slate-700">

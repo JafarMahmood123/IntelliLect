@@ -42,7 +42,7 @@ export const LiveRoomPage = () => {
   const { showToast } = useToast();
 
   const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
-  const { participantCount, hasEnded } = useStreamHub(sessionId);
+  const { participantCount, hasEnded, publishPolicy } = useStreamHub(sessionId);
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
   const endSessionMutation = useEndSession(classroomId ?? "");
@@ -95,10 +95,54 @@ export const LiveRoomPage = () => {
     }
   };
 
-  // Participation logic: 0 = ViewOnly, 1 = AudioOnly, 2 = AudioAndVideo. This governs what a
-  // student may PUBLISH; it does not affect what the teacher sees (see TeacherStage).
-  const canPublishAudio = isTeacher || (data?.participationMode ?? 0) >= 1;
-  const canPublishVideo = isTeacher || (data?.participationMode ?? 0) >= 2;
+  // Whether STUDENTS may publish each source, as the teacher has it set right now: a live
+  // SignalR update (Session Settings toggle) wins; otherwise the initial value from the stream
+  // details. The teacher themselves always publishes freely.
+  const studentsCanAudio = publishPolicy?.canPublishAudio ?? data?.studentsCanPublishAudio ?? false;
+  const studentsCanVideo = publishPolicy?.canPublishVideo ?? data?.studentsCanPublishVideo ?? false;
+  const canPublishAudio = isTeacher || studentsCanAudio;
+  const canPublishVideo = isTeacher || studentsCanVideo;
+
+  // The device request handed to <LiveKitRoom> is frozen at connect time: it decides what gets
+  // published when this participant joins. We deliberately do NOT re-drive it from the live policy
+  // — re-granting video should let a student turn their camera ON, never force it on for them.
+  // Live changes only flow to the ControlBar (which shows/hides the buttons); revocation is already
+  // enforced server-side by the media server force-unpublishing the track.
+  const initialPublishRef = useRef<{ audio: boolean; video: boolean } | null>(null);
+  if (initialPublishRef.current === null && data) {
+    initialPublishRef.current = {
+      audio: isTeacher || (data.studentsCanPublishAudio ?? false),
+      video: isTeacher || (data.studentsCanPublishVideo ?? false),
+    };
+  }
+  const initialAudio = initialPublishRef.current?.audio ?? false;
+  const initialVideo = initialPublishRef.current?.video ?? false;
+
+  // Tell a student when the teacher changes what they may share (fires only on a real SignalR
+  // update, never on the initial load — publishPolicy is null until the first change arrives).
+  const prevPolicyRef = useRef<typeof publishPolicy>(null);
+  useEffect(() => {
+    if (isTeacher || !publishPolicy) {
+      prevPolicyRef.current = publishPolicy;
+      return;
+    }
+    const prev = prevPolicyRef.current;
+    prevPolicyRef.current = publishPolicy;
+    if (
+      prev &&
+      prev.canPublishAudio === publishPolicy.canPublishAudio &&
+      prev.canPublishVideo === publishPolicy.canPublishVideo
+    ) {
+      return; // no actual change
+    }
+    showToast({
+      type: "info",
+      title: "Sharing permissions updated",
+      message: `The teacher ${publishPolicy.canPublishVideo ? "enabled" : "disabled"} camera and ${
+        publishPolicy.canPublishAudio ? "enabled" : "disabled"
+      } microphone sharing for students.`,
+    });
+  }, [publishPolicy, isTeacher, showToast]);
 
   const serverUrl = useMemo(
     () => (data?.liveKitHost ? toLiveKitServerUrl(data.liveKitHost) : ""),
@@ -181,9 +225,11 @@ export const LiveRoomPage = () => {
               serverUrl={serverUrl}
               token={data.joinToken}
               connect={true}
-              // Initial device request based on this participant's publish permissions.
-              video={canPublishVideo}
-              audio={canPublishAudio}
+              // Initial device request, frozen at connect time (see initialPublishRef). Live
+              // policy changes flow only to the ControlBar below, never back into this — so a
+              // re-grant lets a student choose to share rather than force-enabling their camera.
+              video={initialVideo}
+              audio={initialAudio}
               // Fires both when the user leaves and when the media server closes the room on
               // session end — either way the destination is the classroom.
               onDisconnected={exitToClassroom}

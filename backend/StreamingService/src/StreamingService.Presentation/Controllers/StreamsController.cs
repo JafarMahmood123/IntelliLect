@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using StreamingService.Application.Abstractions;
+using StreamingService.Application.DTOs;
 using StreamingService.Application.DTOs.Question;
 
 namespace StreamingService.Presentation.Controllers;
@@ -57,6 +58,21 @@ public sealed class StreamsController : ApiBaseController
             sessionId, UserId, isRaised);
         await _interactionService.ToggleHandRaiseAsync(sessionId, UserId, isRaised, ct);
         return Ok(new { Message = isRaised ? "Hand raised." : "Hand lowered." });
+    }
+
+    [HttpPut("{sessionId:guid}/publish-policy")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UpdatePublishPolicy(
+        Guid sessionId,
+        [FromBody] UpdatePublishPolicyRequest request,
+        CancellationToken ct)
+    {
+        _logger.LogDebug(
+            "Publish policy update requested. SessionId: {SessionId}, UserId: {UserId}, Audio: {Audio}, Video: {Video}",
+            sessionId, UserId, request.CanPublishAudio, request.CanPublishVideo);
+        var policy = await _streamService.UpdateStudentPublishPolicyAsync(
+            sessionId, UserId, request.CanPublishAudio, request.CanPublishVideo, ct);
+        return Ok(policy);
     }
 
     [HttpGet("{sessionId:guid}/chat")]

@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     stt_language: str = "en"  # English only for now (Arabic deferred)
     stt_chunk_seconds: float = 3.0  # audio accumulated before a transcription step
     stt_pause_seconds: float = 0.8  # trailing silence that marks a segment boundary
+    # CPU cores faster-whisper/CTranslate2 may use. On an 8-core host, STT and the local
+    # LLM otherwise BOTH grab every core and oversubscribe: while the teacher keeps talking,
+    # STT transcribes new windows on all cores at the same instant Ollama wants all cores to
+    # generate the reply -> context-thrash, and the SAME short reply takes 5s once and 12s the
+    # next. Capping STT leaves cores free for generation (see eval_num_thread). base.en int8
+    # stays comfortably faster-than-realtime at 2 threads. 0 = CTranslate2 default (all cores).
+    stt_cpu_threads: int = 2
 
     # --- Idea boundary detection (LA-3) ---
     # Segments the transcript into "ideas". Semantic drift is measured by embedding
@@ -72,6 +79,11 @@ class Settings(BaseSettings):
     boundary_max_seconds: float = 90.0  # hard cap on idea duration
     boundary_max_tokens: int = 400  # hard cap on idea length (whitespace tokens)
     boundary_min_tokens: int = 20  # ignore/merge ideas smaller than this
+    # When false, the boundary detector uses a no-op (zero-vector) embedder instead of the
+    # Ollama one, so drift is disabled and idea boundaries come from PAUSE + length caps only.
+    # This keeps the embedding model OUT of Ollama's RAM on constrained hosts, so the chat model
+    # stays resident (no model-swap reload) and replies are fast. Default true (full drift).
+    boundary_use_embedder: bool = True
 
     # --- Embeddings (LA-3 drift; local Ollama, HTTP-only — no model weights here) ---
     # Used to embed transcript segments for drift measurement. On Linux,
@@ -98,6 +110,11 @@ class Settings(BaseSettings):
     eval_temperature: float = 0.2
     eval_timeout_seconds: float = 60.0
     eval_max_tokens: int = 512  # num_predict
+    # Cores Ollama may use to generate a reply (options.num_thread). Paired with
+    # stt_cpu_threads so STT + generation don't oversubscribe the 8-core host: 2 for STT
+    # + 6 here = 8, saturated but not thrashing. This is the main lever that pulls the
+    # smoke reply from ~5-12s down toward ~3-5s. 0 = Ollama's own default (all cores).
+    eval_num_thread: int = 6
 
     # --- Feedback delivery (LA-5): private, teacher-only ---
     # Primary transport is a reliable LiveKit data message from the agent's existing
@@ -135,6 +152,13 @@ class Settings(BaseSettings):
     # --- Observability (LA-8) ---
     log_level: str = "INFO"  # root log level (DEBUG/INFO/WARNING/...)
     metrics_enabled: bool = True  # expose /metrics and record Prometheus metrics
+
+    # --- SMOKE TEST (temporary) ---
+    # When true, the live pipeline BYPASSES retrieval + grounded evaluation + pacing and instead
+    # sends each completed idea's raw transcript to the chat model, delivering the model's raw
+    # reply straight to the teacher. Proves the transcript -> LLM -> teacher path while the real
+    # assistant is tuned. Set ASSISTANT_SMOKE_TEST=false to restore the real assistant.
+    assistant_smoke_test: bool = False
 
     @property
     def livekit_configured(self) -> bool:

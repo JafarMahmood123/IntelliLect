@@ -13,6 +13,7 @@ public sealed class StreamService : IStreamService
     private readonly IParticipantRepository _participantRepository;
     private readonly IStreamHubContext _hubContext;
     private readonly IMediaProvider _mediaProvider;
+    private readonly IRoomLifecycleService _roomLifecycle;
     private readonly IStreamSettings _settings;
     private readonly ILogger<StreamService> _logger;
 
@@ -21,6 +22,7 @@ public sealed class StreamService : IStreamService
         IParticipantRepository participantRepository,
         IStreamHubContext hubContext,
         IMediaProvider mediaProvider,
+        IRoomLifecycleService roomLifecycle,
         IStreamSettings settings,
         ILogger<StreamService> logger)
     {
@@ -28,6 +30,7 @@ public sealed class StreamService : IStreamService
         _participantRepository = participantRepository;
         _hubContext = hubContext;
         _mediaProvider = mediaProvider;
+        _roomLifecycle = roomLifecycle;
         _settings = settings;
         _logger = logger;
     }
@@ -49,9 +52,12 @@ public sealed class StreamService : IStreamService
         }
 
         bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
-        bool canPublish = isTeacher || stream.ParticipationMode != StudentParticipationMode.ViewOnly;
+        // The teacher always publishes freely; a student gets exactly the current per-source policy.
+        bool canPublishAudio = isTeacher || stream.StudentsCanPublishAudio;
+        bool canPublishVideo = isTeacher || stream.StudentsCanPublishVideo;
 
-        var joinToken = _mediaProvider.GenerateJoinToken(sessionId, userId, canPublish, role, userName);
+        var joinToken = _mediaProvider.GenerateJoinToken(
+            sessionId, userId, role, userName, canPublishAudio, canPublishVideo);
 
         return new StreamResponse(
             stream.Id,
@@ -61,7 +67,40 @@ public sealed class StreamService : IStreamService
             stream.StartedAtUtc,
             joinToken,
             _settings.LiveKitHost,
-            (int)stream.ParticipationMode);
+            (int)stream.ParticipationMode,
+            stream.StudentsCanPublishAudio,
+            stream.StudentsCanPublishVideo);
+    }
+
+    public async Task<StudentPublishPolicyResponse> UpdateStudentPublishPolicyAsync(
+        Guid sessionId,
+        Guid teacherId,
+        bool canPublishAudio,
+        bool canPublishVideo,
+        CancellationToken ct)
+    {
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
+        if (stream is null) throw new KeyNotFoundException("Stream not found.");
+        if (stream.Status != StreamStatus.Live)
+            throw new InvalidOperationException("This session has ended.");
+        // Only the session's own teacher may change the policy (defence in depth on top of the
+        // controller's [Authorize(Roles = "Teacher")]: a different teacher can't touch this room).
+        if (stream.TeacherId != teacherId)
+            throw new UnauthorizedAccessException("Only the session's teacher can change publish settings.");
+
+        stream.StudentsCanPublishAudio = canPublishAudio;
+        stream.StudentsCanPublishVideo = canPublishVideo;
+        await _streamRepository.UpdateAsync(stream, ct);
+        await _streamRepository.SaveChangesAsync(ct);
+
+        // Enforce on everyone already connected (force-unpublishes any now-forbidden track). The
+        // persisted policy above covers anyone who joins after this point via their join token.
+        await _roomLifecycle.ApplyStudentPublishPolicyAsync(sessionId, canPublishAudio, canPublishVideo, ct);
+
+        // Tell every client so their UI reflects the new policy immediately.
+        await _hubContext.NotifyPublishPolicyChangedAsync(sessionId, canPublishAudio, canPublishVideo);
+
+        return new StudentPublishPolicyResponse(canPublishAudio, canPublishVideo);
     }
 
     public async Task JoinStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

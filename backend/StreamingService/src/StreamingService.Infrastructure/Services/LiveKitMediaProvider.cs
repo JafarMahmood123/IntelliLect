@@ -23,14 +23,23 @@ public sealed class LiveKitMediaProvider : IMediaProvider
         _logger = logger;
     }
 
-    public string GenerateJoinToken(Guid sessionId, Guid userId, bool canPublish, string role, string displayName)
+    public string GenerateJoinToken(
+        Guid sessionId,
+        Guid userId,
+        string role,
+        string displayName,
+        bool canPublishAudio,
+        bool canPublishVideo)
     {
+        bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
+
         _logger.LogDebug(
-            "Generating LiveKit join token. SessionId: {SessionId}, UserId: {UserId}, CanPublish: {CanPublish}, Role: {Role}",
-            sessionId, userId, canPublish, role);
+            "Generating LiveKit join token. SessionId: {SessionId}, UserId: {UserId}, Role: {Role}, Audio: {Audio}, Video: {Video}",
+            sessionId, userId, role, canPublishAudio, canPublishVideo);
 
         // Carry the participant's role in the LiveKit participant metadata so the client can
-        // apply role-based visibility (students see only the teacher; the teacher sees everyone).
+        // apply role-based visibility (students see only the teacher; the teacher sees everyone),
+        // and so server-side policy changes can target students specifically.
         var metadata = JsonSerializer.Serialize(new ParticipantMetadata(role));
 
         // Identity stays the userId (stable, used for correlation); the display name is the
@@ -42,11 +51,17 @@ public sealed class LiveKitMediaProvider : IMediaProvider
             .WithName(name)
             .WithMetadata(metadata);
 
+        // Per-source publish rights: the explicit source list is what actually allows/denies each
+        // track. CanPublish is the master switch — false when no source is allowed, so a view-only
+        // student cannot publish anything. This mirrors the runtime UpdateParticipant enforcement.
+        var sources = PublishSourceMap.TokenSources(canPublishAudio, canPublishVideo, isTeacher);
+
         var grant = new VideoGrants
         {
             Room = sessionId.ToString(),
             RoomJoin = true,
-            CanPublish = canPublish,
+            CanPublish = sources.Count > 0,
+            CanPublishSources = sources,
             CanSubscribe = true,
             CanPublishData = true
         };

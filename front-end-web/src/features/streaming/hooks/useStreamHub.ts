@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
+import type { PublishPolicy } from "../types";
 
 export interface ChatMessage {
   userId: string;
@@ -16,6 +17,9 @@ export const useStreamHub = (sessionId: string | undefined) => {
   // force-ended it, or the stalled-session sweep closed it). The media room is torn down right
   // after the broadcast, so this is the participants' only chance at a graceful exit.
   const [endedStatus, setEndedStatus] = useState<string | null>(null);
+  // Latest student publish policy pushed by the teacher's "Session Settings" toggles. Null until
+  // the first change arrives; consumers fall back to the value from the initial stream details.
+  const [publishPolicy, setPublishPolicy] = useState<PublishPolicy | null>(null);
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const accessToken = localStorage.getItem("accessToken");
@@ -59,6 +63,13 @@ export const useStreamHub = (sessionId: string | undefined) => {
       console.log(`[SignalR] Stream status changed: ${status}`);
       if (status?.toLowerCase() === "ended") setEndedStatus(status);
     });
+
+    connection.on(
+      "PublishPolicyChanged",
+      (canPublishAudio: boolean, canPublishVideo: boolean) => {
+        if (isMounted) setPublishPolicy({ canPublishAudio, canPublishVideo });
+      },
+    );
 
     const startConnection = async () => {
       // 1. Guard against multiple starting attempts
@@ -122,5 +133,6 @@ export const useStreamHub = (sessionId: string | undefined) => {
     participantCount,
     sendMessage,
     hasEnded: endedStatus !== null,
+    publishPolicy,
   };
 };

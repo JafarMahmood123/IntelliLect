@@ -72,6 +72,25 @@ services:
       # entrypoint.sh runs Alembic migrations on start because this is set.
       - TRANSCRIPT_DB_URL=postgresql+asyncpg://postgres:Jafar123!@live-assistant-db:5432/liveassistantdb
       - TRANSCRIPT_PERSIST_BATCH=1
+      # --- SMOKE TEST + RAM fit (temporary) ---
+      # Small chat model imported into Ollama from a GGUF: fits RAM alongside everything and
+      # replies fast on CPU (~3-4s). Must match ollama-warmup's CHAT_MODEL below.
+      - EVAL_MODEL=qwen2.5:3b-instruct
+      # Cap reply length so CPU generation stays quick.
+      - EVAL_MAX_TOKENS=128
+      # Send each spoken idea's raw transcript straight to the LLM and push the reply to the
+      # teacher, bypassing retrieval/evaluation/pacing. Set false to restore the real assistant.
+      - ASSISTANT_SMOKE_TEST=true
+      # A couple of words + a pause forms an idea (the real 20-word floor is too high to test with).
+      - BOUNDARY_MIN_TOKENS=3
+      # Keep the embedding model OUT of Ollama so the chat model stays resident (no model-swap).
+      - BOUNDARY_USE_EMBEDDER=false
+      # --- CPU core partitioning (latency) ---
+      # STT (faster-whisper) and the local LLM otherwise both grab all 8 cores and oversubscribe
+      # while the teacher keeps talking, making the same short reply take 5-12s. Split the cores:
+      # 2 for STT + 6 for generation = 8, saturated but not thrashing. Pulls the reply toward ~3-5s.
+      - STT_CPU_THREADS=2
+      - EVAL_NUM_THREAD=6
     # Linux does not provide host.docker.internal by default; map it to the host.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -82,11 +101,43 @@ services:
         condition: service_started
       live-assistant-db:
         condition: service_healthy
+      # Do not start the assistant until the host Ollama has the chat model resident, so the
+      # first spoken idea gets a fast reply (no cold-load stall).
+      ollama-warmup:
+        condition: service_healthy
     networks:
       - intellilect-net
     volumes:
       # Persist the downloaded faster-whisper model across restarts.
       - live_assistant_hf_cache:/root/.cache/huggingface
+
+  # Loads the assistant's Ollama chat model into RAM on `up` (gating the assistant until it is
+  # resident), keeps it warm, and releases it on `down`. See scripts/ollama-warmup.sh. Ollama runs
+  # on the HOST, so this reaches it via host.docker.internal.
+  ollama-warmup:
+    image: curlimages/curl:latest
+    container_name: ollama-warmup
+    entrypoint: ["/bin/sh", "/ollama-warmup.sh"]
+    volumes:
+      - ./scripts/ollama-warmup.sh:/ollama-warmup.sh:ro
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      # Must match live-assistant-service's EVAL_MODEL above.
+      - CHAT_MODEL=qwen2.5:3b-instruct
+      # Empty => embedder not loaded (disabled via BOUNDARY_USE_EMBEDDER=false), so only the
+      # chat model occupies RAM.
+      - EMBED_MODEL=
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 240s
+    stop_grace_period: 30s
+    networks:
+      - intellilect-net
 
 volumes:
   live_assistant_hf_cache:

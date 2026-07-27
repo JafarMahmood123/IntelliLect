@@ -51,6 +51,7 @@ class OllamaBrainClient(BrainClient):
         self._timeout = settings.eval_timeout_seconds
         self._temperature = settings.eval_temperature
         self._max_tokens = settings.eval_max_tokens
+        self._num_thread = settings.eval_num_thread
         # LA-7: confidence used when the model omits it (backward-compatible).
         self._default_confidence = settings.feedback_default_confidence
         self._headers: dict[str, str] = {}
@@ -63,6 +64,19 @@ class OllamaBrainClient(BrainClient):
         context, citation_map = build_numbered_context(chunks)
         content = await self._complete(SYSTEM_PROMPT, build_user_prompt(idea.text, context))
         return self._parse_outcome(content, citation_map)
+
+    async def smoke_complete(self, transcript_text: str) -> str:
+        """SMOKE-TEST ONLY (temporary): raw transcript -> LLM -> raw reply.
+
+        A plain, friendly assistant turn (NOT the grounded evaluation prompt) so we can eyeball
+        that the model is reachable and responding. Remove with the smoke branch once verified.
+        """
+        system = (
+            "You are a helpful teaching assistant listening to a live lecture. "
+            "The teacher just said something. Reply with ONE short, helpful remark "
+            "or clarification (at most two sentences)."
+        )
+        return await self._complete(system, transcript_text)
 
     async def _complete(self, system: str, user: str) -> str:
         """POST the chat request and return the model's message content.
@@ -80,6 +94,10 @@ class OllamaBrainClient(BrainClient):
             "stream": False,
             "options": {"temperature": self._temperature, "num_predict": self._max_tokens},
         }
+        # Bound generation to a core budget so it doesn't fight STT for all 8 cores
+        # (0 => omit and let Ollama use its default = all cores). See settings.eval_num_thread.
+        if self._num_thread:
+            payload["options"]["num_thread"] = self._num_thread
         try:
             async with httpx.AsyncClient(
                 timeout=self._timeout, headers=self._headers

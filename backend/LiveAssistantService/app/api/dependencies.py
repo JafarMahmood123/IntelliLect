@@ -28,6 +28,9 @@ from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
 from app.infrastructure.brain.ollama_brain_client import OllamaBrainClient
 from app.infrastructure.config.settings import Settings, get_settings
+from app.infrastructure.embeddings.constant_embedding_provider import (
+    ConstantEmbeddingProvider,
+)
 from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
 )
@@ -278,9 +281,18 @@ def build_session_pipeline_factory(
             audio = agent
             sink = build_feedback_sink(settings, agent)
         stt = FasterWhisperSpeechToText(settings)
-        boundary = build_boundary_detector(settings, OllamaEmbeddingProvider(settings))
+        # Drift needs the embedding model in RAM; on a constrained host that evicts the chat
+        # model and makes replies slow. BOUNDARY_USE_EMBEDDER=false swaps in a no-op embedder
+        # (pause/length boundaries only) so only the chat model stays resident.
+        embedder: EmbeddingProvider = (
+            OllamaEmbeddingProvider(settings)
+            if settings.boundary_use_embedder
+            else ConstantEmbeddingProvider()
+        )
+        boundary = build_boundary_detector(settings, embedder)
+        brain = OllamaBrainClient(settings)
         evaluator = build_idea_evaluator(
-            settings, KnowledgeRetrievalClient(settings), OllamaBrainClient(settings)
+            settings, KnowledgeRetrievalClient(settings), brain
         )
         dispatcher = build_feedback_dispatcher(sink)
         recorder = TranscriptRecorder(
@@ -289,8 +301,12 @@ def build_session_pipeline_factory(
             session.classroom_id,
             batch=settings.transcript_persist_batch,
         )
+        # SMOKE TEST (temporary): when enabled, hand the pipeline the brain so it can send raw
+        # transcript ideas straight to the LLM and deliver the reply. None => real pipeline.
+        smoke_brain = brain if settings.assistant_smoke_test else None
         return SessionPipeline(
-            session, audio, stt, boundary, evaluator, pacer, dispatcher, recorder
+            session, audio, stt, boundary, evaluator, pacer, dispatcher, recorder,
+            smoke_brain=smoke_brain,
         )
 
     return factory

@@ -30,8 +30,8 @@ from app.domain.transcript.transcript_segment import TranscriptSegment
 from app.infrastructure.config.settings import Settings
 from app.infrastructure.stt.audio_analysis import (
     DEFAULT_SILENCE_RMS,
-    is_silent,
     pcm16_to_float32,
+    rms,
 )
 from app.observability import metrics
 
@@ -78,6 +78,10 @@ class FasterWhisperSpeechToText(SpeechToText):
                 self._settings.stt_model,
                 device=self._settings.stt_device,
                 compute_type=self._settings.stt_compute_type,
+                # Cap intra-op threads so STT leaves cores free for the LLM's generation
+                # (0 => CTranslate2 default = all cores, which starves Ollama). See
+                # settings.stt_cpu_threads.
+                cpu_threads=self._settings.stt_cpu_threads,
             )
 
     async def warmup(self) -> None:
@@ -100,9 +104,38 @@ class FasterWhisperSpeechToText(SpeechToText):
         last_end_ms = 0
         trailing_silence = 0.0  # seconds of unbroken trailing silence in the utterance
 
+        # DIAGNOSTIC (temporary): roll up the incoming audio LEVEL and log it ~once/sec so we can
+        # tell a truly-silent mic apart from a threshold/format issue. peak_rms well below
+        # `threshold` => no audible signal is reaching the agent. Remove once confirmed.
+        _probe_secs = 0.0
+        _probe_peak = 0.0
+        _probe_speech = 0
+        _probe_total = 0
+
         async for frame in frames:
             samples = pcm16_to_float32(frame.pcm)
-            silent = is_silent(samples, self._silence_threshold)
+            level = rms(samples)
+            silent = level < self._silence_threshold
+
+            _probe_secs += frame.duration_seconds
+            _probe_peak = max(_probe_peak, level)
+            _probe_total += 1
+            if not silent:
+                _probe_speech += 1
+            if _probe_secs >= 1.0:
+                logger.info(
+                    "audio_level_probe",
+                    extra={
+                        "peak_rms": round(_probe_peak, 5),
+                        "threshold": round(self._silence_threshold, 5),
+                        "speech_frames": _probe_speech,
+                        "total_frames": _probe_total,
+                    },
+                )
+                _probe_secs = 0.0
+                _probe_peak = 0.0
+                _probe_speech = 0
+                _probe_total = 0
 
             # Drop leading silence so an utterance starts on the first speech frame.
             if start_ms is None:
@@ -175,11 +208,26 @@ class FasterWhisperSpeechToText(SpeechToText):
         # runs the actual compute. beam_size=1 (greedy) and condition_on_previous_text
         # =False keep it fast and avoid drift across re-transcribed windows. These
         # kwargs are version-sensitive — verify against the pinned faster-whisper.
-        segments, _info = self._model.transcribe(
+        segments, info = self._model.transcribe(
             samples,
             language=self._settings.stt_language,
             beam_size=1,
             vad_filter=False,
             condition_on_previous_text=False,
         )
-        return " ".join(segment.text.strip() for segment in segments)
+        seg_list = list(segments)  # materialize: this is what actually runs the compute
+        text = " ".join(segment.text.strip() for segment in seg_list)
+        # DIAGNOSTIC (temporary): reveal exactly what Whisper heard for this window so we can see
+        # whether it's empty, garbled, or fine. Logs transcript text on purpose (dev smoke only) —
+        # REMOVE this block once the STT path is confirmed.
+        logger.info(
+            "stt_debug",
+            extra={
+                "duration_s": round(float(samples.size) / 16000.0, 2),
+                "lang": getattr(info, "language", None),
+                "lang_prob": round(float(getattr(info, "language_probability", 0.0) or 0.0), 3),
+                "n_segments": len(seg_list),
+                "text": text[:200],
+            },
+        )
+        return text

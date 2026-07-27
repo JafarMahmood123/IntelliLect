@@ -48,6 +48,9 @@ public sealed class InternalStreamsController : ControllerBase
             Status = StreamStatus.Live,
             StartedAtUtc = DateTime.UtcNow,
             ParticipationMode = request.ParticipationMode,
+            // Seed the live toggles from the creation-time mode; the teacher can change them later.
+            StudentsCanPublishAudio = request.ParticipationMode.AllowsAudio(),
+            StudentsCanPublishVideo = request.ParticipationMode.AllowsVideo(),
             StreamKey = Guid.NewGuid().ToString("N")
         };
 

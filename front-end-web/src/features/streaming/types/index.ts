@@ -7,6 +7,16 @@ export type StreamResponse = {
   joinToken: string;
   liveKitHost: string;
   participationMode: number; // Added
+  // Current live policy for whether students may publish audio/video. The teacher can change
+  // these in real time from the "Session Settings" tab; changes arrive over SignalR.
+  studentsCanPublishAudio: boolean;
+  studentsCanPublishVideo: boolean;
+};
+
+/** Whether students may publish each media source. Mirrors the backend PublishPolicyChanged event. */
+export type PublishPolicy = {
+  canPublishAudio: boolean;
+  canPublishVideo: boolean;
 };
 
 // --- Teacher live-feedback (F-3) --------------------------------------------

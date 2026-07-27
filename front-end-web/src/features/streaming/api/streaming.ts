@@ -1,8 +1,17 @@
 import { apiClient } from '../../../lib/axios';
-import type { StreamResponse } from '../types';
+import type { PublishPolicy, StreamResponse } from '../types';
 
 export const getStreamDetails = async (sessionId: string): Promise<StreamResponse> => {
   const { data } = await apiClient.get<StreamResponse>(`/streams/${sessionId}`);
+  return data;
+};
+
+/** Teacher-only: set whether students may publish audio/video for this live session. */
+export const updatePublishPolicy = async (
+  sessionId: string,
+  policy: PublishPolicy,
+): Promise<PublishPolicy> => {
+  const { data } = await apiClient.put<PublishPolicy>(`/streams/${sessionId}/publish-policy`, policy);
   return data;
 };
 

@@ -27,6 +27,7 @@ import time
 from collections.abc import AsyncIterator
 
 from app.application.ports.audio_source import AudioSource
+from app.application.ports.brain_client import BrainClient
 from app.application.ports.speech_to_text import SpeechToText
 from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
@@ -35,6 +36,9 @@ from app.application.services.idea_evaluator import IdeaEvaluator
 from app.application.services.token_estimate import estimate_tokens
 from app.application.services.transcript_recorder import TranscriptRecorder
 from app.domain.entities.session_context import SessionContext
+from app.domain.evaluation.evaluation_outcome import EvaluationOutcome
+from app.domain.evaluation.feedback_type import FeedbackType
+from app.domain.evaluation.teacher_suggestion import TeacherSuggestion
 from app.domain.idea.completed_idea import CompletedIdea
 from app.domain.transcript.transcript_segment import TranscriptSegment
 from app.observability import metrics
@@ -56,6 +60,7 @@ class SessionPipeline:
         feedback_pacer: FeedbackPacer,
         feedback_dispatcher: FeedbackDispatcher,
         transcript_recorder: TranscriptRecorder | None = None,
+        smoke_brain: BrainClient | None = None,
     ) -> None:
         self._session = session
         self._audio_source = audio_source
@@ -64,6 +69,10 @@ class SessionPipeline:
         self._evaluator = idea_evaluator
         self._pacer = feedback_pacer
         self._dispatcher = feedback_dispatcher
+        # SMOKE TEST (temporary): when set (ASSISTANT_SMOKE_TEST=true), each completed idea's raw
+        # transcript is sent straight to this brain and the reply is delivered to the teacher,
+        # bypassing retrieval/evaluation/pacing. None => the normal (real) pipeline runs.
+        self._smoke_brain = smoke_brain
         # Optional (S-0): when present, FINAL segments are persisted incrementally,
         # off the feedback hot path. Absent -> no persistence (unchanged LA-6 behavior).
         self._recorder = transcript_recorder
@@ -148,6 +157,12 @@ class SessionPipeline:
 
     async def _handle_idea(self, idea: CompletedIdea) -> None:
         """Evaluate one idea, PACE it (LA-7), then deliver; never let one idea stop the run."""
+        # SMOKE TEST (temporary): with a smoke brain injected, bypass retrieval/evaluation/pacing
+        # and push the LLM's raw reply to the teacher. Restore the real path by flipping
+        # ASSISTANT_SMOKE_TEST off (so smoke_brain is None) — no other change needed.
+        if self._smoke_brain is not None:
+            await self._handle_idea_smoke(idea)
+            return
         try:
             received_at = time.perf_counter()
             metrics.record_idea(idea.trigger.value)
@@ -194,3 +209,25 @@ class SessionPipeline:
             raise
         except Exception as exc:  # noqa: BLE001 — one bad idea must not end the session
             logger.error("idea_failed", extra={"error_type": type(exc).__name__})
+
+    async def _handle_idea_smoke(self, idea: CompletedIdea) -> None:
+        """SMOKE TEST ONLY (temporary): raw transcript idea -> LLM -> teacher.
+
+        Bypasses retrieval, grounded evaluation, and pacing to prove the transcript -> LLM ->
+        teacher path end to end. Never lets one idea stop the run. Remove with the smoke branch
+        in _handle_idea once the real assistant is verified.
+        """
+        try:
+            logger.info("smoke_idea", extra={"tokens": estimate_tokens(idea.text)})
+            reply = (await self._smoke_brain.smoke_complete(idea.text) or "").strip()
+            if not reply:
+                logger.warning("smoke_llm_empty")
+                return
+            suggestion = TeacherSuggestion(text=reply, type=FeedbackType.UNCLEAR)
+            outcome = EvaluationOutcome(has_feedback=True, suggestion=suggestion)
+            await self._dispatcher.dispatch(outcome, self._session)
+            logger.info("smoke_feedback_delivered")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — one bad idea must not end the session
+            logger.error("smoke_idea_failed", extra={"error_type": type(exc).__name__})
