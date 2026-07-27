@@ -208,11 +208,21 @@ class FasterWhisperSpeechToText(SpeechToText):
         # runs the actual compute. beam_size=1 (greedy) and condition_on_previous_text
         # =False keep it fast and avoid drift across re-transcribed windows. These
         # kwargs are version-sensitive — verify against the pinned faster-whisper.
+        # VAD filtering drops non-speech regions before the model sees them, which is the main
+        # defence against Whisper's silence hallucinations ("okay okay okay", ". . ."). condition_
+        # _on_previous_text stays False so a repeated window can't seed a repetition loop.
+        vad_filter = self._settings.stt_vad_filter
+        vad_parameters = (
+            {"min_silence_duration_ms": self._settings.stt_vad_min_silence_ms}
+            if vad_filter
+            else None
+        )
         segments, info = self._model.transcribe(
             samples,
             language=self._settings.stt_language,
             beam_size=1,
-            vad_filter=False,
+            vad_filter=vad_filter,
+            vad_parameters=vad_parameters,
             condition_on_previous_text=False,
         )
         seg_list = list(segments)  # materialize: this is what actually runs the compute

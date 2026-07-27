@@ -82,8 +82,12 @@ services:
       # Send each spoken idea's raw transcript straight to the LLM and push the reply to the
       # teacher, bypassing retrieval/evaluation/pacing. Set false to restore the real assistant.
       - ASSISTANT_SMOKE_TEST=true
-      # A couple of words + a pause forms an idea (the real 20-word floor is too high to test with).
-      - BOUNDARY_MIN_TOKENS=3
+      # Smoke test: even ONE recognized word forms an idea, so a quiet/choppy mic that only lands
+      # a single word ("Hello") still triggers an LLM reply. Raise back toward 20 for the real assistant.
+      - BOUNDARY_MIN_TOKENS=1
+      # Wait longer for a pause before finalizing a speech segment, so words spoken with small gaps
+      # group into one clip Whisper can transcribe (short sub-second clips come back empty). Default 0.8.
+      - STT_PAUSE_SECONDS=1.5
       # Keep the embedding model OUT of Ollama so the chat model stays resident (no model-swap).
       - BOUNDARY_USE_EMBEDDER=false
       # --- CPU core partitioning (latency) ---

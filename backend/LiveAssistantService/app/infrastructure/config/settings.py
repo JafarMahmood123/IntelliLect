@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # next. Capping STT leaves cores free for generation (see eval_num_thread). base.en int8
     # stays comfortably faster-than-realtime at 2 threads. 0 = CTranslate2 default (all cores).
     stt_cpu_threads: int = 2
+    # Whisper invents repeated tokens ("okay okay okay", ". . .") when handed near-silent or noisy
+    # audio. faster-whisper's built-in Silero VAD drops non-speech regions BEFORE transcription,
+    # which removes almost all of that hallucination for a little extra CPU. Disable only to inspect
+    # the raw model output. stt_vad_min_silence_ms is how much silence closes a VAD speech chunk.
+    stt_vad_filter: bool = True
+    stt_vad_min_silence_ms: int = 500
 
     # --- Idea boundary detection (LA-3) ---
     # Segments the transcript into "ideas". Semantic drift is measured by embedding
