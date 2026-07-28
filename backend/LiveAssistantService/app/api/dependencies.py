@@ -26,6 +26,7 @@ from app.application.services.transcript_recorder import TranscriptRecorder
 from app.domain.entities.session_context import SessionContext
 from app.infrastructure.audio.fake_audio_source import FakeAudioSource
 from app.infrastructure.audio.livekit_audio_source import LiveKitAudioSource
+from app.infrastructure.brain.gemini_brain_client import GeminiBrainClient
 from app.infrastructure.brain.ollama_brain_client import OllamaBrainClient
 from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.constant_embedding_provider import (
@@ -124,7 +125,17 @@ def build_retrieval_client(settings: Settings) -> RetrievalClient:
 
 
 def build_brain_client(settings: Settings) -> BrainClient:
-    """Local Ollama brain that evaluates an idea against retrieved material."""
+    """The BrainClient selected by BRAIN_PROVIDER: 'gemini' (hosted API) or 'ollama' (local).
+
+    Both implement the same port, so the rest of the pipeline is provider-agnostic; switching is a
+    config change (BRAIN_PROVIDER + the provider's model/key/url settings).
+    """
+    provider = settings.brain_provider.strip().lower()
+    if provider == "gemini":
+        return GeminiBrainClient(settings)
+    if provider == "ollama":
+        return OllamaBrainClient(settings)
+    logger.warning("Unknown BRAIN_PROVIDER '%s'; falling back to ollama.", settings.brain_provider)
     return OllamaBrainClient(settings)
 
 
@@ -290,7 +301,7 @@ def build_session_pipeline_factory(
             else ConstantEmbeddingProvider()
         )
         boundary = build_boundary_detector(settings, embedder)
-        brain = OllamaBrainClient(settings)
+        brain = build_brain_client(settings)
         evaluator = build_idea_evaluator(
             settings, KnowledgeRetrievalClient(settings), brain
         )

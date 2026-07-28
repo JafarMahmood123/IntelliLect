@@ -40,25 +40,37 @@ services:
     # LiveKit's media sockets live in the host network namespace: with Docker's bridge + NAT,
     # LiveKit's STUN replies leave with the container IP (172.18.x) instead of the advertised
     # node-ip, the browser's ICE agent rejects them, and every media pair fails ("could not
-    # establish pc connection") — kicking participants out. On host networking there is no NAT,
-    # so 7880 (signal), 7881 (WebRTC TCP) and 7882/udp (media) bind straight to the host.
+    # establish pc connection") — kicking participants out.
+    #
+    # CAVEAT — DOCKER DESKTOP: the above holds on native Docker Engine, where "host" is THIS
+    # machine. On Docker Desktop (`docker info` -> Name: docker-desktop) "host" is the Desktop
+    # VM's namespace instead, whose interfaces are 192.168.65.x / 172.1x.0.1 / 127.0.0.1 — the
+    # machine's LAN IP does NOT exist there. LiveKit then advertises a node-ip it never bound
+    # (verified: /proc/net/udp showed 7882 on 172.17.0.1, 172.18.0.1, 192.168.65.6, 192.168.65.9,
+    # 127.0.0.1 — no 192.168.105.28), so every ICE pair fails, the browser times out after ~13s
+    # and closes the signal socket. LiveKit logs that as reason=SIGNAL_SOURCE_CLOSE with
+    # connectionType=unknown / sessionDuration=0s, and the user experiences it as being KICKED
+    # OUT of the session on a ~13s loop.
     network_mode: host
     command:
       - --dev
-      # Advertised WebRTC media IP = host LAN IP. --dev otherwise STUN-discovers the machine's
-      # PUBLIC IP and hands browsers an unroutable candidate. Must match the browser join URL
-      # host (LiveKit__Host). Update this when the host LAN IP changes (see livekit.yaml node_ip).
+      # The address browsers are told to send WebRTC media to. Single source of truth is
+      # LIVEKIT_HOST_IP in backend/.env (defaulted here so a fresh clone with no .env still runs).
+      # Defaults to 127.0.0.1: Docker Desktop forwards 127.0.0.1:7882/udp into the VM, so loopback
+      # is the one address that is both advertised AND actually reachable. It is also portable —
+      # loopback means the same thing on every machine, so this moves hosts with no edit.
+      # TRADE-OFF: only a browser on THIS machine can connect. See .env for the LAN-IP path.
       - --node-ip
-      - 192.168.105.28
+      - ${LIVEKIT_HOST_IP:-127.0.0.1}
       - --config
       - /livekit.yaml
     volumes:
       - ./livekit.yaml:/livekit.yaml
     environment:
-      - LIVEKIT_NODE_IP=192.168.105.28
+      - LIVEKIT_NODE_IP=${LIVEKIT_HOST_IP:-127.0.0.1}
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      - LiveKit__Host=ws://192.168.105.28:7880
+      - LiveKit__Host=ws://${LIVEKIT_HOST_IP:-127.0.0.1}:7880
       - LOG_LEVEL=info,pion:warn,transport:warn
     # Fail loudly if the media server is down. A bad livekit.yaml previously let this
     # container exit(0) while streaming-service came up regardless, silently bouncing
@@ -113,9 +125,11 @@ services:
       - Jwt__Audience=IntelliLect
       - LiveKit__ApiKey=devkey
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
-      # Host is the ws URL handed to BROWSERS for media — must be the host's LAN IP and changes
-      # when the machine moves networks (see livekit.yaml node_ip).
-      - LiveKit__Host=ws://192.168.105.28:7880
+      # The ws URL handed to BROWSERS. Same variable as livekit-server's --node-ip on purpose: if
+      # these two ever diverge, the browser signals to one address and is offered media candidates
+      # on another, ICE fails, and participants are dropped ~13s after joining (looks like a kick).
+      # Set LIVEKIT_HOST_IP once in backend/.env — never edit these two independently.
+      - LiveKit__Host=ws://${LIVEKIT_HOST_IP:-127.0.0.1}:7880
       # ApiUrl is the SERVER-SIDE endpoint this service uses for LiveKit's Room/Egress twirp APIs.
       # livekit-server runs on HOST networking (for WebRTC), so it is no longer on intellilect-net
       # and cannot be reached by container name — this service reaches it via the host gateway.

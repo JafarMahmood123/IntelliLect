@@ -17,13 +17,22 @@ rtc:
   # never actually get audio/video (endless reconnects). One multiplexed UDP port is LiveKit's
   # documented Docker setup and only needs a single "7882:7882/udp" publish.
   udp_port: 7882
-  # Local/LAN dev: advertise the host's LAN IP for WebRTC media. With use_external_ip:true
-  # LiveKit STUN-discovers the machine's PUBLIC IP (149.40.58.152) and hands that to browsers
-  # as the media (ICE) candidate — unroutable for UDP from a LAN client. node_ip must match
-  # the host in the join URL StreamingService returns (ws://192.168.105.28:7880). NOTE: --dev
-  # overrides these yaml keys, so the authoritative value is the --node-ip flag in compose.
+  # WebRTC media (ICE) advertising.
+  #
+  # node_ip is deliberately NOT set here. It lives in exactly one place — LIVEKIT_HOST_IP in
+  # backend/.env, applied via the --node-ip flag in compose. Under --dev the flag overrides this
+  # yaml anyway, so a node_ip key here is dead config that only invites the two copies to drift
+  # apart (and a browser offered candidates on an address it did not signal to gets dropped ~13s
+  # after joining, which reads as being kicked out of the session).
+  #
+  # use_external_ip:false — with it true LiveKit STUN-discovers the machine's PUBLIC IP and offers
+  # that as the media candidate, which a local browser cannot route to. Flip it to true ONLY for a
+  # real server deployment with a public IP: there it is the portable choice, since the container
+  # then discovers its own reachable address at boot and needs no LIVEKIT_HOST_IP at all.
+  #
+  # enable_loopback_candidate must stay true, or LiveKit will not offer the 127.0.0.1 candidate
+  # that the default loopback mode depends on.
   use_external_ip: false
-  node_ip: 192.168.105.28
   enable_loopback_candidate: true
 
 # NOTE: The LiveKit *server* config has no top-level `egress` section — that field

@@ -115,7 +115,27 @@ class Settings(BaseSettings):
     eval_model: str = "qwen2.5:7b-instruct"
     eval_temperature: float = 0.2
     eval_timeout_seconds: float = 60.0
-    eval_max_tokens: int = 512  # num_predict
+    eval_max_tokens: int = 512  # num_predict / maxOutputTokens (provider-agnostic generation cap)
+
+    # --- Brain provider selection ---
+    # Which BrainClient backs the assistant: "ollama" (local, CPU) or "gemini" (Google AI Studio,
+    # hosted). Switch providers with ONE env var — no code change. eval_temperature/eval_max_tokens/
+    # eval_timeout_seconds apply to whichever provider is selected.
+    brain_provider: str = "ollama"
+
+    # --- Gemini brain (Google AI Studio); used when brain_provider == "gemini" ---
+    # The key is a SECRET: keep it in .env (GEMINI_API_KEY), never in the compose file or git.
+    # model/base_url are configurable so a new model or API version is a config change.
+    # gemini_generation_config_json is a JSON object merged into the request's generationConfig,
+    # so extra request fields (topP, topK, stopSequences, …) attach without touching code.
+    gemini_api_key: str = ""
+    # A *-latest alias rather than a pinned version: the pinned 2.0/2.5 models are already either
+    # quota-zero on the free tier or closed to new users, so a hard-coded version silently rots
+    # into 429/404. Note the 3.x models THINK, and thinking tokens are charged against
+    # eval_max_tokens — keep that cap generous (>=1024) or the reply truncates before it finishes.
+    gemini_model: str = "gemini-flash-lite-latest"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_generation_config_json: str = ""
     # Cores Ollama may use to generate a reply (options.num_thread). Paired with
     # stt_cpu_threads so STT + generation don't oversubscribe the 8-core host: 2 for STT
     # + 6 here = 8, saturated but not thrashing. This is the main lever that pulls the

@@ -30,6 +30,15 @@ SYSTEM_PROMPT = (
     '"confidence": <number 0..1>}'
 )
 
+# SMOKE-TEST ONLY (temporary): a plain, friendly assistant turn (NOT the grounded evaluation
+# prompt) used to eyeball that the configured brain is reachable and responding. Shared by every
+# BrainClient so switching providers doesn't change the smoke behaviour.
+SMOKE_SYSTEM_PROMPT = (
+    "You are a helpful teaching assistant listening to a live lecture. "
+    "The teacher just said something. Reply with ONE short, helpful remark "
+    "or clarification (at most two sentences)."
+)
+
 
 def _location_label(chunk: RetrievedChunk) -> str:
     """A short source hint like " (slide 4)" / " (page 2)" / " (section Intro)"."""

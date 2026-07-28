@@ -77,11 +77,34 @@ services:
       # replies fast on CPU. 1.5B (vs 3B) roughly halves generation time and keeps only ONE small
       # model resident. Must match ollama-warmup's CHAT_MODEL below.
       - EVAL_MODEL=qwen2.5:1.5b-instruct
-      # Cap reply length so CPU generation stays quick.
-      - EVAL_MAX_TOKENS=128
+      # Generation cap, shared by whichever BRAIN_PROVIDER is active. Sized for Gemini: on the
+      # 3.x models THINKING tokens are billed against this same budget, so a small cap starves the
+      # actual reply (measured: at 128, thinking took 92 and the JSON answer truncated mid-string
+      # -> finishReason=MAX_TOKENS -> unparseable -> silent "no feedback"). 1024 leaves room for
+      # both. If you switch BRAIN_PROVIDER back to ollama, drop this to ~128 so CPU generation
+      # stays quick — the local model has no thinking budget to pay for.
+      - EVAL_MAX_TOKENS=1024
       # Send each spoken idea's raw transcript straight to the LLM and push the reply to the
       # teacher, bypassing retrieval/evaluation/pacing. Set false to restore the real assistant.
       - ASSISTANT_SMOKE_TEST=true
+      # --- Brain provider ---
+      # Use the hosted Gemini API for fast replies instead of the local CPU model. The API key is a
+      # SECRET and lives in .env (GEMINI_API_KEY), not here. Model/params are configurable:
+      # GEMINI_MODEL, EVAL_MAX_TOKENS, EVAL_TEMPERATURE, and GEMINI_GENERATION_CONFIG_JSON (extra
+      # request fields). Set BRAIN_PROVIDER=ollama to fall back to the local model.
+      - BRAIN_PROVIDER=gemini
+      # Model choice is quota-driven, not preference: this project's key has free-tier
+      # limit: 0 on gemini-2.0-flash / -lite (every call 429s), and gemini-2.5-flash is 404
+      # "no longer available to new users". The *-latest aliases are the ones that actually
+      # serve. flash-lite-latest measured fastest end to end (~1.1s vs ~1.6s for flash-latest)
+      # and, at thinkingLevel=low, spends 0 tokens on thinking — all of the budget goes to the
+      # answer. Re-check with `GET /v1beta/models` if calls start failing.
+      - GEMINI_MODEL=gemini-flash-lite-latest
+      # Merged into generationConfig by GeminiBrainClient. Gemini 3.x cannot disable thinking
+      # outright (thinkingBudget:0 is a 2.5-era field and 400s here); thinkingLevel=low is the
+      # floor and keeps latency and token spend down. Extra request fields (topP, topK,
+      # stopSequences, …) can be added here without touching code.
+      - 'GEMINI_GENERATION_CONFIG_JSON={"thinkingConfig":{"thinkingLevel":"low"}}'
       # Smoke test: even ONE recognized word forms an idea, so a quiet/choppy mic that only lands
       # a single word ("Hello") still triggers an LLM reply. Raise back toward 20 for the real assistant.
       - BOUNDARY_MIN_TOKENS=1
@@ -106,43 +129,22 @@ services:
         condition: service_started
       live-assistant-db:
         condition: service_healthy
-      # Do not start the assistant until the host Ollama has the chat model resident, so the
-      # first spoken idea gets a fast reply (no cold-load stall).
-      ollama-warmup:
-        condition: service_healthy
     networks:
       - intellilect-net
     volumes:
       # Persist the downloaded faster-whisper model across restarts.
       - live_assistant_hf_cache:/root/.cache/huggingface
 
-  # Loads the assistant's Ollama chat model into RAM on `up` (gating the assistant until it is
-  # resident), keeps it warm, and releases it on `down`. See scripts/ollama-warmup.sh. Ollama runs
-  # on the HOST, so this reaches it via host.docker.internal.
-  ollama-warmup:
-    image: curlimages/curl:latest
-    container_name: ollama-warmup
-    entrypoint: ["/bin/sh", "/ollama-warmup.sh"]
-    volumes:
-      - ./scripts/ollama-warmup.sh:/ollama-warmup.sh:ro
-    environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      # Must match live-assistant-service's EVAL_MODEL above.
-      - CHAT_MODEL=qwen2.5:1.5b-instruct
-      # Empty => embedder not loaded (disabled via BOUNDARY_USE_EMBEDDER=false), so only the
-      # chat model occupies RAM.
-      - EMBED_MODEL=
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/ready"]
-      interval: 5s
-      timeout: 3s
-      retries: 60
-      start_period: 240s
-    stop_grace_period: 30s
-    networks:
-      - intellilect-net
+  # NOTE: the `ollama-warmup` service was removed — with BRAIN_PROVIDER=gemini the brain is a
+  # hosted API and BOUNDARY_USE_EMBEDDER=false keeps the embedder off, so NOTHING in this service
+  # calls host Ollama. Keeping the warmup was actively harmful: the assistant gated its startup on
+  # `ollama-warmup: service_healthy`, and that healthcheck only passes once the host Ollama has
+  # loaded the chat model — so a host with Ollama stopped (or the model not pulled) would block
+  # the assistant from starting at all, for a dependency it no longer uses. It also pinned a model
+  # in host RAM for nothing.
+  #
+  # To go back to the local brain: set BRAIN_PROVIDER=ollama, drop EVAL_MAX_TOKENS to ~128, and
+  # restore this service from scripts/ollama-warmup.sh (kept in the repo) plus the depends_on entry.
 
 volumes:
   live_assistant_hf_cache:
