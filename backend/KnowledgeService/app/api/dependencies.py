@@ -28,6 +28,8 @@ from app.application.services.ingestion_service import (
     IngestionService,
 )
 from app.application.services.ingestion_worker import IngestionWorker
+from app.application.services.reembed_runner import ReembedRunner
+from app.application.services.reembed_service import ReembedProgress, ReembedService
 from app.application.services.retrieval_service import RetrievalService
 from app.application.services.stale_recovery_service import StaleRecoveryService
 from app.application.services.summary_generator import SummaryGenerator
@@ -37,6 +39,7 @@ from app.application.services.token_counter import HeuristicTokenCounter
 from app.domain.enums.document_status import DocumentStatus
 from app.infrastructure.chunking.factory import create_chunker
 from app.infrastructure.config.settings import Settings, get_settings
+from app.infrastructure.embeddings.gemini_embedding_provider import GeminiEmbeddingProvider
 from app.infrastructure.embeddings.ollama_embedding_provider import OllamaEmbeddingProvider
 from app.infrastructure.extraction.router import ExtractorRouter
 from app.infrastructure.generation.ollama_generation_provider import OllamaGenerationProvider
@@ -70,8 +73,26 @@ def get_chunk_repository(session: SessionDep) -> ChunkRepository:
     return SqlAlchemyChunkRepository(session)
 
 
-def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
+def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
+    """The EmbeddingProvider selected by EMBEDDING_PROVIDER: 'gemini' (hosted) or 'ollama' (local).
+
+    NOT a free switch: EMBEDDING_DIM sets the pgvector column width, so changing provider or model
+    requires an Alembic migration AND re-embedding every stored chunk. Vectors from two models are
+    not comparable — mixing them returns confident nonsense instead of an error.
+    """
+    provider = settings.embedding_provider.strip().lower()
+    if provider == "gemini":
+        return GeminiEmbeddingProvider(settings)
+    if provider == "ollama":
+        return OllamaEmbeddingProvider(settings)
+    logger.warning(
+        "Unknown EMBEDDING_PROVIDER '%s'; falling back to ollama.", settings.embedding_provider
+    )
     return OllamaEmbeddingProvider(settings)
+
+
+def get_embedding_provider(settings: SettingsDep) -> EmbeddingProvider:
+    return build_embedding_provider(settings)
 
 
 def get_chunker(
@@ -241,7 +262,7 @@ def build_summary_runner() -> SummaryRunner:
     async def handle(session_id, classroom_id) -> None:
         async with session_factory() as session:
             retrieval = RetrievalService(
-                OllamaEmbeddingProvider(settings),
+                build_embedding_provider(settings),
                 SqlAlchemyChunkRepository(session),
                 default_top_k=settings.search_default_top_k,
                 max_top_k=settings.search_max_top_k,
@@ -290,7 +311,7 @@ _clock = SystemClock()
 def build_ingestion_worker() -> IngestionWorker:
     settings = get_settings()
     storage: FileStorage = S3FileStorage(settings)
-    embedder = OllamaEmbeddingProvider(settings)
+    embedder = build_embedding_provider(settings)
     chunker = create_chunker(settings, embedder)
     session_factory = get_session_factory()
 
@@ -386,3 +407,68 @@ async def require_internal_secret(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing internal API secret.",
         )
+
+
+# --- Re-embed runner ----------------------------------------------------------
+# Built once at app startup and stored on app.state, like the ingestion worker and
+# summary runner. Each batch opens its OWN short-lived session and commits, so a long
+# sweep never holds one transaction open across hundreds of network round trips — and a
+# crash mid-sweep leaves every already-committed batch persisted.
+
+
+def build_reembed_runner() -> ReembedRunner:
+    settings = get_settings()
+    session_factory = get_session_factory()
+
+    async def sweep(progress: ReembedProgress) -> None:
+        # Guard FIRST, on its own session: refuse a mismatched embedder before spending
+        # money and time embedding chunks the column will reject at write time.
+        async with session_factory() as session:
+            service = ReembedService(
+                SqlAlchemyChunkRepository(session),
+                build_embedding_provider(settings),
+                expected_dim=settings.embedding_dim,
+                batch_size=settings.reembed_batch_size,
+            )
+            await service.verify_dimension()
+            progress.total = await service.repository.count_all()
+            progress.remaining = await service.repository.count_missing_embeddings()
+
+        logger.info(
+            "reembed_started", extra={"total": progress.total, "pending": progress.remaining}
+        )
+        while True:
+            async with session_factory() as session:
+                service = ReembedService(
+                    SqlAlchemyChunkRepository(session),
+                    build_embedding_provider(settings),
+                    expected_dim=settings.embedding_dim,
+                    batch_size=settings.reembed_batch_size,
+                )
+                outcome = await service.run_batch()
+                await session.commit()
+            if outcome.embedded == 0:
+                progress.remaining = 0
+                break
+            progress.embedded += outcome.embedded
+            progress.remaining = outcome.remaining
+            logger.info(
+                "reembed_progress",
+                extra={"embedded": progress.embedded, "remaining": progress.remaining},
+            )
+        logger.info("reembed_completed", extra={"embedded": progress.embedded})
+
+    return ReembedRunner(sweep)
+
+
+def get_reembed_runner(request: Request) -> ReembedRunner:
+    runner: ReembedRunner | None = getattr(request.app.state, "reembed_runner", None)
+    if runner is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Re-embed runner is not running.",
+        )
+    return runner
+
+
+ReembedRunnerDep = Annotated[ReembedRunner, Depends(get_reembed_runner)]

@@ -34,7 +34,26 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:Jafar123!@knowledge-db:5432/knowledgedb
       # Reach host Ollama (see extra_hosts below). Host must run Ollama on
       # 0.0.0.0:11434 with the qwen3-embedding model pulled.
+      # Only used when EMBEDDING_PROVIDER=ollama; the generation/summary models still use it.
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # --- Embeddings ---
+      # Hosted Gemini embeddings: no local model, no host-Ollama dependency for retrieval, and
+      # multilingual (the local qwen3-embedding path is English-leaning). Matches the embedder
+      # LiveAssistantService uses for drift, so both services reason in the same space.
+      # The API key is a SECRET and lives in .env (GEMINI_API_KEY), not here.
+      #
+      # ⚠ EMBEDDING_DIM IS SCHEMA. It sets the pgvector column width (models.py + the Alembic
+      # migration both read it), so changing provider/model/dim means a migration AND re-embedding
+      # every stored chunk — vectors from two models are not comparable, and mixing them returns
+      # confident nonsense rather than an error. Migration 0005 handles the column; the chunks
+      # themselves must be re-ingested.
+      #
+      # 3072 is gemini-embedding-001's native width. pgvector's HNSW index refuses >2000
+      # dimensions for `vector`, so the column is `halfvec` (indexable to 4000) — chosen
+      # automatically from this value. Set 768 or 1536 for a plain `vector` column instead.
+      - EMBEDDING_PROVIDER=gemini
+      - GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+      - EMBEDDING_DIM=3072
     # Linux does not provide host.docker.internal by default; map it to the host.
     extra_hosts:
       - "host.docker.internal:host-gateway"

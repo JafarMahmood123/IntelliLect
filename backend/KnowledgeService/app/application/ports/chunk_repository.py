@@ -51,6 +51,35 @@ class ChunkRepository(ABC):
         if chunks:
             await self.add_many(chunks, embeddings)
 
+    # -- reindex ---------------------------------------------------------------------------
+    # A chunk with embedding IS NULL is "not yet embedded". That makes reindex naturally
+    # resumable: the migration that changes EMBEDDING_DIM nulls the column, and re-running the
+    # job simply continues from whatever is still NULL. No separate progress table needed.
+
+    @abstractmethod
+    async def count_missing_embeddings(self) -> int:
+        """How many chunks still have no embedding (i.e. remain to be reindexed)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def count_all(self) -> int:
+        """Total chunk count, for reporting progress as done/total."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def fetch_missing_embeddings(self, limit: int) -> list[tuple[UUID, str]]:
+        """Return up to ``limit`` (chunk_id, text) pairs whose embedding is NULL.
+
+        Ordered deterministically so repeated calls make forward progress rather than
+        re-serving the same rows after a partial failure.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def set_embeddings(self, embeddings: dict[UUID, list[float]]) -> int:
+        """Attach embeddings to existing chunks by id. Returns the number updated."""
+        raise NotImplementedError
+
     @abstractmethod
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int

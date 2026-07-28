@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dtos.search_dtos import ChunkSearchResult
@@ -53,6 +53,44 @@ class SqlAlchemyChunkRepository(ChunkRepository):
         result = await self._session.execute(stmt)
         await self._session.flush()
         return result.rowcount or 0
+
+    # -- reindex ---------------------------------------------------------------------------
+    async def count_missing_embeddings(self) -> int:
+        stmt = select(func.count()).select_from(ChunkModel).where(
+            ChunkModel.embedding.is_(None)
+        )
+        return int((await self._session.execute(stmt)).scalar_one())
+
+    async def count_all(self) -> int:
+        stmt = select(func.count()).select_from(ChunkModel)
+        return int((await self._session.execute(stmt)).scalar_one())
+
+    async def fetch_missing_embeddings(self, limit: int) -> list[tuple[UUID, str]]:
+        # Ordered by primary key so a partially-failed batch does not cause the next call to
+        # re-serve the same rows in a different order and stall progress.
+        stmt = (
+            select(ChunkModel.id, ChunkModel.text)
+            .where(ChunkModel.embedding.is_(None))
+            .order_by(ChunkModel.id)
+            .limit(limit)
+        )
+        rows = (await self._session.execute(stmt)).all()
+        return [(row[0], row[1]) for row in rows]
+
+    async def set_embeddings(self, embeddings: dict[UUID, list[float]]) -> int:
+        if not embeddings:
+            return 0
+        updated = 0
+        for chunk_id, vector in embeddings.items():
+            stmt = (
+                update(ChunkModel)
+                .where(ChunkModel.id == chunk_id)
+                .values(embedding=vector)
+            )
+            result = await self._session.execute(stmt)
+            updated += result.rowcount or 0
+        await self._session.flush()
+        return updated
 
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int

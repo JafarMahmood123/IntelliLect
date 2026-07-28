@@ -20,17 +20,44 @@ class Settings(BaseSettings):
     # --- Database ---
     database_url: str  # e.g. postgresql+asyncpg://user:pass@host:5432/db
 
-    # --- Ollama embeddings (local, HTTP-only — no model weights in the container) ---
+    # --- Embeddings ---------------------------------------------------------------------
+    # Which provider embeds documents and queries: "gemini" (hosted, no local RAM, multilingual)
+    # or "ollama" (local host model). Mirrors LiveAssistantService's EMBEDDING_PROVIDER.
+    #
+    # ⚠ THIS IS NOT A FREE SWITCH. embedding_dim below sets the pgvector COLUMN WIDTH (see
+    # models.py and alembic/versions/, both of which import it from here), so changing provider or
+    # model means: (1) an Alembic migration for the column + HNSW index, and (2) re-embedding every
+    # stored chunk. Vectors from two different models live in different spaces — mixing them
+    # returns confident nonsense rather than an error, so a partial migration is worse than none.
+    embedding_provider: str = "ollama"
+
     # On Linux, host.docker.internal resolves to the host via the compose
     # `extra_hosts: host-gateway` mapping; host Ollama must listen on 0.0.0.0:11434.
     ollama_base_url: str = "http://host.docker.internal:11434"
     # Optional bearer token. Sent as `Authorization: Bearer <token>` ONLY if set.
     ollama_auth_token: str = ""
-    embedding_model: str = "qwen3-embedding"
-    embedding_dim: int = 1024
+    embedding_model: str = "qwen3-embedding"  # used when embedding_provider == "ollama"
     embedding_timeout_seconds: float = 60.0
-    # Retrieval instruction prepended to QUERIES only (documents are embedded raw).
-    # Must contain a `{query}` placeholder. Improves asymmetric query/passage recall.
+
+    # --- Gemini embeddings; used when embedding_provider == "gemini" ---
+    # The key is a SECRET: keep it in .env (GEMINI_API_KEY), never in compose.
+    gemini_api_key: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_embedding_model: str = "gemini-embedding-001"
+
+    # Vector width, and therefore the pgvector column type. MUST match whatever the configured
+    # provider returns — the provider raises if it does not, because a mismatch otherwise fails
+    # at INSERT after a long ingestion run.
+    #   qwen3-embedding       -> 1024
+    #   gemini-embedding-001  -> 3072 native, or 768 / 1536 via Matryoshka truncation
+    # NOTE ON 3072: pgvector's HNSW index refuses more than 2000 dimensions for the `vector` type,
+    # so the column is `halfvec` (indexable to 4000). fp16 costs nothing meaningful for cosine
+    # ranking and halves storage. Below 2001 either type works.
+    embedding_dim: int = 3072
+
+    # OLLAMA ONLY. Prepended to QUERIES (documents embedded raw) to fake asymmetric retrieval;
+    # the "Instruct:" form is a qwen convention. The Gemini provider ignores this and uses proper
+    # taskType=RETRIEVAL_QUERY / RETRIEVAL_DOCUMENT instead, which is the real mechanism.
     retrieval_instruction: str = (
         "Instruct: Given a search query, retrieve relevant passages that answer it\n"
         "Query: {query}"
@@ -54,6 +81,12 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 64  # overlap carried between consecutive chunks
     chunk_min_tokens: int = 64  # merge trailing fragments smaller than this
     semantic_breakpoint_percentile: int = 90  # distance percentile that marks a boundary
+
+    # --- Reindex (re-embed stored chunks after an embedder change) ---
+    # Chunks per batch. Each batch is one DB transaction and one fan-out of embedding calls, so
+    # this trades round trips against how much work a crash mid-sweep discards. Bounded low
+    # because embedContent is one HTTP call per chunk.
+    reembed_batch_size: int = 32
 
     # --- Ingestion worker (Phase 5) ---
     ingest_max_concurrency: int = 1  # concurrent worker tasks — the RAM cap

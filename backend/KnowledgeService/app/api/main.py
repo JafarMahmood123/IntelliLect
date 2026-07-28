@@ -8,6 +8,7 @@ import logging
 
 from app.api.dependencies import (
     build_ingestion_worker,
+    build_reembed_runner,
     build_summary_runner,
     run_stale_recovery,
 )
@@ -35,6 +36,10 @@ async def lifespan(app: FastAPI):
     worker = build_ingestion_worker()
     await worker.start()
     app.state.ingestion_worker = worker
+    # Re-embed runner: idle until an operator POSTs /api/internal/reembed. Distinct from the
+    # per-document /reindex endpoints, which re-INGEST (S3 -> extract -> chunk -> embed).
+    reembed_runner = build_reembed_runner()
+    app.state.reembed_runner = reembed_runner
 
     # Background runner for the session-end summary trigger (S-3).
     app.state.summary_runner = build_summary_runner()
@@ -51,6 +56,7 @@ async def lifespan(app: FastAPI):
     finally:
         # Shutdown: stop workers cleanly, drain in-flight summaries, then release DB.
         await worker.stop()
+        await reembed_runner.stop()
         try:
             await app.state.summary_runner.drain()
         except Exception:  # noqa: BLE001 — shutdown must not raise
@@ -77,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(internal_documents.router)
     app.include_router(internal_knowledge.router)
+    app.include_router(internal_reembed.router)
     app.include_router(internal_summaries.router)
     app.include_router(search.router)
     app.include_router(answer.router)

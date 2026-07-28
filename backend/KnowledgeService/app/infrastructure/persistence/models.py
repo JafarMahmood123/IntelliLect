@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import HALFVEC, Vector
 from sqlalchemy import (
     BigInteger,
     DateTime,
@@ -24,6 +24,15 @@ from app.infrastructure.config.settings import get_settings
 # The pgvector column dimension is bound to the configured EMBEDDING_DIM at import
 # time. The Alembic migration reads the same setting, so schema and models agree.
 EMBEDDING_DIM = get_settings().embedding_dim
+
+# pgvector's HNSW index refuses more than 2000 dimensions for `vector`, but supports up to 4000
+# for `halfvec` (fp16). gemini-embedding-001 is 3072 natively, so anything above the limit MUST
+# use halfvec or the index cannot be created at all. Both types expose cosine_distance(), so the
+# repository query is identical either way.
+HNSW_VECTOR_DIM_LIMIT = 2000
+EmbeddingColumnType = (
+    HALFVEC(EMBEDDING_DIM) if EMBEDDING_DIM > HNSW_VECTOR_DIM_LIMIT else Vector(EMBEDDING_DIM)
+)
 
 
 class Base(DeclarativeBase):
@@ -92,7 +101,7 @@ class ChunkModel(Base):
         String(32), nullable=False, default=ChunkSource.TEXT.value
     )
     # Truncated, L2-normalized embedding. Populated once chunking/embedding lands.
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(EmbeddingColumnType, nullable=True)
     created_at_utc: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now()
     )
