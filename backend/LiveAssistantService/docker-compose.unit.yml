@@ -41,10 +41,18 @@ services:
       - TARGET_CHANNELS=1
       # Streaming English STT (LA-2). Small English model + int8 to share RAM with
       # the embedder/brain. The model downloads to the HF cache volume on first use.
-      # small.en over base.en: markedly lower word-error rate, especially on proper nouns and
-      # short utterances (base.en turned "Hello, Gemini, are you here?" into "Hello Jimmy now are
-      # you here?"). ~3x the compute of base.en, which is affordable now that the brain is hosted
-      # and the local LLM no longer competes for cores — see STT_CPU_THREADS below.
+      # --- STT engine ---
+      # Hosted Whisper. Local CPU cannot keep up with live speech on this hardware: measured on
+      # one 11s clip, local small.en beam=5 = 0.2x realtime (46s!), tiny.en beam=1 = 1.8x but with
+      # the worst accuracy of any option. Groq = ~4.5x realtime WITH large-v3 accuracy, i.e. ~20x
+      # faster AND better. Set STT_PROVIDER=faster_whisper to run fully offline.
+      # The API key is a SECRET and lives in .env (GROQ_API_KEY), not here.
+      # NOTE: Groq 403s known VPN/datacenter exit IPs — if a VPN is on, pin it to a server that
+      # is not blocked, or exclude api.groq.com from the tunnel.
+      - STT_PROVIDER=groq
+      - GROQ_STT_MODEL=whisper-large-v3-turbo
+      # Local-engine settings below are IGNORED while STT_PROVIDER=groq. Kept configured so the
+      # offline fallback still works without re-deriving them.
       - STT_MODEL=small.en
       - STT_DEVICE=cpu
       - STT_COMPUTE_TYPE=int8
@@ -62,9 +70,12 @@ services:
       # transcription calls / 31s of audio re-processed for 4 delivered replies) and delayed the
       # final transcription that actually drives the pipeline.
       - STT_EMIT_INTERIM=false
-      # Bound the re-transcribed window so a speaker who talks through their pauses cannot grow it
-      # without limit. 30s matches Whisper's own native window, so it costs no accuracy.
-      - STT_MAX_WINDOW_SECONDS=30
+      # Bound the window. Lowered 30 -> 10: a real session grew windows to 25-28s, and NOTHING is
+      # emitted until the whole window transcribes, so the teacher waited for one long lump. This
+      # is safe now that DRIFT re-joins related segments into one idea — before the boundary work,
+      # splitting more meant more ideas; now it just means more segments feeding the detector.
+      # Under Groq it also shrinks each upload (~320KB vs ~900KB), and upload dominates latency.
+      - STT_MAX_WINDOW_SECONDS=10
       # Dev-only: log what Whisper heard. This is the one place transcript TEXT reaches the logs.
       # Set false once the STT path is trusted.
       - STT_DEBUG_LOG_TEXT=true
@@ -146,9 +157,11 @@ services:
       # Silence ON TOP OF STT_PAUSE_SECONDS that ends an idea outright (~3.5s total here). Must
       # stay well above STT_PAUSE_SECONDS or every sentence ends an idea and drift never decides.
       - BOUNDARY_PAUSE_SECONDS=2.0
-      # Wait longer for a pause before finalizing a speech segment, so words spoken with small gaps
-      # group into one clip Whisper can transcribe (short sub-second clips come back empty). Default 0.8.
-      - STT_PAUSE_SECONDS=1.5
+      # Finalize a segment after this much trailing silence. Lowered 1.5 -> 0.8: it was raised to
+      # stop choppy speech fragmenting into separate IDEAS, but drift now handles that regrouping,
+      # so the only thing 1.5 still bought was a 1.5s floor on every response.
+      # Keep well BELOW boundary_pause_seconds, or a breath would end an idea.
+      - STT_PAUSE_SECONDS=0.8
       # --- CPU core partitioning (latency) ---
       # The old 2/6 split existed because STT and a LOCAL 7B/1.5B model both wanted all 8 cores and
       # thrashed. With BRAIN_PROVIDER=gemini the brain is a hosted API — generation uses no local

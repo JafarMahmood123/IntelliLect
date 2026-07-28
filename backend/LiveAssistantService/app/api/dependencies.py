@@ -56,6 +56,7 @@ from app.infrastructure.retrieval.knowledge_retrieval_client import (
 from app.infrastructure.stt.faster_whisper_speech_to_text import (
     FasterWhisperSpeechToText,
 )
+from app.infrastructure.stt.groq_speech_to_text import GroqSpeechToText
 
 # --- Composition root ---------------------------------------------------------
 # The only place API code names concrete infrastructure classes. Everything
@@ -83,13 +84,20 @@ def build_fake_audio_source(
 
 
 def build_speech_to_text(settings: Settings) -> SpeechToText:
-    """The streaming English STT engine (faster-whisper / CTranslate2).
+    """The STT engine selected by STT_PROVIDER: 'groq' (hosted) or 'faster_whisper' (local).
 
-    Not wired into a live session yet (that is LA-6); registered here so it is
-    injectable and replaceable behind the ``SpeechToText`` port. The faster-whisper
-    model is loaded lazily on first use (or via ``warmup()``), so constructing this
-    is cheap and does not require the engine to be installed at import time.
+    Both share the same windowing/pause state machine (``StreamingTranscriber``) and differ only
+    in how one finished window is transcribed, so switching is a config change. Constructing
+    either is cheap — the local model loads lazily on first use, and no network call is made here.
     """
+    provider = settings.stt_provider.strip().lower()
+    if provider == "groq":
+        return GroqSpeechToText(settings)
+    if provider in ("faster_whisper", "faster-whisper", "local"):
+        return FasterWhisperSpeechToText(settings)
+    logger.warning(
+        "Unknown STT_PROVIDER '%s'; falling back to faster_whisper.", settings.stt_provider
+    )
     return FasterWhisperSpeechToText(settings)
 
 
@@ -305,7 +313,7 @@ def build_session_pipeline_factory(
             agent = LiveKitAudioSource(settings)  # AudioSource + AgentDataChannel
             audio = agent
             sink = build_feedback_sink(settings, agent)
-        stt = FasterWhisperSpeechToText(settings)
+        stt = build_speech_to_text(settings)
         # BOUNDARY_USE_EMBEDDER=false swaps in a no-op embedder, which disables DRIFT entirely
         # (a zero vector has cosine distance 0 to everything, so the threshold is never crossed)
         # and leaves pause/length caps as the only boundaries. It exists for hosts that cannot

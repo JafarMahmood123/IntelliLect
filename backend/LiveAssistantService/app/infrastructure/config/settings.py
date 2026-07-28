@@ -52,6 +52,27 @@ class Settings(BaseSettings):
     # so keep the model small (English-only + int8) to fit the shared RAM budget;
     # larger models are a later, hardware-dependent upgrade. Uses its OWN model — no
     # Ollama, no torch/transformers (CTranslate2 is a separate inference engine).
+    # Which STT engine transcribes: "groq" (hosted Whisper, ~4.5x realtime) or "faster_whisper"
+    # (local CPU). Local cannot keep up with live speech on a laptop — measured on one 11s clip:
+    # small.en beam=5 = 0.2x realtime, tiny.en beam=1 = 1.8x but with the worst accuracy. Groq is
+    # both faster AND more accurate, so it is the default for live sessions; local remains the
+    # offline/no-network option. There is deliberately NO automatic fallback between them: a
+    # 20x-slower silent downgrade is harder to diagnose than a loud failure.
+    stt_provider: str = "faster_whisper"
+
+    # --- Groq STT (hosted); used when stt_provider == "groq" ---
+    # The key is a SECRET: keep it in LiveAssistantService/.env (GROQ_API_KEY), never in compose.
+    # NOTE: Groq blocks known VPN/datacenter exit IPs with HTTP 403. If a VPN is in use, pin it to
+    # a server that is not blocked, or exclude api.groq.com from the tunnel.
+    groq_api_key: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    # whisper-large-v3-turbo | whisper-large-v3. Both measured ~2.4s for an 11s window, because
+    # latency here is dominated by UPLOAD rather than compute — so large-v3 costs nothing extra in
+    # practice, while turbo is the safer pick on a slow link.
+    groq_stt_model: str = "whisper-large-v3-turbo"
+    groq_timeout_seconds: float = 60.0
+
+    # --- Local engine (faster_whisper) settings; ignored when stt_provider == "groq" ---
     stt_model: str = "base.en"  # faster-whisper English model id (tiny.en/base.en/small.en/...)
     stt_device: str = "cpu"  # cpu | cuda
     stt_compute_type: str = "int8"  # int8 (low RAM on cpu) | float16 | ...
