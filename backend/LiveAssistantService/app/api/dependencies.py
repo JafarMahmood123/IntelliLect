@@ -32,6 +32,9 @@ from app.infrastructure.config.settings import Settings, get_settings
 from app.infrastructure.embeddings.constant_embedding_provider import (
     ConstantEmbeddingProvider,
 )
+from app.infrastructure.embeddings.gemini_embedding_provider import (
+    GeminiEmbeddingProvider,
+)
 from app.infrastructure.embeddings.ollama_embedding_provider import (
     OllamaEmbeddingProvider,
 )
@@ -91,11 +94,22 @@ def build_speech_to_text(settings: Settings) -> SpeechToText:
 
 
 def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
-    """Local Ollama embedder used for LA-3 drift measurement.
+    """The EmbeddingProvider selected by EMBEDDING_PROVIDER: 'gemini' (hosted) or 'ollama' (local).
 
-    Only the deferred ``boundary_check.py --live`` path uses this; the boundary tests
-    inject a deterministic fake. No live call happens at construction time.
+    Used for LA-3 drift measurement. Both implement the same port, so the boundary detector is
+    provider-agnostic; switching is a config change. No live call happens at construction time.
+
+    NOTE: BOUNDARY_DRIFT_THRESHOLD is calibrated per embedder — the same semantic gap lands at a
+    different cosine distance under a different model/task type. Re-measure it when switching.
     """
+    provider = settings.embedding_provider.strip().lower()
+    if provider == "gemini":
+        return GeminiEmbeddingProvider(settings)
+    if provider == "ollama":
+        return OllamaEmbeddingProvider(settings)
+    logger.warning(
+        "Unknown EMBEDDING_PROVIDER '%s'; falling back to ollama.", settings.embedding_provider
+    )
     return OllamaEmbeddingProvider(settings)
 
 
@@ -292,11 +306,13 @@ def build_session_pipeline_factory(
             audio = agent
             sink = build_feedback_sink(settings, agent)
         stt = FasterWhisperSpeechToText(settings)
-        # Drift needs the embedding model in RAM; on a constrained host that evicts the chat
-        # model and makes replies slow. BOUNDARY_USE_EMBEDDER=false swaps in a no-op embedder
-        # (pause/length boundaries only) so only the chat model stays resident.
+        # BOUNDARY_USE_EMBEDDER=false swaps in a no-op embedder, which disables DRIFT entirely
+        # (a zero vector has cosine distance 0 to everything, so the threshold is never crossed)
+        # and leaves pause/length caps as the only boundaries. It exists for hosts that cannot
+        # spare RAM for a local embedding model — with EMBEDDING_PROVIDER=gemini there is no local
+        # model, so it should normally stay true.
         embedder: EmbeddingProvider = (
-            OllamaEmbeddingProvider(settings)
+            build_embedding_provider(settings)
             if settings.boundary_use_embedder
             else ConstantEmbeddingProvider()
         )

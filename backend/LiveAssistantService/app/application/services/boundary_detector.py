@@ -144,11 +144,21 @@ class BoundaryDetector:
         return (self._segments[-1].end_ms - self._segments[0].start_ms) / 1000.0
 
     def _closing_trigger(self, segment: TranscriptSegment) -> BoundaryTrigger | None:
-        """Pause-after / cap that should close the CURRENT buffer, or None."""
+        """Cap that should close the CURRENT buffer, or None.
+
+        A plain ``followed_by_pause`` deliberately does NOT close an idea. The STT finalizes a
+        segment after ``STT_PAUSE_SECONDS`` of silence, so essentially EVERY segment arrives with
+        that flag set — honouring it made an idea equal one breath, and no idea could ever span
+        more than a single sentence regardless of what the drift detector thought. Boundaries are
+        semantic (DRIFT, above) and a breath is not a change of subject.
+
+        Silence still ends an idea, but only a genuinely long one: the (A) inter-segment gap check
+        in ``process`` uses ``boundary_pause_seconds``, which is meant to be set WELL ABOVE
+        ``STT_PAUSE_SECONDS`` — a real "…and that's the end of that point" pause, not a breath.
+        The caps below remain unconditional safety nets.
+        """
         if not self._emittable():
             return None
-        if segment.followed_by_pause:
-            return BoundaryTrigger.PAUSE
         if self._duration_seconds() >= self._max_seconds:
             return BoundaryTrigger.TIME_CAP
         if self._tokens >= self._max_tokens:

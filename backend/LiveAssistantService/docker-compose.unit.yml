@@ -128,14 +128,27 @@ services:
       # floor and keeps latency and token spend down. Extra request fields (topP, topK,
       # stopSequences, …) can be added here without touching code.
       - 'GEMINI_GENERATION_CONFIG_JSON={"thinkingConfig":{"thinkingLevel":"low"}}'
-      # Smoke test: even ONE recognized word forms an idea, so a quiet/choppy mic that only lands
-      # a single word ("Hello") still triggers an LLM reply. Raise back toward 20 for the real assistant.
-      - BOUNDARY_MIN_TOKENS=1
+      # --- Context boundaries (an "idea" = a coherent topic, not one sentence) ---
+      # An idea must reach this many words before it can be emitted OR split by drift. It is also
+      # what stops filler from shattering an explanation: "Okay. Right." measures 0.50 cosine
+      # distance from the topic under discussion — it LOOKS like a subject change — so without a
+      # floor a stray word would trigger a drift split mid-thought.
+      - BOUNDARY_MIN_TOKENS=20
+      # Drift needs real embeddings; a zero-vector embedder makes cosine distance 0 for every pair
+      # and DRIFT can never fire. Safe to enable now that the embedder is hosted (no local RAM).
+      - BOUNDARY_USE_EMBEDDER=true
+      - EMBEDDING_PROVIDER=gemini
+      # Calibrated for gemini-embedding-001 + SEMANTIC_SIMILARITY on real sentence pairs:
+      # same-topic measured <=0.159, new-topic >=0.305. 0.25 sits between with margin, leaning
+      # toward merging. RE-MEASURE if the embedding model or task type changes — the same
+      # semantic gap lands at a completely different distance under a different embedder.
+      - BOUNDARY_DRIFT_THRESHOLD=0.25
+      # Silence ON TOP OF STT_PAUSE_SECONDS that ends an idea outright (~3.5s total here). Must
+      # stay well above STT_PAUSE_SECONDS or every sentence ends an idea and drift never decides.
+      - BOUNDARY_PAUSE_SECONDS=2.0
       # Wait longer for a pause before finalizing a speech segment, so words spoken with small gaps
       # group into one clip Whisper can transcribe (short sub-second clips come back empty). Default 0.8.
       - STT_PAUSE_SECONDS=1.5
-      # Keep the embedding model OUT of Ollama so the chat model stays resident (no model-swap).
-      - BOUNDARY_USE_EMBEDDER=false
       # --- CPU core partitioning (latency) ---
       # The old 2/6 split existed because STT and a LOCAL 7B/1.5B model both wanted all 8 cores and
       # thrashed. With BRAIN_PROVIDER=gemini the brain is a hosted API — generation uses no local

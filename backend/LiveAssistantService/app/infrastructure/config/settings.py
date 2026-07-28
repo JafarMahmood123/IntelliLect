@@ -114,11 +114,27 @@ class Settings(BaseSettings):
     # finalized segments (via the EmbeddingProvider) — the ONLY model use here, and
     # even that is faked in tests. The caps are safety nets so a long monologue always
     # yields boundaries.
-    boundary_drift_threshold: float = 0.35  # cosine distance marking a new idea
-    # Pause length that implies a thought break. Reuses the LA-2 pause concept
-    # (stt_pause_seconds): the followed_by_pause flag already encodes it, and this
-    # also gates silent-gap-between-segments pauses.
-    boundary_pause_seconds: float = 0.8
+    # Cosine distance at which the next segment counts as a NEW idea rather than a continuation.
+    # This value is PAIRED WITH THE EMBEDDER: different models/task types put topic boundaries at
+    # different absolute distances, so it must be re-measured whenever the embedder changes (see
+    # gemini_embedding_task_type for the measurements behind the default below).
+    # Calibrated for gemini-embedding-001 + SEMANTIC_SIMILARITY, where same-topic pairs measured
+    # <=0.159 and new-topic pairs >=0.305. 0.25 sits between them with margin on both sides, and
+    # leans slightly toward MERGING — wrongly splitting one explanation in half is worse than
+    # occasionally carrying a sentence of the next topic along.
+    boundary_drift_threshold: float = 0.25
+    # Silence that ends an idea outright, regardless of topic.
+    #
+    # This is silence measured BETWEEN two finalized segments — i.e. silence ON TOP OF the
+    # stt_pause_seconds the STT already consumed before it finalized the previous segment. The
+    # real wall-clock gap is therefore roughly stt_pause_seconds + this. At 1.5 + 2.0 that is a
+    # ~3.5s hush: a deliberate "and that concludes that point", not an inter-sentence breath.
+    #
+    # Keep it WELL ABOVE stt_pause_seconds. Every segment arrives flagged followed_by_pause (the
+    # STT finalizes on silence), so if this were small the pause rule would end an idea after
+    # every sentence and semantic drift would never get to decide anything — which is exactly the
+    # behaviour this setting was raised to fix.
+    boundary_pause_seconds: float = 2.0
     boundary_max_seconds: float = 90.0  # hard cap on idea duration
     boundary_max_tokens: int = 400  # hard cap on idea length (whitespace tokens)
     boundary_min_tokens: int = 20  # ignore/merge ideas smaller than this
@@ -136,6 +152,29 @@ class Settings(BaseSettings):
     ollama_auth_token: str = ""  # optional bearer token, sent only if set
     embedding_model: str = "qwen3-embedding"
     embedding_timeout_seconds: float = 60.0
+
+    # Which EmbeddingProvider measures drift: "ollama" (local, a second model in RAM) or "gemini"
+    # (hosted, no local RAM, ~0.85s per segment on the boundary hot path). Mirrors brain_provider.
+    embedding_provider: str = "ollama"
+
+    # --- Gemini embeddings; used when embedding_provider == "gemini" ---
+    # Reuses gemini_api_key / gemini_base_url / embedding_timeout_seconds.
+    gemini_embedding_model: str = "gemini-embedding-001"
+    # Matryoshka truncation: 768 halves latency vs the native 3072 with no measured loss of
+    # topic separation. 0 = native. NOTE the provider MUST re-normalize after truncation —
+    # Gemini returns a 768-dim vector with norm ~0.59, and cosine drift assumes unit vectors.
+    gemini_embedding_dimensions: int = 768
+    # SEMANTIC_SIMILARITY tunes the space for "are these about the same thing" — precisely the
+    # drift question. It separates topics better BUT compresses absolute distances, so it needs a
+    # much lower boundary_drift_threshold. Measured on real sentence pairs:
+    #
+    #   taskType              same-topic (max)   new-topic (min)   good threshold
+    #   (none)                     0.335              0.507             ~0.42
+    #   SEMANTIC_SIMILARITY        0.159              0.305             ~0.23
+    #
+    # Changing this WITHOUT re-tuning boundary_drift_threshold silently breaks drift: at the old
+    # 0.35 default, SEMANTIC_SIMILARITY would never split anything.
+    gemini_embedding_task_type: str = "SEMANTIC_SIMILARITY"
 
     # --- Retrieval (LA-4): classroom material via the existing KnowledgeService ---
     # Retrieval goes over HTTP to KnowledgeService (it owns the vector DB); the idea

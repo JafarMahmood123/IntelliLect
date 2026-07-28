@@ -88,16 +88,52 @@ async def test_time_cap_forces_boundary_on_long_monologue():
 
 
 # --- PAUSE -------------------------------------------------------------------
-async def test_followed_by_pause_flag_closes_non_trivial_buffer():
+async def test_followed_by_pause_flag_alone_does_not_split_an_idea():
+    """A breath is not a change of subject.
+
+    The STT finalizes a segment after STT_PAUSE_SECONDS of silence, so in production essentially
+    EVERY segment carries followed_by_pause. Honouring the flag made an idea equal one sentence
+    and left semantic drift with nothing to decide. Boundaries are semantic (DRIFT) or a
+    genuinely long silence (the inter-segment gap rule) — never the flag on its own.
+
+    Three same-topic segments with the pause flag set on the middle one must stay ONE idea. The
+    third segment is what makes this test meaningful: with only two, the end-of-stream flush also
+    yields a single PAUSE idea, so the assertion would hold either way and the test would pass
+    even if the flag still split the buffer.
+    """
     segments = [
         _seg("alpha one two three", 0, 1000),
-        _seg("alpha four five six", 1000, 2000, pause=True),  # pause AFTER
+        _seg("alpha four five six", 1000, 2000, pause=True),  # breath mid-explanation
+        _seg("alpha seven eight nine", 2000, 3000),
     ]
     ideas = await _run(segments, _topics("alpha"))
 
-    assert len(ideas) == 1
-    assert ideas[0].trigger is BoundaryTrigger.PAUSE
-    assert ideas[0].segment_count == 2
+    assert len(ideas) == 1, "a pause flag must not split a continuing explanation"
+    assert ideas[0].segment_count == 3
+    assert ideas[0].trigger is BoundaryTrigger.PAUSE  # terminal flush at stream end
+
+
+async def test_context_spans_sentences_and_splits_only_on_topic_change():
+    """The production shape: EVERY segment is pause-flagged (that is how STT finalizes).
+
+    Four sentences, all flagged, three about one topic and one about another. The result must be
+    two ideas split at the MEANING change — not four ideas split at every breath. This is the
+    difference between sentence boundaries and context boundaries, and it is the whole point of
+    the drift detector.
+    """
+    segments = [
+        _seg("alpha one two three", 0, 1000, pause=True),
+        _seg("alpha four five six", 1000, 2000, pause=True),
+        _seg("alpha seven eight nine", 2000, 3000, pause=True),
+        _seg("beta a completely different subject", 3000, 4000, pause=True),
+    ]
+    ideas = await _run(segments, _topics("alpha", "beta"))
+
+    assert len(ideas) == 2, "expected one idea per TOPIC, not one per sentence"
+    assert ideas[0].segment_count == 3  # the three alpha sentences held together
+    assert ideas[0].trigger is BoundaryTrigger.DRIFT
+    assert "beta" not in ideas[0].text
+    assert "beta" in ideas[1].text
 
 
 async def test_silent_gap_between_segments_closes_idea():
