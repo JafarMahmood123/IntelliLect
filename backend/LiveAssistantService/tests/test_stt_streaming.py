@@ -32,10 +32,14 @@ class _StubSTT(FasterWhisperSpeechToText):
 
 def _settings() -> Settings:
     # Small chunk so a 1.5s utterance yields multiple interims; default 0.8s pause.
+    # stt_emit_interim is opted INTO explicitly: it ships off (nothing downstream consumes interim
+    # segments, and producing them re-transcribes the whole utterance-so-far), but these tests
+    # exercise the streaming state machine itself, interim emission included.
     return Settings(
         target_sample_rate=16000,
         stt_chunk_seconds=0.5,
         stt_pause_seconds=0.8,
+        stt_emit_interim=True,
     )
 
 

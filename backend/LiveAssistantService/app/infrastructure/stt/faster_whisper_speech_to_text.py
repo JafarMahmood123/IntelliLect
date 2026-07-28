@@ -96,6 +96,10 @@ class FasterWhisperSpeechToText(SpeechToText):
         sample_rate = settings.target_sample_rate
         pause_seconds = settings.stt_pause_seconds
         chunk_samples = max(1, int(settings.stt_chunk_seconds * sample_rate))
+        emit_interim = settings.stt_emit_interim
+        # Bounds the re-transcribed window so a speaker who never pauses cannot grow it without
+        # limit (transcription cost is superlinear in window length).
+        max_window_samples = max(1, int(settings.stt_max_window_seconds * sample_rate))
 
         window: list[np.ndarray] = []  # float32 chunks of the current utterance
         buffered = 0  # samples in `window`
@@ -148,8 +152,18 @@ class FasterWhisperSpeechToText(SpeechToText):
             trailing_silence = trailing_silence + frame.duration_seconds if silent else 0.0
             last_end_ms = int(round((frame.timestamp + frame.duration_seconds) * 1000))
 
-            # A pause closes the utterance -> emit the final segment.
-            if trailing_silence >= pause_seconds:
+            # A pause closes the utterance, OR the window hits its cap. Both finalize; only the
+            # pause sets followed_by_pause (the cap is a safety net, not a thought break, so it
+            # must not masquerade as one to the boundary detector).
+            hit_pause = trailing_silence >= pause_seconds
+            hit_cap = buffered >= max_window_samples
+            if hit_pause or hit_cap:
+                if hit_cap and not hit_pause:
+                    # Counts only — never the text. Frequent hits mean the cap is doing real work
+                    # and the speaker rarely pauses; useful signal when tuning.
+                    logger.info(
+                        "stt_window_capped", extra={"seconds": round(buffered / sample_rate, 1)}
+                    )
                 text = await self._transcribe_window(np.concatenate(window), sample_rate)
                 if text:
                     yield TranscriptSegment(
@@ -157,7 +171,7 @@ class FasterWhisperSpeechToText(SpeechToText):
                         start_ms=start_ms,
                         end_ms=last_end_ms,
                         is_final=True,
-                        followed_by_pause=True,
+                        followed_by_pause=hit_pause,
                     )
                 window.clear()
                 buffered = emitted_at = 0
@@ -165,8 +179,10 @@ class FasterWhisperSpeechToText(SpeechToText):
                 trailing_silence = 0.0
                 continue
 
-            # Otherwise emit an interim segment every STT_CHUNK_SECONDS of new audio.
-            if buffered - emitted_at >= chunk_samples:
+            # Otherwise emit an interim segment every STT_CHUNK_SECONDS of new audio. Off by
+            # default: re-transcribing the whole utterance-so-far to produce a segment that no
+            # consumer reads is pure CPU burn that delays the final. See stt_emit_interim.
+            if emit_interim and buffered - emitted_at >= chunk_samples:
                 text = await self._transcribe_window(np.concatenate(window), sample_rate)
                 emitted_at = buffered
                 if text:
@@ -211,33 +227,45 @@ class FasterWhisperSpeechToText(SpeechToText):
         # VAD filtering drops non-speech regions before the model sees them, which is the main
         # defence against Whisper's silence hallucinations ("okay okay okay", ". . ."). condition_
         # _on_previous_text stays False so a repeated window can't seed a repetition loop.
-        vad_filter = self._settings.stt_vad_filter
+        settings = self._settings
+        vad_filter = settings.stt_vad_filter
         vad_parameters = (
-            {"min_silence_duration_ms": self._settings.stt_vad_min_silence_ms}
+            {
+                "min_silence_duration_ms": settings.stt_vad_min_silence_ms,
+                # Keep a little audio either side of each detected speech chunk so word edges are
+                # not clipped off before the model ever sees them.
+                "speech_pad_ms": settings.stt_vad_speech_pad_ms,
+            }
             if vad_filter
             else None
         )
         segments, info = self._model.transcribe(
             samples,
-            language=self._settings.stt_language,
-            beam_size=1,
+            language=settings.stt_language,
+            beam_size=settings.stt_beam_size,
             vad_filter=vad_filter,
             vad_parameters=vad_parameters,
             condition_on_previous_text=False,
+            initial_prompt=settings.stt_initial_prompt or None,
         )
         seg_list = list(segments)  # materialize: this is what actually runs the compute
         text = " ".join(segment.text.strip() for segment in seg_list)
-        # DIAGNOSTIC (temporary): reveal exactly what Whisper heard for this window so we can see
-        # whether it's empty, garbled, or fine. Logs transcript text on purpose (dev smoke only) —
-        # REMOVE this block once the STT path is confirmed.
-        logger.info(
-            "stt_debug",
-            extra={
-                "duration_s": round(float(samples.size) / 16000.0, 2),
-                "lang": getattr(info, "language", None),
-                "lang_prob": round(float(getattr(info, "language_probability", 0.0) or 0.0), 3),
-                "n_segments": len(seg_list),
-                "text": text[:200],
-            },
-        )
+        if settings.stt_debug_log_text:
+            # DEV ONLY (STT_DEBUG_LOG_TEXT=true): shows exactly what Whisper heard for this window,
+            # so an empty/garbled result can be told apart from a silent mic. This is the ONE place
+            # the service logs transcript content — off by default so production stays privacy-clean.
+            logger.info(
+                "stt_debug",
+                extra={
+                    "duration_s": round(
+                        float(samples.size) / float(settings.target_sample_rate), 2
+                    ),
+                    "lang": getattr(info, "language", None),
+                    "lang_prob": round(
+                        float(getattr(info, "language_probability", 0.0) or 0.0), 3
+                    ),
+                    "n_segments": len(seg_list),
+                    "text": text[:200],
+                },
+            )
         return text

@@ -71,6 +71,43 @@ class Settings(BaseSettings):
     # the raw model output. stt_vad_min_silence_ms is how much silence closes a VAD speech chunk.
     stt_vad_filter: bool = True
     stt_vad_min_silence_ms: int = 500
+    # Silero VAD trims tightly to detected speech, which clips the first/last phoneme of an
+    # utterance — the model then guesses at the stub ("I love you Manai" for "...man, I"). Padding
+    # each speech chunk gives it the leading/trailing context to resolve word edges correctly.
+    stt_vad_speech_pad_ms: int = 200
+
+    # Decoding width. beam_size=1 is greedy: fastest, and the first plausible token wins even when
+    # a later one would have scored better over the whole utterance — the usual source of confident
+    # nonsense on proper nouns ("Gemini" -> "Jimmy now"). 5 is faster-whisper's default and costs
+    # roughly 2x decode time, which is affordable now that the local LLM no longer competes for
+    # cores (see stt_cpu_threads). Drop to 1 only if CPU becomes the bottleneck again.
+    stt_beam_size: int = 5
+
+    # Seeds the decoder's context with domain vocabulary so names and jargon that Whisper has no
+    # reason to expect are still spelled correctly. Keep it SHORT — it is prepended to every
+    # window, so it costs tokens on each call and a long prompt can bias the model into echoing it.
+    # e.g. "Gemini, LiveKit, IntelliLect, Kubernetes"
+    stt_initial_prompt: str = ""
+
+    # Emit INTERIM (unstable, mid-utterance) segments every stt_chunk_seconds.
+    # Default FALSE: nothing downstream consumes them — BoundaryDetector ignores non-final
+    # segments and the transcript recorder refuses them — yet each interim re-transcribes the
+    # WHOLE utterance-so-far, so leaving this on roughly doubles STT CPU for output that is
+    # discarded, and that wasted work delays the FINAL transcription that does matter.
+    # Turn on only to debug the streaming state machine or to drive a live-caption UI.
+    stt_emit_interim: bool = False
+
+    # Hard cap on the re-transcribed window. Without it the buffer only clears on a pause, so a
+    # teacher talking through their pauses grows it without bound and every re-transcription gets
+    # slower (the work is superlinear in utterance length). At the cap the segment is finalized and
+    # a new one starts. 30s matches Whisper's own native window, beyond which it internally chunks
+    # anyway, so this costs no accuracy.
+    stt_max_window_seconds: float = 30.0
+
+    # Log each transcribed window's TEXT at INFO. Development only: it is the one place the service
+    # writes transcript content to logs, which violates the privacy rule the rest of the pipeline
+    # follows (counts/ids/types only). Default FALSE so production never leaks lecture content.
+    stt_debug_log_text: bool = False
 
     # --- Idea boundary detection (LA-3) ---
     # Segments the transcript into "ideas". Semantic drift is measured by embedding

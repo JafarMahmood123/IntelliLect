@@ -41,10 +41,33 @@ services:
       - TARGET_CHANNELS=1
       # Streaming English STT (LA-2). Small English model + int8 to share RAM with
       # the embedder/brain. The model downloads to the HF cache volume on first use.
-      - STT_MODEL=base.en
+      # small.en over base.en: markedly lower word-error rate, especially on proper nouns and
+      # short utterances (base.en turned "Hello, Gemini, are you here?" into "Hello Jimmy now are
+      # you here?"). ~3x the compute of base.en, which is affordable now that the brain is hosted
+      # and the local LLM no longer competes for cores — see STT_CPU_THREADS below.
+      - STT_MODEL=small.en
       - STT_DEVICE=cpu
       - STT_COMPUTE_TYPE=int8
       - STT_LANGUAGE=en
+      # Beam search instead of greedy. Greedy locks in the first plausible token and is the usual
+      # source of confident nonsense on names; 5 is faster-whisper's default.
+      - STT_BEAM_SIZE=5
+      # Pad Silero VAD's speech chunks so the first/last phoneme is not clipped before the model
+      # sees it (the "I love you Manai" class of error).
+      - STT_VAD_SPEECH_PAD_MS=200
+      # Seed the decoder with names it would otherwise have no reason to spell correctly.
+      - STT_INITIAL_PROMPT=Gemini, LiveKit, IntelliLect
+      # Do NOT emit interim segments: nothing downstream reads them, yet each one re-transcribes
+      # the whole utterance-so-far. Leaving them on roughly doubled STT CPU (measured: 10
+      # transcription calls / 31s of audio re-processed for 4 delivered replies) and delayed the
+      # final transcription that actually drives the pipeline.
+      - STT_EMIT_INTERIM=false
+      # Bound the re-transcribed window so a speaker who talks through their pauses cannot grow it
+      # without limit. 30s matches Whisper's own native window, so it costs no accuracy.
+      - STT_MAX_WINDOW_SECONDS=30
+      # Dev-only: log what Whisper heard. This is the one place transcript TEXT reaches the logs.
+      # Set false once the STT path is trusted.
+      - STT_DEBUG_LOG_TEXT=true
       - HF_HOME=/root/.cache/huggingface
       # Disable HuggingFace's Xet transfer protocol — it stalls the model.bin download at 0 bytes
       # from this container (the plain HTTPS/LFS path works). Prevents IncompleteSnapshotError.
@@ -114,10 +137,12 @@ services:
       # Keep the embedding model OUT of Ollama so the chat model stays resident (no model-swap).
       - BOUNDARY_USE_EMBEDDER=false
       # --- CPU core partitioning (latency) ---
-      # STT (faster-whisper) and the local LLM otherwise both grab all 8 cores and oversubscribe
-      # while the teacher keeps talking, making the same short reply take 5-12s. Split the cores:
-      # 2 for STT + 6 for generation = 8, saturated but not thrashing. Pulls the reply toward ~3-5s.
-      - STT_CPU_THREADS=2
+      # The old 2/6 split existed because STT and a LOCAL 7B/1.5B model both wanted all 8 cores and
+      # thrashed. With BRAIN_PROVIDER=gemini the brain is a hosted API — generation uses no local
+      # cores at all — so that 6-core reservation is dead and STT gets the machine. This is what
+      # pays for small.en + beam_size=5. EVAL_NUM_THREAD is kept only for the ollama fallback;
+      # it is ignored while the provider is gemini. Revert to 2/6 if you switch back to ollama.
+      - STT_CPU_THREADS=6
       - EVAL_NUM_THREAD=6
     # Linux does not provide host.docker.internal by default; map it to the host.
     extra_hosts:
