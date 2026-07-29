@@ -33,6 +33,7 @@ from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
+from app.application.services.stream_prefetch import prefetch
 from app.application.services.token_estimate import estimate_tokens
 from app.application.services.transcript_recorder import TranscriptRecorder
 from app.domain.entities.session_context import SessionContext
@@ -61,6 +62,7 @@ class SessionPipeline:
         feedback_dispatcher: FeedbackDispatcher,
         transcript_recorder: TranscriptRecorder | None = None,
         smoke_brain: BrainClient | None = None,
+        prefetch_segments: int = 4,
     ) -> None:
         self._session = session
         self._audio_source = audio_source
@@ -76,6 +78,10 @@ class SessionPipeline:
         # Optional (S-0): when present, FINAL segments are persisted incrementally,
         # off the feedback hot path. Absent -> no persistence (unchanged LA-6 behavior).
         self._recorder = transcript_recorder
+        # How many finalized segments may sit transcribed-but-not-yet-embedded. Small on
+        # purpose: this is a jitter absorber, not a lecture buffer, and a full queue simply
+        # applies backpressure to the STT.
+        self._prefetch_segments = prefetch_segments
         self._task: asyncio.Task | None = None
 
     def start(self) -> asyncio.Task:
@@ -113,7 +119,16 @@ class SessionPipeline:
                 # frames -> transcript segments -> completed ideas (each stage is lazy).
                 # The persist tee is a pass-through: it never changes the segment stream
                 # the boundary detector sees, it only records FINAL segments alongside.
-                segments = self._persist_final(self._stt.transcribe(self._audio_source.frames()))
+                # prefetch decouples STT from the boundary detector's per-segment embedding
+                # round trip. Without it the two stages alternate — nothing is transcribed
+                # while an embedding is in flight — and the serial cost per window is
+                # STT + embed. See stream_prefetch for the measurements.
+                segments = self._persist_final(
+                    prefetch(
+                        self._stt.transcribe(self._audio_source.frames()),
+                        self._prefetch_segments,
+                    )
+                )
                 last = time.perf_counter()
                 async for idea in self._boundary.process(segments):
                     # Time to detect/emit this idea (audio pull + STT + boundary).

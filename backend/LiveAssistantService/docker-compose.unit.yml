@@ -120,7 +120,18 @@ services:
       - EVAL_MAX_TOKENS=1024
       # Send each spoken idea's raw transcript straight to the LLM and push the reply to the
       # teacher, bypassing retrieval/evaluation/pacing. Set false to restore the real assistant.
-      - ASSISTANT_SMOKE_TEST=true
+      #
+      # NOW OFF. Smoke mode answers with SMOKE_SYSTEM_PROMPT ("reply with ONE short, helpful
+      # remark"), which makes the assistant a COMMENTER — it chats about whatever was said
+      # instead of checking it. It also stamps every card FeedbackType.UNCLEAR, which is why
+      # they all read "Unclear" regardless of content. With this false the real path runs:
+      # retrieve classroom material -> grounded evaluation (discrepancy / gap / unclear, with
+      # citations + confidence, biased toward silence) -> pacing -> deliver.
+      #
+      # REQUIRES INDEXED MATERIAL. IdeaEvaluator short-circuits to "no feedback" when retrieval
+      # returns nothing above RETRIEVAL_MIN_SCORE, so an empty classroom corpus makes the
+      # assistant correctly silent rather than broken. Upload the course files first.
+      - ASSISTANT_SMOKE_TEST=false
       # --- Brain provider ---
       # Use the hosted Gemini API for fast replies instead of the local CPU model. The API key is a
       # SECRET and lives in .env (GEMINI_API_KEY), not here. Model/params are configurable:

@@ -17,6 +17,7 @@ from app.api.routers import (
     health,
     internal_documents,
     internal_knowledge,
+    internal_reembed,
     internal_summaries,
     metrics as metrics_router,
     search,

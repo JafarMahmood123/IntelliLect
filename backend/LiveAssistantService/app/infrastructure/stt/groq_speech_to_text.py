@@ -74,6 +74,8 @@ class GroqSpeechToText(StreamingTranscriber):
         self._timeout = settings.groq_timeout_seconds
         self._language = settings.stt_language.strip()
         self._prompt = settings.stt_initial_prompt.strip()
+        self._debug_log_text = settings.stt_debug_log_text
+        self._sample_rate = settings.target_sample_rate
         if not self._api_key:
             logger.warning(
                 "GROQ_API_KEY is empty; Groq transcription will fail until it is set (put it "
@@ -126,4 +128,18 @@ class GroqSpeechToText(StreamingTranscriber):
                 f"{response.text[:300]}"
             )
 
-        return str(response.json().get("text", "")).strip()
+        text = str(response.json().get("text", "")).strip()
+        if self._debug_log_text:
+            # DEV ONLY (STT_DEBUG_LOG_TEXT=true): shows exactly what Whisper heard for this window,
+            # so an empty/garbled result can be told apart from a silent mic. Mirrors the local
+            # engine's stt_debug line — without it, switching to STT_PROVIDER=groq silently loses
+            # all transcript visibility. Off by default so production stays privacy-clean.
+            logger.info(
+                "stt_debug",
+                extra={
+                    "duration_s": round(float(samples.size) / float(self._sample_rate), 2),
+                    "chars": len(text),
+                    "text": text,
+                },
+            )
+        return text
