@@ -6,6 +6,7 @@ from app.infrastructure.extraction._support import extension_of, normalize_conte
 from app.infrastructure.extraction.docx_extractor import DocxExtractor
 from app.infrastructure.extraction.pdf_extractor import PdfExtractor
 from app.infrastructure.extraction.pptx_extractor import PptxExtractor
+from app.infrastructure.extraction.txt_extractor import TxtExtractor
 
 
 class ExtractorRouter(Extractor):
@@ -28,8 +29,8 @@ class ExtractorRouter(Extractor):
 
     @classmethod
     def default(cls) -> ExtractorRouter:
-        """Build a router wired with the PDF, DOCX, and PPTX extractors."""
-        return cls([PdfExtractor(), DocxExtractor(), PptxExtractor()])
+        """Build a router wired with the PDF, DOCX, PPTX, and TXT extractors."""
+        return cls([PdfExtractor(), DocxExtractor(), PptxExtractor(), TxtExtractor()])
 
     def supports(self, content_type: str) -> bool:
         return normalize_content_type(content_type) in self._by_content_type
@@ -62,5 +63,5 @@ class ExtractorRouter(Extractor):
 
         raise UnsupportedFormatError(
             f"No extractor for content type {content_type!r} / file {file_name!r}. "
-            f"Supported: PDF, DOCX, PPTX."
+            f"Supported: PDF, DOCX, PPTX, TXT/MD."
         )

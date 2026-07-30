@@ -113,3 +113,5 @@ DOCX_CONTENT_TYPE = (
 PPTX_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 )
+TXT_CONTENT_TYPE = "text/plain"
+MARKDOWN_CONTENT_TYPE = "text/markdown"

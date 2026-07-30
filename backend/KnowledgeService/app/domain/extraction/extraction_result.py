@@ -15,7 +15,7 @@ class ExtractionResult:
     few document-level hints for later phases (chunking, OCR triage).
     """
 
-    source_format: str  # "pdf" | "docx" | "pptx"
+    source_format: str  # "pdf" | "docx" | "pptx" | "txt"
     blocks: list[TextBlock] = field(default_factory=list)
     images: list[ExtractedImage] = field(default_factory=list)
     page_count: int | None = None

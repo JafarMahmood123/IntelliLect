@@ -17,10 +17,14 @@ DOCX_CONTENT_TYPES = frozenset(
 PPTX_CONTENT_TYPES = frozenset(
     {"application/vnd.openxmlformats-officedocument.presentationml.presentation"}
 )
+# Markdown lives here too: we extract it AS plain text (no heading parsing), so a
+# separate extractor would differ only in its name.
+TXT_CONTENT_TYPES = frozenset({"text/plain", "text/markdown", "text/x-markdown"})
 
 PDF_EXTENSIONS = frozenset({"pdf"})
 DOCX_EXTENSIONS = frozenset({"docx"})
 PPTX_EXTENSIONS = frozenset({"pptx"})
+TXT_EXTENSIONS = frozenset({"txt", "md", "markdown"})
 
 
 class OrderCounter:
