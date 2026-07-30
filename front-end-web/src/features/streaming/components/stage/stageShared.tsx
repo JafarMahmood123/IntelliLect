@@ -1,5 +1,6 @@
 import {
   VideoTrack,
+  ConnectionQualityIndicator,
   useIsSpeaking,
   useIsMuted,
   isTrackReference,
@@ -73,6 +74,13 @@ export const StageTile = ({ trackRef }: { trackRef: TrackReferenceOrPlaceholder 
           </div>
         </div>
       )}
+
+      {/* Per-participant connection quality (Excellent/Good/Poor/Lost). Without this, "the video
+          looks bad" cannot be attributed between the publish settings, host CPU and the network —
+          which is what makes tuning the media options measurable rather than guesswork. */}
+      <div className="absolute top-2 right-2 rounded-md bg-black/50 p-1 text-white backdrop-blur-sm">
+        <ConnectionQualityIndicator participant={p} />
+      </div>
 
       {/* Bottom scrim + name/mic badge */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/60 to-transparent" />

@@ -15,6 +15,7 @@ public sealed class StreamService : IStreamService
     private readonly IMediaProvider _mediaProvider;
     private readonly IRoomLifecycleService _roomLifecycle;
     private readonly IStreamSettings _settings;
+    private readonly IMediaSettings _mediaSettings;
     private readonly ILogger<StreamService> _logger;
 
     public StreamService(
@@ -24,6 +25,7 @@ public sealed class StreamService : IStreamService
         IMediaProvider mediaProvider,
         IRoomLifecycleService roomLifecycle,
         IStreamSettings settings,
+        IMediaSettings mediaSettings,
         ILogger<StreamService> logger)
     {
         _streamRepository = streamRepository;
@@ -32,8 +34,32 @@ public sealed class StreamService : IStreamService
         _mediaProvider = mediaProvider;
         _roomLifecycle = roomLifecycle;
         _settings = settings;
+        _mediaSettings = mediaSettings;
         _logger = logger;
     }
+
+    // The client's media quality/reconnection settings travel with the join token so the browser can
+    // construct its Room with them (several are frozen at connect time). Server-owned rather than
+    // frontend config — see IMediaSettings.
+    private static MediaSettingsResponse ToMediaResponse(IMediaSettings s) => new(
+        s.AdaptiveStream,
+        s.Dynacast,
+        s.Simulcast,
+        s.VideoCodec,
+        s.AudioPreset,
+        s.Dtx,
+        s.Red,
+        s.StopMicTrackOnMute,
+        s.VideoWidth,
+        s.VideoHeight,
+        s.VideoFramerate,
+        s.ScreenShareWidth,
+        s.ScreenShareHeight,
+        s.ScreenShareFramerate,
+        s.ScreenShareMaxBitrate,
+        s.MaxRetries,
+        s.PeerConnectionTimeoutMs,
+        s.WebsocketTimeoutMs);
 
     public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, string userName, CancellationToken ct)
     {
@@ -69,7 +95,8 @@ public sealed class StreamService : IStreamService
             _settings.LiveKitHost,
             (int)stream.ParticipationMode,
             stream.StudentsCanPublishAudio,
-            stream.StudentsCanPublishVideo);
+            stream.StudentsCanPublishVideo,
+            ToMediaResponse(_mediaSettings));
     }
 
     public async Task<StudentPublishPolicyResponse> UpdateStudentPublishPolicyAsync(

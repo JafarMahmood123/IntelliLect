@@ -135,6 +135,21 @@ public sealed class FakeRoomLifecycleService : IRoomLifecycleService
         if (_throwOnCall) throw new InvalidOperationException("media server unreachable");
         return Task.CompletedTask;
     }
+
+    // Recorded rather than ignored so a test can assert the live policy was pushed to
+    // already-connected students, not just baked into the next join token.
+    public List<(Guid SessionId, bool Audio, bool Video)> PolicyApplications { get; } = new();
+
+    public Task ApplyStudentPublishPolicyAsync(
+        Guid sessionId,
+        bool canPublishAudio,
+        bool canPublishVideo,
+        CancellationToken ct = default)
+    {
+        PolicyApplications.Add((sessionId, canPublishAudio, canPublishVideo));
+        if (_throwOnCall) throw new InvalidOperationException("media server unreachable");
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Records the hub broadcasts so tests can assert clients were told the session ended.</summary>
@@ -150,6 +165,15 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
     {
         StatusChanges.Add((sessionId, status));
         if (_throwOnStatusChange) throw new InvalidOperationException("hub unavailable");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Recorded so a test can assert students were told their permissions changed.</summary>
+    public List<(Guid SessionId, bool Audio, bool Video)> PolicyChanges { get; } = new();
+
+    public Task NotifyPublishPolicyChangedAsync(Guid sessionId, bool canPublishAudio, bool canPublishVideo)
+    {
+        PolicyChanges.Add((sessionId, canPublishAudio, canPublishVideo));
         return Task.CompletedTask;
     }
 

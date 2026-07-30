@@ -1,3 +1,33 @@
+/**
+ * LiveKit client media settings, owned by the SERVER (StreamingService's "Media" appsettings
+ * section) and delivered with the join token. Mirrors `MediaSettingsResponse` / `MediaOptions.cs`,
+ * which is the authority and documents why each value is what it is.
+ *
+ * Fields are optional because a server that predates this section, or one with the section removed,
+ * must still produce a usable room — `mediaDefaults.ts` supplies fallbacks and validates the enums
+ * before any of it reaches livekit-client.
+ */
+export type MediaSettings = {
+  adaptiveStream?: boolean;
+  dynacast?: boolean;
+  simulcast?: boolean;
+  videoCodec?: string;
+  audioPreset?: string;
+  dtx?: boolean;
+  red?: boolean;
+  stopMicTrackOnMute?: boolean;
+  videoWidth?: number;
+  videoHeight?: number;
+  videoFramerate?: number;
+  screenShareWidth?: number;
+  screenShareHeight?: number;
+  screenShareFramerate?: number;
+  screenShareMaxBitrate?: number;
+  maxRetries?: number;
+  peerConnectionTimeoutMs?: number;
+  websocketTimeoutMs?: number;
+};
+
 export type StreamResponse = {
   id: string;
   sessionId: string;
@@ -11,6 +41,8 @@ export type StreamResponse = {
   // these in real time from the "Session Settings" tab; changes arrive over SignalR.
   studentsCanPublishAudio: boolean;
   studentsCanPublishVideo: boolean;
+  // Server-owned media quality + reconnection settings. Optional: see MediaSettings.
+  media?: MediaSettings;
 };
 
 /** Whether students may publish each media source. Mirrors the backend PublishPolicyChanged event. */

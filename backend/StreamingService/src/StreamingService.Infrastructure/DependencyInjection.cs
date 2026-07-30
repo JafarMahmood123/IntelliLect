@@ -124,6 +124,13 @@ public static class DependencyInjection
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
         services.AddScoped<IMediaProvider, LiveKitMediaProvider>();
 
+        // Client media quality/reconnection settings, handed to the browser in the join response
+        // (see IMediaSettings for why the server owns these rather than a frontend .env).
+        // Same port/adapter shape as LiveKitSettings above; immutable options -> singleton.
+        services.Configure<MediaOptions>(configuration.GetSection(MediaOptions.SectionName));
+        services.AddSingleton<IMediaSettings>(sp =>
+            sp.GetRequiredService<IOptions<MediaOptions>>().Value);
+
         // Server-side room control: closing a room on session end disconnects every remaining
         // participant. Stateless wrapper over the SDK's RoomServiceClient -> singleton.
         services.AddSingleton<IRoomLifecycleService, LiveKitRoomLifecycleService>();

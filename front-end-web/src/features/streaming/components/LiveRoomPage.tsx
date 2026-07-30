@@ -1,4 +1,10 @@
-import { LiveKitRoom, ControlBar, RoomAudioRenderer } from "@livekit/components-react";
+import {
+  LiveKitRoom,
+  ControlBar,
+  RoomAudioRenderer,
+  ConnectionStateToast,
+} from "@livekit/components-react";
+import type { DisconnectReason } from "livekit-client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -22,6 +28,8 @@ import {
 } from "../../classrooms/utils/sessionEnd";
 import { TeacherStage } from "./stage/TeacherStage";
 import { StudentStage } from "./stage/StudentStage";
+import { toRoomConnectOptions, toRoomOptions } from "../config/toRoomOptions";
+import { shouldExitSession } from "../utils/disconnectPolicy";
 
 const toLiveKitServerUrl = (host: string): string => {
   const trimmed = host.trim();
@@ -50,6 +58,12 @@ export const LiveRoomPage = () => {
   const hasJoinedApi = useRef(false);
   const hasLeftRoom = useRef(false);
   const [isConfirmingEnd, setIsConfirmingEnd] = useState(false);
+  // The media transport dropped and the SDK exhausted its retries, but the session itself is still
+  // running. We stay on the page and offer a rejoin instead of ejecting the user (see
+  // disconnectPolicy). This UNMOUNTS <LiveKitRoom>, so the room is fully torn down and a rejoin
+  // constructs a fresh one — construction options are frozen per room, so reusing it would keep the
+  // old settings.
+  const [connectionLost, setConnectionLost] = useState(false);
 
   const isTeacher = user?.roleName === "Teacher";
 
@@ -149,6 +163,39 @@ export const LiveRoomPage = () => {
     [data?.liveKitHost],
   );
 
+  // Server-owned media quality + reconnection settings (StreamingService "Media" appsettings). The
+  // mappers validate every value and fall back to bundled defaults, so an absent or misconfigured
+  // `media` object still yields a working room. Memoized because these are Room CONSTRUCTION
+  // options — handing <LiveKitRoom> a fresh object each render would churn the room.
+  const roomOptions = useMemo(() => toRoomOptions(data?.media), [data?.media]);
+  const roomConnectOptions = useMemo(() => toRoomConnectOptions(data?.media), [data?.media]);
+
+  // A disconnect only ends the session when it is genuinely terminal (the user left, the room was
+  // closed, they were evicted) or the server already announced the end. A transport failure keeps
+  // them here with a rejoin option — previously ANY disconnect navigated away, so one blip ejected
+  // a student from a live lecture.
+  const handleDisconnected = useCallback(
+    (reason?: DisconnectReason) => {
+      if (shouldExitSession(reason, hasEnded)) {
+        exitToClassroom();
+        return;
+      }
+      setConnectionLost(true);
+      showToast({
+        type: "error",
+        title: "Connection Lost",
+        message: "You were disconnected from the live session. The session is still running.",
+      });
+    },
+    [hasEnded, exitToClassroom, showToast],
+  );
+
+  const handleRejoin = useCallback(() => {
+    setConnectionLost(false);
+    // Re-fetch so a stale join token is not reused for the reconnect attempt.
+    void refetch();
+  }, [refetch]);
+
   useEffect(() => {
     if (!sessionId || !data?.joinToken || hasJoinedApi.current) return;
 
@@ -220,19 +267,23 @@ export const LiveRoomPage = () => {
 
       <div className="flex flex-1 overflow-hidden">
         <main className="relative flex-1 bg-slate-950">
-          {data?.joinToken && serverUrl ? (
+          {data?.joinToken && serverUrl && !connectionLost ? (
             <LiveKitRoom
               serverUrl={serverUrl}
               token={data.joinToken}
               connect={true}
+              // Server-owned quality settings + reconnection budget. Without these the room ran on
+              // livekit-client defaults, which had adaptiveStream/dynacast off and maxRetries at 1.
+              options={roomOptions}
+              connectOptions={roomConnectOptions}
               // Initial device request, frozen at connect time (see initialPublishRef). Live
               // policy changes flow only to the ControlBar below, never back into this — so a
               // re-grant lets a student choose to share rather than force-enabling their camera.
               video={initialVideo}
               audio={initialAudio}
-              // Fires both when the user leaves and when the media server closes the room on
-              // session end — either way the destination is the classroom.
-              onDisconnected={exitToClassroom}
+              // Terminal disconnects exit; a transport failure keeps the user here with a rejoin
+              // option instead of ejecting them from a running lecture.
+              onDisconnected={handleDisconnected}
               className="flex flex-col h-full w-full"
             >
               <div className="flex-1 min-h-0 bg-slate-900">
@@ -255,10 +306,24 @@ export const LiveRoomPage = () => {
 
               <RoomAudioRenderer />
 
+              {/* Makes the SDK's own reconnect attempts visible. With MaxRetries now at 5 that
+                  window can last several seconds, and silence there reads as a frozen app. */}
+              <ConnectionStateToast />
+
               {/* Private, teacher-only live-feedback panel. Subscribes to the EXISTING room's
                   data channel — never a new connection. */}
               {isTeacher && <TeacherFeedbackPanel />}
             </LiveKitRoom>
+          ) : connectionLost ? (
+            /* The transport failed and the SDK gave up, but the session is still live. Keeping the
+               user here with an explicit rejoin beats navigating them out of a running lecture. */
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+              <p className="text-slate-300 font-medium">You were disconnected</p>
+              <p className="text-slate-500 text-sm max-w-md">
+                The session is still running. Check your connection and rejoin.
+              </p>
+              <Button onClick={handleRejoin}>Rejoin session</Button>
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-slate-500">
               Connecting to media server...
