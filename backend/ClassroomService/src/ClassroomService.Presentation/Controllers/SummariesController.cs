@@ -1,6 +1,7 @@
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Summary;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ClassroomService.Presentation.Controllers;
