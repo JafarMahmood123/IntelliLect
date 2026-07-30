@@ -19,8 +19,8 @@ from app.infrastructure.config.settings import Settings
 from app.infrastructure.stt.groq_speech_to_text import (
     GroqSpeechToText,
     GroqSpeechToTextError,
-    _to_wav_bytes,
 )
+from app.infrastructure.stt.wav_encoding import to_wav_bytes as _to_wav_bytes
 
 
 def _settings(**overrides) -> Settings:

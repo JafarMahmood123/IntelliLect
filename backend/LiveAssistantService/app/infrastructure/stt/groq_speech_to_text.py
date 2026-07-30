@@ -22,9 +22,7 @@ cause here is a VPN/datacenter exit IP on Groq's blocklist, not anything about t
 
 from __future__ import annotations
 
-import io
 import logging
-import wave
 
 import httpx
 import numpy as np
@@ -32,6 +30,7 @@ import numpy as np
 from app.infrastructure.config.settings import Settings
 from app.infrastructure.stt.audio_analysis import DEFAULT_SILENCE_RMS
 from app.infrastructure.stt.streaming_transcriber import StreamingTranscriber
+from app.infrastructure.stt.wav_encoding import to_wav_bytes
 from app.observability import metrics
 
 logger = logging.getLogger("liveassistant.stt")
@@ -39,23 +38,6 @@ logger = logging.getLogger("liveassistant.stt")
 
 class GroqSpeechToTextError(RuntimeError):
     """Raised when the Groq transcription API cannot produce text (transport/HTTP/auth)."""
-
-
-def _to_wav_bytes(samples: np.ndarray, sample_rate: int) -> bytes:
-    """Encode a mono float32 window as 16-bit PCM WAV, in memory.
-
-    The API needs a real audio container; float32 in [-1, 1] is scaled to int16 with clipping so a
-    hot mic cannot wrap around into noise.
-    """
-    clipped = np.clip(samples, -1.0, 1.0)
-    pcm16 = (clipped * 32767.0).astype(np.int16)
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)  # 16-bit
-        wav.setframerate(sample_rate)
-        wav.writeframes(pcm16.tobytes())
-    return buffer.getvalue()
 
 
 class GroqSpeechToText(StreamingTranscriber):
@@ -84,7 +66,7 @@ class GroqSpeechToText(StreamingTranscriber):
 
     async def _transcribe_window(self, samples: np.ndarray, sample_rate: int) -> str:
         url = f"{self._base_url}/audio/transcriptions"
-        files = {"file": ("window.wav", _to_wav_bytes(samples, sample_rate), "audio/wav")}
+        files = {"file": ("window.wav", to_wav_bytes(samples, sample_rate), "audio/wav")}
         data: dict[str, str] = {"model": self._model, "response_format": "json"}
         if self._language:
             data["language"] = self._language

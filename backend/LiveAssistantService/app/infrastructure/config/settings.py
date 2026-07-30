@@ -130,6 +130,27 @@ class Settings(BaseSettings):
     # follows (counts/ids/types only). Default FALSE so production never leaks lecture content.
     stt_debug_log_text: bool = False
 
+    # --- Gemini STT; used when stt_provider == "gemini" ---
+    # LAST-RESORT escape hatch for when Groq is hard-blocked (Groq 403s every request from a
+    # datacenter/VPN exit IP, while Gemini serves the same container fine). Reuses gemini_api_key /
+    # gemini_base_url.
+    #
+    # ⚠ MEASURED TOO SLOW FOR LIVE USE: 0.5-0.67x realtime on a 10s window (median 17.4s) vs Groq's
+    # ~5x. Below 1.0x means it cannot keep up with a live lecture and falls further behind as the
+    # class runs. It also hallucinated words on 3 of 4 pure-silence windows. Use it only when the
+    # network path genuinely cannot be fixed; fixing the route is the real answer to a 403.
+    # Leave stt_language empty here to transcribe whatever language is spoken (Whisper is pinned).
+    #
+    # Needs a model with AUDIO input support; the *-latest aliases are used for the same
+    # quota reason as gemini_model (pinned 2.0/2.5 versions are 429/404 on this project's key).
+    gemini_stt_model: str = "gemini-flash-latest"
+    # Audio windows are much larger than text prompts, so this is separate from (and longer than)
+    # embedding_timeout_seconds.
+    gemini_stt_timeout_seconds: float = 90.0
+    # Transcription has nothing worth reasoning about, so keep thinking at the floor. Blank omits
+    # thinkingConfig entirely (correct for non-3.x models, which reject the field).
+    gemini_stt_thinking_level: str = "low"
+
     # --- Idea boundary detection (LA-3) ---
     # Segments the transcript into "ideas". Semantic drift is measured by embedding
     # finalized segments (via the EmbeddingProvider) — the ONLY model use here, and

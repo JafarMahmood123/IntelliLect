@@ -56,6 +56,7 @@ from app.infrastructure.retrieval.knowledge_retrieval_client import (
 from app.infrastructure.stt.faster_whisper_speech_to_text import (
     FasterWhisperSpeechToText,
 )
+from app.infrastructure.stt.gemini_speech_to_text import GeminiSpeechToText
 from app.infrastructure.stt.groq_speech_to_text import GroqSpeechToText
 
 # --- Composition root ---------------------------------------------------------
@@ -84,15 +85,22 @@ def build_fake_audio_source(
 
 
 def build_speech_to_text(settings: Settings) -> SpeechToText:
-    """The STT engine selected by STT_PROVIDER: 'groq' (hosted) or 'faster_whisper' (local).
+    """The STT engine selected by STT_PROVIDER: 'groq', 'gemini' (hosted) or 'faster_whisper'.
 
-    Both share the same windowing/pause state machine (``StreamingTranscriber``) and differ only
-    in how one finished window is transcribed, so switching is a config change. Constructing
-    either is cheap — the local model loads lazily on first use, and no network call is made here.
+    All three share the same windowing/pause state machine (``StreamingTranscriber``) and differ
+    only in how one finished window is transcribed, so switching is a config change. Constructing
+    any of them is cheap — the local model loads lazily on first use, and no network call is
+    made here.
+
+    Prefer 'groq' (purpose-built ASR, most accurate). 'gemini' exists because Groq 403s requests
+    from datacenter/VPN exit IPs; it is an LLM transcribing rather than an ASR model, so treat it
+    as the reachable-anywhere option, not the better one.
     """
     provider = settings.stt_provider.strip().lower()
     if provider == "groq":
         return GroqSpeechToText(settings)
+    if provider == "gemini":
+        return GeminiSpeechToText(settings)
     if provider in ("faster_whisper", "faster-whisper", "local"):
         return FasterWhisperSpeechToText(settings)
     logger.warning(
