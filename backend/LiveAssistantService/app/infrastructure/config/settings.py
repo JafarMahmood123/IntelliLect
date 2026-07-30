@@ -78,7 +78,13 @@ class Settings(BaseSettings):
     stt_compute_type: str = "int8"  # int8 (low RAM on cpu) | float16 | ...
     stt_language: str = "en"  # English only for now (Arabic deferred)
     stt_chunk_seconds: float = 3.0  # audio accumulated before a transcription step
-    stt_pause_seconds: float = 0.8  # trailing silence that marks a segment boundary
+    # Trailing silence that marks a segment boundary. 1.5, NOT 0.8: at 0.8 a real session had
+    # sentences cut mid-phrase ("Also, we are going to" / "talk about the new points that"), and
+    # each fragment is then transcribed with no surrounding context — which is how
+    # "/api/notifications/device-tokens" came back as "Vault, Registur, Device". Fragmenting the
+    # audio destroys the technical vocabulary the grounded evaluation depends on.
+    # Must stay well BELOW boundary_pause_seconds, or a breath would end an idea.
+    stt_pause_seconds: float = 1.5
     # CPU cores faster-whisper/CTranslate2 may use. On an 8-core host, STT and the local
     # LLM otherwise BOTH grab every core and oversubscribe: while the teacher keeps talking,
     # STT transcribes new windows on all cores at the same instant Ollama wants all cores to
@@ -108,6 +114,11 @@ class Settings(BaseSettings):
     # reason to expect are still spelled correctly. Keep it SHORT — it is prepended to every
     # window, so it costs tokens on each call and a long prompt can bias the model into echoing it.
     # e.g. "Gemini, LiveKit, IntelliLect, Kubernetes"
+    # Decoder seed for domain vocabulary. KEEP THIS EMPTY unless you re-measure afterwards.
+    # A bare word list ("Gemini, LiveKit, IntelliLect") made Whisper REGURGITATE the prompt on
+    # low-signal windows: 11 of 32 segments in a real session (34%) came back as pure prompt echo
+    # — 'Intelli' x8, 'Intelli, Intelli, Intelli', 'Intelli, LiveKit'. Those are fabricated words
+    # that entered the idea text the brain evaluates, and each cost a ~2s embedding round trip.
     stt_initial_prompt: str = ""
 
     # Emit INTERIM (unstable, mid-utterance) segments every stt_chunk_seconds.
@@ -185,6 +196,14 @@ class Settings(BaseSettings):
     # This keeps the embedding model OUT of Ollama's RAM on constrained hosts, so the chat model
     # stays resident (no model-swap reload) and replies are fast. Default true (full drift).
     boundary_use_embedder: bool = True
+    # How many segment embeddings may be in flight at once. The embeddings are independent of each
+    # other, but the boundary DECISIONS are not, so results are still applied in source order —
+    # only the waiting overlaps. Measured motivation: 90.6s of embedding inside a 143s lecture, a
+    # 2.01s median against a 3.05s median gap between segments (61% occupancy), with a 1.39s
+    # minimum gap and one 10.5s outlier that stalled everything behind it.
+    # Bounded, not unlimited: the embedder is a rate-limited hosted API, so an unbounded fan-out
+    # would turn a burst of speech into a burst of 429s. 1 restores the old serial behaviour.
+    boundary_embed_lookahead: int = 4
 
     # --- Embeddings (LA-3 drift; local Ollama, HTTP-only — no model weights here) ---
     # Used to embed transcript segments for drift measurement. On Linux,

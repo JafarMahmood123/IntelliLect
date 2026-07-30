@@ -146,6 +146,7 @@ def build_boundary_detector(
         max_seconds=settings.boundary_max_seconds,
         max_tokens=settings.boundary_max_tokens,
         min_tokens=settings.boundary_min_tokens,
+        embed_lookahead=settings.boundary_embed_lookahead,
     )
 
 

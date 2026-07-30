@@ -63,8 +63,15 @@ services:
       # Pad Silero VAD's speech chunks so the first/last phoneme is not clipped before the model
       # sees it (the "I love you Manai" class of error).
       - STT_VAD_SPEECH_PAD_MS=200
-      # Seed the decoder with names it would otherwise have no reason to spell correctly.
-      - STT_INITIAL_PROMPT=Gemini, LiveKit, IntelliLect
+      # EMPTY ON PURPOSE. This used to seed the decoder with domain names ("Gemini, LiveKit,
+      # IntelliLect") so it would spell them correctly. Measured on a real session it did far more
+      # harm than good: Whisper REGURGITATES the prompt on low-signal windows, and 11 of 32
+      # segments (34%) came back as pure prompt echo — 'Intelli' x8, 'Intelli, Intelli, Intelli',
+      # 'Intelli, LiveKit'. Those are not filler, they are fabricated words that entered the idea
+      # text the brain evaluates, and each one also cost a ~2s embedding round trip.
+      # Re-introduce only with a much longer, sentence-shaped prompt (a bare word list is what
+      # invites the echo), and re-measure the segment mix before trusting it.
+      - STT_INITIAL_PROMPT=
       # Do NOT emit interim segments: nothing downstream reads them, yet each one re-transcribes
       # the whole utterance-so-far. Leaving them on roughly doubled STT CPU (measured: 10
       # transcription calls / 31s of audio re-processed for 4 delivered replies) and delayed the
@@ -168,11 +175,20 @@ services:
       # Silence ON TOP OF STT_PAUSE_SECONDS that ends an idea outright (~3.5s total here). Must
       # stay well above STT_PAUSE_SECONDS or every sentence ends an idea and drift never decides.
       - BOUNDARY_PAUSE_SECONDS=2.0
-      # Finalize a segment after this much trailing silence. Lowered 1.5 -> 0.8: it was raised to
-      # stop choppy speech fragmenting into separate IDEAS, but drift now handles that regrouping,
-      # so the only thing 1.5 still bought was a 1.5s floor on every response.
+      # Finalize a segment after this much trailing silence. Back to 1.5 from 0.8.
+      #
+      # 0.8 was chosen to cut a 1.5s floor off every response, on the theory that drift would
+      # regroup the resulting fragments. Measured on a real session, it instead cut sentences
+      # mid-phrase — "Also, we are going to" / "talk about the new points that" / "once added to
+      # our system" arrived as three separate windows. Whisper then transcribes each in isolation
+      # with no surrounding context, which is how "/api/notifications/device-tokens" came back as
+      # "Vault, Registur, Device". Fragmenting the audio destroys exactly the technical vocabulary
+      # the grounded evaluation depends on, so accuracy wins over the 0.7s.
+      #
+      # The prefetch buffer (see stream_prefetch.py) already absorbed part of that latency by
+      # overlapping STT with the embedding round trip.
       # Keep well BELOW boundary_pause_seconds, or a breath would end an idea.
-      - STT_PAUSE_SECONDS=0.8
+      - STT_PAUSE_SECONDS=1.5
       # --- CPU core partitioning (latency) ---
       # The old 2/6 split existed because STT and a LOCAL 7B/1.5B model both wanted all 8 cores and
       # thrashed. With BRAIN_PROVIDER=gemini the brain is a hosted API — generation uses no local

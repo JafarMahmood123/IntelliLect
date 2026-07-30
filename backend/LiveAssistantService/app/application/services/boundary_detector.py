@@ -18,6 +18,7 @@ import math
 from collections.abc import AsyncIterator
 
 from app.application.ports.embedding_provider import EmbeddingProvider
+from app.application.services.stream_prefetch import lookahead_map
 from app.application.services.token_estimate import estimate_tokens
 from app.domain.idea.boundary_trigger import BoundaryTrigger
 from app.domain.idea.completed_idea import CompletedIdea
@@ -53,6 +54,7 @@ class BoundaryDetector:
         max_seconds: float,
         max_tokens: int,
         min_tokens: int,
+        embed_lookahead: int = 4,
     ) -> None:
         self._embedder = embedder
         self._drift_threshold = drift_threshold
@@ -60,6 +62,9 @@ class BoundaryDetector:
         self._max_seconds = max_seconds
         self._max_tokens = max_tokens
         self._min_tokens = min_tokens
+        # How many segment embeddings may be in flight at once. Bounded because the embedder is a
+        # rate-limited hosted API — an unbounded fan-out turns a burst of speech into a burst of 429s.
+        self._embed_lookahead = embed_lookahead
         self._reset()
 
     # -- public ---------------------------------------------------------------
@@ -74,11 +79,15 @@ class BoundaryDetector:
         """
         prev_end_ms: int | None = None
 
-        async for segment in segments:
-            if not segment.is_final:
-                continue  # ignore interim segments; act only on stabilized text
-
-            embedding = await self._embedder.embed_query(segment.text)
+        # Embeddings overlap; DECISIONS stay strictly ordered. Segment N's vector does not depend on
+        # N-1's, but whether N starts a new idea depends on the buffer N-1 left behind — so
+        # lookahead_map runs several embedding calls concurrently and hands them back in source
+        # order. See stream_prefetch for the measurements that motivated it.
+        async for segment, embedding in lookahead_map(
+            self._finals_only(segments),
+            lambda seg: self._embedder.embed_query(seg.text),
+            self._embed_lookahead,
+        ):
             gap_ms = 0.0 if prev_end_ms is None else segment.start_ms - prev_end_ms
             prev_end_ms = segment.end_ms
 
@@ -106,6 +115,19 @@ class BoundaryDetector:
         # Flush a trailing idea at session end (treated as a terminal pause).
         if self._emittable():
             yield self._close(BoundaryTrigger.PAUSE)
+
+    @staticmethod
+    async def _finals_only(
+        segments: AsyncIterator[TranscriptSegment],
+    ) -> AsyncIterator[TranscriptSegment]:
+        """Drop interim segments before they reach the embedder.
+
+        Interim text is unstable, so drift was never measured on it — filtering here rather than
+        inside the loop means an interim segment never costs an embedding call either.
+        """
+        async for segment in segments:
+            if segment.is_final:
+                yield segment
 
     # -- buffer state ---------------------------------------------------------
     def _reset(self) -> None:
