@@ -13,6 +13,10 @@ Thumbs.db
 *.userosscache
 *.sln.docstates
 *.txt
+# Demo material is the exception: it must be committed to be usable in a demo, and
+# the course-notes file has to stay a real .txt because uploading it is what
+# exercises the knowledge base's plain-text extractor.
+!backend/docs/demo/*.txt
 *.sln merge=union
 
 appsettings.Development.json

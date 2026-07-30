@@ -1,0 +1,81 @@
+Introduction to Caching
+Course Notes, Week 4
+
+
+1. What a cache is
+
+A cache is a small, fast store that keeps copies of data that would be
+expensive to fetch again. The point of a cache is to avoid repeating slow work.
+
+When the program asks for an item and the cache already holds it, that is a
+cache hit. When the item is not in the cache and has to be fetched from the
+slower store, that is a cache miss.
+
+
+2. Measuring a cache
+
+The hit rate is the share of all requests that are served from the cache. If the
+program makes one hundred requests and eighty of them are answered by the cache,
+the hit rate is eighty percent.
+
+In this course the target hit rate is 85 percent. A cache that reaches 85
+percent or higher is considered healthy for our assignments. A cache that sits
+below 85 percent needs to be tuned before you submit it.
+
+In this course a cache hit costs about 10 nanoseconds and a cache miss costs
+about 200 nanoseconds. A miss is therefore about twenty times more expensive
+than a hit.
+
+
+3. Cache size
+
+Every example in this course uses a cache of 64 entries. Do not change this
+number in your assignments unless the question tells you to.
+
+
+4. Eviction policies
+
+When the cache is full and a new item arrives, an existing entry has to be
+removed to make room. Choosing which entry to remove is called eviction.
+
+The default policy in this course is least recently used. Least recently used
+removes the entry that has gone unused for the longest time. The moment an entry
+was inserted does not matter at all. What matters is when the entry was last
+read.
+
+First in first out is a different policy. First in first out removes the oldest
+entry by insertion time, no matter how recently that entry was read. Do not
+confuse the two policies. Least recently used looks at the last use. First in
+first out looks at the insertion order.
+
+
+5. Kinds of miss
+
+There are three kinds of cache miss.
+
+A compulsory miss happens the first time an item is ever requested, because
+nothing has loaded it yet. These misses cannot be avoided by making the cache
+bigger.
+
+A capacity miss happens when the cache is simply too small to hold everything
+the program is actively using.
+
+A conflict miss happens when several items compete for the same slot even though
+the cache still has room elsewhere.
+
+
+6. Write policy
+
+This course uses write through. With write through, every write goes to the
+cache and to the main store at the same time, so the two copies never disagree.
+
+Write back is the alternative policy, where writes are held in the cache and
+flushed to the main store later. We do not use write back in this course.
+
+
+7. Warming a cache
+
+A cache that has just started is empty, so the first requests are all compulsory
+misses. This period is called the cold start. Measurements taken during a cold
+start are not meaningful. Always let the cache warm up before you record a hit
+rate.
