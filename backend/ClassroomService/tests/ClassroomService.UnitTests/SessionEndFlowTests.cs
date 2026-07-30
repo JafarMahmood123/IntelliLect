@@ -1,8 +1,10 @@
+using IntelliLect.Contracts.Messages;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Application.Exceptions;
 using ClassroomService.Application.Services;
 using ClassroomService.Domain.Entities;
+using ClassroomService.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace ClassroomService.UnitTests;
@@ -21,7 +23,9 @@ public class TeacherEndSessionTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = CreateSut(sessions, classroom, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var summaries = new FakeSummaryRepository();
+        var sut = CreateSut(sessions, classroom, streaming, knowledge, eventBus, summaries);
 
         var outcome = await sut.EndSessionAsync(classroom.Id, session.Id, teacherId);
 
@@ -30,12 +34,23 @@ public class TeacherEndSessionTests
         Assert.Equal("Ended", outcome.Status);
         Assert.False(outcome.AlreadyEnded);
 
-        // The stream end is what disconnects the students; the summary is triggered after it so it
-        // sees the transcript the assistant flushes on teardown.
+        // The stream end is what disconnects the students.
         Assert.Equal(session.Id, streaming.LastEndedSessionId);
         Assert.True(outcome.StreamEnded);
-        Assert.Equal(session.Id, knowledge.LastSummarySessionId);
+
+        // The summary is REQUESTED ON THE BUS, committed with the session-end claim. The old
+        // HTTP POST could fail silently, leaving a summary owed to nobody.
+        Assert.Equal(0, knowledge.SummaryCalls);
+        var requested = Assert.Single(eventBus.PublishedOf<SessionSummaryRequestedMessage>());
+        Assert.Equal(session.Id, requested.SessionId);
+        Assert.Equal(SummaryRequestReasons.SessionEnded, requested.Reason);
         Assert.True(outcome.SummaryTriggered);
+
+        // The Generating row now really exists. Before this, no row was ever written in that
+        // state, so "never requested" and "in flight" were indistinguishable in the UI.
+        var summary = Assert.Single(summaries.Store);
+        Assert.Equal(SummaryStatus.Generating, summary.Status);
+        Assert.Equal(session.Id, summary.SessionId);
     }
 
     [Fact]
@@ -116,7 +131,9 @@ public class TeacherEndSessionTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: false);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = CreateSut(sessions, classroom, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var summaries = new FakeSummaryRepository();
+        var sut = CreateSut(sessions, classroom, streaming, knowledge, eventBus, summaries);
 
         var outcome = await sut.EndSessionAsync(classroom.Id, session.Id, teacherId);
 
@@ -129,12 +146,15 @@ public class TeacherEndSessionTests
         FakeSessionRepository sessions,
         Classroom classroom,
         RecordingStreamingClient streaming,
-        RecordingKnowledgeClient knowledge)
+        RecordingKnowledgeClient knowledge,
+        RecordingEventBus? eventBus = null,
+        FakeSummaryRepository? summaries = null)
         => new(
             sessions,
             new SingleClassroomRepository(classroom),
             streaming,
-            SessionTerminationTestFactory.Create(sessions, streaming, knowledge),
+            SessionTerminationTestFactory.Create(
+                sessions, streaming, knowledge, summaries: summaries, eventBus: eventBus),
             new NoOpUnitOfWork());
 
     private static (Guid TeacherId, Classroom Classroom, Session Session) LiveClassroomSession()
@@ -170,7 +190,8 @@ public class StalledSessionSweeperTests
         var sessions = new FakeSessionRepository(stalled);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = CreateSut(sessions, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var sut = CreateSut(sessions, streaming, knowledge, eventBus);
 
         var closed = await sut.SweepAsync();
 
@@ -178,7 +199,10 @@ public class StalledSessionSweeperTests
         Assert.Equal(SessionStatus.Ended, stalled.Status);
         Assert.Equal(Now, stalled.EndedAtUtc);
         Assert.Equal(stalled.Id, streaming.LastEndedSessionId); // students disconnected
-        Assert.Equal(stalled.Id, knowledge.LastSummarySessionId); // summary produced anyway
+        // The sweeper reaches the same termination path, so an abandoned session still gets its
+        // summary requested — now on the bus rather than over HTTP.
+        var requested = Assert.Single(eventBus.PublishedOf<SessionSummaryRequestedMessage>());
+        Assert.Equal(stalled.Id, requested.SessionId);
     }
 
     [Fact]
@@ -265,12 +289,15 @@ public class StalledSessionSweeperTests
     }
 
     private static StalledSessionSweeper CreateSut(
-        FakeSessionRepository sessions, RecordingStreamingClient streaming, RecordingKnowledgeClient knowledge)
+        FakeSessionRepository sessions,
+        RecordingStreamingClient streaming,
+        RecordingKnowledgeClient knowledge,
+        RecordingEventBus? eventBus = null)
     {
         var clock = new FakeClock { UtcNow = Now };
         return new StalledSessionSweeper(
             sessions,
-            SessionTerminationTestFactory.Create(sessions, streaming, knowledge, clock),
+            SessionTerminationTestFactory.Create(sessions, streaming, knowledge, clock, eventBus: eventBus),
             new FakeStalledSessionSettings(),
             clock,
             NullLogger<StalledSessionSweeper>.Instance);

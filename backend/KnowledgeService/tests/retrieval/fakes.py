@@ -49,6 +49,21 @@ class FakeChunkRepository(ChunkRepository):
     async def delete_by_classroom_id(self, classroom_id: UUID) -> int:  # unused here
         return 0
 
+    # The re-embed job's half of the port. Unused by retrieval and summary tests, but the
+    # port is abstract, so omitting them makes this class uninstantiable — which is how
+    # adding them to ChunkRepository silently broke 61 tests across four packages.
+    async def count_missing_embeddings(self) -> int:  # unused here
+        return 0
+
+    async def count_all(self) -> int:  # unused here
+        return 0
+
+    async def fetch_missing_embeddings(self, limit: int) -> list[tuple[UUID, str]]:  # unused here
+        return []
+
+    async def set_embeddings(self, embeddings: dict[UUID, list[float]]) -> int:  # unused here
+        return 0
+
     async def search(
         self, classroom_id: UUID, query_embedding: list[float], top_k: int
     ) -> list[ChunkSearchResult]:

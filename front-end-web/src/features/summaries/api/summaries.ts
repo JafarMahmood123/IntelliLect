@@ -57,3 +57,21 @@ export const downloadSummary = async (
     `summary-${summaryId}.${format}`;
   triggerBlobDownload(response.data, fileName);
 };
+
+/**
+ * Re-requests a FAILED summary. Teacher-only, and the server refuses anything other than a failed
+ * summary with a 409 — an Available summary would be overwritten in place, since the storage keys
+ * are derived from the session id.
+ *
+ * Returns the summary back in `Generating`; the work itself happens asynchronously, so the list
+ * poll is what eventually shows the outcome.
+ */
+export const regenerateSummary = async (
+  classroomId: string,
+  summaryId: string,
+): Promise<Summary> => {
+  const { data } = await apiClient.post<Summary>(
+    `/classrooms/${classroomId}/summaries/${summaryId}/regenerate`,
+  );
+  return data;
+};

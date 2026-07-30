@@ -52,6 +52,24 @@ public sealed class InternalOutputsController : ControllerBase
     public Task<IActionResult> DeleteRecording(Guid id, [FromBody] DeleteOutputRequest request, CancellationToken ct)
         => DeleteAsync(() => _outputs.DeleteRecordingAsync(id, request?.Reason ?? string.Empty, ct));
 
+    /// <summary>
+    /// Super admin forces a summary rebuild from any state except PendingDeletion. Less
+    /// restrictive than the teacher's regenerate (Failed only) because this is the operator
+    /// escape hatch — it must be able to rescue a summary stuck in Generating.
+    /// </summary>
+    [HttpPost("summaries/{id:guid}/regenerate")]
+    [ProducesResponseType(typeof(OutputDeletionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RegenerateSummary(Guid id, CancellationToken ct)
+    {
+        if (!IsInternalSecretValid()) return Unauthorized();
+
+        try { return Ok(await _outputs.RegenerateSummaryAsync(id, ct)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (ConflictException) { return Conflict(); }
+    }
+
     [HttpDelete("summaries/{id:guid}")]
     [ProducesResponseType(typeof(OutputDeletionResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

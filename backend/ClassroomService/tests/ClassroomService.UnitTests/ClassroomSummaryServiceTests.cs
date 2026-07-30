@@ -4,6 +4,7 @@ using ClassroomService.Application.Exceptions;
 using ClassroomService.Application.Services;
 using ClassroomService.Domain.Entities;
 using ClassroomService.Domain.Enums;
+using IntelliLect.Contracts.Messages;
 
 namespace ClassroomService.UnitTests;
 
@@ -21,6 +22,8 @@ public sealed class ClassroomSummaryServiceTests
     private readonly FakeSummaryDownloadSettings _settings = new() { DownloadUrlTtlSeconds = 600 };
     private readonly RecordingLogger<ClassroomSummaryService> _logger = new();
     private readonly FakeSummaryMetrics _metrics = new();
+    private readonly RecordingEventBus _eventBus = new();
+    private readonly RecordingUnitOfWork _uow = new();
 
     public ClassroomSummaryServiceTests()
     {
@@ -29,7 +32,7 @@ public sealed class ClassroomSummaryServiceTests
     }
 
     private ClassroomSummaryService Service()
-        => new(_summaries, _classrooms, _memberships, _signer, _settings, _logger, _metrics);
+        => new(_summaries, _classrooms, _memberships, _signer, _settings, _eventBus, _uow, _logger, _metrics);
 
     private SessionSummary Seed(
         SummaryStatus status = SummaryStatus.Available,
@@ -282,5 +285,104 @@ public sealed class ClassroomSummaryServiceTests
         var propertyNames = typeof(DownloadUrlDto).GetProperties().Select(p => p.Name.ToLowerInvariant()).ToList();
         Assert.DoesNotContain(propertyNames, n => n.Contains("s3") || n.Contains("key"));
         Assert.Equal(new[] { "url", "expiresat" }, propertyNames);
+    }
+    // --- Regeneration --------------------------------------------------------------------
+    //
+    // The write path on an otherwise read-only service, so its guards carry more weight: the
+    // others leak data at worst, this one spends an LLM run and can destroy a good summary.
+
+    [Fact]
+    public async Task Regenerate_ByOwningTeacher_PublishesTheRequestAndReturnsToGenerating()
+    {
+        var summary = Seed(SummaryStatus.Failed);
+
+        var dto = await Service().RegenerateSummaryAsync(_classroomId, summary.Id, _teacherId);
+
+        Assert.Equal(nameof(SummaryStatus.Generating), dto.Status);
+        Assert.Equal(SummaryStatus.Generating, summary.Status);
+        Assert.Null(summary.Error);
+
+        var requested = Assert.Single(_eventBus.PublishedOf<SessionSummaryRequestedMessage>());
+        Assert.Equal(summary.SessionId, requested.SessionId);
+        Assert.Equal(_teacherId, requested.RequestedByUserId);
+        // The reason is what makes KnowledgeService REOPEN a terminal run instead of deduping the
+        // request away as a duplicate.
+        Assert.Equal(SummaryRequestReasons.ManualTeacher, requested.Reason);
+    }
+
+    [Fact]
+    public async Task Regenerate_CommitsTheStatusChangeWithThePublish()
+    {
+        // The outbox only captures a published message during SaveChanges. Publishing without it
+        // stages the message and silently drops it — the exact bug that made this whole flow
+        // unreliable, so it is pinned rather than assumed.
+        var summary = Seed(SummaryStatus.Failed);
+
+        await Service().RegenerateSummaryAsync(_classroomId, summary.Id, _teacherId);
+
+        Assert.Equal(1, _uow.SaveChangesCount);
+    }
+
+    [Theory]
+    [InlineData(SummaryStatus.Available)]
+    [InlineData(SummaryStatus.Generating)]
+    [InlineData(SummaryStatus.PendingDeletion)]
+    public async Task Regenerate_OnANonFailedSummary_Is409AndPublishesNothing(SummaryStatus status)
+    {
+        // Available: the S3 keys are deterministic, so a re-run overwrites a good summary in place.
+        // Generating: one run at a time, so a double-click is harmless.
+        var summary = Seed(status);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => Service().RegenerateSummaryAsync(_classroomId, summary.Id, _teacherId));
+
+        Assert.Equal(status, summary.Status);
+        Assert.Empty(_eventBus.Published);
+    }
+
+    [Fact]
+    public async Task Regenerate_ByAStudentOfTheClassroom_IsForbidden()
+    {
+        // The read endpoints allow any member. This one must not: a student could burn LLM runs.
+        var summary = Seed(SummaryStatus.Failed);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => Service().RegenerateSummaryAsync(_classroomId, summary.Id, _studentId));
+
+        Assert.Equal(SummaryStatus.Failed, summary.Status);
+        Assert.Empty(_eventBus.Published);
+    }
+
+    [Fact]
+    public async Task Regenerate_ByAnOutsider_IsForbidden()
+    {
+        var summary = Seed(SummaryStatus.Failed);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => Service().RegenerateSummaryAsync(_classroomId, summary.Id, _outsiderId));
+
+        Assert.Empty(_eventBus.Published);
+    }
+
+    [Fact]
+    public async Task Regenerate_OnASummaryFromAnotherClassroom_Is404()
+    {
+        // Addressing another classroom's summary through your own must not reveal it exists.
+        var foreign = Seed(SummaryStatus.Failed, classroomId: Guid.NewGuid());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => Service().RegenerateSummaryAsync(_classroomId, foreign.Id, _teacherId));
+
+        Assert.Equal(SummaryStatus.Failed, foreign.Status);
+        Assert.Empty(_eventBus.Published);
+    }
+
+    [Fact]
+    public async Task Regenerate_OnAnUnknownSummary_Is404()
+    {
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => Service().RegenerateSummaryAsync(_classroomId, Guid.NewGuid(), _teacherId));
+
+        Assert.Empty(_eventBus.Published);
     }
 }

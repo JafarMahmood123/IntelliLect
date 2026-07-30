@@ -401,6 +401,65 @@ public sealed class FakeUnitOfWork : IUnitOfWork
     }
 }
 
+/// <summary>
+/// Records what was published, standing in for the MassTransit outbox.
+/// </summary>
+/// <remarks>
+/// The real <c>IEventBus</c> is an <c>IPublishEndpoint</c> captured by <c>UseBusOutbox</c>, so a
+/// publish is only durable once <c>SaveChangesAsync</c> runs. This fake records the ORDER of both,
+/// because the bug it guards against is exactly that ordering: publishing without a subsequent
+/// SaveChanges silently drops the message.
+/// </remarks>
+public sealed class RecordingEventBus : IEventBus
+{
+    public List<object> Published { get; } = new();
+
+    public IEnumerable<T> PublishedOf<T>() => Published.OfType<T>();
+
+    public Task PublishAsync<T>(T message, CancellationToken ct = default) where T : class
+    {
+        Published.Add(message);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// IUnitOfWork that records the call sequence, so a test can assert that a publish was actually
+/// committed rather than merely staged.
+/// </summary>
+public sealed class RecordingUnitOfWork : IUnitOfWork
+{
+    public List<string> Calls { get; } = new();
+    public int SaveChangesCount { get; private set; }
+    public bool Committed => Calls.Contains("Commit");
+    public bool RolledBack => Calls.Contains("Rollback");
+
+    public Task BeginTransactionAsync(CancellationToken ct = default)
+    {
+        Calls.Add("Begin");
+        return Task.CompletedTask;
+    }
+
+    public Task CommitAsync(CancellationToken ct = default)
+    {
+        Calls.Add("Commit");
+        return Task.CompletedTask;
+    }
+
+    public Task RollbackAsync(CancellationToken ct = default)
+    {
+        Calls.Add("Rollback");
+        return Task.CompletedTask;
+    }
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        Calls.Add("SaveChanges");
+        SaveChangesCount++;
+        return Task.FromResult(1);
+    }
+}
+
 /// <summary>Mock pre-signed URL signer: captures the presign arguments and returns a fixed URL,
 /// with expiry derived from the requested TTL so tests can assert TTL reflection. No S3, no network.</summary>
 public sealed class FakeRecordingUrlSigner : IRecordingUrlSigner

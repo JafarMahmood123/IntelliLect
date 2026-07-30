@@ -10,6 +10,16 @@
   "preparing": "Preparing…",
   "generating": "Preparing summary…",
   "failedRow": "This summary failed to generate.",
+  "regenerate": "Regenerate",
+  "regenerateAria": "Regenerate the failed summary from {{date}}",
+  "regenerateStarted": {
+    "title": "Regenerating summary",
+    "message": "This runs in the background and can take a few minutes."
+  },
+  "regenerateFailed": {
+    "title": "Could not start",
+    "message": "The summary could not be re-requested. Please try again."
+  },
   "createdOn": "Summary — {{date}}",
   "preview": {
     "open": "Preview",

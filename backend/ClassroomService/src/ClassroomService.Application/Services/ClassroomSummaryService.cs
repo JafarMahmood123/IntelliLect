@@ -5,6 +5,7 @@ using ClassroomService.Application.DTOs.Summary;
 using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Entities;
 using ClassroomService.Domain.Enums;
+using IntelliLect.Contracts.Messages;
 using Microsoft.Extensions.Logging;
 
 namespace ClassroomService.Application.Services;
@@ -25,6 +26,8 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
     private readonly IMembershipRepository _membershipRepository;
     private readonly IRecordingUrlSigner _urlSigner;
     private readonly ISummaryDownloadSettings _downloadSettings;
+    private readonly IEventBus _eventBus;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ClassroomSummaryService> _logger;
     private readonly ISummaryMetrics _metrics;
 
@@ -34,6 +37,8 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         IMembershipRepository membershipRepository,
         IRecordingUrlSigner urlSigner,
         ISummaryDownloadSettings downloadSettings,
+        IEventBus eventBus,
+        IUnitOfWork unitOfWork,
         ILogger<ClassroomSummaryService> logger,
         ISummaryMetrics metrics)
     {
@@ -42,8 +47,63 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
         _membershipRepository = membershipRepository;
         _urlSigner = urlSigner;
         _downloadSettings = downloadSettings;
+        _eventBus = eventBus;
+        _unitOfWork = unitOfWork;
         _logger = logger;
         _metrics = metrics;
+    }
+
+    public async Task<SummarySummaryDto> RegenerateSummaryAsync(
+        Guid classroomId,
+        Guid summaryId,
+        Guid requestingUserId,
+        CancellationToken ct = default)
+    {
+        // OWNERSHIP, not membership. Every other method here is a read; this one spends an LLM
+        // run, so EnsureMemberAsync would be too permissive — a student could burn generations.
+        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
+            ?? throw new KeyNotFoundException("Classroom not found.");
+        if (classroom.TeacherId != requestingUserId)
+        {
+            _metrics.AuthzDenied("not_teacher");
+            throw new ForbiddenAccessException("Only the classroom's teacher can regenerate a summary.");
+        }
+
+        var summary = await _summaryRepository.GetByIdAsync(summaryId, ct);
+        // Unknown, or belongs to another classroom -> 404 (no cross-classroom leakage).
+        if (summary is null || summary.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("Summary not found.");
+        }
+
+        if (summary.Status != SummaryStatus.Failed)
+        {
+            // Available is refused rather than overwritten: S3 keys are deterministic, so a re-run
+            // replaces a good summary in place and a mis-click would be destructive. Generating is
+            // refused so a double-click cannot start two runs.
+            throw new ConflictException(
+                $"Only a failed summary can be regenerated; this one is {summary.Status}.");
+        }
+
+        summary.Status = SummaryStatus.Generating;
+        summary.Error = null;
+
+        // Staged on the outbox and committed with the status change, so the classroom can never
+        // show Generating for a request that was never actually sent.
+        await _eventBus.PublishAsync(
+            new SessionSummaryRequestedMessage(
+                summary.SessionId,
+                summary.ClassroomId,
+                RequestedByUserId: requestingUserId,
+                Reason: SummaryRequestReasons.ManualTeacher),
+            ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Summary {SummaryId} for session {SessionId} re-requested by teacher {UserId}.",
+            summaryId, summary.SessionId, requestingUserId);
+
+        return ToDto(summary);
     }
 
     public async Task<PagedResult<SummarySummaryDto>> ListSummariesAsync(

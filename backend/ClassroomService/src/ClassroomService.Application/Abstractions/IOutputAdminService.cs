@@ -23,4 +23,18 @@ public interface IOutputAdminService
     /// <exception cref="System.Collections.Generic.KeyNotFoundException">The summary does not exist (5أ).</exception>
     /// <exception cref="Exceptions.ConflictException">The session is currently live (5ب).</exception>
     Task<OutputDeletionResult> DeleteSummaryAsync(Guid summaryId, string reason, CancellationToken ct = default);
+
+    /// <summary>
+    /// Super admin forces a summary to be rebuilt, from ANY state except PendingDeletion.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately less restrictive than the teacher's regenerate, which only accepts Failed:
+    /// this is the operator escape hatch, so it must be able to rescue a summary stuck in
+    /// Generating (a request lost before the outbox existed) and to rebuild an Available one after
+    /// a prompt fix. PendingDeletion is still refused — re-requesting would race the file deletion
+    /// and could orphan objects in S3.
+    /// </remarks>
+    /// <exception cref="System.Collections.Generic.KeyNotFoundException">The summary does not exist.</exception>
+    /// <exception cref="Exceptions.ConflictException">The summary is being deleted.</exception>
+    Task<OutputDeletionResult> RegenerateSummaryAsync(Guid summaryId, CancellationToken ct = default);
 }

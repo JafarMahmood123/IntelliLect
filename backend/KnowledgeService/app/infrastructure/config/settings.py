@@ -112,19 +112,40 @@ class Settings(BaseSettings):
     search_max_top_k: int = 50  # upper clamp on a requested topK
 
     # --- Generation / answering (Phase 10) ---
+    # Which backend produces completions: "gemini" (hosted) or "ollama" (local host model).
+    # Mirrors embedding_provider, and applies to BOTH answering and summarization — they
+    # share the GenerationProvider port, and each keeps its own model/temperature/budget.
+    #
+    # Unlike embedding_provider this IS a free switch: completions are text, so nothing is
+    # persisted in a model-specific format and you can flip it back with no migration.
+    generation_provider: str = "ollama"
     # Local generative model in host Ollama (reuses OLLAMA_BASE_URL / OLLAMA_AUTH_TOKEN).
+    # Used only when generation_provider == "ollama".
     generation_model: str = "qwen2.5:7b-instruct"
     generation_timeout_seconds: float = 120.0
     generation_temperature: float = 0.2
-    generation_max_tokens: int = 1024  # num_predict
+    generation_max_tokens: int = 1024  # num_predict / maxOutputTokens
     answer_top_k: int = 6  # chunks retrieved for answer context
     context_max_tokens: int = 6000  # token budget for the packed context block
 
+    # --- Gemini generation; used when generation_provider == "gemini" ---
+    # Reuses gemini_api_key / gemini_base_url from the embedding block above.
+    # A *-latest alias, not a pinned version: pinned 2.0/2.5 models go quota-zero or 404 on
+    # the free tier over time, so a hard-coded version silently rots into an error.
+    gemini_generation_model: str = "gemini-flash-latest"
+    gemini_summary_model: str = "gemini-flash-latest"
+    # Thinking tokens are charged against maxOutputTokens on 3.x models, so a summary can
+    # spend its whole budget reasoning and return NOTHING with finishReason=MAX_TOKENS.
+    # Keep this low; blank omits thinkingConfig entirely, which older models require.
+    gemini_thinking_level: str = "low"
+
     # --- Session summary (S-1) ---
     # Turns a lecture transcript (fetched from LiveAssistantService) into a structured
-    # Markdown summary. Reuses the local Ollama generative model (OLLAMA_BASE_URL /
-    # OLLAMA_AUTH_TOKEN) but with its own generation parameters so summarization can be
-    # tuned independently of answering. This phase STOPS at Markdown (PDF is S-2).
+    # Markdown summary. Runs on whichever backend generation_provider selects, but with its
+    # own generation parameters so summarization can be tuned independently of answering.
+    # This phase STOPS at Markdown (PDF is S-2).
+    # NOTE: summary_model is the OLLAMA model name; the Gemini equivalent is
+    # gemini_summary_model. Only the one matching generation_provider is read.
     summary_model: str = "qwen2.5:7b-instruct"  # reuse the generation model by default
     summary_temperature: float = 0.3
     summary_max_tokens: int = 1500  # num_predict for a summary pass
@@ -151,9 +172,44 @@ class Settings(BaseSettings):
     summary_s3_key_template: str = "summaries/{classroom_id}/{session_id}.{ext}"
     summary_trigger_enabled: bool = True  # feature flag for the session-end trigger
 
+    # --- Summary retry / dedup / outbox ---
+    # Summaries had NO retry: one attempt, and a transient 429 or a slow transcript meant Failed
+    # forever. They now use the same machinery ingestion does (claim, attempts, backoff,
+    # transient-vs-permanent, stale sweep), tracked in the summary_runs table.
+    summary_max_attempts: int = 3  # after this many claims, mark permanently Failed
+    # Much longer base than ingest_retry_base_seconds (2.0) on purpose: a summary is a
+    # minutes-long LLM job over a whole lecture, so retrying seconds later just stacks work on a
+    # backend that is probably still busy or still rate-limited.
+    summary_retry_base_seconds: float = 30.0  # exponential: 30s, 60s, 120s
+    summary_retry_max_seconds: float = 300.0  # backoff cap
+    # A Running run older than this is presumed dead (the process was killed mid-generation) and
+    # is reset to Pending. Without it the row stays Running forever and, since Running is not
+    # claimable, is never retried.
+    summary_stale_minutes: int = 15
+    summary_retry_poll_seconds: float = 30.0  # how often the retry sweep looks for due runs
+    summary_retry_batch_size: int = 10  # max due runs claimed per sweep
+
+    # Transactional outbox. The ready/failure message is written in the SAME transaction that
+    # marks the run terminal, then drained by a relay — so a broker outage can no longer discard
+    # a summary that was already generated, rendered and uploaded (which is what happened on
+    # 2026-07-30, costing a full Gemini run).
+    outbox_poll_seconds: float = 5.0  # relay poll interval when the table is empty
+    outbox_batch_size: int = 20  # messages published per pass
+    outbox_max_attempts: int = 0  # 0 = retry forever; a message must never be silently dropped
+
+    # AMQP consumer for SessionSummaryRequestedMessage from ClassroomService. Replaces the
+    # synchronous HTTP trigger, which silently lost the request whenever this service was
+    # unreachable at session end.
+    summary_consumer_enabled: bool = True
+    summary_consumer_queue: str = "knowledge-service-summary-requested"
+    summary_consumer_prefetch: int = 4
+
     # RabbitMQ, for publishing the SessionSummaryReadyMessage to the MassTransit bus.
     # Defaults match the platform compose broker; only the live publisher uses these.
-    rabbitmq_host: str = "rabbitmq"
+    # The host is the broker's container_name, which is intellilect-mq — NOT "rabbitmq".
+    # It read "rabbitmq" until 2026-07-30, so a summary could generate and upload and then
+    # fail to publish with a bare DNS error, leaving the classroom stuck showing no summary.
+    rabbitmq_host: str = "intellilect-mq"
     rabbitmq_port: int = 5672
     rabbitmq_username: str = "jafar.mahmood"
     rabbitmq_password: str = "Jafar123!"

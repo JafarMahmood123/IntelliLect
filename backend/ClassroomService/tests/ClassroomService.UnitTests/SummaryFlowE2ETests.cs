@@ -27,6 +27,7 @@ public sealed class SummaryFlowE2ETests
 
     private readonly FakeSummaryRepository _summaries = new();
     private readonly FakeUnitOfWork _uow = new();
+    private readonly RecordingEventBus _eventBus = new();
     private readonly FakeSummaryMetrics _metrics = new();
     private readonly FakeClassroomRepository _classrooms = new();
     private readonly FakeMembershipRepository _memberships = new();
@@ -45,6 +46,7 @@ public sealed class SummaryFlowE2ETests
             .AddSingleton<IMembershipRepository>(_memberships)
             .AddSingleton<IRecordingUrlSigner>(_signer)
             .AddSingleton<ISummaryDownloadSettings>(new FakeSummaryDownloadSettings { DownloadUrlTtlSeconds = 600 })
+            .AddSingleton<IEventBus>(_eventBus)
             .AddScoped<IClassroomSummaryService, ClassroomSummaryService>()
             .AddMassTransitTestHarness(x => x.AddConsumer<SessionSummaryReadyConsumer>())
             .BuildServiceProvider(true);

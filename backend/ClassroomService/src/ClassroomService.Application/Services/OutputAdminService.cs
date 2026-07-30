@@ -2,6 +2,7 @@ using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Output;
 using ClassroomService.Application.Exceptions;
 using ClassroomService.Domain.Enums;
+using IntelliLect.Contracts.Messages;
 using Microsoft.Extensions.Logging;
 
 namespace ClassroomService.Application.Services;
@@ -13,15 +14,18 @@ public sealed class OutputAdminService : IOutputAdminService
 
     private readonly IOutputAdminRepository _repository;
     private readonly IRecordingStorage _objectStorage;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<OutputAdminService> _logger;
 
     public OutputAdminService(
         IOutputAdminRepository repository,
         IRecordingStorage objectStorage,
+        IEventBus eventBus,
         ILogger<OutputAdminService> logger)
     {
         _repository = repository;
         _objectStorage = objectStorage;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -95,6 +99,41 @@ public sealed class OutputAdminService : IOutputAdminService
     // Deletes one object-store key. A missing object is a success (6أ — the goal is already met); a
     // hard failure propagates so the deletion halts with the output left PendingDeletion (6ب). The
     // storage port already treats a missing object as success, so this is idempotent on a re-run.
+    public async Task<OutputDeletionResult> RegenerateSummaryAsync(
+        Guid summaryId, CancellationToken ct = default)
+    {
+        var summary = await _repository.GetSummaryAsync(summaryId, ct)
+            ?? throw new KeyNotFoundException("Summary not found.");
+
+        if (summary.Status == SummaryStatus.PendingDeletion)
+        {
+            // Re-requesting would race the file deletion and could orphan objects in S3.
+            throw new ConflictException("The summary is being deleted and cannot be regenerated.");
+        }
+
+        summary.Status = SummaryStatus.Generating;
+        summary.Error = null;
+
+        // Staged on the outbox and committed with the status change, so the admin never sees
+        // Generating for a request that was never sent.
+        await _eventBus.PublishAsync(
+            new SessionSummaryRequestedMessage(
+                summary.SessionId,
+                summary.ClassroomId,
+                RequestedByUserId: null,
+                Reason: SummaryRequestReasons.ManualSuperAdmin),
+            ct);
+        await _repository.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Summary {SummaryId} for session {SessionId} re-requested by super admin.",
+            summaryId, summary.SessionId);
+
+        // Reuses OutputDeletionResult so the internal contract stays one shape; StorageDeleted /
+        // RowDeleted are false because nothing was removed.
+        return new OutputDeletionResult(summaryId, "Summary", StorageDeleted: false, RowDeleted: false);
+    }
+
     private async Task DeleteObjectAsync(string? key, CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(key))

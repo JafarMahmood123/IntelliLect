@@ -8,8 +8,12 @@ import logging
 
 from app.api.dependencies import (
     build_ingestion_worker,
+    build_outbox_relay,
     build_reembed_runner,
+    build_summary_consumer,
+    build_summary_retry_sweeper,
     build_summary_runner,
+    close_amqp_connection,
     run_stale_recovery,
 )
 from app.api.routers import (
@@ -42,11 +46,33 @@ async def lifespan(app: FastAPI):
     reembed_runner = build_reembed_runner()
     app.state.reembed_runner = reembed_runner
 
-    # Background runner for the session-end summary trigger (S-3).
+    # Background runner for the ops/debug HTTP summary trigger (S-3).
     app.state.summary_runner = build_summary_runner()
 
+    settings = get_settings()
+
+    # Outbox relay: delivers summary outcomes the pipeline committed to the database. Started
+    # unconditionally, because messages may be waiting from a previous run — that is the whole
+    # point of the outbox, and leaving them undelivered is the failure it exists to prevent.
+    outbox_relay = build_outbox_relay()
+    outbox_relay.start()
+    app.state.outbox_relay = outbox_relay
+
+    # Retry sweep: due retries + recovery of runs abandoned mid-generation.
+    retry_sweeper = build_summary_retry_sweeper()
+    retry_sweeper.start()
+    app.state.summary_retry_sweeper = retry_sweeper
+
+    # AMQP consumer: replaces the session-end HTTP trigger. Connects lazily and reconnects on its
+    # own, so a broker that is down at startup delays summaries rather than blocking boot.
+    summary_consumer = None
+    if settings.summary_consumer_enabled:
+        summary_consumer = build_summary_consumer()
+        summary_consumer.start()
+    app.state.summary_consumer = summary_consumer
+
     # Recover documents left stuck in Processing by a previous crash/restart.
-    if get_settings().stale_recovery_on_startup:
+    if settings.stale_recovery_on_startup:
         try:
             await run_stale_recovery(worker)
         except Exception:  # noqa: BLE001 — recovery must never block startup
@@ -58,10 +84,20 @@ async def lifespan(app: FastAPI):
         # Shutdown: stop workers cleanly, drain in-flight summaries, then release DB.
         await worker.stop()
         await reembed_runner.stop()
+        if summary_consumer is not None:
+            await summary_consumer.stop()
+        await retry_sweeper.stop()
         try:
             await app.state.summary_runner.drain()
         except Exception:  # noqa: BLE001 — shutdown must not raise
             logger.exception("Error draining in-flight summaries on shutdown.")
+        # The relay stops LAST so anything the drain just committed still gets a chance to
+        # publish; whatever remains is durable and goes out on the next start.
+        await outbox_relay.stop()
+        try:
+            await close_amqp_connection()
+        except Exception:  # noqa: BLE001 — shutdown must not raise
+            logger.exception("Error closing the AMQP connection on shutdown.")
         await dispose_engine()
 
 

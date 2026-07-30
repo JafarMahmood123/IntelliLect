@@ -90,7 +90,7 @@ export const ClassroomDetailsPage = () => {
         )}
 
         {activeTab === 'summaries' && (
-          <SummariesList classroomId={classroom.id} />
+          <SummariesList classroomId={classroom.id} isTeacher={isTeacher} />
         )}
 
         {activeTab === 'qa' && (

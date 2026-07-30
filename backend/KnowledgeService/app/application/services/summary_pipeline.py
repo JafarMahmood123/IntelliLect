@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from uuid import UUID
 
 from app.application.dtos.summary_messages import SessionSummaryReadyMessage
@@ -15,6 +16,20 @@ logger = logging.getLogger("knowledge.summary")
 
 _MARKDOWN_CONTENT_TYPE = "text/markdown; charset=utf-8"
 _PDF_CONTENT_TYPE = "application/pdf"
+
+
+@dataclass(frozen=True)
+class SummaryExecution:
+    """Result of one generate+upload attempt, with nothing published yet.
+
+    ``error`` is carried rather than raised so the resolved ``classroom_id`` survives alongside
+    it — the pipeline usually learns the classroom from the transcript, and a failure message
+    needs it to be addressed correctly.
+    """
+
+    message: SessionSummaryReadyMessage
+    classroom_id: UUID | None
+    error: Exception | None
 
 
 class SummaryPipeline:
@@ -47,7 +62,34 @@ class SummaryPipeline:
     async def run(
         self, session_id: UUID, classroom_id: UUID | None = None
     ) -> SessionSummaryReadyMessage:
-        """Produce + store + announce a session's summary. Returns the published message."""
+        """Produce + store + announce a session's summary. Returns the published message.
+
+        Publishes whatever ``execute`` produced, success or failure. This is the one-shot path
+        (the ops/debug HTTP endpoint); the retrying path calls ``execute`` directly so it can
+        withhold a failure message until the attempt budget is actually spent.
+        """
+        outcome = await self.execute(session_id, classroom_id)
+        if outcome.error is None:
+            await self.publish_success(outcome.message)
+            return outcome.message
+        return await self.publish_failure(
+            session_id, outcome.classroom_id, str(outcome.error)
+        )
+
+    async def execute(
+        self, session_id: UUID, classroom_id: UUID | None = None
+    ) -> SummaryExecution:
+        """Generate + render + upload, publishing NOTHING. Never raises.
+
+        Split out from ``run`` so the caller decides what a failure means. The retry loop must be
+        able to fail an attempt WITHOUT telling ClassroomService the summary failed — publishing
+        a failure on attempt 1 of 3 would flip the classroom to Failed and then, on a later
+        success, back to Available, which reads as a bug to anyone watching.
+
+        The error is returned rather than raised so the resolved ``classroom_id`` comes back with
+        it; the pipeline often learns the classroom from the transcript, and the failure message
+        needs it.
+        """
         known_classroom = classroom_id
         try:
             result = await self._generator.generate(session_id)
@@ -85,32 +127,44 @@ class SummaryPipeline:
                 pdf_s3_key=pdf_key,
                 generated_at=result.generated_at,
             )
-            await self._publisher.publish_ready(message)
             logger.info(
-                "summary_ready_published",
-                extra={"session_id": str(session_id), "succeeded": True},
-            )
-            logger.info(
-                "Summary ready for session %s (classroom %s): %s, %s",
+                "Summary generated for session %s (classroom %s): %s, %s",
                 session_id, result.classroom_id, md_key, pdf_key,
             )
-            metrics.record_summary_generated()
-            return message
-        except Exception as exc:  # noqa: BLE001 — summary must be non-fatal to session end
-            metrics.record_summary_failed()
+            return SummaryExecution(
+                message=message, classroom_id=result.classroom_id, error=None
+            )
+        except Exception as exc:  # noqa: BLE001 — the caller decides what a failure means
             logger.error(
                 "Summary pipeline failed for session %s: %s: %s",
                 session_id, type(exc).__name__, exc,
             )
-            return await self._publish_failure(session_id, known_classroom, str(exc))
+            return SummaryExecution(
+                message=SessionSummaryReadyMessage.failure(
+                    session_id, known_classroom, str(exc)
+                ),
+                classroom_id=known_classroom,
+                error=exc,
+            )
 
-    async def _publish_failure(
+    async def publish_success(self, message: SessionSummaryReadyMessage) -> None:
+        await self._publisher.publish_ready(message)
+        logger.info(
+            "summary_ready_published",
+            extra={"session_id": str(message.session_id), "succeeded": True},
+        )
+        metrics.record_summary_generated()
+
+    async def publish_failure(
         self, session_id: UUID, classroom_id: UUID | None, error: str
     ) -> SessionSummaryReadyMessage:
         message = SessionSummaryReadyMessage.failure(session_id, classroom_id, error)
+        metrics.record_summary_failed()
         try:
             await self._publisher.publish_ready(message)
         except Exception:  # noqa: BLE001 — even the failure notice must not crash the run
+            # With the outbox in front of the broker this is now a DATABASE failure, not a broker
+            # one — the previous version swallowed a broker outage here and lost the notice.
             logger.exception(
                 "Failed to publish the FAILURE summary message for session %s.", session_id
             )

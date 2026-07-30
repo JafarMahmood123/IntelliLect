@@ -138,7 +138,7 @@ public class OutputAdminServiceTests
     };
 
     private static OutputAdminService Build(FakeRepo repo, FakeStorage storage)
-        => new(repo, storage, NullLogger<OutputAdminService>.Instance);
+        => new(repo, storage, new RecordingEventBus(), NullLogger<OutputAdminService>.Instance);
 
     private sealed class FakeRepo : IOutputAdminRepository
     {

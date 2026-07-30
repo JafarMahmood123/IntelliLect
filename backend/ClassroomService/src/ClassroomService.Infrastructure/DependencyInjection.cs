@@ -246,7 +246,9 @@ public static class DependencyInjection
                 });
 
             x.AddConsumer<SessionRecordingReadyConsumer>();
-            x.AddConsumer<SessionSummaryReadyConsumer>();
+            // With the definition, so a transient DB failure while recording the outcome retries
+            // instead of dead-lettering and leaving the classroom stuck on Generating.
+            x.AddConsumer<SessionSummaryReadyConsumer>(typeof(SessionSummaryReadyConsumerDefinition));
         });
 
         return services;

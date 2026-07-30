@@ -11,17 +11,20 @@ vi.mock('../api/summaries', () => ({
   getSummary: vi.fn(),
   downloadSummary: vi.fn(),
   fetchSummaryMarkdownText: vi.fn(),
+  regenerateSummary: vi.fn(),
 }));
 
 import {
   getSummaries,
   downloadSummary,
   fetchSummaryMarkdownText,
+  regenerateSummary,
 } from '../api/summaries';
 
 const mockGetSummaries = vi.mocked(getSummaries);
 const mockDownloadSummary = vi.mocked(downloadSummary);
 const mockFetchMarkdown = vi.mocked(fetchSummaryMarkdownText);
+const mockRegenerate = vi.mocked(regenerateSummary);
 
 const CLASSROOM_ID = 'class-1';
 
@@ -197,5 +200,90 @@ describe('SummariesList', () => {
     await screen.findByText('Available');
     expect(within(container).queryByText(/summaries\./)).toBeNull();
     expect(within(container).queryByText(/statuses\./)).toBeNull();
+  });
+
+  // --- Regeneration ------------------------------------------------------------------
+  //
+  // The button spends an LLM run over a whole lecture, so who can see it matters as much as
+  // what it does.
+
+  describe('regenerate', () => {
+    const failed = () =>
+      makeSummary({ summaryId: 'sum-failed', status: 'Failed' });
+
+    it('offers regeneration to a teacher on a failed summary', async () => {
+      mockGetSummaries.mockResolvedValue([failed()]);
+      mockRegenerate.mockResolvedValue(
+        makeSummary({ summaryId: 'sum-failed', status: 'Generating' }),
+      );
+
+      renderWithProviders(
+        <SummariesList classroomId={CLASSROOM_ID} isTeacher />,
+      );
+
+      const button = await screen.findByRole('button', { name: /regenerate/i });
+      await userEvent.click(button);
+
+      await waitFor(() =>
+        expect(mockRegenerate).toHaveBeenCalledWith(CLASSROOM_ID, 'sum-failed'),
+      );
+    });
+
+    it('hides regeneration from a student', async () => {
+      mockGetSummaries.mockResolvedValue([failed()]);
+
+      renderWithProviders(<SummariesList classroomId={CLASSROOM_ID} />);
+
+      // The failed row still renders; only the action is withheld.
+      expect(await screen.findByRole('alert')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /regenerate/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('does not offer regeneration on an available summary', async () => {
+      // Regenerating would overwrite a good summary in place — the storage keys are
+      // deterministic — so the action must not be reachable at all.
+      mockGetSummaries.mockResolvedValue([
+        makeSummary({ status: 'Available' }),
+      ]);
+
+      renderWithProviders(
+        <SummariesList classroomId={CLASSROOM_ID} isTeacher />,
+      );
+
+      await screen.findByRole('button', { name: /download pdf/i });
+      expect(
+        screen.queryByRole('button', { name: /^regenerate$/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('treats a 409 as success, since it means one is already running', async () => {
+      mockGetSummaries.mockResolvedValue([failed()]);
+      mockRegenerate.mockRejectedValue(
+        new AxiosError('conflict', undefined, undefined, undefined, {
+          status: 409,
+          data: {},
+          statusText: 'Conflict',
+          headers: {},
+          config: { headers: {} } as never,
+        }),
+      );
+
+      renderWithProviders(
+        <SummariesList classroomId={CLASSROOM_ID} isTeacher />,
+      );
+
+      await userEvent.click(
+        await screen.findByRole('button', { name: /regenerate/i }),
+      );
+
+      // The user asked for a regeneration and one is running: that is the outcome they wanted,
+      // so it must not be reported as a failure.
+      await waitFor(() =>
+        expect(screen.getByText(/regenerating summary/i)).toBeInTheDocument(),
+      );
+      expect(screen.queryByText(/could not start/i)).not.toBeInTheDocument();
+    });
   });
 });

@@ -368,6 +368,40 @@ class InMemoryChunkRepository(ChunkRepository):
                 del self.by_document[document_id]
         return removed
 
+    # The re-embed job's half of the port. Implemented against the same dict rather than
+    # stubbed, so an e2e test that re-embeds sees consistent state — a chunk stored with an
+    # empty vector really is reported missing, and set_embeddings really fills it in.
+    async def count_all(self) -> int:
+        return sum(len(entries) for entries in self.by_document.values())
+
+    async def count_missing_embeddings(self) -> int:
+        return sum(
+            1
+            for entries in self.by_document.values()
+            for _, embedding in entries
+            if not embedding
+        )
+
+    async def fetch_missing_embeddings(self, limit: int) -> list[tuple[UUID, str]]:
+        missing: list[tuple[UUID, str]] = []
+        for entries in self.by_document.values():
+            for chunk, embedding in entries:
+                if not embedding:
+                    missing.append((chunk.id, chunk.text))
+                    if len(missing) >= limit:
+                        return missing
+        return missing
+
+    async def set_embeddings(self, embeddings: dict[UUID, list[float]]) -> int:
+        updated = 0
+        for document_id, entries in self.by_document.items():
+            for index, (chunk, _) in enumerate(entries):
+                vector = embeddings.get(chunk.id)
+                if vector is not None:
+                    entries[index] = (chunk, list(vector))
+                    updated += 1
+        return updated
+
     async def replace_for_document(self, document_id, chunks, embeddings) -> None:
         self.replace_calls += 1
         if self.fail_replace:

@@ -1,4 +1,5 @@
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Application.DTOs.Summary;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -43,6 +44,28 @@ public sealed class SummariesController : ApiBaseController
     public async Task<IActionResult> Get(Guid classroomId, Guid summaryId, CancellationToken ct)
     {
         var result = await _summaryService.GetSummaryAsync(classroomId, summaryId, UserId, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// The classroom's teacher re-requests a summary that ended up Failed. Returns the summary
+    /// back in <c>Generating</c>; the actual work happens asynchronously in KnowledgeService.
+    /// </summary>
+    /// <remarks>
+    /// Teacher-only, and ownership is checked inside the service — the read endpoints on this
+    /// controller are gated on membership, which would let a student spend an LLM run.
+    /// 409 when the summary is not Failed, so a double-click or a click on an Available summary
+    /// is refused rather than destroying a good summary (the S3 keys are deterministic).
+    /// </remarks>
+    [HttpPost("{summaryId:guid}/regenerate")]
+    [Authorize(Roles = "Teacher")]
+    [ProducesResponseType(typeof(SummarySummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Regenerate(Guid classroomId, Guid summaryId, CancellationToken ct)
+    {
+        var result = await _summaryService.RegenerateSummaryAsync(classroomId, summaryId, UserId, ct);
         return Ok(result);
     }
 

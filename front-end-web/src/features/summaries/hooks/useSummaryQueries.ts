@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { getSummaries } from '../api/summaries';
+import { getSummaries, regenerateSummary } from '../api/summaries';
 import type { Summary } from '../types';
 
 export const summaryKeys = {
@@ -48,3 +48,28 @@ export const useClassroomSummaries = (
     },
   });
 };
+
+/**
+ * Re-requests a failed summary.
+ *
+ * Invalidates the list on success so the row flips to `Generating`, which in turn re-arms the
+ * poll above — that poll is how the eventual outcome arrives, since generation is asynchronous
+ * and can take minutes.
+ *
+ * A 409 is not surfaced as a failure: it means the summary is already generating (a double-click,
+ * or the server picked it up first), which is the outcome the user wanted anyway.
+ */
+export const useRegenerateSummary = (classroomId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (summaryId: string) => regenerateSummary(classroomId, summaryId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: summaryKeys.all });
+    },
+  });
+};
+
+/** Whether a mutation error is the benign "already in progress" 409. */
+export const isAlreadyGenerating = (error: unknown) =>
+  isAxiosError(error) && error.response?.status === 409;

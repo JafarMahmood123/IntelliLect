@@ -1,3 +1,4 @@
+using IntelliLect.Contracts.Messages;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Application.Services;
@@ -20,7 +21,8 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: true);
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = CreateSut(sessions, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var sut = CreateSut(sessions, streaming, knowledge, eventBus);
 
         var result = await sut.ForceEndAsync(session.Id, "Teacher disconnected");
 
@@ -29,10 +31,13 @@ public class SessionAdminServiceTests
         Assert.NotNull(session.EndedAtUtc);
         Assert.Equal(1, sessions.SaveCalls);
 
-        // The end path ran, then the summary trigger.
+        // The end path ran, and the summary was REQUESTED ON THE BUS rather than POSTed: the
+        // HTTP call could fail silently and leave the summary owed to nobody.
         Assert.Equal(session.Id, streaming.LastEndedSessionId);
-        Assert.Equal(1, knowledge.SummaryCalls);
-        Assert.Equal(session.Id, knowledge.LastSummarySessionId);
+        Assert.Equal(0, knowledge.SummaryCalls);
+        var requested = Assert.Single(eventBus.PublishedOf<SessionSummaryRequestedMessage>());
+        Assert.Equal(session.Id, requested.SessionId);
+        Assert.Equal(SummaryRequestReasons.SessionEnded, requested.Reason);
 
         Assert.Equal("Ended", result.Status);
         Assert.False(result.AlreadyEnded);
@@ -48,25 +53,39 @@ public class SessionAdminServiceTests
         var sessions = new FakeSessionRepository(session);
         var streaming = new RecordingStreamingClient(endResult: false); // stream end failed
         var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = true };
-        var sut = CreateSut(sessions, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var sut = CreateSut(sessions, streaming, knowledge, eventBus);
 
         var result = await sut.ForceEndAsync(session.Id, "stalled");
 
         Assert.Equal(SessionStatus.Ended, session.Status); // reached Ended regardless
         Assert.False(result.StreamEnded);
-        Assert.True(result.SummaryTriggered);              // the next step still ran
-        Assert.Equal(1, knowledge.SummaryCalls);
+        // The request is now committed BEFORE the stream teardown is attempted, so a failing
+        // teardown cannot cost us the summary at all.
+        Assert.True(result.SummaryTriggered);
+        Assert.Single(eventBus.PublishedOf<SessionSummaryRequestedMessage>());
     }
 
     [Fact]
-    public async Task ForceEnd_WhenSummaryTriggerFails_SessionStillEnded()
+    public async Task ForceEnd_WhenSummaryIsBeingDeleted_SessionStillEndedButNoRequest()
     {
-        // Alternate path 7أ, other direction.
+        // Alternate path 7أ, other direction. The summary trigger can no longer "fail" on its
+        // own — it is an outbox write inside the end transaction, so a failure rolls the whole
+        // thing back. The one case that still declines to request is a summary mid-deletion:
+        // re-requesting would race the file removal and could orphan objects in S3.
         var session = LiveSession();
         var sessions = new FakeSessionRepository(session);
+        var summaries = new FakeSummaryRepository();
+        summaries.Seed(new SessionSummary
+        {
+            Id = Guid.NewGuid(),
+            SessionId = session.Id,
+            ClassroomId = session.ClassroomId,
+            Status = SummaryStatus.PendingDeletion,
+        });
         var streaming = new RecordingStreamingClient(endResult: true);
-        var knowledge = new RecordingKnowledgeClient { SummaryTriggerResult = false };
-        var sut = CreateSut(sessions, streaming, knowledge);
+        var eventBus = new RecordingEventBus();
+        var sut = CreateSut(sessions, streaming, new RecordingKnowledgeClient(), eventBus, summaries);
 
         var result = await sut.ForceEndAsync(session.Id, "stalled");
 
@@ -74,6 +93,7 @@ public class SessionAdminServiceTests
         Assert.Equal("Ended", result.Status);
         Assert.True(result.StreamEnded);
         Assert.False(result.SummaryTriggered);
+        Assert.Empty(eventBus.PublishedOf<SessionSummaryRequestedMessage>());
     }
 
     [Fact]
@@ -134,8 +154,15 @@ public class SessionAdminServiceTests
     // The admin force-end delegates to the shared termination path, so the real one is wired in:
     // these tests cover the whole teardown, not just the admin wrapper.
     private static SessionAdminService CreateSut(
-        FakeSessionRepository sessions, RecordingStreamingClient streaming, RecordingKnowledgeClient knowledge)
-        => new(sessions, SessionTerminationTestFactory.Create(sessions, streaming, knowledge));
+        FakeSessionRepository sessions,
+        RecordingStreamingClient streaming,
+        RecordingKnowledgeClient knowledge,
+        RecordingEventBus? eventBus = null,
+        FakeSummaryRepository? summaries = null)
+        => new(sessions, SessionTerminationTestFactory.Create(
+            sessions, streaming, knowledge,
+            summaries: summaries,
+            eventBus: eventBus));
 
     private static Session LiveSession() => new()
     {
@@ -151,12 +178,28 @@ public class SessionAdminServiceTests
 /// <summary>Builds a real <see cref="SessionTerminationService"/> over test doubles.</summary>
 public static class SessionTerminationTestFactory
 {
+    /// <summary>
+    /// Builds the termination service with the collaborators a test cares about.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="knowledge"/> is accepted but unused: the summary request moved from a
+    /// synchronous HTTP call to an outboxed event, so it is kept only so the many existing call
+    /// sites still compile. Assert on <paramref name="eventBus"/> instead.
+    /// </remarks>
     public static SessionTerminationService Create(
         ISessionRepository sessions,
         IStreamingInternalClient streaming,
         IKnowledgeInternalClient knowledge,
-        IClock? clock = null)
-        => new(sessions, streaming, knowledge, clock ?? new FakeClock(),
+        IClock? clock = null,
+        ISummaryRepository? summaries = null,
+        IEventBus? eventBus = null,
+        IUnitOfWork? unitOfWork = null)
+        => new(sessions,
+            summaries ?? new FakeSummaryRepository(),
+            streaming,
+            eventBus ?? new RecordingEventBus(),
+            unitOfWork ?? new RecordingUnitOfWork(),
+            clock ?? new FakeClock(),
             NullLogger<SessionTerminationService>.Instance);
 }
 

@@ -5,7 +5,12 @@ import { ArtifactList } from '../../../components/ui/ArtifactList';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SecureDownloadButton } from '../../../components/ui/SecureDownloadButton';
 import { downloadSummary } from '../api/summaries';
-import { useClassroomSummaries } from '../hooks/useSummaryQueries';
+import {
+  isAlreadyGenerating,
+  useClassroomSummaries,
+  useRegenerateSummary,
+} from '../hooks/useSummaryQueries';
+import { useToast } from '../../../components/ui/ToastProvider';
 import type { Summary } from '../types';
 import { SummaryPreview } from './SummaryPreview';
 
@@ -13,10 +18,18 @@ interface SummariesListProps {
   classroomId: string;
   /** When provided, only summaries for this session are listed. */
   sessionId?: string;
+  /** Shows the Regenerate action on failed summaries. The server enforces this too. */
+  isTeacher?: boolean;
 }
 
-export const SummariesList = ({ classroomId, sessionId }: SummariesListProps) => {
+export const SummariesList = ({
+  classroomId,
+  sessionId,
+  isTeacher = false,
+}: SummariesListProps) => {
   const { t, i18n } = useTranslation('summaries');
+  const { showToast } = useToast();
+  const regenerate = useRegenerateSummary(classroomId);
   const [preview, setPreview] = useState<{ id: string; label: string } | null>(
     null,
   );
@@ -44,6 +57,34 @@ export const SummariesList = ({ classroomId, sessionId }: SummariesListProps) =>
       dateStyle: 'medium',
       timeStyle: 'short',
     });
+
+  const handleRegenerate = (summaryId: string) => {
+    regenerate.mutate(summaryId, {
+      onSuccess: () =>
+        showToast({
+          type: 'success',
+          title: t('regenerateStarted.title'),
+          message: t('regenerateStarted.message'),
+        }),
+      onError: (error) => {
+        // 409 means it is already generating — the double-click case, and the outcome the
+        // user wanted anyway. Reporting it as an error would just be confusing.
+        if (isAlreadyGenerating(error)) {
+          showToast({
+            type: 'success',
+            title: t('regenerateStarted.title'),
+            message: t('regenerateStarted.message'),
+          });
+          return;
+        }
+        showToast({
+          type: 'error',
+          title: t('regenerateFailed.title'),
+          message: t('regenerateFailed.message'),
+        });
+      },
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -85,6 +126,11 @@ export const SummariesList = ({ classroomId, sessionId }: SummariesListProps) =>
             classroomId={classroomId}
             dateLabel={formatDate(summary.createdAt)}
             onPreview={(label) => setPreview({ id: summary.summaryId, label })}
+            isTeacher={isTeacher}
+            isRegenerating={
+              regenerate.isPending && regenerate.variables === summary.summaryId
+            }
+            onRegenerate={() => handleRegenerate(summary.summaryId)}
           />
         ))}
       </ArtifactList>
@@ -107,6 +153,9 @@ interface SummaryRowProps {
   classroomId: string;
   dateLabel: string;
   onPreview: (label: string) => void;
+  isTeacher: boolean;
+  isRegenerating: boolean;
+  onRegenerate: () => void;
 }
 
 const SummaryRow = ({
@@ -114,6 +163,9 @@ const SummaryRow = ({
   classroomId,
   dateLabel,
   onPreview,
+  isTeacher,
+  isRegenerating,
+  onRegenerate,
 }: SummaryRowProps) => {
   const { t } = useTranslation('summaries');
   const title = t('createdOn', { date: dateLabel });
@@ -181,12 +233,34 @@ const SummaryRow = ({
         )}
 
         {summary.status === 'Failed' && (
-          <span
-            className="text-sm font-medium text-red-600 dark:text-red-400"
-            role="alert"
-          >
-            {t('failedRow')}
-          </span>
+          <>
+            <span
+              className="text-sm font-medium text-red-600 dark:text-red-400"
+              role="alert"
+            >
+              {t('failedRow')}
+            </span>
+
+            {/* Teacher-only: regenerating spends an LLM run over the whole lecture, so a
+                student who can view the summary must not be able to trigger one. The server
+                enforces the same rule; this only keeps the button out of the way. */}
+            {isTeacher && (
+              <button
+                type="button"
+                onClick={() => onRegenerate()}
+                disabled={isRegenerating}
+                aria-label={t('regenerateAria', { date: dateLabel })}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                <RefreshCw
+                  size={16}
+                  className={isRegenerating ? 'animate-spin' : undefined}
+                  aria-hidden="true"
+                />
+                {t('regenerate')}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

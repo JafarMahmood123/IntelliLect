@@ -10,6 +10,16 @@
   "preparing": "جارٍ التحضير…",
   "generating": "جارٍ تجهيز الملخص…",
   "failedRow": "فشل إنشاء هذا الملخص.",
+  "regenerate": "إعادة الإنشاء",
+  "regenerateAria": "إعادة إنشاء الملخص الفاشل من {{date}}",
+  "regenerateStarted": {
+    "title": "جارٍ إعادة إنشاء الملخص",
+    "message": "تجري العملية في الخلفية وقد تستغرق بضع دقائق."
+  },
+  "regenerateFailed": {
+    "title": "تعذّر البدء",
+    "message": "تعذّرت إعادة طلب الملخص. يرجى المحاولة مرة أخرى."
+  },
   "createdOn": "ملخص — {{date}}",
   "preview": {
     "open": "معاينة",

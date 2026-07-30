@@ -16,6 +16,29 @@ public interface IClassroomSummaryService
     /// optionally filtered by session. Throws ForbiddenAccessException for a non-member;
     /// KeyNotFoundException if the classroom does not exist.
     /// </summary>
+    /// <summary>
+    /// Re-requests a FAILED summary on behalf of its classroom's teacher.
+    /// </summary>
+    /// <remarks>
+    /// Requires classroom OWNERSHIP, not membership: every other method here is a read gated on
+    /// membership, but this one spends an LLM run, so a student who can view a summary must not be
+    /// able to trigger one.
+    /// <para>
+    /// Only <c>Failed</c> is regenerable. An <c>Available</c> summary is refused with 409 rather
+    /// than overwritten — the S3 keys are deterministic, so a re-run destroys a good summary in
+    /// place, and a mis-click should not be able to do that. <c>Generating</c> is refused for the
+    /// same reason a double-click should be harmless: one run at a time.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ForbiddenAccessException">The user is not the classroom's teacher.</exception>
+    /// <exception cref="KeyNotFoundException">Unknown summary, or one from another classroom.</exception>
+    /// <exception cref="ConflictException">The summary is not in a regenerable state.</exception>
+    Task<SummarySummaryDto> RegenerateSummaryAsync(
+        Guid classroomId,
+        Guid summaryId,
+        Guid requestingUserId,
+        CancellationToken ct = default);
+
     Task<PagedResult<SummarySummaryDto>> ListSummariesAsync(
         Guid classroomId,
         Guid requestingUserId,
