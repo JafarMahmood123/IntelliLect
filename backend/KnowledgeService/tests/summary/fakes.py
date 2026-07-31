@@ -83,6 +83,79 @@ class RaisingChunkRepository(FakeChunkRepository):
         raise RuntimeError("vector search is down")
 
 
+class RecordingEmbeddingProvider(FakeEmbeddingProvider):
+    """FakeEmbeddingProvider that keeps EVERY query, not just the last one.
+
+    Grounding issues one query per transcript window, so a test can only prove the
+    windows span the transcript by seeing all of them.
+    """
+
+    def __init__(self, dim: int) -> None:
+        super().__init__(dim)
+        self.queries: list[str] = []
+
+    async def embed_query(self, text: str) -> list[float]:
+        self.queries.append(text)
+        return await super().embed_query(text)
+
+
+class WindowedChunkRepository(FakeChunkRepository):
+    """Serves a DIFFERENT result set per search call, in call order.
+
+    Mirrors the real thing: each transcript window retrieves material about a different
+    part of the lecture, which is the entire reason for sampling more than one. An entry
+    that is an exception instance is raised instead of returned, so a partial-failure
+    test needs no separate double.
+    """
+
+    def __init__(
+        self,
+        per_call: list[list[ChunkSearchResult] | BaseException],
+        fallback: list[ChunkSearchResult] | None = None,
+    ) -> None:
+        super().__init__(fallback or [])
+        self._per_call = list(per_call)
+        self.search_count = 0
+        self.searched_top_ks: list[int] = []
+
+    async def search(self, classroom_id, query_embedding, top_k):
+        index = self.search_count
+        self.search_count += 1
+        self.searched_classroom_id = classroom_id
+        self.searched_top_ks.append(top_k)
+        outcome = self._per_call[index] if index < len(self._per_call) else self._results
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome[:top_k]
+
+
+def build_grounding_generator(
+    *,
+    transcript_text: str,
+    per_window_chunks: list[list[ChunkSearchResult] | BaseException],
+    settings: Settings | None = None,
+) -> tuple[SummaryGenerator, RecordingEmbeddingProvider, WindowedChunkRepository, FakeBrainClient]:
+    """A generator whose retrieval answers each grounding window differently.
+
+    Separate from `build_summary_generator` because these tests assert on the QUERIES
+    themselves, which needs the recording embedder in hand.
+    """
+    settings = settings or Settings()
+    embedder = RecordingEmbeddingProvider(settings.embedding_dim)
+    repo = WindowedChunkRepository(per_window_chunks)
+    retrieval = RetrievalService(
+        embedder,
+        repo,
+        default_top_k=settings.search_default_top_k,
+        max_top_k=settings.search_max_top_k,
+    )
+    brain = FakeBrainClient()
+    generator = SummaryGenerator(
+        FakeTranscriptClient(transcript_text), retrieval, brain, settings
+    )
+    return generator, embedder, repo, brain
+
+
 def make_chunk(text: str, score: float = 0.9, **metadata) -> ChunkSearchResult:
     return ChunkSearchResult(
         chunk_id=uuid4(),

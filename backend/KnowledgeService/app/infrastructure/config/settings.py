@@ -150,7 +150,16 @@ class Settings(BaseSettings):
     summary_temperature: float = 0.3
     summary_max_tokens: int = 1500  # num_predict for a summary pass
     summary_grounding_enabled: bool = True  # ground key terms in classroom material
-    summary_grounding_top_k: int = 6  # chunks retrieved as supporting context
+    summary_grounding_top_k: int = 6  # chunks retrieved PER query window
+    # Grounding queries are excerpts of the transcript. One excerpt only ever retrieves
+    # material about whatever the lecture opened with, so anything taught later is
+    # "grounded" against chunks that never mention it — the failure that let a late-lecture
+    # error through unchallenged. Sample several excerpts spanning the whole transcript
+    # instead, then merge. Cost is one extra embed + vector search per window.
+    summary_grounding_query_windows: int = 4
+    # Ceiling on the MERGED, de-duplicated supporting set, so windows * top_k cannot
+    # quietly grow the prompt without bound on a long lecture.
+    summary_grounding_max_chunks: int = 10
     # Cap on transcript tokens fed to the model in a single pass. Longer transcripts are
     # summarized map-reduce (chunk summaries -> synthesis) so a long lecture still fits.
     summary_transcript_max_tokens: int = 8000

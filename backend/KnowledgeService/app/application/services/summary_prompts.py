@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 # Prompt templates for session summarization (S-1). Kept here (not scattered) so the
-# structure and instructions are easy to tweak. English. The model must summarize ONLY
-# what the transcript shows was taught; supporting material sharpens terminology, it
-# never adds untaught content.
+# structure and instructions are easy to tweak. English.
+#
+# The transcript decides WHICH topics the summary covers. The course material decides
+# WHAT IS TRUE about them. That split matters: a live lecture is spoken from memory, and
+# a misspoken number or a swapped definition would otherwise be carried into the PDF
+# students revise from — the one artifact that outlives the session. So a conflict on a
+# course-specific fact resolves to the course material, and is reported rather than
+# silently smoothed over. Scope is still transcript-bound: material never adds topics.
 
 # The stable Markdown contract every single-pass / synthesis summary must follow.
 _STRUCTURE = (
@@ -16,16 +21,31 @@ _STRUCTURE = (
     "(Bulleted keywords / concepts, each with a one-line definition where useful.)\n"
     "## Notable Moments\n"
     "(Important explanations or points of emphasis; OMIT this whole section if there "
-    "are none.)"
+    "are none.)\n"
+    "## Corrections\n"
+    "(Only where the transcript CONTRADICTS the supporting course material on a "
+    "specific fact. One bullet each, in the form: **<topic>**: the course material "
+    "states <correct version>. OMIT this whole section if there are no contradictions "
+    "— which is the normal case.)"
 )
 
 SYSTEM_PROMPT = (
     "You are an expert teaching assistant who writes concise, accurate lecture "
-    "summaries for students. You summarize ONLY what the lecture transcript shows was "
-    "actually taught — you never invent content, and you never add facts that are not "
-    "in the transcript. When supporting classroom material is provided, use it ONLY to "
-    "get terminology and concept names right, not to introduce topics the lecture did "
-    "not cover.\n\n"
+    "summaries for students.\n\n"
+    "The transcript sets the SCOPE: cover only topics the lecture actually taught, and "
+    "never introduce a topic it did not cover.\n\n"
+    "The supporting classroom material is AUTHORITATIVE on course-specific facts — "
+    "figures and thresholds, which policy or method this course uses, definitions of "
+    "named concepts, and stated requirements. Where the transcript and the material "
+    "disagree on such a fact:\n"
+    "1. State the MATERIAL's version in the body of the summary.\n"
+    "2. Record the disagreement as one bullet under Corrections.\n\n"
+    "Apply this ONLY to a direct, checkable contradiction on a topic the material "
+    "actually addresses. If the material is silent, does not clearly conflict, or the "
+    "point is an aside, a worked example, or an announcement (dates, logistics, "
+    "administrative details), keep the transcript's version and add nothing to "
+    "Corrections. Never guess at a correction, and never invent a conflict to fill the "
+    "section — an empty Corrections section is the expected outcome.\n\n"
     "Always respond in GitHub-flavored Markdown using EXACTLY this structure:\n"
     f"{_STRUCTURE}\n\n"
     "Do not wrap the whole response in a code fence. Output Markdown only."
@@ -50,9 +70,11 @@ def _supporting_block(supporting_material: str | None) -> str:
     if not supporting_material:
         return ""
     return (
-        "\n\nSupporting classroom material (use ONLY to sharpen terminology — do NOT "
-        "summarize this, and do NOT add anything from it that the lecture did not "
-        f"actually cover):\n{supporting_material}"
+        "\n\nSupporting classroom material — AUTHORITATIVE on course-specific facts. Do "
+        "NOT summarize it, and do NOT pull in topics from it that the lecture did not "
+        "cover. Use it to get terminology right, and where it directly contradicts the "
+        "transcript on a fact it actually addresses, state ITS version and note the "
+        f"contradiction under Corrections:\n{supporting_material}"
     )
 
 
@@ -62,7 +84,7 @@ def build_single_pass_prompt(
     """Prompt to summarize a full (short-enough) transcript in one pass."""
     return (
         "Summarize the following lecture transcript into the required Markdown "
-        "structure. Summarize only what the transcript shows was taught.\n\n"
+        "structure. Cover only topics the transcript shows were taught.\n\n"
         f"Lecture transcript:\n{transcript}"
         f"{_supporting_block(supporting_material)}"
     )
@@ -94,7 +116,7 @@ def build_synthesis_prompt(
         "Below are ordered notes taken from consecutive parts of a single lecture. "
         "Synthesize them into ONE coherent summary using the required Markdown "
         "structure. Merge duplicates, keep the lecture's original ordering of ideas, "
-        "and include only what the notes support.\n\n"
+        "and cover only topics the notes support.\n\n"
         f"{joined}"
         f"{_supporting_block(supporting_material)}"
     )

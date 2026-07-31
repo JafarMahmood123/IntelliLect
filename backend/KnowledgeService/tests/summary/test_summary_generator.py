@@ -14,13 +14,17 @@ from app.application.services.summary_generator import (
     SummaryGenerationError,
     SummaryGenerator,
 )
-from app.application.services.summary_prompts import INSUFFICIENT_CONTENT_MARKDOWN
+from app.application.services.summary_prompts import (
+    INSUFFICIENT_CONTENT_MARKDOWN,
+    SYSTEM_PROMPT,
+)
 from app.infrastructure.config.settings import Settings
 
 from tests.summary.fakes import (
     DETERMINISTIC_MARKDOWN,
     FakeBrainClient,
     FakeTranscriptClient,
+    build_grounding_generator,
     build_summary_generator,
     make_chunk,
 )
@@ -97,6 +101,124 @@ async def test_grounding_off_does_not_call_retrieval():
     assert repo.searched_classroom_id is None  # retrieval never called
     assert "Supporting classroom material" not in brain.last_prompt
     assert result.markdown == DETERMINISTIC_MARKDOWN
+
+
+# --- grounding coverage across the whole transcript ---------------------------
+# Long enough to be sampled into several windows, with distinctive markers at each end.
+_LONG_LECTURE = (
+    "We open the session with OPENINGTOPIC. "
+    + "The lecture continues with ordinary filler content. " * 130
+    + "Finally we close with CLOSINGTOPIC."
+)
+
+
+async def test_grounding_queries_span_the_whole_transcript():
+    generator, embedder, repo, _brain = build_grounding_generator(
+        transcript_text=_LONG_LECTURE,
+        per_window_chunks=[],
+        settings=Settings(summary_grounding_query_windows=4),
+    )
+
+    await generator.generate(uuid4())
+
+    assert len(embedder.queries) == 4
+    assert repo.search_count == 4
+    assert "OPENINGTOPIC" in embedder.queries[0]
+    # The regression this guards: querying only the transcript's opening retrieves
+    # material about whatever the lecture started with, so anything taught later is
+    # "grounded" against chunks that never mention it.
+    assert "CLOSINGTOPIC" in embedder.queries[-1]
+
+
+async def test_short_transcript_uses_a_single_grounding_query():
+    generator, embedder, repo, _brain = build_grounding_generator(
+        transcript_text=_LECTURE,
+        per_window_chunks=[[make_chunk("material")]],
+    )
+
+    await generator.generate(uuid4())
+
+    # A short lecture fits one window: no extra embed + search cost for the common case.
+    assert len(embedder.queries) == 1
+    assert repo.search_count == 1
+
+
+async def test_grounding_deduplicates_chunks_retrieved_by_several_windows():
+    shared = make_chunk("Shared material about eviction.", score=0.8)
+    late_only = make_chunk("Late material about least recently used.", score=0.7)
+    generator, _embedder, _repo, brain = build_grounding_generator(
+        transcript_text=_LONG_LECTURE,
+        per_window_chunks=[[shared], [shared], [shared, late_only], [late_only]],
+        settings=Settings(summary_grounding_query_windows=4),
+    )
+
+    await generator.generate(uuid4())
+
+    # Overlapping windows must not repeat a chunk three times in the supporting block.
+    assert brain.last_prompt.count("Shared material about eviction.") == 1
+    assert "Late material about least recently used." in brain.last_prompt
+
+
+async def test_grounding_keeps_only_the_highest_scoring_chunks():
+    windows = [[make_chunk(f"material {i}", score=0.5 + i / 10)] for i in range(4)]
+    generator, _embedder, _repo, brain = build_grounding_generator(
+        transcript_text=_LONG_LECTURE,
+        per_window_chunks=windows,
+        settings=Settings(
+            summary_grounding_query_windows=4, summary_grounding_max_chunks=2
+        ),
+    )
+
+    await generator.generate(uuid4())
+
+    # windows * top_k must not grow the prompt without bound on a long lecture.
+    assert "material 3" in brain.last_prompt
+    assert "material 2" in brain.last_prompt
+    assert "material 1" not in brain.last_prompt
+    assert "material 0" not in brain.last_prompt
+
+
+async def test_partial_grounding_failure_still_uses_the_surviving_windows(caplog):
+    survivor = make_chunk("Material retrieved despite the failure.")
+    generator, _embedder, _repo, brain = build_grounding_generator(
+        transcript_text=_LONG_LECTURE,
+        per_window_chunks=[RuntimeError("vector search is down"), [survivor], [], []],
+        settings=Settings(summary_grounding_query_windows=4),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="knowledge.summary"):
+        result = await generator.generate(uuid4())
+
+    # One dead window degrades grounding, it does not discard it.
+    assert "Material retrieved despite the failure." in brain.last_prompt
+    assert any("Grounding retrieval failed" in r.message for r in caplog.records)
+    assert result.markdown == DETERMINISTIC_MARKDOWN
+
+
+# --- prompt contract ----------------------------------------------------------
+def test_prompt_lets_course_material_correct_the_transcript():
+    # The bug this guards: supporting material was restricted to "terminology only", so a
+    # misspoken figure went into the students' PDF as fact — and got promoted to Notable
+    # Moments as the lecture's key takeaway.
+    assert "## Corrections" in SYSTEM_PROMPT
+    assert "AUTHORITATIVE" in SYSTEM_PROMPT
+    # It must stay optional, or the model manufactures a conflict to fill the section.
+    assert "OMIT this whole section if there are no contradictions" in SYSTEM_PROMPT
+
+
+# --- recorded model -----------------------------------------------------------
+async def test_gemini_provider_records_the_gemini_model_name():
+    # summary_model names the Ollama model; on Gemini it would otherwise credit every
+    # hosted summary to qwen2.5:7b-instruct.
+    settings = Settings(generation_provider="gemini", summary_grounding_enabled=False)
+    generator, _tc, _repo, _brain = build_summary_generator(
+        transcript_text=_LECTURE, settings=settings
+    )
+
+    result = await generator.generate(uuid4())
+
+    assert result.model == settings.gemini_summary_model
+    assert result.model != settings.summary_model
 
 
 # --- empty / short short-circuit ----------------------------------------------

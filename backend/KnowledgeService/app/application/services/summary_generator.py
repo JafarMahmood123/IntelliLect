@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
 import time
 from uuid import UUID
 
-from app.application.dtos.search_dtos import SearchRequest
+from app.application.dtos.search_dtos import (
+    SearchRequest,
+    SearchResponse,
+    SearchResultItem,
+)
 from app.application.dtos.summary_dtos import SummaryResult
 from app.application.ports.generation_provider import GenerationProvider
 from app.application.ports.transcript_client import TranscriptClient
@@ -27,7 +33,8 @@ logger = logging.getLogger("knowledge.summary")
 # and short-circuited to a fixed note WITHOUT any model or retrieval calls.
 _MIN_TRANSCRIPT_WORDS = 5
 
-# Cap on how much transcript text is used to form the grounding retrieval query.
+# Cap on how much transcript text forms ONE grounding retrieval query. Several such
+# windows are sampled across the transcript (summary_grounding_query_windows).
 _GROUNDING_QUERY_MAX_CHARS = 1000
 
 
@@ -64,9 +71,17 @@ class SummaryGenerator:
         self._transcripts = transcript_client
         self._retrieval = retrieval_service
         self._generator = generation_provider
-        self._model = settings.summary_model
+        # summary_model names the OLLAMA model; on Gemini the label would otherwise
+        # record "qwen2.5:7b-instruct" as the author of every hosted summary.
+        self._model = (
+            settings.gemini_summary_model
+            if settings.generation_provider.strip().lower() == "gemini"
+            else settings.summary_model
+        )
         self._grounding_enabled = settings.summary_grounding_enabled
         self._grounding_top_k = max(1, settings.summary_grounding_top_k)
+        self._grounding_windows = max(1, settings.summary_grounding_query_windows)
+        self._grounding_max_chunks = max(1, settings.summary_grounding_max_chunks)
         self._transcript_max_tokens = max(1, settings.summary_transcript_max_tokens)
         self._counter = token_counter or HeuristicTokenCounter()
         self._clock = clock or SystemClock()
@@ -123,32 +138,92 @@ class SummaryGenerator:
     async def _retrieve_supporting(
         self, classroom_id: UUID, transcript: str
     ) -> str | None:
-        """Retrieve classroom material to ground terminology, or None.
+        """Retrieve classroom material to ground the summary, or None.
 
-        Config-gated and best-effort: a retrieval failure degrades to an ungrounded
-        summary (logged) rather than failing the whole request.
+        Queries several excerpts spanning the whole transcript, not just its opening, so
+        material for late-lecture topics is retrieved too — the summary can only correct
+        a claim against material it actually pulled in.
+
+        Config-gated and best-effort: retrieval failures degrade to a partially- or
+        un-grounded summary (logged) rather than failing the whole request.
         """
         if not self._grounding_enabled:
             return None
-        try:
-            request = SearchRequest(
-                classroom_id=classroom_id,
-                query=transcript[:_GROUNDING_QUERY_MAX_CHARS],
-                top_k=self._grounding_top_k,
-            )
-            response = await self._retrieval.search(request)
-        except Exception:  # noqa: BLE001 — grounding is optional; never fail the summary
-            logger.warning(
-                "Grounding retrieval failed for classroom %s; summarizing WITHOUT "
-                "supporting material.",
-                classroom_id,
-                exc_info=True,
-            )
-            return None
 
-        if not response.results:
+        windows = self._query_windows(transcript)
+        # return_exceptions: one dead window still leaves the others usable — grounding on
+        # 3 of 4 excerpts beats discarding all of it.
+        responses = await asyncio.gather(
+            *(
+                self._retrieval.search(
+                    SearchRequest(
+                        classroom_id=classroom_id,
+                        query=window,
+                        top_k=self._grounding_top_k,
+                    )
+                )
+                for window in windows
+            ),
+            return_exceptions=True,
+        )
+
+        failures = [r for r in responses if isinstance(r, BaseException)]
+        for failure in failures:
+            # return_exceptions captures CancelledError too; swallowing it here would
+            # make the summary task ignore shutdown.
+            if isinstance(failure, asyncio.CancelledError):
+                raise failure
+        if failures:
+            logger.warning(
+                "Grounding retrieval failed for %d of %d transcript window(s) in "
+                "classroom %s; summarizing with whatever material was retrieved.",
+                len(failures),
+                len(windows),
+                classroom_id,
+                exc_info=failures[0],
+            )
+
+        merged = self._merge_grounding(
+            [r for r in responses if not isinstance(r, BaseException)]
+        )
+        if not merged:
             return None
-        return "\n".join(f"- {item.text}" for item in response.results)
+        return "\n".join(f"- {item.text}" for item in merged)
+
+    def _query_windows(self, transcript: str) -> list[str]:
+        """Evenly spaced excerpts of the transcript to use as retrieval queries."""
+        if len(transcript) <= _GROUNDING_QUERY_MAX_CHARS:
+            return [transcript]
+        count = min(
+            self._grounding_windows,
+            math.ceil(len(transcript) / _GROUNDING_QUERY_MAX_CHARS),
+        )
+        if count == 1:
+            return [transcript[:_GROUNDING_QUERY_MAX_CHARS]]
+        # First window starts at 0, last ENDS at the transcript's end, so the closing
+        # material — often the announcements and the final worked example — is covered.
+        span = len(transcript) - _GROUNDING_QUERY_MAX_CHARS
+        return [
+            transcript[start : start + _GROUNDING_QUERY_MAX_CHARS]
+            for start in (round(i * span / (count - 1)) for i in range(count))
+        ]
+
+    def _merge_grounding(
+        self, responses: list[SearchResponse]
+    ) -> list[SearchResultItem]:
+        """Union the per-window hits: best score per chunk, strongest first, capped.
+
+        Windows overlap in what they retrieve, so de-duplication is what keeps the
+        supporting block from repeating the same chunk several times.
+        """
+        best: dict[UUID, SearchResultItem] = {}
+        for response in responses:
+            for item in response.results:
+                existing = best.get(item.chunk_id)
+                if existing is None or item.score > existing.score:
+                    best[item.chunk_id] = item
+        ordered = sorted(best.values(), key=lambda item: item.score, reverse=True)
+        return ordered[: self._grounding_max_chunks]
 
     # -- generation -----------------------------------------------------------
     async def _summarize(self, transcript: str, supporting: str | None) -> str:
