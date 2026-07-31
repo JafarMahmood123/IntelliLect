@@ -12,6 +12,12 @@ public interface IStreamClient
     /// as well as the teacher: being recorded is something every participant should be able to
     /// see.</summary>
     Task RecordingStateChanged(string state);
+    /// <summary>
+    /// A quiz in this session changed state ("Open"/"Closed"/"Cancelled"). Carries the id ONLY —
+    /// each client then fetches the view it is entitled to, which is what makes it impossible for
+    /// the answer key to reach a student over the socket.
+    /// </summary>
+    Task QuizChanged(Guid quizId, string state);
     Task ReceiveChatMessage(Guid userId, string userName, string message);
     Task ReceiveReaction(Guid userId, string emoji);
 }

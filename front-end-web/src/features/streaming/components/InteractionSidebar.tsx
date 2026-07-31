@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { MessageSquare, Send, HelpCircle, SlidersHorizontal } from 'lucide-react';
+import { MessageSquare, Send, HelpCircle, SlidersHorizontal, ListChecks } from 'lucide-react';
 import { useStreamHub } from '../hooks/useStreamHub';
 import { Button } from '../../../components/ui/Button';
 import { Tabs } from '../../../components/ui/Tabs';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { SessionSettingsPanel } from './SessionSettingsPanel';
+import { TeacherQuizPanel } from '../../quizzes/components/TeacherQuizPanel';
+import { StudentQuizPanel } from '../../quizzes/components/StudentQuizPanel';
 
 export const InteractionSidebar = () => {
-  const { sessionId } = useParams<{ sessionId: string }>();
+  const { classroomId, sessionId } = useParams<{ classroomId: string; sessionId: string }>();
   const { user } = useAuthStore();
-  const { messages, sendMessage, isConnected, publishPolicy, recordingState } = useStreamHub(sessionId);
+  const { messages, sendMessage, isConnected, publishPolicy, recordingState, quizEvent } = useStreamHub(sessionId);
   const isTeacher = user?.roleName === 'Teacher';
 
   const [activeTab, setActiveTab] = useState('chat');
@@ -33,6 +35,7 @@ export const InteractionSidebar = () => {
   const tabs = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={16} /> },
     { id: 'qa', label: 'Q&A', icon: <HelpCircle size={16} /> },
+    { id: 'quiz', label: 'Quiz', icon: <ListChecks size={16} /> },
     // The teacher's live student-permission controls; hidden from students.
     ...(isTeacher
       ? [{ id: 'settings', label: 'Session Settings', icon: <SlidersHorizontal size={16} /> }]
@@ -48,7 +51,14 @@ export const InteractionSidebar = () => {
 
       {/* Scrollable Message List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 bg-slate-900/20 custom-scrollbar">
-        {activeTab === 'settings' && isTeacher && sessionId ? (
+        {activeTab === 'quiz' && classroomId && sessionId ? (
+          // Teacher composes and runs it; a student only ever gets the answer-key-free view.
+          isTeacher ? (
+            <TeacherQuizPanel classroomId={classroomId} sessionId={sessionId} liveEvent={quizEvent} />
+          ) : (
+            <StudentQuizPanel classroomId={classroomId} sessionId={sessionId} liveEvent={quizEvent} />
+          )
+        ) : activeTab === 'settings' && isTeacher && sessionId ? (
           <SessionSettingsPanel
             sessionId={sessionId}
             livePolicy={publishPolicy}

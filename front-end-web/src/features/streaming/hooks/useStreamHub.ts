@@ -26,6 +26,9 @@ export const useStreamHub = (sessionId: string | undefined) => {
   const [recordingState, setRecordingState] = useState<RecordingState | null>(
     null,
   );
+  // Latest quiz state change. Carries the id and state ONLY — the payload is deliberately not
+  // broadcast, so consumers refetch the view they are entitled to rather than trusting the wire.
+  const [quizEvent, setQuizEvent] = useState<{ quizId: string; state: string } | null>(null);
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const accessToken = localStorage.getItem("accessToken");
@@ -40,6 +43,7 @@ export const useStreamHub = (sessionId: string | undefined) => {
     // the new room is being recorded.
     setEndedStatus(null);
     setRecordingState(null);
+    setQuizEvent(null);
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`/hubs/stream?access_token=${accessToken}`, {
@@ -81,6 +85,10 @@ export const useStreamHub = (sessionId: string | undefined) => {
 
     connection.on("RecordingStateChanged", (state: RecordingState) => {
       if (isMounted) setRecordingState(state);
+    });
+
+    connection.on("QuizChanged", (quizId: string, state: string) => {
+      if (isMounted) setQuizEvent({ quizId, state });
     });
 
     const startConnection = async () => {
@@ -147,5 +155,6 @@ export const useStreamHub = (sessionId: string | undefined) => {
     hasEnded: endedStatus !== null,
     publishPolicy,
     recordingState,
+    quizEvent,
   };
 };

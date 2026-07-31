@@ -210,6 +210,15 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
         return Task.CompletedTask;
     }
 
+    /// <summary>Recorded so a test can assert the room was told a quiz opened, closed or was cancelled.</summary>
+    public List<(Guid SessionId, Guid QuizId, string State)> QuizChanges { get; } = new();
+
+    public Task NotifyQuizChangedAsync(Guid sessionId, Guid quizId, string state)
+    {
+        QuizChanges.Add((sessionId, quizId, state));
+        return Task.CompletedTask;
+    }
+
     public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised) => Task.CompletedTask;
     public Task NotifyParticipantCountAsync(Guid sessionId, int count) => Task.CompletedTask;
     public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message) => Task.CompletedTask;

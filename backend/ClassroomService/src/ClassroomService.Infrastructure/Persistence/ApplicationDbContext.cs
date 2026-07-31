@@ -15,6 +15,10 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionRecording> SessionRecordings => Set<SessionRecording>();
     public DbSet<SessionSummary> SessionSummaries => Set<SessionSummary>();
+    public DbSet<Quiz> Quizzes => Set<Quiz>();
+    public DbSet<QuizQuestion> QuizQuestions => Set<QuizQuestion>();
+    public DbSet<QuizAnswerOption> QuizAnswerOptions => Set<QuizAnswerOption>();
+    public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -78,6 +82,59 @@ public sealed class ApplicationDbContext : DbContext
             summary.HasOne(s => s.Session)
                 .WithMany()
                 .HasForeignKey(s => s.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // In-session quizzes. Unlike recordings and summaries there are MANY per session, so
+        // SessionId is a plain index rather than unique. ClassroomId is indexed for the same reason
+        // as above: the classroom-wide read and delete paths filter on it.
+        modelBuilder.Entity<Quiz>(quiz =>
+        {
+            quiz.HasKey(q => q.Id);
+            quiz.Property(q => q.Title).HasMaxLength(200);
+            quiz.HasIndex(q => q.SessionId);
+            quiz.HasIndex(q => q.ClassroomId);
+            quiz.HasOne<Session>()
+                .WithMany()
+                .HasForeignKey(q => q.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizQuestion>(question =>
+        {
+            question.HasKey(q => q.Id);
+            question.Property(q => q.Text).IsRequired().HasMaxLength(1000);
+            question.HasOne(q => q.Quiz)
+                .WithMany(q => q.Questions)
+                .HasForeignKey(q => q.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizAnswerOption>(option =>
+        {
+            option.HasKey(o => o.Id);
+            option.Property(o => o.Text).IsRequired().HasMaxLength(500);
+            option.HasOne(o => o.Question)
+                .WithMany(q => q.Options)
+                .HasForeignKey(o => o.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<QuizAnswer>(answer =>
+        {
+            answer.HasKey(a => a.Id);
+            // THE integrity rule of this feature: one answer per student per question, arbitrated
+            // by the database. An application-level "have they answered?" read is a race — two
+            // concurrent submits both pass it and both insert. Changing an answer before the quiz
+            // closes is an update to this row, never a second one.
+            answer.HasIndex(a => new { a.QuestionId, a.StudentId }).IsUnique();
+            // Scoring reads every answer for a quiz, so this is the hot path.
+            answer.HasIndex(a => a.QuizId);
+            // Per-student rollups across sessions (the deferred summary work) start here.
+            answer.HasIndex(a => a.StudentId);
+            answer.HasOne(a => a.Question)
+                .WithMany()
+                .HasForeignKey(a => a.QuestionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

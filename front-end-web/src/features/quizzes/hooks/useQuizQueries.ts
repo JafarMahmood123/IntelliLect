@@ -1,0 +1,133 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  cancelQuiz,
+  closeQuiz,
+  createQuizDraft,
+  getMyQuizResult,
+  getMySessionQuizSummary,
+  getOpenQuizForSession,
+  getQuizForStudent,
+  getQuizForTeacher,
+  getQuizLimits,
+  getQuizResults,
+  getSessionQuizSummary,
+  publishQuiz,
+  submitQuizAnswer,
+  updateQuizDraft,
+} from '../api/quizzes';
+import type { QuizDraftRequest } from '../types';
+
+export const quizKeys = {
+  all: ['quizzes'] as const,
+  limits: (classroomId: string) => [...quizKeys.all, 'limits', classroomId] as const,
+  detail: (quizId: string) => [...quizKeys.all, 'detail', quizId] as const,
+  studentView: (quizId: string) => [...quizKeys.all, 'student', quizId] as const,
+  openForSession: (sessionId: string) => [...quizKeys.all, 'open', sessionId] as const,
+  results: (quizId: string) => [...quizKeys.all, 'results', quizId] as const,
+  myResult: (quizId: string) => [...quizKeys.all, 'my-result', quizId] as const,
+  sessionSummary: (sessionId: string) => [...quizKeys.all, 'session-summary', sessionId] as const,
+  mySessionSummary: (sessionId: string) => [...quizKeys.all, 'my-session-summary', sessionId] as const,
+};
+
+/** Teacher's session-wide marks. Refetched on every quiz state change so the tally stays live. */
+export const useSessionQuizSummary = (classroomId: string, sessionId: string) =>
+  useQuery({
+    queryKey: quizKeys.sessionSummary(sessionId),
+    queryFn: () => getSessionQuizSummary(classroomId, sessionId),
+    enabled: Boolean(classroomId && sessionId),
+  });
+
+export const useMySessionQuizSummary = (classroomId: string, sessionId: string) =>
+  useQuery({
+    queryKey: quizKeys.mySessionSummary(sessionId),
+    queryFn: () => getMySessionQuizSummary(classroomId, sessionId),
+    enabled: Boolean(classroomId && sessionId),
+  });
+
+/** Composer bounds. Effectively static for a deployment, so it is cached indefinitely. */
+export const useQuizLimits = (classroomId: string) =>
+  useQuery({
+    queryKey: quizKeys.limits(classroomId),
+    queryFn: () => getQuizLimits(classroomId),
+    enabled: Boolean(classroomId),
+    staleTime: Infinity,
+  });
+
+export const useOpenQuiz = (classroomId: string, sessionId: string) =>
+  useQuery({
+    queryKey: quizKeys.openForSession(sessionId),
+    queryFn: () => getOpenQuizForSession(classroomId, sessionId),
+    enabled: Boolean(classroomId && sessionId),
+  });
+
+export const useStudentQuiz = (classroomId: string, quizId: string | undefined) =>
+  useQuery({
+    queryKey: quizKeys.studentView(quizId ?? ''),
+    queryFn: () => getQuizForStudent(classroomId, quizId!),
+    enabled: Boolean(classroomId && quizId),
+  });
+
+export const useTeacherQuiz = (classroomId: string, quizId: string | undefined) =>
+  useQuery({
+    queryKey: quizKeys.detail(quizId ?? ''),
+    queryFn: () => getQuizForTeacher(classroomId, quizId!),
+    enabled: Boolean(classroomId && quizId),
+  });
+
+export const useQuizResults = (classroomId: string, quizId: string | undefined) =>
+  useQuery({
+    queryKey: quizKeys.results(quizId ?? ''),
+    queryFn: () => getQuizResults(classroomId, quizId!),
+    enabled: Boolean(classroomId && quizId),
+  });
+
+export const useMyQuizResult = (classroomId: string, quizId: string | undefined) =>
+  useQuery({
+    queryKey: quizKeys.myResult(quizId ?? ''),
+    queryFn: () => getMyQuizResult(classroomId, quizId!),
+    enabled: Boolean(classroomId && quizId),
+  });
+
+export const useCreateQuizDraft = (classroomId: string, sessionId: string) =>
+  useMutation({
+    mutationFn: (draft: QuizDraftRequest) => createQuizDraft(classroomId, sessionId, draft),
+  });
+
+export const useUpdateQuizDraft = (classroomId: string, quizId: string) =>
+  useMutation({
+    mutationFn: (draft: QuizDraftRequest) => updateQuizDraft(classroomId, quizId, draft),
+  });
+
+/**
+ * Publish/close/cancel all land on the same quiz, so they share one invalidation. The open-quiz
+ * key is invalidated too: publishing creates one for the session and closing removes it.
+ */
+const useQuizLifecycleMutation = (
+  classroomId: string,
+  sessionId: string,
+  action: (classroomId: string, quizId: string) => Promise<unknown>,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (quizId: string) => action(classroomId, quizId),
+    onSuccess: (_data, quizId) => {
+      queryClient.invalidateQueries({ queryKey: quizKeys.detail(quizId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.openForSession(sessionId) });
+    },
+  });
+};
+
+export const usePublishQuiz = (classroomId: string, sessionId: string) =>
+  useQuizLifecycleMutation(classroomId, sessionId, publishQuiz);
+
+export const useCloseQuiz = (classroomId: string, sessionId: string) =>
+  useQuizLifecycleMutation(classroomId, sessionId, closeQuiz);
+
+export const useCancelQuiz = (classroomId: string, sessionId: string) =>
+  useQuizLifecycleMutation(classroomId, sessionId, cancelQuiz);
+
+export const useSubmitQuizAnswer = (classroomId: string, quizId: string) =>
+  useMutation({
+    mutationFn: ({ questionId, optionId }: { questionId: string; optionId: string }) =>
+      submitQuizAnswer(classroomId, quizId, questionId, optionId),
+  });

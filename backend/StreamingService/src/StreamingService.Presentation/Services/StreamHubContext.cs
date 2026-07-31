@@ -48,6 +48,16 @@ public sealed class StreamHubContext : IStreamHubContext
             .RecordingStateChanged(state);
     }
 
+    public async Task NotifyQuizChangedAsync(Guid sessionId, Guid quizId, string state)
+    {
+        _logger.LogDebug(
+            "Broadcasting quiz state change. SessionId: {SessionId}, QuizId: {QuizId}, State: {State}",
+            sessionId, quizId, state);
+
+        await _hubContext.Clients.Group(sessionId.ToString())
+            .QuizChanged(quizId, state);
+    }
+
     public async Task NotifyParticipantCountAsync(Guid sessionId, int count)
     {
         _logger.LogDebug(

@@ -94,6 +94,31 @@ public sealed class InternalStreamsController : ControllerBase
         return Ok(new { items });
     }
 
+    /// <summary>
+    /// Relays a quiz state change from ClassroomService, which owns quizzes, to the live room.
+    /// This service holds no quiz state — it only has the socket, so it forwards and nothing more.
+    /// Returns 204 even when no stream exists: a quiz outliving its live session is normal, and
+    /// failing here would surface as an error on the teacher's perfectly successful action.
+    /// </summary>
+    [HttpPost("{sessionId:guid}/quiz-event")]
+    public async Task<IActionResult> QuizEvent(
+        Guid sessionId, [FromBody] QuizEventRequest request, CancellationToken ct)
+    {
+        try
+        {
+            await _hubContext.NotifyQuizChangedAsync(sessionId, request.QuizId, request.State);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Could not broadcast quiz {QuizId} state {State} to session {SessionId}.",
+                request.QuizId, request.State, sessionId);
+        }
+
+        return NoContent();
+    }
+
     [HttpPost("{sessionId:guid}/end")]
     public async Task<IActionResult> EndStream(Guid sessionId, CancellationToken ct)
     {
@@ -228,6 +253,8 @@ public sealed class InternalStreamsController : ControllerBase
         }
     }
 }
+
+public record QuizEventRequest(Guid QuizId, string State);
 
 public record InitializeStreamRequest(
     Guid SessionId,

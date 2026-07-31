@@ -144,6 +144,17 @@ public static class DependencyInjection
         services.AddScoped<IRecordingUrlSigner>(sp =>
             new S3RecordingUrlSigner(presignS3Client, sp.GetRequiredService<IOptions<S3Settings>>()));
 
+        // In-session quizzes. The limits are a singleton settings object like the two above, and
+        // are ALSO served to the browser (see QuizzesController) so the composer's bounds and the
+        // publish validation can never disagree.
+        services.Configure<QuizOptions>(configuration.GetSection(QuizOptions.SectionName));
+        services.AddSingleton<IQuizSettings>(sp =>
+            sp.GetRequiredService<IOptions<QuizOptions>>().Value);
+        services.AddScoped<IQuizRepository, QuizRepository>();
+        services.AddScoped<IQuizService, QuizService>();
+        // Pushes state changes to the live room via StreamingService; best-effort, id-only payload.
+        services.AddHttpClient<IQuizNotifier, StreamingQuizNotifier>();
+
         // Summary downloads (S-4): reuse the same S3 signer/bucket; only the URL TTL is new.
         services.Configure<SummariesOptions>(configuration.GetSection(SummariesOptions.SectionName));
         services.AddSingleton<ISummaryDownloadSettings>(sp =>
