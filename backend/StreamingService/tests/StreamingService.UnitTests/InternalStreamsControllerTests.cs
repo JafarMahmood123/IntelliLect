@@ -185,6 +185,46 @@ public sealed class InternalStreamsControllerTests
 
         Assert.Equal("EG_end_order", egress.LastStoppedEgressId);
         Assert.Equal(1, rooms.CloseCalls);
+
+        // Stopping is not enough on its own: StopEgress returns when LiveKit ACCEPTS the stop, not
+        // when the MP4 is muxed. MP4 writes its index at the END, so a room closed during
+        // finalization truncates the file. End must WAIT for the egress to settle first.
+        Assert.Equal(1, egress.FinalizeCalls);
+    }
+
+    [Fact]
+    public async Task EndStream_closes_the_room_even_when_the_recording_never_finalizes()
+    {
+        // A stuck egress must not hold a session open. The wait is bounded; on timeout the room is
+        // closed anyway and the recording may simply be short.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        stream.EgressId = "EG_stuck";
+        var egress = new FakeRecordingEgressService { FinalizationSettles = false };
+        var rooms = new FakeRoomLifecycleService();
+        var controller = CreateController(
+            new FakeStreamRepository(stream), new RecordingLiveAssistantClient(),
+            new RecordingLogger<InternalStreamsController>(), egress, rooms);
+
+        var result = await controller.EndStream(sessionId, default);
+
+        Assert.Equal(1, egress.FinalizeCalls);
+        Assert.Equal(1, rooms.CloseCalls);
+        Assert.IsType<NoContentResult>(result);
+    }
+
+    [Fact]
+    public async Task EndStream_does_not_wait_for_finalization_when_there_was_no_recording()
+    {
+        var sessionId = Guid.NewGuid();
+        var egress = new FakeRecordingEgressService();
+        var controller = CreateController(
+            new FakeStreamRepository(LiveStream(sessionId)), new RecordingLiveAssistantClient(),
+            new RecordingLogger<InternalStreamsController>(), egress, new FakeRoomLifecycleService());
+
+        await controller.EndStream(sessionId, default);
+
+        Assert.Equal(0, egress.FinalizeCalls);
     }
 
     private static LiveStream LiveStream(Guid sessionId) => new()

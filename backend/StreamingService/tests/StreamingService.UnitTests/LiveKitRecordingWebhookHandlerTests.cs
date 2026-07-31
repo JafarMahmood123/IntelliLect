@@ -183,4 +183,74 @@ public sealed class LiveKitRecordingWebhookHandlerTests
 
         Assert.Equal(0, egress.StartCalls);
     }
+
+    [Fact]
+    public async Task Room_started_claims_the_slot_before_calling_livekit()
+    {
+        // The read-then-write guard above cannot arbitrate two deliveries racing each other: both
+        // would see a null egress id and both would start a composite, doubling CPU on a host that
+        // can barely sustain one and orphaning an MP4 nothing ever cleans up. The claim is what
+        // actually decides, so it must be taken BEFORE the start call.
+        var sessionId = Guid.NewGuid();
+        var repo = new FakeStreamRepository(LiveStream(sessionId));
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+        var handler = RoomStartedHandler(sessionId, repo, egress);
+
+        await handler.HandleAsync("body", "auth");
+
+        Assert.Equal(1, repo.ClaimAttempts);
+        Assert.Equal(1, egress.StartCalls);
+        Assert.Equal(EgressId, repo.Find(sessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Losing_the_claim_race_starts_nothing()
+    {
+        // The delivery that loses the claim must abandon quietly. Without this, two webhook
+        // deliveries that both read a null egress id would both start a composite — double CPU on
+        // a host that can barely sustain one, and a second MP4 that nothing ever cleans up.
+        var sessionId = Guid.NewGuid();
+        var repo = new FakeStreamRepository(LiveStream(sessionId)) { FailNextClaim = true };
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+
+        await RoomStartedHandler(sessionId, repo, egress).HandleAsync("body", "auth");
+
+        Assert.Equal(1, repo.ClaimAttempts); // it tried
+        Assert.Equal(0, egress.StartCalls);  // and did NOT start a second composite
+        Assert.Null(repo.Find(sessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Room_started_releases_the_claim_when_the_egress_cannot_be_started()
+    {
+        // Otherwise the placeholder would sit there and the session would look permanently
+        // mid-claim, blocking its own recovery.
+        var sessionId = Guid.NewGuid();
+        var repo = new FakeStreamRepository(LiveStream(sessionId));
+        var egress = new FakeRecordingEgressService(throwOnCall: true);
+
+        await RoomStartedHandler(sessionId, repo, egress).HandleAsync("body", "auth");
+
+        Assert.Null(repo.Find(sessionId)!.EgressId);
+    }
+
+    private static LiveStream LiveStream(Guid sessionId) => new()
+    {
+        Id = Guid.NewGuid(),
+        SessionId = sessionId,
+        ClassroomId = Guid.NewGuid(),
+        TeacherId = Guid.NewGuid(),
+        Status = StreamStatus.Live,
+        StreamKey = "k",
+    };
+
+    private static LiveKitRecordingWebhookHandler RoomStartedHandler(
+        Guid sessionId, FakeStreamRepository repo, FakeRecordingEgressService egress)
+        => new(
+            new FakeLiveKitWebhookVerifier(
+                new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
+            repo,
+            egress,
+            new FakePublishEndpoint(),
+            new RecordingLogger<LiveKitRecordingWebhookHandler>());
 }

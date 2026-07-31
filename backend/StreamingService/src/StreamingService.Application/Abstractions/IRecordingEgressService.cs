@@ -21,7 +21,28 @@ public interface IRecordingEgressService
     /// <summary>
     /// Requests LiveKit stop/finalize the egress identified by <paramref name="egressId"/> so
     /// it uploads the MP4. Throws on failure — callers treat that as non-fatal. Does NOT wait
-    /// or poll for the uploaded file.
+    /// or poll for the uploaded file — use <see cref="WaitForFinalizationAsync"/> for that.
     /// </summary>
     Task StopRecordingAsync(string egressId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Polls until the egress reaches a terminal state, or the configured finalize budget runs
+    /// out. Returns <c>true</c> if it settled, <c>false</c> on timeout.
+    ///
+    /// Exists because <see cref="StopRecordingAsync"/> returns when LiveKit ACCEPTS the stop, not
+    /// when the MP4 is written: closing the room in that window destroys the composite source
+    /// mid-finalization and truncates the file. Never throws — recording is an enhancement, and a
+    /// failure here must not stop a session from ending.
+    /// </summary>
+    Task<bool> WaitForFinalizationAsync(string egressId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Egress ids LiveKit currently reports as active (starting/active/ending), used to reconcile
+    /// persisted state against reality. Empty when recording is disabled.
+    ///
+    /// THROWS when LiveKit cannot be reached, rather than returning an empty set: "unknown" must
+    /// never be read as "nothing is running", or a reconciling caller would treat every live
+    /// recording as missing and start a duplicate for each one.
+    /// </summary>
+    Task<IReadOnlySet<string>> GetActiveEgressIdsAsync(CancellationToken ct = default);
 }

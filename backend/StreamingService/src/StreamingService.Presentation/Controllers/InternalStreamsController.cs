@@ -135,6 +135,13 @@ public sealed class InternalStreamsController : ControllerBase
         try
         {
             await _recordingEgress.StopRecordingAsync(stream.EgressId, ct);
+
+            // StopEgress returns once LiveKit ACCEPTS the stop, not once the MP4 is muxed and
+            // uploaded. The caller closes the room straight after this, which destroys the
+            // composite source — and MP4 writes its index at the END, so a room closed mid-finalize
+            // truncates the file. Bounded (see Egress:FinalizeWaitSeconds) so a stuck egress cannot
+            // block session end; on timeout we proceed and the recording may be short.
+            await _recordingEgress.WaitForFinalizationAsync(stream.EgressId, ct);
         }
         catch (Exception ex)
         {

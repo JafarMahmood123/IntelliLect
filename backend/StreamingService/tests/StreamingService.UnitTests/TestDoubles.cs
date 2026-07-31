@@ -117,6 +117,29 @@ public sealed class FakeRecordingEgressService : IRecordingEgressService
         if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
         return Task.CompletedTask;
     }
+
+    /// <summary>Settles immediately unless <see cref="FinalizationSettles"/> says otherwise.</summary>
+    public int FinalizeCalls { get; private set; }
+    public bool FinalizationSettles { get; init; } = true;
+    public IReadOnlySet<string> ActiveEgressIds { get; init; } = new HashSet<string>();
+
+    public Task<bool> WaitForFinalizationAsync(string egressId, CancellationToken ct = default)
+    {
+        FinalizeCalls++;
+        return Task.FromResult(FinalizationSettles);
+    }
+
+    /// <summary>
+    /// Separate from <c>throwOnCall</c> so a test can make LISTING fail while start/stop still
+    /// work — otherwise "the cycle aborted early" is indistinguishable from "start failed".
+    /// </summary>
+    public bool ThrowOnGetActive { get; init; }
+
+    public Task<IReadOnlySet<string>> GetActiveEgressIdsAsync(CancellationToken ct = default)
+    {
+        if (ThrowOnGetActive) throw new InvalidOperationException("egress unreachable");
+        return Task.FromResult(ActiveEgressIds);
+    }
 }
 
 /// <summary>Records room closures; optionally throws to simulate an unreachable media server.</summary>
@@ -208,6 +231,35 @@ public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient
         LastStopRequest = request;
         if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
         return Task.FromResult(new EgressInfo { EgressId = request.EgressId });
+    }
+
+    /// <summary>
+    /// Statuses handed back by successive ListEgress calls, so a test can walk an egress from
+    /// Active through Ending to Complete the way a real finalize does. The last entry repeats;
+    /// an empty list models an egress LiveKit no longer tracks.
+    /// </summary>
+    public IReadOnlyList<EgressStatus> StatusSequence { get; init; } = [EgressStatus.EgressComplete];
+    public int ListCalls { get; private set; }
+    public ListEgressRequest? LastListRequest { get; private set; }
+
+    public Task<ListEgressResponse> ListEgressAsync(ListEgressRequest request)
+    {
+        LastListRequest = request;
+        if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+
+        var index = Math.Min(ListCalls, StatusSequence.Count - 1);
+        ListCalls++;
+
+        var response = new ListEgressResponse();
+        if (StatusSequence.Count > 0)
+        {
+            response.Items.Add(new EgressInfo
+            {
+                EgressId = string.IsNullOrEmpty(request.EgressId) ? EgressIdToReturn : request.EgressId,
+                Status = StatusSequence[index],
+            });
+        }
+        return Task.FromResult(response);
     }
 }
 
@@ -310,6 +362,61 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task<List<LiveStream>> GetLiveStreamsAsync(CancellationToken ct = default)
         => Task.FromResult(_streams.Where(s => s.Status == StreamStatus.Live).ToList());
+
+    public int ClaimAttempts { get; private set; }
+
+    /// <summary>
+    /// Forces the next claim to lose. A sequential test cannot otherwise reach that branch: once
+    /// the first caller writes an egress id, later callers are turned away by the cheap
+    /// read-then-write guard and never attempt a claim at all. This models the interleaving that
+    /// the guard cannot survive — two callers both reading NULL before either writes.
+    /// </summary>
+    public bool FailNextClaim { get; set; }
+
+    /// <summary>
+    /// Models the real conditional UPDATE: the write only lands when no egress id is set, so a
+    /// second caller loses exactly as it would against the database.
+    /// </summary>
+    public Task<bool> TryClaimEgressSlotAsync(
+        Guid sessionId, string placeholderEgressId, CancellationToken ct = default)
+    {
+        ClaimAttempts++;
+
+        if (FailNextClaim)
+        {
+            FailNextClaim = false;
+            return Task.FromResult(false);
+        }
+
+        var stream = Find(sessionId);
+        if (stream is null || stream.EgressId is not null) return Task.FromResult(false);
+
+        stream.EgressId = placeholderEgressId;
+        return Task.FromResult(true);
+    }
+
+    public Task SetEgressIdAsync(Guid streamId, string? egressId, CancellationToken ct = default)
+    {
+        var stream = _streams.FirstOrDefault(s => s.Id == streamId);
+        if (stream is not null) stream.EgressId = egressId;
+        return Task.CompletedTask;
+    }
+
+    public Task<List<LiveStream>> GetLiveStreamsNeedingRecordingAsync(
+        string placeholderPrefix, DateTime claimedBeforeUtc, CancellationToken ct = default)
+    {
+        var candidates = _streams.Where(s =>
+            s.Status == StreamStatus.Live
+            && s.StartedAtUtc is not null
+            && s.StartedAtUtc <= claimedBeforeUtc
+            && (s.EgressId is null || s.EgressId.StartsWith(placeholderPrefix, StringComparison.Ordinal)));
+
+        return Task.FromResult(candidates
+            .Where(s => s.EgressId is null
+                        || !long.TryParse(s.EgressId[placeholderPrefix.Length..], out var ticks)
+                        || new DateTime(ticks, DateTimeKind.Utc) <= claimedBeforeUtc)
+            .ToList());
+    }
 
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {

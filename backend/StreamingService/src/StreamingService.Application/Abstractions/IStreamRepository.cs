@@ -15,4 +15,35 @@ public interface IStreamRepository : IRepository<LiveStream>
     /// live-session monitor (participant count + whether recording is running).
     /// </summary>
     Task<List<LiveStream>> GetLiveStreamsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Atomically reserves the recording slot for a session by writing
+    /// <paramref name="placeholderEgressId"/> only if no egress id is set yet. Returns whether
+    /// THIS caller won.
+    ///
+    /// The database arbitrates because a read-then-write guard loses the race: two concurrent
+    /// <c>room_started</c> webhooks both see a null egress id, both start a composite, and the
+    /// host pays twice for a duplicate recording that nothing will ever clean up. Same idiom as
+    /// ClassroomService's session end claim.
+    /// </summary>
+    Task<bool> TryClaimEgressSlotAsync(
+        Guid sessionId, string placeholderEgressId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Replaces a claim placeholder with the real egress id (or clears it back to <c>null</c> when
+    /// the start failed, so the reconcile loop can retry).
+    /// </summary>
+    Task SetEgressIdAsync(Guid streamId, string? egressId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Live streams whose recording never started — the <c>room_started</c> webhook was missed,
+    /// failed, or its claim was abandoned.
+    ///
+    /// <paramref name="claimedBeforeUtc"/> is a single staleness cutoff applied twice: the stream
+    /// must have gone live before it (so the normal webhook path gets first chance, instead of
+    /// this racing it and trying to attach to a room that does not exist yet), and a placeholder
+    /// claim must predate it before it counts as abandoned rather than in flight.
+    /// </summary>
+    Task<List<LiveStream>> GetLiveStreamsNeedingRecordingAsync(
+        string placeholderPrefix, DateTime claimedBeforeUtc, CancellationToken ct = default);
 }

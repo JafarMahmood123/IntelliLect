@@ -20,6 +20,14 @@ public sealed class EgressOptions
     public string KeyTemplate { get; init; } = "recordings/{room_name}/{time}.mp4";
 
     /// <summary>
+    /// Room-composite layout: "speaker" follows the active speaker, "grid" gives every participant
+    /// an equal tile. This is the single biggest determinant of what the recording SHOWS — in a
+    /// lecture with screen share it decides whether the slides or the talking head are captured —
+    /// so it is configuration, not a constant.
+    /// </summary>
+    public string Layout { get; init; } = "speaker";
+
+    /// <summary>
     /// Output video dimensions and frame rate for the room-composite encode. Deliberately modest
     /// by default (720p @ 15fps): room-composite runs headless Chrome + a GStreamer H.264 encode,
     /// and on a constrained/virtualized host (e.g. Docker Desktop) a heavier encode starves the
@@ -30,6 +38,41 @@ public sealed class EgressOptions
     public int Width { get; init; } = 1280;
     public int Height { get; init; } = 720;
     public int Framerate { get; init; } = 15;
+
+    /// <summary>
+    /// Drops the video branch entirely and records audio only. The cheapest way to guarantee a
+    /// usable artifact on a host that cannot sustain the Chrome + H.264 composite.
+    /// </summary>
+    public bool AudioOnly { get; init; }
+
+    /// <summary>
+    /// Optional encode overrides, in bits per second (bitrates) and seconds (keyframe interval).
+    /// NULL means "leave LiveKit's default alone" — they must not be forwarded when unset, because
+    /// protobuf scalars are non-nullable and a 0 on the wire is indistinguishable from unset, so
+    /// sending 0 would silently replace a sane default with an invalid value.
+    ///
+    /// Reach for these before lowering <see cref="Width"/>/<see cref="Height"/> again: quality and
+    /// pipeline stability track bitrate far more closely than resolution, and dropping resolution
+    /// is what costs slide legibility.
+    /// </summary>
+    public int? VideoBitrate { get; init; }
+    public int? AudioBitrate { get; init; }
+    public double? KeyFrameInterval { get; init; }
+
+    /// <summary>
+    /// How long session end waits for LiveKit to finalize and upload the MP4 before closing the
+    /// room anyway. StopEgress returns when LiveKit ACCEPTS the stop, not when the file is muxed;
+    /// closing the room destroys the composite source, and MP4 writes its index at the END, so
+    /// cutting it short truncates the recording. Bounded so a stuck egress cannot block session end
+    /// (the caller's HttpClient allows 100s, so this has room).
+    /// </summary>
+    public int FinalizeWaitSeconds { get; init; } = 20;
+
+    /// <summary>
+    /// How often the reconcile loop runs: starts recordings whose <c>room_started</c> webhook was
+    /// missed, and stops egresses whose stream is no longer live. Zero or less disables it.
+    /// </summary>
+    public int ReconcileIntervalSeconds { get; init; } = 30;
 
     public S3Settings S3 { get; init; } = new();
 

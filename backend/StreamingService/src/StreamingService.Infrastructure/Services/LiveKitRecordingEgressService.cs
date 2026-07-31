@@ -13,9 +13,22 @@ namespace StreamingService.Infrastructure.Services;
 /// </summary>
 public sealed class LiveKitRecordingEgressService : IRecordingEgressService
 {
-    // Default room-composite layout. "speaker" follows the active speaker (the teacher in a
+    // Used when Egress:Layout is blank. "speaker" follows the active speaker (the teacher in a
     // lecture); "grid" would capture every participant tile equally.
-    private const string DefaultLayout = "speaker";
+    private const string FallbackLayout = "speaker";
+
+    // How often the finalize wait re-checks LiveKit. Short enough that a fast finalize is not
+    // padded out, long enough not to hammer the API for the full budget.
+    private static readonly TimeSpan FinalizePollInterval = TimeSpan.FromSeconds(1);
+
+    // Egress states that mean "still working" — anything else is terminal (Complete, Failed,
+    // Aborted, LimitReached).
+    private static readonly EgressStatus[] ActiveStatuses =
+    [
+        EgressStatus.EgressStarting,
+        EgressStatus.EgressActive,
+        EgressStatus.EgressEnding,
+    ];
 
     private readonly ILiveKitEgressClient _egressClient;
     private readonly EgressOptions _options;
@@ -44,18 +57,31 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
 
         var objectKey = EgressKeyTemplate.Render(_options.KeyTemplate, roomName, DateTime.UtcNow);
 
+        // Modest, explicit encode (see EgressOptions): keeps the Chrome+GStreamer pipeline from
+        // starving and freezing the muxer at finalization on constrained/virtualized hosts.
+        var encoding = new EncodingOptions
+        {
+            Width = _options.Width,
+            Height = _options.Height,
+            Framerate = _options.Framerate,
+        };
+
+        // Optional overrides are applied ONLY when configured. Protobuf scalars are non-nullable,
+        // so an unconditional assignment would put 0 on the wire for anything left unset — which
+        // LiveKit cannot distinguish from a deliberate 0 and which replaces a working default.
+        if (_options.VideoBitrate is { } videoBitrate) encoding.VideoBitrate = videoBitrate;
+        if (_options.AudioBitrate is { } audioBitrate) encoding.AudioBitrate = audioBitrate;
+        if (_options.KeyFrameInterval is { } keyFrameInterval)
+        {
+            encoding.KeyFrameInterval = keyFrameInterval;
+        }
+
         var request = new RoomCompositeEgressRequest
         {
             RoomName = roomName,
-            Layout = DefaultLayout,
-            // Modest, explicit encode (see EgressOptions): keeps the Chrome+GStreamer pipeline from
-            // starving and freezing the muxer at finalization on constrained/virtualized hosts.
-            Advanced = new EncodingOptions
-            {
-                Width = _options.Width,
-                Height = _options.Height,
-                Framerate = _options.Framerate,
-            },
+            Layout = string.IsNullOrWhiteSpace(_options.Layout) ? FallbackLayout : _options.Layout,
+            AudioOnly = _options.AudioOnly,
+            Advanced = encoding,
         };
 
         // A single MP4 written directly to S3 by LiveKit — bytes never touch this service.
@@ -86,6 +112,81 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
     {
         _logger.LogInformation("Requesting stop of recording egress {EgressId}.", egressId);
         await _egressClient.StopEgressAsync(new StopEgressRequest { EgressId = egressId });
+    }
+
+    public async Task<bool> WaitForFinalizationAsync(string egressId, CancellationToken ct = default)
+    {
+        var budget = TimeSpan.FromSeconds(Math.Max(0, _options.FinalizeWaitSeconds));
+        if (budget <= TimeSpan.Zero) return false;
+
+        var deadline = DateTime.UtcNow + budget;
+        while (DateTime.UtcNow < deadline)
+        {
+            EgressStatus? status;
+            try
+            {
+                status = await FindStatusAsync(egressId, ct);
+            }
+            catch (Exception ex)
+            {
+                // LiveKit unreachable mid-finalize. Do not hold session end hostage to it.
+                _logger.LogWarning(
+                    ex, "Could not read status of egress {EgressId} while finalizing.", egressId);
+                return false;
+            }
+
+            // Gone from the list entirely: LiveKit no longer tracks it, so it is not still writing.
+            if (status is null || !ActiveStatuses.Contains(status.Value))
+            {
+                _logger.LogInformation(
+                    "Egress {EgressId} finalized with status {Status}.",
+                    egressId, status?.ToString() ?? "unlisted");
+                return true;
+            }
+
+            try
+            {
+                await Task.Delay(FinalizePollInterval, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+        }
+
+        _logger.LogWarning(
+            "Egress {EgressId} did not finalize within {Seconds}s; continuing without it. The "
+            + "recording may be truncated.",
+            egressId, _options.FinalizeWaitSeconds);
+        return false;
+    }
+
+    public async Task<IReadOnlySet<string>> GetActiveEgressIdsAsync(CancellationToken ct = default)
+    {
+        if (!_options.Enabled) return new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            var response = await _egressClient.ListEgressAsync(new ListEgressRequest { Active = true });
+            return response.Items
+                .Where(item => ActiveStatuses.Contains(item.Status))
+                .Select(item => item.EgressId)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            // "Unknown" must not read as "nothing is running", or the reconcile loop would treat
+            // every live recording as missing and start a duplicate.
+            _logger.LogWarning(ex, "Could not list active egresses; treating state as unknown.");
+            throw;
+        }
+    }
+
+    private async Task<EgressStatus?> FindStatusAsync(string egressId, CancellationToken ct)
+    {
+        var response = await _egressClient.ListEgressAsync(new ListEgressRequest { EgressId = egressId });
+        var match = response.Items.FirstOrDefault(item => item.EgressId == egressId);
+        return match?.Status;
     }
 
     private S3Upload BuildS3Upload()

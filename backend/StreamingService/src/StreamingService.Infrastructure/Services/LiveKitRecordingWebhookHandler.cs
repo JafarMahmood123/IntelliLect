@@ -129,18 +129,30 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
             return;
         }
 
+        // Reserve the slot in the DATABASE before calling LiveKit. A read-then-write guard (the
+        // check above) cannot arbitrate two webhook deliveries racing each other — both would see
+        // a null egress id and both would start a composite, doubling CPU on a host that can
+        // barely sustain one and orphaning an MP4 that nothing ever cleans up.
+        if (!await _streamRepository.TryClaimEgressSlotAsync(
+                sessionId, EgressClaim.New(DateTime.UtcNow), ct))
+        {
+            _logger.LogInformation(
+                "Another caller claimed the recording slot for session {SessionId}; not starting a second egress.",
+                sessionId);
+            return;
+        }
+
         try
         {
             var egressId = await _recordingEgress.StartRoomRecordingAsync(roomName, ct);
             if (string.IsNullOrWhiteSpace(egressId))
             {
-                // Recording disabled — nothing to persist.
+                // Recording disabled — release the claim so nothing is left holding a placeholder.
+                await _streamRepository.SetEgressIdAsync(stream.Id, null, ct);
                 return;
             }
 
-            stream.EgressId = egressId;
-            await _streamRepository.UpdateAsync(stream, ct);
-            await _streamRepository.SaveChangesAsync(ct);
+            await _streamRepository.SetEgressIdAsync(stream.Id, egressId, ct);
 
             _logger.LogInformation(
                 "Recording egress {EgressId} started for session {SessionId} on room_started.",
@@ -148,9 +160,30 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
         }
         catch (Exception ex)
         {
+            // Release the claim so the reconcile loop retries promptly rather than waiting for the
+            // placeholder to age out.
+            await TryReleaseClaimAsync(stream.Id, sessionId, ct);
+
             _logger.LogWarning(
                 ex,
                 "Could not start recording for session {SessionId}; continuing without recording.",
+                sessionId);
+        }
+    }
+
+    private async Task TryReleaseClaimAsync(Guid streamId, Guid sessionId, CancellationToken ct)
+    {
+        try
+        {
+            await _streamRepository.SetEgressIdAsync(streamId, null, ct);
+        }
+        catch (Exception ex)
+        {
+            // Not fatal: the claim carries its own timestamp, so the reconcile loop reclaims it
+            // once it is old enough.
+            _logger.LogWarning(
+                ex,
+                "Could not release the recording claim for session {SessionId}; it will age out.",
                 sessionId);
         }
     }

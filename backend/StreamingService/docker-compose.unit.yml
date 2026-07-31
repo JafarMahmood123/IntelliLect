@@ -27,6 +27,11 @@ services:
     container_name: livekit-redis
     command: ["redis-server", "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"]
     network_mode: host
+    # Must match livekit-egress's policy. depends_on only orders `compose up` — it does NOT bring
+    # a dependency back — so when only egress restarted after a host reboot it spun against a dead
+    # redis for hours, failing "dial tcp 127.0.0.1:6379: i/o timeout" every 60s. Sessions ran fine
+    # and only the recording was missing, which is why nobody noticed.
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "-h", "127.0.0.1", "ping"]
       interval: 5s
@@ -72,6 +77,9 @@ services:
       - LiveKit__ApiSecret=super_secret_livekit_key_for_development
       - LiveKit__Host=ws://${LIVEKIT_HOST_IP:-127.0.0.1}:7880
       - LOG_LEVEL=info,pion:warn,transport:warn
+    # Same reason as livekit-redis: the egress worker restarts itself, so its two dependencies
+    # must come back too or it restarts into a broken world.
+    restart: unless-stopped
     # Fail loudly if the media server is down. A bad livekit.yaml previously let this
     # container exit(0) while streaming-service came up regardless, silently bouncing
     # everyone out of live sessions. The HTTP signal port returns "OK" once serving;
@@ -146,16 +154,36 @@ services:
       # container name (which egress, on host networking, cannot resolve).
       - Egress__Enabled=true
       - Egress__KeyTemplate=recordings/{room_name}/{time}.mp4
+      # Room-composite layout. "speaker" follows the active speaker; "grid" gives every participant
+      # an equal tile. For a lecture with screen share this decides whether the SLIDES or the
+      # talking head end up in the recording, so it is worth trying both.
+      - Egress__Layout=speaker
       # Modest composite encode so the egress pipeline doesn't starve/freeze at finalization on
       # this virtualized host (Docker Desktop). Raise on a beefier machine for a sharper capture.
       - Egress__Width=1280
       - Egress__Height=720
       - Egress__Framerate=15
+      # Optional encode knobs — LEFT UNSET so LiveKit's own defaults apply. Quality and pipeline
+      # stability are driven more by bitrate than by resolution, so tune these before dropping
+      # Width/Height further. AudioOnly skips the Chrome/GStreamer video path entirely, which is
+      # the cheapest way to guarantee a usable artifact on a constrained host.
+      # - Egress__VideoBitrate=2500000
+      # - Egress__AudioBitrate=128000
+      # - Egress__KeyFrameInterval=4
+      # - Egress__AudioOnly=true
+      # How long session-end waits for LiveKit to finalize and upload the MP4 before closing the
+      # room out from under it. See EgressOptions for why closing early truncates the file.
+      - Egress__FinalizeWaitSeconds=20
+      # Reconcile loop: starts recordings whose room_started webhook was missed, stops orphans.
+      - Egress__ReconcileIntervalSeconds=30
       - Egress__S3__Bucket=intellilect-files
       - Egress__S3__Region=us-east-1
       - Egress__S3__AccessKey=testuser
       - Egress__S3__Secret=testpassword123!
       - Egress__S3__Endpoint=http://127.0.0.1:9000
+    # Recording depends on this service being up to receive room_started and to run the reconcile
+    # loop, so it comes back with the host like the rest of the recording group.
+    restart: unless-stopped
     # livekit-server (host networking) delivers its egress/room webhooks to this service. It can
     # only reach it via a host-published port, so expose 8080 on the host as 8085.
     ports:

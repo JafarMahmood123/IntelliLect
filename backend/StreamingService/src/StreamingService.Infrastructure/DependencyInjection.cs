@@ -142,6 +142,16 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitEgressClient, LiveKitEgressClient>();
         services.AddScoped<IRecordingEgressService, LiveKitRecordingEgressService>();
 
+        // Reconciliation safety net: recording is otherwise driven by a single unretried
+        // room_started webhook, so a missed delivery loses a whole lecture's recording silently.
+        // Registered only when recording is on, and skippable by setting the interval to 0.
+        var egressOptions = configuration.GetSection(EgressOptions.SectionName).Get<EgressOptions>();
+        if (egressOptions is null or { Enabled: true, ReconcileIntervalSeconds: > 0 })
+        {
+            services.AddScoped<EgressReconciler>();
+            services.AddHostedService<EgressReconcileHostedService>();
+        }
+
         // Egress-complete webhook -> recording-ready event (R-1). The verifier wraps the SDK's
         // WebhookReceiver (reusing the LiveKit API key/secret); the handler correlates + publishes.
         services.AddSingleton<ILiveKitWebhookVerifier, LiveKitWebhookVerifier>();

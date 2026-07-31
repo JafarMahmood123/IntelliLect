@@ -12,3 +12,27 @@ api_secret: super_secret_livekit_key_for_development
 ws_url: ws://127.0.0.1:7880
 insecure: true
 log_level: info
+
+# Prometheus metrics. Egress previously exposed NOTHING, so a refused job, a failed upload or a
+# dead worker was invisible until someone opened the recordings list and found it empty.
+prometheus_port: 7889
+
+# Hard ceiling on a single recording. Without it, an egress whose stop request never arrives
+# (service crash, container killed) composites until the room empties — an unbounded MP4 holding
+# several cores. On hitting the limit egress reports EgressLimitReached, which the webhook handler
+# already treats as a failure and publishes, so it surfaces instead of vanishing.
+session_limits:
+  file_output_max_duration: 3h
+
+# Job admission. Egress reserves a fixed CPU budget per job type and REFUSES the job when the host
+# cannot meet it — which reads as "the recording just didn't happen", with nothing logged on the
+# StreamingService side. Left commented out deliberately: the image's own default is tuned for the
+# encode it runs, and setting this too LOW makes egress accept work it cannot sustain, which brings
+# back the pipeline starvation the modest Width/Height/Framerate were chosen to avoid. Uncomment
+# and lower ONLY after confirming (in this container's logs) that jobs are actually being refused.
+# cpu_cost:
+#   room_composite_cpu_cost: 3
+
+# Only needed for a custom recording layout served from your own URL; the built-in layouts
+# ("speaker", "grid") need no template_base.
+# template_base: ""

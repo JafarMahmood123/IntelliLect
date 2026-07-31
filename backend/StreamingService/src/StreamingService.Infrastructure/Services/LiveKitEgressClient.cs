@@ -34,4 +34,7 @@ public sealed class LiveKitEgressClient : ILiveKitEgressClient
 
     public Task<EgressInfo> StopEgressAsync(StopEgressRequest request)
         => _client.StopEgress(request);
+
+    public Task<ListEgressResponse> ListEgressAsync(ListEgressRequest request)
+        => _client.ListEgress(request);
 }
