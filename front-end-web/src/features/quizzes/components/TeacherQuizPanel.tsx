@@ -44,7 +44,7 @@ const blankQuestion = (limits: QuizLimits): QuestionDraft => ({
 export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const { data: limits } = useQuizLimits(classroomId);
+  const { data: limits, isPending: limitsPending } = useQuizLimits(classroomId);
   const { data: openQuiz } = useOpenQuiz(classroomId, sessionId);
   const { data: liveQuiz } = useTeacherQuiz(classroomId, openQuiz?.id);
 
@@ -67,8 +67,19 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
     queryClient.invalidateQueries({ queryKey: quizKeys.sessionSummary(sessionId) });
   }, [liveEvent, queryClient, sessionId]);
 
-  if (!limits) {
+  if (limitsPending) {
     return <p className="p-4 text-[11px] text-slate-500">Loading…</p>;
+  }
+
+  // Distinguished from the pending case on purpose. Guarding on `!limits` alone made a failed
+  // request look identical to one still in flight, so an unreachable endpoint sat on "Loading…"
+  // indefinitely with nothing in the UI to say the call had already come back 404.
+  if (!limits) {
+    return (
+      <p className="p-4 text-[11px] text-red-400">
+        Could not load the quiz composer. The classroom service may be out of date — try again.
+      </p>
+    );
   }
 
   // A quiz is already running: show its live state rather than the composer. One at a time keeps
