@@ -28,6 +28,7 @@ import {
 } from "../../classrooms/utils/sessionEnd";
 import { TeacherStage } from "./stage/TeacherStage";
 import { StudentStage } from "./stage/StudentStage";
+import { SpeakerPicker } from "./SpeakerPicker";
 import { toRoomConnectOptions, toRoomOptions } from "../config/toRoomOptions";
 import { shouldExitSession } from "../utils/disconnectPolicy";
 
@@ -344,6 +345,9 @@ export const LiveRoomPage = () => {
                     screenShare: isTeacher,
                   }}
                 />
+                {/* ControlBar has no speaker picker of its own — it only ever renders audioinput
+                    and videoinput menus — so this sits alongside it rather than inside it. */}
+                <SpeakerPicker />
               </div>
 
               <RoomAudioRenderer />

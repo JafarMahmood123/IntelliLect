@@ -35,6 +35,38 @@ rtc:
   use_external_ip: false
   enable_loopback_candidate: true
 
+# Embedded TURN relay. This is what makes media survive a client whose address LiveKit cannot reach
+# back to — the case that breaks the host-candidate path entirely:
+#
+# ICE needs BOTH directions to validate. The browser can always reach LiveKit (loopback is
+# forwarded into the Docker Desktop VM), which is why the server logs show its binding requests
+# arriving and being answered. The reverse fails: the browser advertises the host's own addresses
+# (LAN, and a VPN interface when one is up), and from inside the Desktop VM LiveKit can reach
+# neither, so every host pair dies with responsesReceived:0 and the client is dropped ~13s later.
+#
+# A relay removes that requirement. The browser ALLOCATES on the TURN server over an outbound
+# connection to loopback, and media flows through the allocation — LiveKit never has to originate a
+# packet toward the client, so it no longer matters which interfaces the client is advertising or
+# whether a VPN is shaping that choice. ICE still prefers a direct host pair when one works, so
+# this costs nothing when the direct path is available: it is a fallback, not a detour.
+#
+# No TLS here on purpose: tls_port needs a real certificate and domain, and the browser only ever
+# talks to this over loopback on a dev box. Do NOT copy this section to a deployment reachable off
+# this machine — there, TURN belongs on tls_port with a real cert.
+turn:
+  enabled: true
+  # The browser reaches this at 3478. Note it binds on ALL interfaces, unlike the media port, which
+  # node_ip pins to loopback — so this is reachable whichever address the client ends up using.
+  udp_port: 3478
+  domain: localhost
+  # One relay port is consumed per client that falls back to relay. The default range is THREE
+  # (30000-30002), which a teacher plus two students would exhaust — and an exhausted range fails
+  # exactly like the problem this is here to solve, which would be a miserable thing to debug twice.
+  # These are only ever used between the TURN server and LiveKit's own media engine on this host,
+  # never by the browser, so a wide range costs nothing and is not published anywhere.
+  relay_range_start: 30000
+  relay_range_end: 30100
+
 # NOTE: The LiveKit *server* config has no top-level `egress` section — that field
 # belongs to the separate LiveKit Egress service's config. Placing it here makes
 # livekit-server fail to parse the config and exit on startup (which took the whole
