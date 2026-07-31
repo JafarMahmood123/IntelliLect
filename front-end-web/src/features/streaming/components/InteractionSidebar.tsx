@@ -10,7 +10,7 @@ import { SessionSettingsPanel } from './SessionSettingsPanel';
 export const InteractionSidebar = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { user } = useAuthStore();
-  const { messages, sendMessage, isConnected, publishPolicy } = useStreamHub(sessionId);
+  const { messages, sendMessage, isConnected, publishPolicy, recordingState } = useStreamHub(sessionId);
   const isTeacher = user?.roleName === 'Teacher';
 
   const [activeTab, setActiveTab] = useState('chat');
@@ -49,7 +49,11 @@ export const InteractionSidebar = () => {
       {/* Scrollable Message List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 bg-slate-900/20 custom-scrollbar">
         {activeTab === 'settings' && isTeacher && sessionId ? (
-          <SessionSettingsPanel sessionId={sessionId} livePolicy={publishPolicy} />
+          <SessionSettingsPanel
+            sessionId={sessionId}
+            livePolicy={publishPolicy}
+            liveRecordingState={recordingState}
+          />
         ) : activeTab === 'chat' ? (
           <div className="p-4 space-y-5">
             {messages.length === 0 ? (

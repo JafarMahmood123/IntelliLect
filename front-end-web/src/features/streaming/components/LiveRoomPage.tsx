@@ -50,7 +50,7 @@ export const LiveRoomPage = () => {
   const { showToast } = useToast();
 
   const { data, isPending, isError, error, refetch } = useStreamDetails(sessionId);
-  const { participantCount, hasEnded, publishPolicy } = useStreamHub(sessionId);
+  const { participantCount, hasEnded, publishPolicy, recordingState } = useStreamHub(sessionId);
   const { mutateAsync: joinStreamAsync } = useJoinStream();
   const { mutateAsync: leaveStreamAsync } = useLeaveStream();
   const endSessionMutation = useEndSession(classroomId ?? "");
@@ -131,6 +131,37 @@ export const LiveRoomPage = () => {
   }
   const initialAudio = initialPublishRef.current?.audio ?? false;
   const initialVideo = initialPublishRef.current?.video ?? false;
+
+  // Recording state as it stands right now: a live SignalR update wins; otherwise the value
+  // carried in the initial stream details, so someone joining mid-recording sees the indicator
+  // immediately instead of only after the next change.
+  const currentRecordingState = recordingState ?? data?.recordingState ?? "Off";
+  const isRecording = currentRecordingState === "Recording";
+
+  // Tell everyone when recording starts or stops. Unlike the publish-policy toast below this also
+  // fires for the teacher: they get the confirmation that their toggle actually took effect
+  // server-side, rather than trusting the button.
+  const prevRecordingRef = useRef<typeof recordingState>(null);
+  useEffect(() => {
+    if (!recordingState) return;
+    const prev = prevRecordingRef.current;
+    prevRecordingRef.current = recordingState;
+    if (prev === null || prev === recordingState) return;
+
+    if (recordingState === "Recording") {
+      showToast({
+        type: "info",
+        title: "Recording started",
+        message: "This session is now being recorded.",
+      });
+    } else {
+      showToast({
+        type: "info",
+        title: "Recording stopped",
+        message: "This session is no longer being recorded.",
+      });
+    }
+  }, [recordingState, showToast]);
 
   // Tell a student when the teacher changes what they may share (fires only on a real SignalR
   // update, never on the initial load — publishPolicy is null until the first change arrives).
@@ -242,6 +273,17 @@ export const LiveRoomPage = () => {
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-bold text-white">Live Classroom</h1>
           <StatusBadge status={data?.status || "Live"} />
+          {/* Visible to EVERYONE, not just the teacher: people are entitled to know when they
+              are being recorded. */}
+          {isRecording && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-[10px] font-bold"
+              role="status"
+            >
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              REC
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 text-white text-[10px] font-bold">

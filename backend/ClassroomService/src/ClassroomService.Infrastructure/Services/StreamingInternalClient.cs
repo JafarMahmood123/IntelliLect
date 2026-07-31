@@ -16,11 +16,11 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
         _logger = logger;
     }
 
-    public async Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, CancellationToken ct)
+    public async Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, bool recordingEnabled, CancellationToken ct)
     {
         try
         {
-            var request = new { SessionId = sessionId, ClassroomId = classroomId, TeacherId = teacherId, ParticipationMode = participationMode };
+            var request = new { SessionId = sessionId, ClassroomId = classroomId, TeacherId = teacherId, ParticipationMode = participationMode, RecordingEnabled = recordingEnabled };
             var response = await _httpClient.PostAsJsonAsync("http://streaming-service:8080/api/internal/streams", request, ct);
 
             return response.IsSuccessStatusCode;

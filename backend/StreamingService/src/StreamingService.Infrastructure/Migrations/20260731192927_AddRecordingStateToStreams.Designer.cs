@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using StreamingService.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using StreamingService.Infrastructure.Persistence;
 namespace StreamingService.Infrastructure.Migrations
 {
     [DbContext(typeof(StreamingDbContext))]
-    partial class StreamingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731192927_AddRecordingStateToStreams")]
+    partial class AddRecordingStateToStreams
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -1,6 +1,6 @@
 import { useState, type SetStateAction } from "react";
 import { useForm } from "react-hook-form";
-import { Calendar as CalendarIcon, ShieldCheck } from "lucide-react";
+import { Calendar as CalendarIcon, Circle, ShieldCheck } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -18,6 +18,7 @@ interface CreateSessionForm {
   title: string;
   description: string;
   participationMode: number;
+  recordingEnabled: boolean;
 }
 
 export const CreateSessionDrawer = ({
@@ -36,7 +37,9 @@ export const CreateSessionDrawer = ({
     reset,
   } = useForm<CreateSessionForm>({
     defaultValues: {
-      participationMode: 0
+      participationMode: 0,
+      // Recording is opt-in: nothing is captured unless the teacher asks for it.
+      recordingEnabled: false,
     }
   });
 
@@ -49,6 +52,7 @@ export const CreateSessionDrawer = ({
         description: data.description,
         scheduledAtUtc: startDate.toISOString(),
         participationMode: Number(data.participationMode), // Ensure it's a number
+        recordingEnabled: data.recordingEnabled,
       });
 
       showToast({
@@ -116,6 +120,28 @@ export const CreateSessionDrawer = ({
             <p className="text-[11px] text-slate-500 px-1">
               This controls which devices students can activate during the live stream.
             </p>
+          </div>
+
+          {/* Recording. Opt-in, and only the starting point — the teacher can start recording
+              later from inside the session. Stopping it there is final. */}
+          <div className="space-y-1.5">
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer dark:border-slate-800 dark:bg-slate-900">
+              <input
+                type="checkbox"
+                {...register("recordingEnabled")}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500/20 dark:border-slate-700"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <Circle size={14} className="text-red-500 fill-red-500" />
+                  Record this session
+                </span>
+                <span className="mt-0.5 block text-[11px] text-slate-500">
+                  Saves the session to the classroom archive so students can watch it later. You can
+                  also start recording during the session; once stopped, it cannot be resumed.
+                </span>
+              </span>
+            </label>
           </div>
 
           {/* Integrated Date & Time Picker */}

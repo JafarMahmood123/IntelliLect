@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
-import type { PublishPolicy } from "../types";
+import type { PublishPolicy, RecordingState } from "../types";
 
 export interface ChatMessage {
   userId: string;
@@ -20,6 +20,12 @@ export const useStreamHub = (sessionId: string | undefined) => {
   // Latest student publish policy pushed by the teacher's "Session Settings" toggles. Null until
   // the first change arrives; consumers fall back to the value from the initial stream details.
   const [publishPolicy, setPublishPolicy] = useState<PublishPolicy | null>(null);
+  // Latest recording state pushed by the teacher's toggle. Null until the first change arrives;
+  // consumers fall back to the value from the initial stream details, so someone who joins
+  // mid-session still sees the indicator without waiting for a change.
+  const [recordingState, setRecordingState] = useState<RecordingState | null>(
+    null,
+  );
 
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const accessToken = localStorage.getItem("accessToken");
@@ -30,8 +36,10 @@ export const useStreamHub = (sessionId: string | undefined) => {
     let isMounted = true;
 
     // A new session id starts clean — otherwise a previously ended session would immediately
-    // eject the user from the next room they open.
+    // eject the user from the next room they open, and a stale recording indicator would claim
+    // the new room is being recorded.
     setEndedStatus(null);
+    setRecordingState(null);
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`/hubs/stream?access_token=${accessToken}`, {
@@ -70,6 +78,10 @@ export const useStreamHub = (sessionId: string | undefined) => {
         if (isMounted) setPublishPolicy({ canPublishAudio, canPublishVideo });
       },
     );
+
+    connection.on("RecordingStateChanged", (state: RecordingState) => {
+      if (isMounted) setRecordingState(state);
+    });
 
     const startConnection = async () => {
       // 1. Guard against multiple starting attempts
@@ -134,5 +146,6 @@ export const useStreamHub = (sessionId: string | undefined) => {
     sendMessage,
     hasEnded: endedStatus !== null,
     publishPolicy,
+    recordingState,
   };
 };

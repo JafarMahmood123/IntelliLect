@@ -46,14 +46,14 @@ public sealed class RecordingCaptureE2ETests
             repo, new RecordingLiveAssistantClient(), egress, new FakeRoomLifecycleService(),
             new RecordingStreamHubContext(), new RecordingLogger<InternalStreamsController>());
         await streamController.InitializeStream(
-            new InitializeStreamRequest(sessionId, classroomId, Guid.NewGuid(), default), default);
+            new InitializeStreamRequest(sessionId, classroomId, Guid.NewGuid(), default, RecordingEnabled: true), default);
         Assert.Null(repo.Find(sessionId)!.EgressId);
         Assert.Equal(0, egress.StartCalls);
 
         // Step 1 (R-0): room_started webhook -> egress started, id persisted on the LiveStream.
         var startHandler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(RoomStarted(sessionId)),
-            repo, egress, new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>());
+            repo, Starter(repo, egress), new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>());
         await startHandler.HandleAsync("body", "auth");
         Assert.Equal(EgressId, repo.Find(sessionId)!.EgressId);
         Assert.Equal(1, egress.StartCalls);
@@ -62,7 +62,7 @@ public sealed class RecordingCaptureE2ETests
         var publish = new FakePublishEndpoint();
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(EgressEnded(EgressStatus.EgressComplete, size: 4096, durationNs: 8_000_000_000)),
-            repo, egress, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
+            repo, Starter(repo, egress), publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
 
         await handler.HandleAsync("body", "auth");
 
@@ -86,18 +86,18 @@ public sealed class RecordingCaptureE2ETests
             repo, new RecordingLiveAssistantClient(), egress, new FakeRoomLifecycleService(),
             new RecordingStreamHubContext(), new RecordingLogger<InternalStreamsController>());
         await streamController.InitializeStream(
-            new InitializeStreamRequest(sessionId, Guid.NewGuid(), Guid.NewGuid(), default), default);
+            new InitializeStreamRequest(sessionId, Guid.NewGuid(), Guid.NewGuid(), default, RecordingEnabled: true), default);
 
         // room_started -> egress started + id persisted, so the egress_ended below can correlate.
         await new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(RoomStarted(sessionId)),
-            repo, egress, new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>())
+            repo, Starter(repo, egress), new FakePublishEndpoint(), new RecordingLogger<LiveKitRecordingWebhookHandler>())
             .HandleAsync("body", "auth");
 
         var publish = new FakePublishEndpoint();
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(EgressEnded(EgressStatus.EgressFailed, error: "encoder crashed")),
-            repo, egress, publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
+            repo, Starter(repo, egress), publish, new RecordingLogger<LiveKitRecordingWebhookHandler>());
 
         await handler.HandleAsync("body", "auth");
 
@@ -132,4 +132,8 @@ public sealed class RecordingCaptureE2ETests
         // ...but the egress id is present for correlation.
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("EG_"));
     }
+
+    // The real starter over the fakes, so the claim arbitration stays covered end to end.
+    private static RecordingStarter Starter(FakeStreamRepository repo, FakeRecordingEgressService egress)
+        => new(repo, egress, new RecordingLogger<RecordingStarter>());
 }

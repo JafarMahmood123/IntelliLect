@@ -30,6 +30,16 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
         EgressStatus.EgressEnding,
     ];
 
+    // Egress states that can still be STOPPED, which is a narrower question than "still working":
+    // EgressEnding has already been told to stop and is finalizing. Asking again achieves nothing
+    // and just logs a failure. Now that a teacher can stop recording mid-session, the reconcile
+    // pass routinely runs while an egress is finalizing, so this would be a recurring false alarm.
+    private static readonly EgressStatus[] StoppableStatuses =
+    [
+        EgressStatus.EgressStarting,
+        EgressStatus.EgressActive,
+    ];
+
     private readonly ILiveKitEgressClient _egressClient;
     private readonly EgressOptions _options;
     private readonly IRecordingMetrics _metrics;
@@ -169,7 +179,7 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
         {
             var response = await _egressClient.ListEgressAsync(new ListEgressRequest { Active = true });
             return response.Items
-                .Where(item => ActiveStatuses.Contains(item.Status))
+                .Where(item => StoppableStatuses.Contains(item.Status))
                 .Select(item => item.EgressId)
                 .ToHashSet(StringComparer.Ordinal);
         }

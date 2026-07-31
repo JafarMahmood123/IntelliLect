@@ -4,7 +4,7 @@ namespace ClassroomService.Application.Abstractions;
 
 public interface IStreamingInternalClient
 {
-    Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, CancellationToken ct = default);
+    Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, bool recordingEnabled, CancellationToken ct = default);
 
     /// <summary>
     /// Runs StreamingService's session-end path (stop recording egress, notify the AI assistant

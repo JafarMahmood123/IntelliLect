@@ -36,8 +36,10 @@ public interface IStreamRepository : IRepository<LiveStream>
     Task SetEgressIdAsync(Guid streamId, string? egressId, CancellationToken ct = default);
 
     /// <summary>
-    /// Live streams whose recording never started — the <c>room_started</c> webhook was missed,
-    /// failed, or its claim was abandoned.
+    /// Live streams the teacher wants recorded whose recording never started — the
+    /// <c>room_started</c> webhook was missed, the toggle request was lost, a start failed, or a
+    /// claim was abandoned. Sessions with recording off or already stopped are excluded: those are
+    /// deliberate, not broken.
     ///
     /// <paramref name="claimedBeforeUtc"/> is a single staleness cutoff applied twice: the stream
     /// must have gone live before it (so the normal webhook path gets first chance, instead of

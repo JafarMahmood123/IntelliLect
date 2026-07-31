@@ -3,6 +3,7 @@ using Livekit.Server.Sdk.Dotnet;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using StreamingService.Application.Abstractions;
+using StreamingService.Domain.Enums;
 using LkFileInfo = Livekit.Server.Sdk.Dotnet.FileInfo;
 
 namespace StreamingService.Infrastructure.Services;
@@ -24,20 +25,20 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
 
     private readonly ILiveKitWebhookVerifier _verifier;
     private readonly IStreamRepository _streamRepository;
-    private readonly IRecordingEgressService _recordingEgress;
+    private readonly IRecordingStarter _recordingStarter;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<LiveKitRecordingWebhookHandler> _logger;
 
     public LiveKitRecordingWebhookHandler(
         ILiveKitWebhookVerifier verifier,
         IStreamRepository streamRepository,
-        IRecordingEgressService recordingEgress,
+        IRecordingStarter recordingStarter,
         IPublishEndpoint publishEndpoint,
         ILogger<LiveKitRecordingWebhookHandler> logger)
     {
         _verifier = verifier;
         _streamRepository = streamRepository;
-        _recordingEgress = recordingEgress;
+        _recordingStarter = recordingStarter;
         _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
@@ -98,10 +99,10 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
     }
 
     /// <summary>
-    /// Starts room-composite egress for a room that has just gone live. Best-effort: recording is
-    /// an enhancement, so any failure is logged and the session continues. Idempotent — a repeat
-    /// room_started (or a stream that already has an egress id) is ignored. The room name is the
-    /// sessionId (LiveKitMediaProvider convention).
+    /// Starts room-composite egress for a room that has just gone live, IF the teacher asked for
+    /// this session to be recorded. Best-effort: recording is an enhancement, so any failure is
+    /// logged and the session continues. Idempotent — a repeat room_started (or a stream that
+    /// already has an egress id) is ignored.
     /// </summary>
     private async Task StartRecordingForRoomAsync(WebhookEvent webhookEvent, CancellationToken ct)
     {
@@ -121,6 +122,18 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
             return;
         }
 
+        // Recording is opt-in. Off means the teacher never asked for it; Ended means they already
+        // stopped it and it must not restart. Neither is an error — this is the normal path for
+        // any session that simply is not being recorded.
+        if (stream.RecordingState != RecordingState.Recording)
+        {
+            _logger.LogDebug(
+                "Session {SessionId} is not recording ({State}); ignoring room_started.",
+                sessionId, stream.RecordingState);
+            return;
+        }
+
+        // Cheap guard so the common repeat delivery never reaches the claim.
         if (!string.IsNullOrWhiteSpace(stream.EgressId))
         {
             _logger.LogInformation(
@@ -129,63 +142,7 @@ public sealed class LiveKitRecordingWebhookHandler : IRecordingWebhookHandler
             return;
         }
 
-        // Reserve the slot in the DATABASE before calling LiveKit. A read-then-write guard (the
-        // check above) cannot arbitrate two webhook deliveries racing each other — both would see
-        // a null egress id and both would start a composite, doubling CPU on a host that can
-        // barely sustain one and orphaning an MP4 that nothing ever cleans up.
-        if (!await _streamRepository.TryClaimEgressSlotAsync(
-                sessionId, EgressClaim.New(DateTime.UtcNow), ct))
-        {
-            _logger.LogInformation(
-                "Another caller claimed the recording slot for session {SessionId}; not starting a second egress.",
-                sessionId);
-            return;
-        }
-
-        try
-        {
-            var egressId = await _recordingEgress.StartRoomRecordingAsync(roomName, ct);
-            if (string.IsNullOrWhiteSpace(egressId))
-            {
-                // Recording disabled — release the claim so nothing is left holding a placeholder.
-                await _streamRepository.SetEgressIdAsync(stream.Id, null, ct);
-                return;
-            }
-
-            await _streamRepository.SetEgressIdAsync(stream.Id, egressId, ct);
-
-            _logger.LogInformation(
-                "Recording egress {EgressId} started for session {SessionId} on room_started.",
-                egressId, sessionId);
-        }
-        catch (Exception ex)
-        {
-            // Release the claim so the reconcile loop retries promptly rather than waiting for the
-            // placeholder to age out.
-            await TryReleaseClaimAsync(stream.Id, sessionId, ct);
-
-            _logger.LogWarning(
-                ex,
-                "Could not start recording for session {SessionId}; continuing without recording.",
-                sessionId);
-        }
-    }
-
-    private async Task TryReleaseClaimAsync(Guid streamId, Guid sessionId, CancellationToken ct)
-    {
-        try
-        {
-            await _streamRepository.SetEgressIdAsync(streamId, null, ct);
-        }
-        catch (Exception ex)
-        {
-            // Not fatal: the claim carries its own timestamp, so the reconcile loop reclaims it
-            // once it is old enough.
-            _logger.LogWarning(
-                ex,
-                "Could not release the recording claim for session {SessionId}; it will age out.",
-                sessionId);
-        }
+        await _recordingStarter.TryStartAsync(stream, ct);
     }
 
     private SessionRecordingReadyMessage BuildMessage(Guid sessionId, Guid classroomId, EgressInfo egress)

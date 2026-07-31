@@ -41,6 +41,9 @@ export type StreamResponse = {
   // these in real time from the "Session Settings" tab; changes arrive over SignalR.
   studentsCanPublishAudio: boolean;
   studentsCanPublishVideo: boolean;
+  // Recording state at the moment of joining, so a late arrival sees the indicator immediately
+  // rather than only after the next change is broadcast.
+  recordingState: RecordingState;
   // Server-owned media quality + reconnection settings. Optional: see MediaSettings.
   media?: MediaSettings;
 };
@@ -50,6 +53,15 @@ export type PublishPolicy = {
   canPublishAudio: boolean;
   canPublishVideo: boolean;
 };
+
+/**
+ * Whether the session is being recorded. Mirrors the backend `RecordingState` enum.
+ *
+ * Three states rather than a boolean because "not recording" is two different situations: `Off`
+ * can still be started, `Ended` cannot. Stopping is final — it is what keeps the archived session
+ * one continuous video instead of fragments — so the UI must render those differently.
+ */
+export type RecordingState = 'Off' | 'Recording' | 'Ended';
 
 // --- Teacher live-feedback (F-3) --------------------------------------------
 // Real-time AI teaching-assistant suggestions delivered over the existing

@@ -163,13 +163,18 @@ services:
       - Egress__Width=1280
       - Egress__Height=720
       - Egress__Framerate=15
-      # Optional encode knobs — LEFT UNSET so LiveKit's own defaults apply. Quality and pipeline
-      # stability are driven more by bitrate than by resolution, so tune these before dropping
-      # Width/Height further. AudioOnly skips the Chrome/GStreamer video path entirely, which is
-      # the cheapest way to guarantee a usable artifact on a constrained host.
-      # - Egress__VideoBitrate=2500000
-      # - Egress__AudioBitrate=128000
+      # Bitrates are KILObits per second, NOT bits — LiveKit's own defaults are 4500 / 128, which
+      # only read sensibly as kbps. These previously sat unset, so capture ran against that 4500
+      # default (tuned for 1080p30) and a 5-minute session cost 85 MB / ~1 GB per hour. Capping
+      # here roughly halves that AND lowers encoder load, which is the same pressure that freezes
+      # the muxer at finalization. Tune these before dropping Width/Height — resolution is what
+      # costs slide legibility.
+      - Egress__VideoBitrate=1200
+      - Egress__AudioBitrate=96
+      # Longer keyframe interval = smaller file, coarser seeking. Left to the encoder default.
       # - Egress__KeyFrameInterval=4
+      # AudioOnly skips the Chrome/GStreamer video path entirely, which is the cheapest way to
+      # guarantee a usable artifact on a constrained host — at the cost of the slides.
       # - Egress__AudioOnly=true
       # How long session-end waits for LiveKit to finalize and upload the MP4 before closing the
       # room out from under it. See EgressOptions for why closing early truncates the file.

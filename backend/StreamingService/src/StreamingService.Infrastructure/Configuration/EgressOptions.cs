@@ -46,17 +46,28 @@ public sealed class EgressOptions
     public bool AudioOnly { get; init; }
 
     /// <summary>
-    /// Optional encode overrides, in bits per second (bitrates) and seconds (keyframe interval).
-    /// NULL means "leave LiveKit's default alone" — they must not be forwarded when unset, because
-    /// protobuf scalars are non-nullable and a 0 on the wire is indistinguishable from unset, so
-    /// sending 0 would silently replace a sane default with an invalid value.
+    /// Encode overrides. UNITS: the bitrates are KILObits per second, NOT bits — LiveKit's own
+    /// defaults are video 4500 and audio 128 (see EncodingOptions in LivekitApi.xml), which only
+    /// make sense read as kbps. Writing 2_500_000 here asks for 2.5 Tbps, not 2.5 Mbps.
+    /// KeyFrameInterval is in seconds.
+    ///
+    /// These carry explicit defaults rather than null because LiveKit's unset default (4500 kbps)
+    /// is tuned for 1080p30 and is wildly loose for the modest lecture capture below: it produced
+    /// ~2.3 Mbps / ~1 GB per hour of mostly-static slide content. 1200 kbps at 720p15 is
+    /// comfortable for slides plus a talking head, and 96 kbps is ample for speech (128 is
+    /// music-grade). A lower target also means less encoder work, which reduces the pipeline
+    /// starvation described above.
+    ///
+    /// Still nullable so an explicit null means "leave LiveKit's default alone". Unset values must
+    /// never be forwarded: protobuf scalars are non-nullable, so a 0 on the wire is
+    /// indistinguishable from unset and would replace a sane default with an invalid value.
     ///
     /// Reach for these before lowering <see cref="Width"/>/<see cref="Height"/> again: quality and
     /// pipeline stability track bitrate far more closely than resolution, and dropping resolution
     /// is what costs slide legibility.
     /// </summary>
-    public int? VideoBitrate { get; init; }
-    public int? AudioBitrate { get; init; }
+    public int? VideoBitrate { get; init; } = 1200;
+    public int? AudioBitrate { get; init; } = 96;
     public double? KeyFrameInterval { get; init; }
 
     /// <summary>

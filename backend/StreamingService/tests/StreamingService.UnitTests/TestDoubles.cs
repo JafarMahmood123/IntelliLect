@@ -1,5 +1,6 @@
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Domain.Enums;
 using StreamingService.Infrastructure.Services;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.Extensions.Logging;
@@ -200,6 +201,15 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
         return Task.CompletedTask;
     }
 
+    /// <summary>Recorded so a test can assert everyone in the room was told about recording.</summary>
+    public List<(Guid SessionId, string State)> RecordingStateChanges { get; } = new();
+
+    public Task NotifyRecordingStateChangedAsync(Guid sessionId, string state)
+    {
+        RecordingStateChanges.Add((sessionId, state));
+        return Task.CompletedTask;
+    }
+
     public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised) => Task.CompletedTask;
     public Task NotifyParticipantCountAsync(Guid sessionId, int count) => Task.CompletedTask;
     public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message) => Task.CompletedTask;
@@ -242,10 +252,28 @@ public sealed class FakeLiveKitEgressClient : ILiveKitEgressClient
     public int ListCalls { get; private set; }
     public ListEgressRequest? LastListRequest { get; private set; }
 
+    /// <summary>
+    /// An explicit multi-egress listing, for the "which of these should I stop?" question, which
+    /// <see cref="StatusSequence"/> cannot express — it models ONE egress being walked through its
+    /// lifecycle. Takes precedence when non-empty.
+    /// </summary>
+    public List<(string EgressId, EgressStatus Status)> ActiveItems { get; } = new();
+
     public Task<ListEgressResponse> ListEgressAsync(ListEgressRequest request)
     {
         LastListRequest = request;
         if (_throwOnCall) throw new InvalidOperationException("egress unreachable");
+
+        if (ActiveItems.Count > 0)
+        {
+            ListCalls++;
+            var listing = new ListEgressResponse();
+            foreach (var (egressId, status) in ActiveItems)
+            {
+                listing.Items.Add(new EgressInfo { EgressId = egressId, Status = status });
+            }
+            return Task.FromResult(listing);
+        }
 
         var index = Math.Min(ListCalls, StatusSequence.Count - 1);
         ListCalls++;
@@ -405,8 +433,11 @@ public sealed class FakeStreamRepository : IStreamRepository
     public Task<List<LiveStream>> GetLiveStreamsNeedingRecordingAsync(
         string placeholderPrefix, DateTime claimedBeforeUtc, CancellationToken ct = default)
     {
+        // Mirrors the real query, RecordingState filter included: without it this fake would keep
+        // handing the reconciler sessions the teacher never asked to record.
         var candidates = _streams.Where(s =>
             s.Status == StreamStatus.Live
+            && s.RecordingState == RecordingState.Recording
             && s.StartedAtUtc is not null
             && s.StartedAtUtc <= claimedBeforeUtc
             && (s.EgressId is null || s.EgressId.StartsWith(placeholderPrefix, StringComparison.Ordinal)));

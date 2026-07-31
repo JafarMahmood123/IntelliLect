@@ -37,8 +37,12 @@ public interface IRecordingEgressService
     Task<bool> WaitForFinalizationAsync(string egressId, CancellationToken ct = default);
 
     /// <summary>
-    /// Egress ids LiveKit currently reports as active (starting/active/ending), used to reconcile
-    /// persisted state against reality. Empty when recording is disabled.
+    /// Egress ids LiveKit reports as running and still STOPPABLE (starting/active), used to
+    /// reconcile persisted state against reality. Empty when recording is disabled.
+    ///
+    /// Deliberately excludes egresses that are already finalizing: they have been told to stop, so
+    /// a reconciling caller asking again would only log a failure. That case is routine now that a
+    /// teacher can stop recording mid-session.
     ///
     /// THROWS when LiveKit cannot be reached, rather than returning an empty set: "unknown" must
     /// never be read as "nothing is running", or a reconciling caller would treat every live

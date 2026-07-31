@@ -21,6 +21,9 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         StreamKey = "k",
         EgressId = EgressId,
         RecordingReadyPublished = published,
+        // A stream that HAS an egress is one the teacher asked to record. Set explicitly so the
+        // idempotency tests below trip the "already running" guard rather than the state guard.
+        RecordingState = RecordingState.Recording,
     };
 
     private static WebhookEvent EgressEnded(EgressStatus status, string? filename = null, long sizeBytes = 0, long durationNs = 0, string? error = null)
@@ -42,7 +45,7 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         var handler = new LiveKitRecordingWebhookHandler(
             new FakeLiveKitWebhookVerifier(evt),
             repo,
-            new FakeRecordingEgressService(egressId: EgressId),
+            Starter(repo, new FakeRecordingEgressService(egressId: EgressId)),
             publish,
             new RecordingLogger<LiveKitRecordingWebhookHandler>());
         return (handler, publish, repo);
@@ -146,16 +149,11 @@ public sealed class LiveKitRecordingWebhookHandlerTests
             TeacherId = Guid.NewGuid(),
             Status = StreamStatus.Live,
             StreamKey = "k",
+            RecordingState = RecordingState.Recording,
         };
         var repo = new FakeStreamRepository(stream);
         var egress = new FakeRecordingEgressService(egressId: EgressId);
-        var handler = new LiveKitRecordingWebhookHandler(
-            new FakeLiveKitWebhookVerifier(
-                new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
-            repo,
-            egress,
-            new FakePublishEndpoint(),
-            new RecordingLogger<LiveKitRecordingWebhookHandler>());
+        var handler = RoomStartedHandler(sessionId, repo, egress);
 
         await handler.HandleAsync("body", "auth");
 
@@ -171,13 +169,7 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         var stream = Stream(sessionId, Guid.NewGuid());
         var repo = new FakeStreamRepository(stream);
         var egress = new FakeRecordingEgressService(egressId: EgressId);
-        var handler = new LiveKitRecordingWebhookHandler(
-            new FakeLiveKitWebhookVerifier(
-                new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
-            repo,
-            egress,
-            new FakePublishEndpoint(),
-            new RecordingLogger<LiveKitRecordingWebhookHandler>());
+        var handler = RoomStartedHandler(sessionId, repo, egress);
 
         await handler.HandleAsync("body", "auth");
 
@@ -201,6 +193,40 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         Assert.Equal(1, repo.ClaimAttempts);
         Assert.Equal(1, egress.StartCalls);
         Assert.Equal(EgressId, repo.Find(sessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Room_started_does_not_record_a_session_the_teacher_left_unrecorded()
+    {
+        // Recording is opt-in, so the room going live is no longer reason enough to record it.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        stream.RecordingState = RecordingState.Off;
+        var repo = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+
+        await RoomStartedHandler(sessionId, repo, egress).HandleAsync("body", "auth");
+
+        Assert.Equal(0, egress.StartCalls);
+        Assert.Equal(0, repo.ClaimAttempts);
+        Assert.Null(repo.Find(sessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Room_started_does_not_revive_a_recording_the_teacher_stopped()
+    {
+        // A teacher who stops recording and then loses the room (a reconnect re-firing
+        // room_started) must not find it recording again — stopping is final.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        stream.RecordingState = RecordingState.Ended;
+        stream.EgressId = null;
+        var repo = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService(egressId: EgressId);
+
+        await RoomStartedHandler(sessionId, repo, egress).HandleAsync("body", "auth");
+
+        Assert.Equal(0, egress.StartCalls);
     }
 
     [Fact]
@@ -234,6 +260,8 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         Assert.Null(repo.Find(sessionId)!.EgressId);
     }
 
+    // Recording defaults to Off (it is opt-in), so a fixture for the recording paths has to ask
+    // for it explicitly — otherwise these tests would pass by never getting past the state guard.
     private static LiveStream LiveStream(Guid sessionId) => new()
     {
         Id = Guid.NewGuid(),
@@ -242,6 +270,7 @@ public sealed class LiveKitRecordingWebhookHandlerTests
         TeacherId = Guid.NewGuid(),
         Status = StreamStatus.Live,
         StreamKey = "k",
+        RecordingState = RecordingState.Recording,
     };
 
     private static LiveKitRecordingWebhookHandler RoomStartedHandler(
@@ -250,7 +279,12 @@ public sealed class LiveKitRecordingWebhookHandlerTests
             new FakeLiveKitWebhookVerifier(
                 new WebhookEvent { Event = "room_started", Room = new Room { Name = sessionId.ToString() } }),
             repo,
-            egress,
+            Starter(repo, egress),
             new FakePublishEndpoint(),
             new RecordingLogger<LiveKitRecordingWebhookHandler>());
+
+    // The real starter over the fakes, so these tests keep covering the claim arbitration that
+    // moved out of the handler and into it.
+    private static RecordingStarter Starter(FakeStreamRepository repo, FakeRecordingEgressService egress)
+        => new(repo, egress, new RecordingLogger<RecordingStarter>());
 }

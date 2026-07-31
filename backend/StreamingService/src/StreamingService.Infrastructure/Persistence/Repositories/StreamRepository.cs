@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Domain.Enums;
 
 namespace StreamingService.Infrastructure.Persistence.Repositories;
 
@@ -67,13 +68,17 @@ public sealed class StreamRepository : GenericRepository<LiveStream>, IStreamRep
     public async Task<List<LiveStream>> GetLiveStreamsNeedingRecordingAsync(
         string placeholderPrefix, DateTime claimedBeforeUtc, CancellationToken ct = default)
     {
-        // Narrow in SQL to live streams that are unrecorded or still holding a placeholder. The
-        // StartedAtUtc bound gives the room_started webhook — the normal path — time to arrive
-        // first; without it this would race the webhook on every freshly-live session and try to
-        // attach egress to a room that does not exist yet.
+        // Narrow in SQL to live streams the teacher WANTS recorded that are unrecorded or still
+        // holding a placeholder. The RecordingState filter is what keeps this from fighting the
+        // teacher: without it, a session with recording off (the default) or already stopped would
+        // be treated as broken and started on every pass. The StartedAtUtc bound gives the
+        // room_started webhook — the normal path — time to arrive first; without it this would race
+        // the webhook on every freshly-live session and try to attach egress to a room that does
+        // not exist yet.
         var candidates = await _streamingContext.Streams
             .AsNoTracking()
             .Where(s => s.Status == StreamStatus.Live
+                        && s.RecordingState == RecordingState.Recording
                         && s.StartedAtUtc != null
                         && s.StartedAtUtc <= claimedBeforeUtc
                         && (s.EgressId == null || s.EgressId.StartsWith(placeholderPrefix)))

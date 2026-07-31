@@ -51,6 +51,8 @@ export interface CreateSessionRequest {
   description: string;
   scheduledAtUtc: string;
   participationMode: number; // Added
+  /** Start the session recording. Opt-in; the teacher can also start it live from the session. */
+  recordingEnabled: boolean;
 }
 
 export interface MemberResponse {

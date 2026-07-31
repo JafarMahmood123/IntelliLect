@@ -11,6 +11,9 @@ public record StreamResponse(
     int ParticipationMode,
     bool StudentsCanPublishAudio,
     bool StudentsCanPublishVideo,
+    // "Off" / "Recording" / "Ended". Carried on join so someone arriving mid-session sees the
+    // recording indicator immediately, rather than only after the next change is broadcast.
+    string RecordingState,
     MediaSettingsResponse Media);
 
 /// <summary>

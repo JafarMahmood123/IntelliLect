@@ -235,6 +235,8 @@ public sealed class InternalStreamsControllerTests
         TeacherId = Guid.NewGuid(),
         Status = StreamStatus.Live,
         StreamKey = "k",
+        // Recording is opt-in, so a fixture exercising the recording paths must ask for it.
+        RecordingState = RecordingState.Recording,
     };
 
     [Fact]
@@ -292,7 +294,7 @@ public sealed class InternalStreamsControllerTests
         {
             Id = Guid.NewGuid(), SessionId = sessionId, ClassroomId = Guid.NewGuid(),
             TeacherId = Guid.NewGuid(), Status = StreamStatus.Live, StreamKey = "k",
-            EgressId = "EG_session42",
+            EgressId = "EG_session42", RecordingState = RecordingState.Recording,
         };
         var repo = new FakeStreamRepository(stream);
         var egress = new FakeRecordingEgressService();
@@ -303,6 +305,51 @@ public sealed class InternalStreamsControllerTests
         Assert.IsType<NoContentResult>(result);
         Assert.Equal(1, egress.StopCalls);
         Assert.Equal("EG_session42", egress.LastStoppedEgressId);
+    }
+
+    [Fact]
+    public async Task EndStream_does_not_stop_a_recording_the_teacher_already_stopped()
+    {
+        // EgressId is deliberately KEPT after a mid-session stop — the egress-ended webhook
+        // correlates by it — so it cannot be used to tell "already stopped" from "still running".
+        // Only RecordingState can, and stopping an already-finalized egress would log a spurious
+        // failure on every such session end.
+        var sessionId = Guid.NewGuid();
+        var stream = LiveStream(sessionId);
+        stream.EgressId = "EG_already_finalized";
+        stream.RecordingState = RecordingState.Ended;
+        var egress = new FakeRecordingEgressService();
+        var controller = CreateController(
+            new FakeStreamRepository(stream), new RecordingLiveAssistantClient(),
+            new RecordingLogger<InternalStreamsController>(), egress);
+
+        var result = await controller.EndStream(sessionId, default);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, egress.StopCalls);
+        Assert.Equal(0, egress.FinalizeCalls);
+    }
+
+    [Fact]
+    public async Task InitializeStream_seeds_the_recording_state_from_the_request()
+    {
+        var repo = new FakeStreamRepository();
+        var controller = CreateController(
+            repo, new RecordingLiveAssistantClient(), new RecordingLogger<InternalStreamsController>(),
+            new FakeRecordingEgressService());
+
+        var wanted = Guid.NewGuid();
+        var notWanted = Guid.NewGuid();
+        await controller.InitializeStream(
+            new InitializeStreamRequest(wanted, Guid.NewGuid(), Guid.NewGuid(), default, RecordingEnabled: true),
+            default);
+        await controller.InitializeStream(
+            new InitializeStreamRequest(notWanted, Guid.NewGuid(), Guid.NewGuid(), default),
+            default);
+
+        Assert.Equal(RecordingState.Recording, repo.Find(wanted)!.RecordingState);
+        // Opt-in: an omitted flag must mean off, never a surprise recording.
+        Assert.Equal(RecordingState.Off, repo.Find(notWanted)!.RecordingState);
     }
 
     [Fact]
@@ -332,7 +379,7 @@ public sealed class InternalStreamsControllerTests
         {
             Id = Guid.NewGuid(), SessionId = sessionId, ClassroomId = Guid.NewGuid(),
             TeacherId = Guid.NewGuid(), Status = StreamStatus.Live, StreamKey = "k",
-            EgressId = "EG_session42",
+            EgressId = "EG_session42", RecordingState = RecordingState.Recording,
         };
         var repo = new FakeStreamRepository(stream);
         var egress = new FakeRecordingEgressService(throwOnCall: true);

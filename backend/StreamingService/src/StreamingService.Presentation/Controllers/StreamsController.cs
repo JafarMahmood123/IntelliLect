@@ -75,6 +75,24 @@ public sealed class StreamsController : ApiBaseController
         return Ok(policy);
     }
 
+    /// <summary>
+    /// Teacher-only: start or stop recording this session, live. Stopping is final — a second start
+    /// is rejected with 409, which is what keeps the archived session one continuous video.
+    /// </summary>
+    [HttpPut("{sessionId:guid}/recording")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UpdateRecording(
+        Guid sessionId,
+        [FromBody] UpdateRecordingRequest request,
+        CancellationToken ct)
+    {
+        _logger.LogDebug(
+            "Recording toggle requested. SessionId: {SessionId}, UserId: {UserId}, Enabled: {Enabled}",
+            sessionId, UserId, request.Enabled);
+        var state = await _streamService.UpdateRecordingStateAsync(sessionId, UserId, request.Enabled, ct);
+        return Ok(state);
+    }
+
     [HttpGet("{sessionId:guid}/chat")]
     public async Task<IActionResult> GetChatHistory(
         Guid sessionId,

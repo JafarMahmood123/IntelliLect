@@ -38,6 +38,16 @@ public sealed class StreamHubContext : IStreamHubContext
             .PublishPolicyChanged(canPublishAudio, canPublishVideo);
     }
 
+    public async Task NotifyRecordingStateChangedAsync(Guid sessionId, string state)
+    {
+        _logger.LogDebug(
+            "Broadcasting recording state change. SessionId: {SessionId}, State: {State}",
+            sessionId, state);
+
+        await _hubContext.Clients.Group(sessionId.ToString())
+            .RecordingStateChanged(state);
+    }
+
     public async Task NotifyParticipantCountAsync(Guid sessionId, int count)
     {
         _logger.LogDebug(

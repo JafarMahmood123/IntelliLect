@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { PublishPolicy, StreamResponse } from '../types';
+import type { PublishPolicy, RecordingState, StreamResponse } from '../types';
 
 export const getStreamDetails = async (sessionId: string): Promise<StreamResponse> => {
   const { data } = await apiClient.get<StreamResponse>(`/streams/${sessionId}`);
@@ -12,6 +12,23 @@ export const updatePublishPolicy = async (
   policy: PublishPolicy,
 ): Promise<PublishPolicy> => {
   const { data } = await apiClient.put<PublishPolicy>(`/streams/${sessionId}/publish-policy`, policy);
+  return data;
+};
+
+/**
+ * Teacher-only: start or stop recording this live session.
+ *
+ * Stopping is FINAL — the server rejects a restart with 409. Callers should confirm before
+ * sending `false`.
+ */
+export const updateRecording = async (
+  sessionId: string,
+  enabled: boolean,
+): Promise<{ state: RecordingState }> => {
+  const { data } = await apiClient.put<{ state: RecordingState }>(
+    `/streams/${sessionId}/recording`,
+    { enabled },
+  );
   return data;
 };
 

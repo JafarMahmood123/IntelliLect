@@ -5,7 +5,23 @@ namespace StreamingService.Domain.Entities;
 public sealed class LiveStream
 {
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// The LiveKit egress currently recording this session, or a timestamped placeholder while a
+    /// caller is claiming the slot. NOT cleared when recording stops: the egress-ended webhook
+    /// correlates back to this stream by egress id, so clearing it would silently lose the
+    /// recording. <see cref="RecordingState"/> is what says whether recording is wanted.
+    /// </summary>
     public string? EgressId { get; set; }
+
+    /// <summary>
+    /// Whether the teacher wants this session recorded. Seeded from the session's creation-time
+    /// setting (default off) and changed live from inside the session — the same shape as
+    /// <see cref="StudentsCanPublishAudio"/>. Every recording path (room_started, the reconcile
+    /// loop, session end) reconciles against this rather than inferring intent from the stream
+    /// being live.
+    /// </summary>
+    public RecordingState RecordingState { get; set; } = RecordingState.Off;
 
     /// <summary>Set once the egress-complete webhook has been turned into a
     /// SessionRecordingReadyMessage (R-1), so duplicate webhook deliveries don't re-publish.</summary>

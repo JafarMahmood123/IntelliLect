@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using StreamingService.Domain.Entities;
+using StreamingService.Domain.Enums;
 using StreamingService.Infrastructure.Services;
 
 namespace StreamingService.UnitTests;
@@ -13,7 +14,12 @@ public sealed class EgressReconcilerTests
 {
     private static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(30);
 
-    private static LiveStream LiveStreamStartedMinutesAgo(int minutes, string? egressId = null) => new()
+    // Defaults to Recording because that is what these tests are about: a session the teacher DID
+    // ask to record. Recording is opt-in, so the entity's own default is Off.
+    private static LiveStream LiveStreamStartedMinutesAgo(
+        int minutes,
+        string? egressId = null,
+        RecordingState recordingState = RecordingState.Recording) => new()
     {
         Id = Guid.NewGuid(),
         SessionId = Guid.NewGuid(),
@@ -23,11 +29,18 @@ public sealed class EgressReconcilerTests
         Status = StreamStatus.Live,
         StartedAtUtc = DateTime.UtcNow.AddMinutes(-minutes),
         EgressId = egressId,
+        RecordingState = recordingState,
     };
 
+    // Uses the REAL starter over the fakes rather than a stub, so these tests keep covering the
+    // claim arbitration that moved into it.
     private static EgressReconciler Create(
         FakeStreamRepository streams, FakeRecordingEgressService egress)
-        => new(streams, egress, NullLogger<EgressReconciler>.Instance);
+        => new(
+            streams,
+            egress,
+            new RecordingStarter(streams, egress, NullLogger<RecordingStarter>.Instance),
+            NullLogger<EgressReconciler>.Instance);
 
     // --- direction 1: start what is missing ------------------------------------
 
@@ -45,6 +58,69 @@ public sealed class EgressReconcilerTests
         Assert.Equal(stream.SessionId.ToString(), egress.LastRoomName);
         // The real egress id replaced the claim placeholder.
         Assert.Equal("EG_recovered", streams.Find(stream.SessionId)!.EgressId);
+    }
+
+    [Fact]
+    public async Task Never_records_a_session_the_teacher_did_not_ask_to_record()
+    {
+        // The rule this pass used to encode — "live and not recording means something broke" — is
+        // wrong now that recording is opt-in. Getting this backwards would record every session
+        // whose teacher deliberately left it off.
+        var streams = new FakeStreamRepository(
+            LiveStreamStartedMinutesAgo(5, recordingState: RecordingState.Off));
+        var egress = new FakeRecordingEgressService(egressId: "EG_unwanted");
+
+        await Create(streams, egress).ReconcileAsync(StaleAfter);
+
+        Assert.Equal(0, egress.StartCalls);
+    }
+
+    [Fact]
+    public async Task Never_restarts_a_recording_the_teacher_stopped()
+    {
+        // Stopping is final. Restarting here would both defy the teacher and split the session
+        // into two files.
+        var streams = new FakeStreamRepository(
+            LiveStreamStartedMinutesAgo(5, recordingState: RecordingState.Ended));
+        var egress = new FakeRecordingEgressService(egressId: "EG_restarted");
+
+        await Create(streams, egress).ReconcileAsync(StaleAfter);
+
+        Assert.Equal(0, egress.StartCalls);
+    }
+
+    [Fact]
+    public async Task Stops_a_recording_the_teacher_turned_off_while_the_session_is_still_live()
+    {
+        // The toggle is a single unretried HTTP request; if its StopEgress call was lost, the
+        // session would keep recording after the teacher was told it had stopped.
+        var stream = LiveStreamStartedMinutesAgo(
+            5, egressId: "EG_should_be_stopped", recordingState: RecordingState.Ended);
+        var streams = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService
+        {
+            ActiveEgressIds = new HashSet<string> { "EG_should_be_stopped" },
+        };
+
+        await Create(streams, egress).ReconcileAsync(StaleAfter);
+
+        Assert.Equal(1, egress.StopCalls);
+        Assert.Equal("EG_should_be_stopped", egress.LastStoppedEgressId);
+    }
+
+    [Fact]
+    public async Task Leaves_a_running_recording_alone_while_it_is_still_wanted()
+    {
+        var stream = LiveStreamStartedMinutesAgo(5, egressId: "EG_wanted");
+        var streams = new FakeStreamRepository(stream);
+        var egress = new FakeRecordingEgressService
+        {
+            ActiveEgressIds = new HashSet<string> { "EG_wanted" },
+        };
+
+        await Create(streams, egress).ReconcileAsync(StaleAfter);
+
+        Assert.Equal(0, egress.StopCalls);
     }
 
     [Fact]

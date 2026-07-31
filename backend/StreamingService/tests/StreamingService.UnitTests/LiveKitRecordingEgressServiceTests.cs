@@ -176,16 +176,61 @@ public sealed class LiveKitRecordingEgressServiceTests
     public async Task StartRoomRecording_applies_optional_encode_settings_when_configured()
     {
         var client = new FakeLiveKitEgressClient();
+        // KILObits per second. The previous sample values here were 2_500_000 / 128_000, which
+        // read as kbps ask LiveKit for 2.5 Tbps of video.
         var service = CreateService(client, Options(
-            videoBitrate: 2_500_000, audioBitrate: 128_000, keyFrameInterval: 4, audioOnly: true));
+            videoBitrate: 2500, audioBitrate: 128, keyFrameInterval: 4, audioOnly: true));
 
         await service.StartRoomRecordingAsync("room-1");
 
         var encoding = client.LastStartRequest!.Advanced;
-        Assert.Equal(2_500_000, encoding.VideoBitrate);
-        Assert.Equal(128_000, encoding.AudioBitrate);
+        Assert.Equal(2500, encoding.VideoBitrate);
+        Assert.Equal(128, encoding.AudioBitrate);
         Assert.Equal(4d, encoding.KeyFrameInterval);
         Assert.True(client.LastStartRequest.AudioOnly);
+    }
+
+    [Fact]
+    public async Task GetActiveEgressIds_excludes_an_egress_that_is_already_finalizing()
+    {
+        // "Still working" and "still stoppable" are different questions. An egress in EgressEnding
+        // has already been told to stop; asking again just logs a failure — and with the teacher
+        // able to stop recording mid-session, the reconcile pass now lands in that window often.
+        var client = new FakeLiveKitEgressClient();
+        client.ActiveItems.Add(("EG_active", EgressStatus.EgressActive));
+        client.ActiveItems.Add(("EG_starting", EgressStatus.EgressStarting));
+        client.ActiveItems.Add(("EG_finalizing", EgressStatus.EgressEnding));
+        var service = CreateService(client, Options());
+
+        var ids = await service.GetActiveEgressIdsAsync();
+
+        Assert.Equal(new HashSet<string> { "EG_active", "EG_starting" }, ids);
+    }
+
+    [Fact]
+    public async Task StartRoomRecording_caps_bitrate_by_default_rather_than_inheriting_LiveKits_4500()
+    {
+        // Regression guard for storage cost: with these left unset LiveKit applies its own 4500
+        // kbps default (tuned for 1080p30), which cost ~1 GB per recorded hour of slide content.
+        // Note this builds EgressOptions directly — the Options() helper passes an explicit null.
+        var client = new FakeLiveKitEgressClient();
+        var options = new EgressOptions
+        {
+            S3 = new EgressOptions.S3Settings
+            {
+                Bucket = "intellilect-files",
+                Region = "us-east-1",
+                AccessKey = "testuser",
+                Secret = "testpassword123!",
+            },
+        };
+        var service = CreateService(client, options);
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        var encoding = client.LastStartRequest!.Advanced;
+        Assert.Equal(1200, encoding.VideoBitrate);
+        Assert.Equal(96, encoding.AudioBitrate);
     }
 
     // --- finalize wait --------------------------------------------------------

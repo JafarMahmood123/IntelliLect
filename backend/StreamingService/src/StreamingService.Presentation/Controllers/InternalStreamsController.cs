@@ -51,13 +51,17 @@ public sealed class InternalStreamsController : ControllerBase
             // Seed the live toggles from the creation-time mode; the teacher can change them later.
             StudentsCanPublishAudio = request.ParticipationMode.AllowsAudio(),
             StudentsCanPublishVideo = request.ParticipationMode.AllowsVideo(),
+            // Same shape: the creation-time choice seeds a state the teacher changes live.
+            // Recording is opt-in, so anything but an explicit yes means Off.
+            RecordingState = request.RecordingEnabled ? RecordingState.Recording : RecordingState.Off,
             StreamKey = Guid.NewGuid().ToString("N")
         };
 
-        // NOTE: recording is NOT started here. At this point the LiveKit room does not exist yet
-        // (it is created when the first participant joins), so starting egress now fails with
-        // "requested room does not exist". Recording is started when LiveKit fires the
-        // `room_started` webhook — see LiveKitRecordingWebhookHandler.
+        // NOTE: recording is NOT started here, even when it was requested. At this point the LiveKit
+        // room does not exist yet (it is created when the first participant joins), so starting
+        // egress now fails with "requested room does not exist". The state above records the INTENT;
+        // it is acted on when LiveKit fires the `room_started` webhook (see
+        // LiveKitRecordingWebhookHandler), with the reconcile loop as the safety net.
         await _streamRepository.AddAsync(stream, ct);
         await _streamRepository.SaveChangesAsync(ct);
 
@@ -130,6 +134,12 @@ public sealed class InternalStreamsController : ControllerBase
 
     private async Task TryStopRecordingAsync(LiveStream stream, CancellationToken ct)
     {
+        // Only a recording that is actually running needs stopping. Off means there never was one;
+        // Ended means the teacher already stopped it mid-session and LiveKit finalized it long ago
+        // — and EgressId is deliberately kept after that (the egress-ended webhook correlates by
+        // it), so it cannot be used to tell those cases apart.
+        if (stream.RecordingState != RecordingState.Recording) return;
+
         if (string.IsNullOrWhiteSpace(stream.EgressId)) return;
 
         try
@@ -219,7 +229,15 @@ public sealed class InternalStreamsController : ControllerBase
     }
 }
 
-public record InitializeStreamRequest(Guid SessionId, Guid ClassroomId, Guid TeacherId, StudentParticipationMode ParticipationMode);
+public record InitializeStreamRequest(
+    Guid SessionId,
+    Guid ClassroomId,
+    Guid TeacherId,
+    StudentParticipationMode ParticipationMode,
+    // Whether the teacher asked for this session to be recorded when they created it. Defaults to
+    // false so an older caller that omits it gets the opt-in default rather than a surprise
+    // recording.
+    bool RecordingEnabled = false);
 
 /// <summary>One live stream's real-time snapshot for the super-admin monitor.</summary>
 public record LiveStreamSnapshot(

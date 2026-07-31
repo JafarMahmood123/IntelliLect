@@ -276,6 +276,6 @@ public sealed class RecordingStreamingClient : IStreamingInternalClient
         return Task.FromResult(_endResult);
     }
 
-    public Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, CancellationToken ct = default)
+    public Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, bool recordingEnabled, CancellationToken ct = default)
         => throw new NotImplementedException();
 }

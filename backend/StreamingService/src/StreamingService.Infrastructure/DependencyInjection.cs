@@ -142,6 +142,11 @@ public static class DependencyInjection
         services.AddSingleton<ILiveKitEgressClient, LiveKitEgressClient>();
         services.AddScoped<IRecordingEgressService, LiveKitRecordingEgressService>();
 
+        // The single place a recording is started. Shared by the room_started webhook, the reconcile
+        // loop and the teacher's toggle so all three arbitrate through the same database claim —
+        // scoped because it writes through the repository.
+        services.AddScoped<IRecordingStarter, RecordingStarter>();
+
         // Reconciliation safety net: recording is otherwise driven by a single unretried
         // room_started webhook, so a missed delivery loses a whole lecture's recording silently.
         // Registered only when recording is on, and skippable by setting the interval to 0.
