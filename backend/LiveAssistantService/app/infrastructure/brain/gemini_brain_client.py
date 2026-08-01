@@ -31,6 +31,13 @@ from app.infrastructure.brain.evaluation_prompt import (
     build_user_prompt,
 )
 from app.infrastructure.brain.outcome_parser import parse_outcome
+from app.infrastructure.brain.quiz_parser import parse_quiz
+from app.infrastructure.brain.quiz_prompt import (
+    SYSTEM_PROMPT as QUIZ_SYSTEM_PROMPT,
+    build_response_schema,
+    build_user_prompt as build_quiz_user_prompt,
+)
+from app.domain.quiz.generated_quiz import GeneratedQuiz
 from app.infrastructure.config.settings import Settings
 
 logger = logging.getLogger("liveassistant.brain")
@@ -49,6 +56,9 @@ class GeminiBrainClient(BrainClient):
         self._temperature = settings.eval_temperature
         self._max_tokens = settings.eval_max_tokens
         self._default_confidence = settings.feedback_default_confidence
+        self._quiz_max_tokens = settings.quiz_max_tokens
+        self._quiz_timeout = settings.quiz_timeout_seconds
+        self._quiz_temperature = settings.quiz_temperature
         # Extra generationConfig fields merged into every request (topP, topK, …). Config-driven,
         # so new request fields never need a code change.
         self._extra_generation_config = _parse_json_object(
@@ -66,20 +76,66 @@ class GeminiBrainClient(BrainClient):
         content = await self._complete(SYSTEM_PROMPT, build_user_prompt(idea.text, context))
         return parse_outcome(content, citation_map, self._default_confidence)
 
+    async def generate_quiz(
+        self,
+        idea_text: str,
+        chunks: list[RetrievedChunk],
+        *,
+        question_count: int,
+        min_options: int,
+        max_options: int,
+    ) -> GeneratedQuiz | None:
+        context, citation_map = build_numbered_context(chunks)
+        schema = build_response_schema(
+            max_questions=question_count,
+            min_options=min_options,
+            max_options=max_options,
+        )
+        content = await self._complete(
+            QUIZ_SYSTEM_PROMPT,
+            build_quiz_user_prompt(idea_text, context, question_count),
+            # Constrained decoding: Gemini generates AGAINST the schema, so a wrong shape is
+            # prevented rather than detected. The parser still runs — see quiz_parser.
+            generation_config={
+                "temperature": self._quiz_temperature,
+                "maxOutputTokens": self._quiz_max_tokens,
+                "responseMimeType": "application/json",
+                "responseSchema": _to_gemini_schema(schema),
+            },
+            timeout=self._quiz_timeout,
+        )
+        return parse_quiz(
+            content,
+            max_questions=question_count,
+            min_options=min_options,
+            max_options=max_options,
+            citation_numbers=set(citation_map),
+            grounded=bool(chunks),
+        )
+
     async def smoke_complete(self, transcript_text: str) -> str:
         """SMOKE-TEST ONLY (temporary): raw transcript -> Gemini -> raw reply."""
         return await self._complete(SMOKE_SYSTEM_PROMPT, transcript_text)
 
-    async def _complete(self, system: str, user: str) -> str:
+    async def _complete(
+        self,
+        system: str,
+        user: str,
+        *,
+        generation_config: dict | None = None,
+        timeout: float | None = None,
+    ) -> str:
         """POST a generateContent request and return the model's text.
 
         The only blocking work is the remote HTTP call, awaited off the loop by httpx.
+        ``generation_config`` overrides the evaluation defaults wholesale (quiz generation needs
+        its own cap and a response schema); the env-provided extras are merged on top either way.
         """
         url = f"{self._base_url}/models/{self._model}:generateContent"
-        generation_config = {
-            "temperature": self._temperature,
-            "maxOutputTokens": self._max_tokens,
-        }
+        generation_config = dict(
+            generation_config
+            or {"temperature": self._temperature, "maxOutputTokens": self._max_tokens}
+        )
         generation_config.update(self._extra_generation_config)
         payload = {
             "systemInstruction": {"parts": [{"text": system}]},
@@ -90,7 +146,7 @@ class GeminiBrainClient(BrainClient):
         headers = {"x-goog-api-key": self._api_key, "Content-Type": "application/json"}
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout or self._timeout) as client:
                 response = await client.post(url, json=payload, headers=headers)
         except httpx.RequestError as exc:
             raise GeminiBrainError(
@@ -110,6 +166,30 @@ class GeminiBrainClient(BrainClient):
                 f"Gemini generateContent failed with HTTP {response.status_code}: {response.text}"
             )
         return _extract_text(response.json())
+
+
+def _to_gemini_schema(schema: dict) -> dict:
+    """Translate the canonical JSON Schema into the dialect Gemini's ``responseSchema`` expects.
+
+    Gemini's Schema is an OpenAPI-derived proto whose ``type`` is an ENUM, and proto JSON requires
+    the enum NAME — "OBJECT", not "object". The canonical schema stays lowercase because that is
+    what standard JSON Schema (and therefore Ollama) uses, so the uppercasing lives here rather
+    than forking the schema per provider.
+    """
+    converted: dict = {}
+    for key, value in schema.items():
+        if key == "type" and isinstance(value, str):
+            converted[key] = value.upper()
+        elif key == "properties" and isinstance(value, dict):
+            converted[key] = {
+                name: _to_gemini_schema(sub) if isinstance(sub, dict) else sub
+                for name, sub in value.items()
+            }
+        elif key == "items" and isinstance(value, dict):
+            converted[key] = _to_gemini_schema(value)
+        else:
+            converted[key] = value
+    return converted
 
 
 def _extract_text(data: dict) -> str:

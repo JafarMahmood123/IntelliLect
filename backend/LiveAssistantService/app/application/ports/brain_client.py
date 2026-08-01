@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from app.domain.evaluation.evaluation_outcome import EvaluationOutcome
 from app.domain.evaluation.retrieved_chunk import RetrievedChunk
 from app.domain.idea.completed_idea import CompletedIdea
+from app.domain.quiz.generated_quiz import GeneratedQuiz
 
 
 class BrainClient(ABC):
@@ -26,6 +27,29 @@ class BrainClient(ABC):
         A parse/validation failure of the model output must degrade to "no feedback"
         rather than crash the caller; transport/HTTP failures may raise a catchable
         error for the caller to handle.
+        """
+        raise NotImplementedError
+
+    async def generate_quiz(
+        self,
+        idea_text: str,
+        chunks: list[RetrievedChunk],
+        *,
+        question_count: int,
+        min_options: int,
+        max_options: int,
+    ) -> GeneratedQuiz | None:
+        """Write multiple-choice questions testing the explanation in ``idea_text``.
+
+        The bounds are the CALLER's (ClassroomService owns the quiz limits), so a provider never
+        proposes a quiz the limits would reject. Implementations must hand them to the model as a
+        response schema where the provider supports one, so the shape is constrained during
+        generation rather than merely checked afterwards.
+
+        Returns ``None`` when the reply yielded no usable question. Unlike ``evaluate``, silence is
+        NOT an acceptable outcome here — a teacher asked for this — so the caller reports the
+        failure instead of pretending there was nothing to say. Transport/HTTP failures may raise
+        a catchable error.
         """
         raise NotImplementedError
 

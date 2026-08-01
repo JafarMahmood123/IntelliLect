@@ -14,6 +14,14 @@ public class LiveAssistantOptions
     /// <summary>Shared secret matching LiveAssistantService's INTERNAL_API_SECRET.</summary>
     public string InternalApiSecret { get; init; } = string.Empty;
 
-    /// <summary>Per-request HTTP timeout in seconds.</summary>
+    /// <summary>Per-request HTTP timeout in seconds, for the quick transcript calls.</summary>
     public int TimeoutSeconds { get; init; } = 10;
+
+    /// <summary>
+    /// Timeout for quiz generation, which runs a language model over the session transcript and
+    /// legitimately takes tens of seconds — far longer than a transcript lookup should ever be
+    /// allowed to hang. Kept separate so waiting for a model does not also mean waiting two
+    /// minutes to notice that a transcript delete has stalled.
+    /// </summary>
+    public int GenerationTimeoutSeconds { get; init; } = 120;
 }

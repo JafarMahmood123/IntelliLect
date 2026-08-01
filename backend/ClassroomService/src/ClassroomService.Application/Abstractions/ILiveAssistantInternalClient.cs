@@ -27,4 +27,44 @@ public interface ILiveAssistantInternalClient
     /// sessions' transcripts do not outlive it). Retries then throws; returns the number removed.
     /// </summary>
     Task<int> DeleteClassroomTranscriptsAsync(Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ask the assistant for multiple-choice questions about the idea the teacher has just finished
+    /// explaining. LiveAssistantService is the only service holding all three inputs — the live
+    /// transcript, the brain, and retrieval over the classroom's material — so generation happens
+    /// there and the proposal comes back here to become a Draft.
+    /// </summary>
+    /// <remarks>
+    /// The option bounds are passed IN because this service owns the quiz limits; a second copy in
+    /// the assistant's own settings would be a copy free to disagree with the one that actually
+    /// rejects a publish.
+    ///
+    /// Throws <see cref="Exceptions.ConflictException"/> when the session has produced nothing to
+    /// quiz on yet (the lecture has not said enough — the teacher fixes that by carrying on) and
+    /// <see cref="Exceptions.ServiceUnavailableException"/> when the assistant could not produce a
+    /// usable quiz. Kept distinct so the teacher is told which of the two happened.
+    /// </remarks>
+    Task<GeneratedQuizDto> GenerateQuizAsync(
+        Guid sessionId,
+        Guid classroomId,
+        int questionCount,
+        int minOptions,
+        int maxOptions,
+        CancellationToken ct = default);
 }
+
+/// <summary>An option the assistant proposed. Exactly one per question is correct.</summary>
+public sealed record GeneratedOptionDto(string Text, bool IsCorrect);
+
+/// <summary>A question the assistant proposed. Carries no marks or timing — those are the
+/// teacher's to set, and this service supplies its own defaults.</summary>
+public sealed record GeneratedQuestionDto(string Text, IReadOnlyList<GeneratedOptionDto> Options);
+
+/// <summary>
+/// The assistant's proposal. <paramref name="Grounded"/> is false when no course material was
+/// relevant and the questions came from the teacher's spoken words alone.
+/// </summary>
+public sealed record GeneratedQuizDto(
+    string Title,
+    bool Grounded,
+    IReadOnlyList<GeneratedQuestionDto> Questions);

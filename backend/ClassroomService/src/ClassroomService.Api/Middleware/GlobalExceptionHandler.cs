@@ -28,6 +28,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             ForbiddenAccessException => (StatusCodes.Status403Forbidden, "Forbidden"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+            ServiceUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Service Unavailable"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
         };
 

@@ -13,6 +13,15 @@ public interface IQuizService
     Task<QuizTeacherDto> CreateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default);
 
+    /// <summary>
+    /// Builds a DRAFT from the idea the teacher has just been explaining, using the assistant's
+    /// transcript of the session and the classroom's material. The result is an ordinary draft —
+    /// reviewed, edited and published exactly like a hand-composed one — so the teacher, not the
+    /// model, decides what the class is asked.
+    /// </summary>
+    Task<QuizTeacherDto> GenerateDraftAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default);
+
     /// <summary>Replaces a DRAFT's content. Rejected once published — publishing freezes the quiz.</summary>
     Task<QuizTeacherDto> UpdateDraftAsync(
         Guid classroomId, Guid quizId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default);

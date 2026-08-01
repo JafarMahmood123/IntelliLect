@@ -279,6 +279,23 @@ class Settings(BaseSettings):
     # smoke reply from ~5-12s down toward ~3-5s. 0 = Ollama's own default (all cores).
     eval_num_thread: int = 6
 
+    # --- Quiz generation: MCQs from the idea the teacher just finished ---
+    # Separate knobs from evaluation because the shape of the work is different: a suggestion is
+    # one short paragraph, a quiz is several questions with several options each, so it needs a
+    # far larger generation cap and longer to produce. Note the thinking-token warning on
+    # gemini_model — thinking is charged against this cap too, and a truncated reply is a lost quiz.
+    quiz_max_tokens: int = 2048
+    quiz_timeout_seconds: float = 90.0
+    # Slightly above eval_temperature: identical phrasing every time makes for dull distractors,
+    # while too much invention costs accuracy. The response schema constrains the shape regardless.
+    quiz_temperature: float = 0.4
+    # Below this many estimated tokens, the newest idea alone is too thin to build questions from
+    # and the generator reaches back through the retained ideas for more context. A boundary that
+    # fired on a pause can be only a few seconds of speech.
+    quiz_min_idea_tokens: int = 60
+    # How many finished ideas to retain per session for the generator to draw on.
+    quiz_idea_history: int = 3
+
     # --- Feedback delivery (LA-5): private, teacher-only ---
     # Primary transport is a reliable LiveKit data message from the agent's existing
     # room connection, targeted to the teacher identity ONLY. "signalr" (StreamHub) is

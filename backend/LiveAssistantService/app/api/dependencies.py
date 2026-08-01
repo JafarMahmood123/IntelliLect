@@ -17,6 +17,8 @@ from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
+from app.application.services.last_idea_store import LastIdeaStore
+from app.application.services.quiz_generator import QuizGenerator
 from app.application.services.session_manager import (
     SessionManager,
     SessionPipelineFactory,
@@ -275,11 +277,61 @@ def get_feedback_recorder(request: Request) -> FeedbackRecorder:
 FeedbackRecorderDep = Annotated[FeedbackRecorder, Depends(get_feedback_recorder)]
 
 
+# --- Quiz generation ----------------------------------------------------------
+def build_last_idea_store(settings: Settings) -> LastIdeaStore:
+    """The shared per-session store of finished ideas.
+
+    Built ONCE at startup and shared by every session pipeline AND the quiz endpoint — the same
+    arrangement as the transcript store — so the endpoint generates from exactly the ideas the
+    pipelines observed.
+    """
+    return LastIdeaStore(settings.quiz_idea_history)
+
+
+def get_last_idea_store(request: Request) -> LastIdeaStore:
+    store: LastIdeaStore | None = getattr(request.app.state, "last_idea_store", None)
+    if store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Idea store is not running.",
+        )
+    return store
+
+
+LastIdeaStoreDep = Annotated[LastIdeaStore, Depends(get_last_idea_store)]
+
+
+def build_quiz_generator(settings: Settings, ideas: LastIdeaStore) -> QuizGenerator:
+    """Retrieve + generate for one quiz request.
+
+    The retrieval and brain clients are stateless HTTP clients, so building them per request costs
+    nothing and keeps a provider/config change effective without a restart of anything else.
+    """
+    return QuizGenerator(
+        KnowledgeRetrievalClient(settings),
+        build_brain_client(settings),
+        ideas,
+        top_k=settings.retrieval_top_k,
+        min_score=settings.retrieval_min_score,
+        min_idea_tokens=settings.quiz_min_idea_tokens,
+    )
+
+
+def get_quiz_generator(
+    settings: SettingsDep, ideas: LastIdeaStoreDep
+) -> QuizGenerator:
+    return build_quiz_generator(settings, ideas)
+
+
+QuizGeneratorDep = Annotated[QuizGenerator, Depends(get_quiz_generator)]
+
+
 # --- Session lifecycle (LA-6) -------------------------------------------------
 def build_session_pipeline_factory(
     settings: Settings,
     transcript_repository: TranscriptRepository,
     feedback_recorder: FeedbackRecorder,
+    last_idea_store: LastIdeaStore,
 ) -> SessionPipelineFactory:
     """Factory that assembles the full per-session loop from the phase components.
 
@@ -351,6 +403,7 @@ def build_session_pipeline_factory(
         return SessionPipeline(
             session, audio, stt, boundary, evaluator, pacer, dispatcher, recorder,
             smoke_brain=smoke_brain,
+            last_ideas=last_idea_store,
         )
 
     return factory
@@ -360,6 +413,7 @@ def build_session_manager(
     settings: Settings,
     transcript_repository: TranscriptRepository,
     feedback_recorder: FeedbackRecorder,
+    last_idea_store: LastIdeaStore,
 ) -> SessionManager:
     """The session registry/lifecycle, capped by MAX_CONCURRENT_SESSIONS.
 
@@ -370,7 +424,7 @@ def build_session_manager(
     """
     return SessionManager(
         build_session_pipeline_factory(
-            settings, transcript_repository, feedback_recorder
+            settings, transcript_repository, feedback_recorder, last_idea_store
         ),
         settings.max_concurrent_sessions,
     )

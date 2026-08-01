@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Send, Clock, Ban, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Send, Clock, Ban, CheckCircle2, Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../../components/ui/ToastProvider';
@@ -8,10 +8,12 @@ import {
   useCancelQuiz,
   useCloseQuiz,
   useCreateQuizDraft,
+  useGenerateQuizDraft,
   useOpenQuiz,
   usePublishQuiz,
   useQuizLimits,
   useTeacherQuiz,
+  useUpdateQuizDraft,
 } from '../hooks/useQuizQueries';
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
 import { TeacherQuizSummary } from './TeacherQuizSummary';
@@ -53,6 +55,9 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
 
   const createDraft = useCreateQuizDraft(classroomId, sessionId);
+  const updateDraft = useUpdateQuizDraft(classroomId);
+  const generate = useGenerateQuizDraft(classroomId, sessionId);
+  const [questionCount, setQuestionCount] = useState(3);
   const publish = usePublishQuiz(classroomId, sessionId);
   const close = useCloseQuiz(classroomId, sessionId);
   const cancel = useCancelQuiz(classroomId, sessionId);
@@ -169,10 +174,47 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const patch = (index: number, next: Partial<QuestionDraft>) =>
     setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, ...next } : q)));
 
+  /**
+   * Loads a generated draft into the composer so it can be edited before publishing. The teacher
+   * reviews the questions with the correct answers marked, exactly as if they had typed them.
+   */
+  const runGenerate = async () => {
+    try {
+      const draft = await generate.mutateAsync(questionCount);
+      setDraftId(draft.id);
+      setTitle(draft.title);
+      setQuestions(
+        draft.questions.map((question) => ({
+          text: question.text,
+          points: question.points,
+          timeLimitSeconds: question.timeLimitSeconds,
+          options: question.options.map((option) => ({
+            text: option.text,
+            isCorrect: option.isCorrect,
+          })),
+        })),
+      );
+    } catch (error) {
+      // 409 and 503 mean genuinely different things and the fix differs: one is "keep teaching",
+      // the other is "try again". Collapsing them into one apology would hide that.
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      const noIdeaYet = status === 409;
+      showToast({
+        type: 'error',
+        title: noIdeaYet ? 'Nothing to quiz on yet' : 'Could not generate',
+        message: noIdeaYet
+          ? 'The assistant has not transcribed enough of this session. Keep teaching and try again in a moment.'
+          : 'The assistant could not write a quiz right now. You can still write one yourself below.',
+      });
+    }
+  };
+
   const save = async (publishAfter: boolean) => {
     try {
+      // Generation already created a draft, and so does a first save — updating it keeps one quiz
+      // rather than leaving an abandoned draft behind on every save.
       const draft = draftId
-        ? await createDraft.mutateAsync({ title, questions })
+        ? await updateDraft.mutateAsync({ quizId: draftId, draft: { title, questions } })
         : await createDraft.mutateAsync({ title, questions });
       setDraftId(draft.id);
       if (publishAfter) await publish.mutateAsync(draft.id);
@@ -193,6 +235,47 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           Up to {limits.maxQuestionsPerQuiz} questions, {limits.minAnswersPerQuestion}–
           {limits.maxAnswersPerQuestion} answers each. Students see it only once you publish.
         </p>
+      </div>
+
+      {/* Generation is the primary way in; typing one by hand stays available below, and is the
+          only way to make a quiz at all when the assistant has no transcript to work from. */}
+      <div className="space-y-2 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="shrink-0 text-violet-300" />
+          <p className="text-xs font-bold text-slate-200">Generate from your lesson</p>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Writes questions about the idea you have just been explaining, using this session and your
+          course material. You can edit everything before publishing.
+        </p>
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-slate-500">
+            Questions
+            <input
+              type="number"
+              min={1}
+              max={limits.maxQuestionsPerQuiz}
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="mt-0.5 w-14 rounded border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-200 outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={runGenerate}
+            disabled={generate.isPending}
+            className="mt-3 flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
+          >
+            <Sparkles size={13} />
+            {generate.isPending ? 'Writing questions…' : 'Generate'}
+          </button>
+        </div>
+        {generate.isPending && (
+          <p className="text-[10px] text-slate-500">
+            Reading back what you said and checking it against your material — this takes a few
+            seconds.
+          </p>
+        )}
       </div>
 
       <input

@@ -100,7 +100,15 @@ public static class DependencyInjection
                 baseUrl += "/";
             }
             client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+            // The client-wide timeout must cover the LONGEST operation (quiz generation), because
+            // HttpClient.Timeout can only be shortened per request, never extended. The quick
+            // transcript calls impose their own shorter budget via a linked token, so raising this
+            // does not let them hang.
+            var generationTimeout = options.GenerationTimeoutSeconds > 0
+                ? options.GenerationTimeoutSeconds
+                : 120;
+            var requestTimeout = options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10;
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(generationTimeout, requestTimeout));
         });
 
         var s3Section = configuration.GetSection(S3Settings.SectionName);

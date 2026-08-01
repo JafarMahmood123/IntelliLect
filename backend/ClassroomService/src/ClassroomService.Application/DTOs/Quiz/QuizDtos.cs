@@ -14,6 +14,12 @@ public record OptionDraftRequest(string Text, bool IsCorrect);
 
 public record SubmitAnswerRequest(Guid QuestionId, Guid OptionId);
 
+/// <summary>
+/// How many questions to ask the assistant for. Clamped server-side to the configured maximum,
+/// so a client asking for more gets the most it is allowed rather than an error.
+/// </summary>
+public record GenerateQuizRequest(int QuestionCount = 3);
+
 // --- teacher reads -----------------------------------------------------------
 
 /// <summary>

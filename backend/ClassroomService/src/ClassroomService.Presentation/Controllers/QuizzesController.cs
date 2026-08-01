@@ -40,6 +40,16 @@ public sealed class QuizzesController : ApiBaseController
         Guid classroomId, Guid sessionId, [FromBody] QuizDraftRequest request, CancellationToken ct)
         => Ok(await _quizService.CreateDraftAsync(classroomId, sessionId, UserId, request, ct));
 
+    /// <summary>
+    /// Draft a quiz from what the teacher has just been explaining. Returns the same DTO as
+    /// composing one by hand, in Draft, for the teacher to review and edit before publishing.
+    /// </summary>
+    [HttpPost("sessions/{sessionId:guid}/quizzes/generate")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GenerateDraft(
+        Guid classroomId, Guid sessionId, [FromBody] GenerateQuizRequest request, CancellationToken ct)
+        => Ok(await _quizService.GenerateDraftAsync(classroomId, sessionId, UserId, request.QuestionCount, ct));
+
     [HttpPut("quizzes/{quizId:guid}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> UpdateDraft(

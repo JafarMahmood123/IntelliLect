@@ -3,6 +3,7 @@ import {
   cancelQuiz,
   closeQuiz,
   createQuizDraft,
+  generateQuizDraft,
   getMyQuizResult,
   getMySessionQuizSummary,
   getOpenQuizForSession,
@@ -93,9 +94,24 @@ export const useCreateQuizDraft = (classroomId: string, sessionId: string) =>
     mutationFn: (draft: QuizDraftRequest) => createQuizDraft(classroomId, sessionId, draft),
   });
 
-export const useUpdateQuizDraft = (classroomId: string, quizId: string) =>
+/**
+ * Generation runs on the server against the session transcript, so it can take several seconds —
+ * the caller is expected to show that it is working rather than leave the teacher guessing.
+ */
+export const useGenerateQuizDraft = (classroomId: string, sessionId: string) =>
   useMutation({
-    mutationFn: (draft: QuizDraftRequest) => updateQuizDraft(classroomId, quizId, draft),
+    mutationFn: (questionCount: number) =>
+      generateQuizDraft(classroomId, sessionId, questionCount),
+  });
+
+/**
+ * The quiz id travels with the CALL, not the hook, because the draft being edited is only known
+ * once one exists — created by the teacher's first save, or by generation.
+ */
+export const useUpdateQuizDraft = (classroomId: string) =>
+  useMutation({
+    mutationFn: ({ quizId, draft }: { quizId: string; draft: QuizDraftRequest }) =>
+      updateQuizDraft(classroomId, quizId, draft),
   });
 
 /**

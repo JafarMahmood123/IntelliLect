@@ -9,11 +9,18 @@ namespace ClassroomService.Application.Services;
 
 public sealed class QuizService : IQuizService
 {
+    /// <summary>
+    /// Marks given to every generated question. One each keeps a generated quiz's arithmetic
+    /// obvious, and the teacher reweights anything that deserves more before publishing.
+    /// </summary>
+    private const int DefaultGeneratedPoints = 1;
+
     private readonly IQuizRepository _quizRepository;
     private readonly IClassroomRepository _classroomRepository;
     private readonly IMembershipRepository _membershipRepository;
     private readonly ISessionRepository _sessionRepository;
     private readonly IQuizNotifier _notifier;
+    private readonly ILiveAssistantInternalClient _liveAssistant;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IQuizSettings _settings;
@@ -25,6 +32,7 @@ public sealed class QuizService : IQuizService
         IMembershipRepository membershipRepository,
         ISessionRepository sessionRepository,
         IQuizNotifier notifier,
+        ILiveAssistantInternalClient liveAssistant,
         IUnitOfWork unitOfWork,
         IClock clock,
         IQuizSettings settings,
@@ -35,6 +43,7 @@ public sealed class QuizService : IQuizService
         _membershipRepository = membershipRepository;
         _sessionRepository = sessionRepository;
         _notifier = notifier;
+        _liveAssistant = liveAssistant;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _settings = settings;
@@ -49,6 +58,59 @@ public sealed class QuizService : IQuizService
         _settings.MaxQuizDurationSeconds);
 
     // --- teacher: compose -------------------------------------------------------
+
+    /// <summary>
+    /// Build a draft from what the teacher has just been explaining, via the assistant.
+    ///
+    /// The result is a DRAFT and nothing more: it lands in the same state, and goes through the
+    /// same review, edit, publish and validation path, as a quiz composed by hand. That is the
+    /// whole reason generation could be added without touching publishing, grading or the student
+    /// projection — the model gets a proposal in front of the teacher, and the teacher still
+    /// decides what the class sees.
+    /// </summary>
+    public async Task<QuizTeacherDto> GenerateDraftAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default)
+    {
+        // Authorised BEFORE the assistant is called: generation costs a model call, and it should
+        // not be spendable by someone who could not create the draft afterwards anyway.
+        await EnsureTeacherAsync(classroomId, teacherId, ct);
+
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+        if (session is null || session.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("Session not found.");
+        }
+
+        // Clamped rather than rejected: asking for more questions than the limit allows is a
+        // reasonable request to round down, not an error worth refusing a live teacher over.
+        var count = Math.Clamp(questionCount, 1, _settings.MaxQuestionsPerQuiz);
+
+        var generated = await _liveAssistant.GenerateQuizAsync(
+            sessionId,
+            classroomId,
+            count,
+            _settings.MinAnswersPerQuestion,
+            _settings.MaxAnswersPerQuestion,
+            ct);
+
+        // Marks and timing are this service's to set, not the model's: a mark is a pedagogical
+        // weight the teacher owns, and the seconds default is already configured here.
+        var draft = new QuizDraftRequest(
+            generated.Title,
+            generated.Questions
+                .Select(q => new QuestionDraftRequest(
+                    q.Text,
+                    DefaultGeneratedPoints,
+                    _settings.DefaultSecondsPerQuestion,
+                    q.Options.Select(o => new OptionDraftRequest(o.Text, o.IsCorrect)).ToList()))
+                .ToList());
+
+        _logger.LogInformation(
+            "Generated a {QuestionCount}-question quiz draft for session {SessionId} (grounded: {Grounded}).",
+            draft.Questions.Count, sessionId, generated.Grounded);
+
+        return await CreateDraftAsync(classroomId, sessionId, teacherId, draft, ct);
+    }
 
     public async Task<QuizTeacherDto> CreateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default)

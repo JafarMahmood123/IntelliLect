@@ -1,0 +1,55 @@
+"""The most recent ideas a teacher finished, kept per session so they can be quizzed on.
+
+``CompletedIdea``s are transient in the live loop (LA-3 emits one, LA-4 evaluates it, and it is
+dropped). Quiz generation needs to answer "what was the teacher just explaining?" at an arbitrary
+moment — when the teacher presses Generate — so the pipeline tees each idea in here as it passes.
+
+Process-wide and built once at startup, exactly like ``FeedbackRecorder``: every session pipeline
+writes into the same instance the internal endpoint reads from.
+
+Deliberately NOT durable. An idea is only interesting while the lecture that produced it is still
+running, and a restart drops the live sessions along with it. The transcript remains the durable
+record (S-0).
+"""
+
+from __future__ import annotations
+
+from collections import deque
+from uuid import UUID
+
+from app.domain.idea.completed_idea import CompletedIdea
+
+# How many recent ideas to keep per session. More than one because a boundary can fire on a pause
+# or the minimum-token cap, making the newest idea a few seconds long — too thin to build several
+# questions from. The generator starts at the newest and reaches further back only when it must.
+DEFAULT_HISTORY = 3
+
+
+class LastIdeaStore:
+    """Bounded per-session history of finished ideas, newest last."""
+
+    def __init__(self, history: int = DEFAULT_HISTORY) -> None:
+        self._history = max(1, history)
+        self._by_session: dict[UUID, deque[CompletedIdea]] = {}
+
+    def record(self, session_id: UUID, idea: CompletedIdea) -> None:
+        """Remember one finished idea, evicting the oldest past the history bound."""
+        ideas = self._by_session.get(session_id)
+        if ideas is None:
+            ideas = deque(maxlen=self._history)
+            self._by_session[session_id] = ideas
+        ideas.append(idea)
+
+    def latest(self, session_id: UUID) -> CompletedIdea | None:
+        """The newest finished idea for the session, or None if no boundary has fired yet."""
+        ideas = self._by_session.get(session_id)
+        return ideas[-1] if ideas else None
+
+    def recent(self, session_id: UUID) -> list[CompletedIdea]:
+        """The retained ideas oldest-first. Empty when the session has produced none."""
+        return list(self._by_session.get(session_id, ()))
+
+    def release(self, session_id: UUID) -> None:
+        """Drop a session's ideas. Called on pipeline teardown so a long-lived process does not
+        accumulate the ideas of every lecture it has ever run."""
+        self._by_session.pop(session_id, None)

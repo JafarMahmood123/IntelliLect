@@ -263,5 +263,12 @@ public class SessionDeletionServiceTests
 
         public Task<int> DeleteClassroomTranscriptsAsync(Guid classroomId, CancellationToken ct = default)
             => Task.FromResult(0);
+
+        // Deletion never generates a quiz; calling this would mean the code under test took a path
+        // it has no business taking, so it fails loudly rather than returning a plausible blank.
+        public Task<GeneratedQuizDto> GenerateQuizAsync(
+            Guid sessionId, Guid classroomId, int questionCount, int minOptions, int maxOptions,
+            CancellationToken ct = default)
+            => throw new NotSupportedException("Deletion does not generate quizzes.");
     }
 }

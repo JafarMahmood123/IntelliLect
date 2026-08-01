@@ -40,6 +40,15 @@ services:
       - KnowledgeService__BaseUrl=http://knowledge-service:8080
       - KnowledgeService__InternalApiSecret=changeme-internal-secret
       - KnowledgeService__TimeoutSeconds=10
+      # LiveAssistantService: session transcripts, and quiz generation from what the teacher just
+      # explained. InternalApiSecret must match its INTERNAL_API_SECRET — without it the client
+      # sends no header at all and every call is refused, since that guard fails closed.
+      # GenerationTimeoutSeconds is separate from TimeoutSeconds because generation runs a language
+      # model and takes tens of seconds, while a transcript lookup should never hang that long.
+      - LiveAssistant__BaseUrl=http://live-assistant-service:8080
+      - LiveAssistant__InternalApiSecret=changeme-internal-secret
+      - LiveAssistant__TimeoutSeconds=10
+      - LiveAssistant__GenerationTimeoutSeconds=120
       # Shared secret required on inbound internal calls (e.g. UserManagementService
       # fetching a user's classroom memberships). Must match the caller's value.
       - Internal__ApiSecret=changeme-internal-secret

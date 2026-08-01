@@ -32,6 +32,25 @@ export const createQuizDraft = async (
   return data;
 };
 
+/**
+ * Draft a quiz from what the teacher has just been explaining.
+ *
+ * Returns the same shape as composing one by hand, because that is exactly what it produces: a
+ * Draft, in the composer, for the teacher to edit and publish. The model proposes; the teacher
+ * still decides what the class is asked.
+ */
+export const generateQuizDraft = async (
+  classroomId: string,
+  sessionId: string,
+  questionCount: number,
+): Promise<QuizTeacher> => {
+  const { data } = await apiClient.post<QuizTeacher>(
+    `${base(classroomId)}/sessions/${sessionId}/quizzes/generate`,
+    { questionCount },
+  );
+  return data;
+};
+
 export const updateQuizDraft = async (
   classroomId: string,
   quizId: string,

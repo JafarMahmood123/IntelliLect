@@ -7,10 +7,16 @@ from fastapi import FastAPI
 
 from app.api.dependencies import (
     build_feedback_recorder,
+    build_last_idea_store,
     build_session_manager,
     build_transcript_repository,
 )
-from app.api.routers import health, internal_sessions, internal_transcripts
+from app.api.routers import (
+    health,
+    internal_quizzes,
+    internal_sessions,
+    internal_transcripts,
+)
 from app.api.routers import metrics as metrics_router
 from app.infrastructure.config.settings import get_settings
 from app.infrastructure.persistence.database import dispose_engine
@@ -30,8 +36,14 @@ async def lifespan(app: FastAPI):
     # Shared feedback store (used when AGENT_AUDIO_SOURCE=fake); the read endpoint and
     # every pipeline share this one instance, so reads see exactly what was delivered.
     app.state.feedback_recorder = build_feedback_recorder()
+    # Shared store of the ideas each teacher has finished, written by every pipeline and read by
+    # the quiz endpoint — so "what was I just explaining?" is answered from what actually ran.
+    app.state.last_idea_store = build_last_idea_store(settings)
     app.state.session_manager = build_session_manager(
-        settings, app.state.transcript_repository, app.state.feedback_recorder
+        settings,
+        app.state.transcript_repository,
+        app.state.feedback_recorder,
+        app.state.last_idea_store,
     )
     try:
         yield
@@ -70,6 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(internal_sessions.router)
     app.include_router(internal_transcripts.router)
     app.include_router(internal_transcripts.classrooms_router)
+    app.include_router(internal_quizzes.router)
     if settings.metrics_enabled:
         app.include_router(metrics_router.router)
     return app

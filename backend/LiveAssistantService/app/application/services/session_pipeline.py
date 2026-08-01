@@ -33,6 +33,7 @@ from app.application.services.boundary_detector import BoundaryDetector
 from app.application.services.feedback_dispatcher import FeedbackDispatcher
 from app.application.services.feedback_pacer import FeedbackPacer
 from app.application.services.idea_evaluator import IdeaEvaluator
+from app.application.services.last_idea_store import LastIdeaStore
 from app.application.services.stream_prefetch import prefetch
 from app.application.services.token_estimate import estimate_tokens
 from app.application.services.transcript_recorder import TranscriptRecorder
@@ -62,6 +63,7 @@ class SessionPipeline:
         feedback_dispatcher: FeedbackDispatcher,
         transcript_recorder: TranscriptRecorder | None = None,
         smoke_brain: BrainClient | None = None,
+        last_ideas: LastIdeaStore | None = None,
         prefetch_segments: int = 4,
     ) -> None:
         self._session = session
@@ -78,6 +80,10 @@ class SessionPipeline:
         # Optional (S-0): when present, FINAL segments are persisted incrementally,
         # off the feedback hot path. Absent -> no persistence (unchanged LA-6 behavior).
         self._recorder = transcript_recorder
+        # Optional: when present, every finished idea is teed in here so the quiz generator can
+        # ask what the teacher was just explaining. Read-only from this pipeline's perspective —
+        # it never changes what the evaluator sees.
+        self._last_ideas = last_ideas
         # How many finalized segments may sit transcribed-but-not-yet-embedded. Small on
         # purpose: this is a jitter absorber, not a lecture buffer, and a full queue simply
         # applies backpressure to the STT.
@@ -153,6 +159,9 @@ class SessionPipeline:
                         await self._recorder.finalize()
                 # Release this session's pacing state (LA-7) on any end.
                 self._pacer.reset(session_id)
+                # Same for its retained ideas — the lecture they belong to is over.
+                if self._last_ideas is not None:
+                    self._last_ideas.release(session_id)
                 metrics.active_sessions_dec()
                 logger.info("session_ended")
 
@@ -172,6 +181,12 @@ class SessionPipeline:
 
     async def _handle_idea(self, idea: CompletedIdea) -> None:
         """Evaluate one idea, PACE it (LA-7), then deliver; never let one idea stop the run."""
+        # Retained BEFORE anything can filter it. What the teacher just explained does not depend
+        # on whether the assistant had feedback about it, so this sits ahead of the smoke branch,
+        # the evaluator and the pacer alike.
+        if self._last_ideas is not None:
+            self._last_ideas.record(self._session.session_id, idea)
+
         # SMOKE TEST (temporary): with a smoke brain injected, bypass retrieval/evaluation/pacing
         # and push the LLM's raw reply to the teacher. Restore the real path by flipping
         # ASSISTANT_SMOKE_TEST off (so smoke_brain is None) — no other change needed.

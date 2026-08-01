@@ -1,3 +1,4 @@
+using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Quiz;
 using ClassroomService.Application.Exceptions;
 using ClassroomService.Application.Services;
@@ -22,7 +23,48 @@ public sealed class QuizServiceTests
         QuizService Service,
         FakeQuizRepository Quizzes,
         RecordingQuizNotifier Notifier,
-        FakeClock Clock);
+        FakeClock Clock,
+        FakeLiveAssistant Assistant);
+
+    /// <summary>
+    /// Stands in for LiveAssistantService. Records the bounds it was called with, because the
+    /// point of passing them is that the assistant cannot propose a quiz this service would refuse.
+    /// </summary>
+    private sealed class FakeLiveAssistant : ILiveAssistantInternalClient
+    {
+        public GeneratedQuizDto Result = new(
+            "Generated",
+            true,
+            [new GeneratedQuestionDto("What was said?", [
+                new GeneratedOptionDto("The right one", true),
+                new GeneratedOptionDto("The wrong one", false),
+            ])]);
+
+        public Exception? Throws;
+        public int Calls;
+        public int LastQuestionCount;
+        public int LastMinOptions;
+        public int LastMaxOptions;
+
+        public Task<GeneratedQuizDto> GenerateQuizAsync(
+            Guid sessionId, Guid classroomId, int questionCount, int minOptions, int maxOptions,
+            CancellationToken ct = default)
+        {
+            Calls++;
+            LastQuestionCount = questionCount;
+            LastMinOptions = minOptions;
+            LastMaxOptions = maxOptions;
+            if (Throws is not null) throw Throws;
+            return Task.FromResult(Result);
+        }
+
+        public Task<int?> GetTranscriptSegmentCountAsync(Guid sessionId, CancellationToken ct = default)
+            => Task.FromResult<int?>(0);
+        public Task DeleteSessionTranscriptAsync(Guid sessionId, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task<int> DeleteClassroomTranscriptsAsync(Guid classroomId, CancellationToken ct = default)
+            => Task.FromResult(0);
+    }
 
     private static Harness Build(FakeQuizSettings? settings = null)
     {
@@ -37,12 +79,14 @@ public sealed class QuizServiceTests
         var notifier = new RecordingQuizNotifier();
         var clock = new FakeClock();
 
+        var assistant = new FakeLiveAssistant();
+
         var service = new QuizService(
-            quizzes, classrooms, members, sessions, notifier,
+            quizzes, classrooms, members, sessions, notifier, assistant,
             new FakeUnitOfWork(), clock, settings ?? new FakeQuizSettings(),
             new RecordingLogger<QuizService>());
 
-        return new Harness(service, quizzes, notifier, clock);
+        return new Harness(service, quizzes, notifier, clock, assistant);
     }
 
     private static QuizDraftRequest Draft(
@@ -131,6 +175,133 @@ public sealed class QuizServiceTests
 
         await Assert.ThrowsAsync<ConflictException>(
             () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    // --- AI generation -------------------------------------------------------------
+
+    [Fact]
+    public async Task Generating_produces_a_draft_not_a_published_quiz()
+    {
+        // The whole safety story: the model proposes, the teacher disposes. A generated quiz that
+        // went straight to Open would put unreviewed questions in front of a class.
+        var h = Build();
+
+        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+
+        Assert.Equal("Draft", draft.Status);
+        Assert.Equal("Generated", draft.Title);
+        Assert.Single(draft.Questions);
+    }
+
+    [Fact]
+    public async Task Generated_questions_keep_the_assistants_correct_answer()
+    {
+        var h = Build();
+
+        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+
+        var options = draft.Questions[0].Options;
+        Assert.Equal(1, options.Count(o => o.IsCorrect));
+        Assert.Equal("The right one", options.Single(o => o.IsCorrect).Text);
+    }
+
+    [Fact]
+    public async Task Generated_questions_get_this_services_marks_and_timing()
+    {
+        // Marks are a pedagogical weight the teacher owns and seconds are already configured here,
+        // so the model is never asked for either.
+        var h = Build(new FakeQuizSettings { DefaultSecondsPerQuestion = 45 });
+
+        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+
+        Assert.Equal(1, draft.Questions[0].Points);
+        Assert.Equal(45, draft.Questions[0].TimeLimitSeconds);
+    }
+
+    [Fact]
+    public async Task Generation_is_asked_for_the_configured_answer_bounds()
+    {
+        // This service owns the limits; passing them is what stops the assistant proposing a quiz
+        // that publish would then reject.
+        var h = Build(new FakeQuizSettings { MinAnswersPerQuestion = 3, MaxAnswersPerQuestion = 5 });
+
+        await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+
+        Assert.Equal(3, h.Assistant.LastMinOptions);
+        Assert.Equal(5, h.Assistant.LastMaxOptions);
+    }
+
+    [Fact]
+    public async Task Asking_for_more_questions_than_allowed_is_clamped_not_refused()
+    {
+        var h = Build(new FakeQuizSettings { MaxQuestionsPerQuiz = 4 });
+
+        await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 99, default);
+
+        Assert.Equal(4, h.Assistant.LastQuestionCount);
+    }
+
+    [Fact]
+    public async Task A_generated_draft_still_has_to_pass_publish_validation()
+    {
+        // Generation adds no second route to Open: the same gate that rejects a hand-written quiz
+        // rejects a generated one.
+        var h = Build();
+        h.Assistant.Result = new GeneratedQuizDto(
+            "Bad",
+            true,
+            [new GeneratedQuestionDto("Only one option", [new GeneratedOptionDto("a", true)])]);
+
+        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 1, default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    [Fact]
+    public async Task A_student_cannot_spend_a_generation()
+    {
+        // Authorised BEFORE the assistant is called: a model call costs money and time, and
+        // refusing only afterwards would let anyone enrolled burn both.
+        var h = Build();
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.GenerateDraftAsync(ClassroomId, SessionId, StudentId, 3, default));
+
+        Assert.Equal(0, h.Assistant.Calls);
+    }
+
+    [Fact]
+    public async Task Generating_for_an_unknown_session_does_not_call_the_assistant()
+    {
+        var h = Build();
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => h.Service.GenerateDraftAsync(ClassroomId, Guid.NewGuid(), TeacherId, 3, default));
+
+        Assert.Equal(0, h.Assistant.Calls);
+    }
+
+    [Fact]
+    public async Task An_assistant_failure_reaches_the_teacher()
+    {
+        var h = Build();
+        h.Assistant.Throws = new ServiceUnavailableException("assistant down");
+
+        await Assert.ThrowsAsync<ServiceUnavailableException>(
+            () => h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default));
+    }
+
+    [Fact]
+    public async Task Nothing_to_quiz_on_yet_stays_a_conflict()
+    {
+        // Distinct from an outage: the teacher fixes this one by carrying on talking, so the two
+        // must not collapse into a single message.
+        var h = Build();
+        h.Assistant.Throws = new ConflictException("nothing transcribed yet");
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default));
     }
 
     // --- the answer key must not leak --------------------------------------------
