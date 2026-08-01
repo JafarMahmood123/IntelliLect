@@ -11,6 +11,7 @@ import {
 } from '@livekit/components-react';
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import { ConnectionState, Track } from 'livekit-client';
+import type { RoomOptions } from 'livekit-client';
 import {
   StageTile,
   TileGrid,
@@ -21,6 +22,25 @@ import { WhiteboardLayer, WhiteboardProvider, useWhiteboard } from '../whiteboar
 
 /** The path LiveKit's egress worker is pointed at. Must match `Egress:CustomBaseUrl`. */
 export const RECORDER_PATH = '/recorder';
+
+/**
+ * livekit-client defaults adaptiveStream to FALSE, which for a recorder is the expensive choice:
+ * without it this page subscribes to the highest simulcast layer — a 1080p screen share — and then
+ * scales it down to the egress viewport (960x540) on every frame, inside the same headless Chrome
+ * that was already the bottleneck. Dropped frames were counted at video_input_queue, the capture
+ * side, never at the encoder.
+ *
+ * With it on, each track arrives at the layer nearest the size it is actually drawn at: roughly
+ * the viewport for the shared screen, and something tiny for the 112px camera tiles. Same picture,
+ * far less decode — which is headroom that can be spent on a higher Egress:Width/Height instead.
+ *
+ * Note this does NOT raise the recording's resolution. That is capped by the egress viewport and
+ * nothing else; adaptive streaming only decides which layer is fetched to fill it.
+ *
+ * Frozen at module scope on purpose — handing <LiveKitRoom> a fresh object each render churns the
+ * room, the same trap as roomOptions in LiveRoomPage.
+ */
+const RECORDER_ROOM_OPTIONS: RoomOptions = { adaptiveStream: true };
 
 /**
  * The page that becomes the lesson recording.
@@ -57,6 +77,7 @@ export const RecorderPage = () => {
         serverUrl={serverUrl}
         token={token}
         connect
+        options={RECORDER_ROOM_OPTIONS}
         // A recorder subscribes and never publishes; headless Chrome has no camera or microphone
         // to offer anyway, and asking for them would just log permission failures.
         video={false}
