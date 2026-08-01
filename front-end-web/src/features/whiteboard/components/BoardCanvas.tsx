@@ -41,8 +41,18 @@ export const BoardCanvas = ({
     // transform. Without it every line is soft on a retina screen — which is exactly the screen
     // a teacher demonstrates on.
     const ratio = globalThis.devicePixelRatio || 1;
-    canvas.width = Math.round(rect.width * ratio);
-    canvas.height = Math.round(rect.height * ratio);
+    const width = Math.round(rect.width * ratio);
+    const height = Math.round(rect.height * ratio);
+
+    // ONLY when it actually changed. Assigning canvas.width reallocates and zeroes the whole
+    // bitmap even when the value is identical — and this effect runs on every point of a
+    // freehand stroke, so an unconditional assignment threw away and rebuilt a ~15 MB buffer
+    // dozens of times a second while the teacher was drawing. The repaint below clears the
+    // canvas itself, so nothing depended on that side effect.
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;

@@ -165,17 +165,29 @@ services:
       # Blank (the default) records exactly what it recorded before, so this line is also the way
       # back if a recording comes out wrong: comment it out and restart, no rebuild.
       #
-      # The URL is fetched BY the egress worker, which runs on host networking — so it is a HOST
-      # address, not a service name (the same trap as Egress__S3__Endpoint above). With the
-      # frontend on the Vite dev server that is 127.0.0.1:5173; served as static files behind the
-      # gateway it would be 127.0.0.1:80. NOTE that this makes recording depend on the frontend
-      # being up: with the dev server stopped, egress loads nothing and the recording fails.
-      # - Egress__CustomBaseUrl=http://127.0.0.1:5173/recorder
+      # The URL is fetched BY the egress worker. "host networking" on Docker Desktop means the
+      # VM's namespace, NOT this laptop — so 127.0.0.1 here is the VM's loopback and CANNOT see
+      # the Vite dev server, which is an ordinary process on the laptop. It must be
+      # host.docker.internal, and the dev server must bind beyond loopback (front-end-web's
+      # vite.config.ts sets server.host + allowedHosts for exactly this).
+      #
+      # Contrast Egress__S3__Endpoint below, which IS 127.0.0.1: MinIO is a CONTAINER with a
+      # published port, and Docker Desktop forwards those into the VM's loopback. A plain host
+      # process gets no such forwarding. Same-looking addresses, different mechanisms.
+      #
+      # NOTE this makes recording depend on the frontend being up: with the dev server stopped,
+      # egress loads nothing and the recording fails.
+      - Egress__CustomBaseUrl=http://host.docker.internal:5173/recorder
       # Modest composite encode so the egress pipeline doesn't starve/freeze at finalization on
       # this virtualized host (Docker Desktop). Raise on a beefier machine for a sharper capture.
-      - Egress__Width=1280
-      - Egress__Height=720
-      - Egress__Framerate=15
+      # Lowered from 1280x720@15 on 2026-08-01. The bottleneck is the Chrome-capture ->
+      # encode path, which scales with PIXELS x FRAMERATE, not bitrate — so unlike the note
+      # above, resolution IS the right lever here. At 720p15 this host dropped 809 video
+      # buffers in 83s (video frozen 54% of the time, an effective 4-10fps). This is 47% of
+      # that pixel throughput. Slides stay legible at 960x540.
+      - Egress__Width=960
+      - Egress__Height=540
+      - Egress__Framerate=10
       # Bitrates are KILObits per second, NOT bits — LiveKit's own defaults are 4500 / 128, which
       # only read sensibly as kbps. These previously sat unset, so capture ran against that 4500
       # default (tuned for 1080p30) and a 5-minute session cost 85 MB / ~1 GB per hour. Capping

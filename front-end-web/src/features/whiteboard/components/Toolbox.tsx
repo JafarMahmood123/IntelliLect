@@ -14,6 +14,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
+import { memo } from 'react';
 import type { ComponentType } from 'react';
 import { PALETTE, WIDTHS } from '../constants';
 import type { ToolKind } from '../types';
@@ -52,8 +53,13 @@ const TOOLS: { kind: ToolKind; label: string; Icon: ComponentType<{ size?: numbe
  *
  * Purely presentational — every piece of state arrives as a prop. That is what lets it be tested
  * without a LiveKit room, which the provider necessarily requires.
+ *
+ * Memoised because the board changes on every POINT of a stroke, and without it all twenty-odd
+ * buttons re-rendered dozens of times a second while the teacher was drawing — none of them
+ * showing anything that had changed. Its props are the settings and stable callbacks, so the
+ * comparison almost always short-circuits.
  */
-export const Toolbox = ({
+export const Toolbox = memo(({
   tool,
   color,
   width,
@@ -153,7 +159,9 @@ export const Toolbox = ({
       <X size={16} />
     </Action>
   </div>
-);
+));
+
+Toolbox.displayName = 'Toolbox';
 
 const Divider = () => <span className="mx-1 h-6 w-px bg-white/10" />;
 

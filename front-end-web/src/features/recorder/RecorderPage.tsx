@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   LiveKitRoom,
   RoomAudioRenderer,
+  VideoTrack,
   isTrackReference,
   useConnectionState,
   useRemoteParticipants,
@@ -10,10 +12,10 @@ import {
 import type { TrackReferenceOrPlaceholder } from '@livekit/components-react';
 import { ConnectionState, Track } from 'livekit-client';
 import {
-  BoardView,
-  ScreenShareView,
+  StageTile,
   TileGrid,
   cameraTrackRefFor,
+  tileKey,
 } from '../streaming/components/stage/stageShared';
 import { WhiteboardLayer, WhiteboardProvider, useWhiteboard } from '../whiteboard';
 
@@ -116,20 +118,73 @@ const RecorderStage = () => {
 
   if (screen) {
     return (
-      <ScreenShareView
-        screen={screen}
-        cameraTiles={tiles}
-        overlay={(video) => <WhiteboardLayer mode="annotate" video={video} controls={false} />}
-      />
+      <FocusedCapture tiles={tiles}>
+        {(setVideo) => (
+          <>
+            {isTrackReference(screen) && (
+              <VideoTrack
+                ref={setVideo}
+                trackRef={screen}
+                className="h-full w-full object-contain"
+              />
+            )}
+          </>
+        )}
+      </FocusedCapture>
     );
   }
 
   return board.enabled ? (
-    <BoardView cameraTiles={tiles}>
-      <WhiteboardLayer mode="board" controls={false} />
-    </BoardView>
+    <FocusedCapture tiles={tiles} board />
   ) : (
     <TileGrid tiles={tiles} />
+  );
+};
+
+/**
+ * The recorded frame: the material edge to edge, cameras as small corner tiles.
+ *
+ * The live stage puts cameras in a full-width strip under the slide, which is right on a big
+ * screen. A recording is not a big screen — this one is 960x540, and a 112px strip is a fifth of
+ * its height. Fitting a 16:9 slide into what is left made a 2.39:1 box, so the picture was
+ * pillarboxed down to 54% of the frame with 22% of it spent on black bars. Measured on
+ * recording-20260801-193640: 724x388 of a 928x388 box.
+ *
+ * Corner tiles buy that back — a 16:9 share now renders at ~91% of the frame. The trade is that
+ * they sit ON the material rather than beside it, which is what every conferencing tool does with
+ * a recording, and for the same reason: at this size, legible slides beat undisturbed corners.
+ */
+const FocusedCapture = ({
+  tiles,
+  board = false,
+  children,
+}: {
+  tiles: TrackReferenceOrPlaceholder[];
+  board?: boolean;
+  children?: (setVideo: (el: HTMLVideoElement | null) => void) => ReactNode;
+}) => {
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+
+  return (
+    <div className={`relative h-full w-full ${board ? 'bg-white' : 'bg-black'}`}>
+      {children?.(setVideo)}
+
+      <WhiteboardLayer
+        mode={board ? 'board' : 'annotate'}
+        video={board ? null : video}
+        controls={false}
+      />
+
+      {/* Capped at three: past that the tiles either shrink to unrecognisable or eat the slide.
+          A lecture recording is about the material; the faces are context. */}
+      <div className="pointer-events-none absolute bottom-2 right-2 flex gap-1.5">
+        {tiles.slice(0, 3).map((t) => (
+          <div key={tileKey(t)} className="aspect-video w-28 shrink-0 opacity-95">
+            <StageTile trackRef={t} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 
