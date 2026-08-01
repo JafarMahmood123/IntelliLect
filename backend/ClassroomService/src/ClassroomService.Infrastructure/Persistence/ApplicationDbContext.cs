@@ -88,9 +88,18 @@ public sealed class ApplicationDbContext : DbContext
         // In-session quizzes. Unlike recordings and summaries there are MANY per session, so
         // SessionId is a plain index rather than unique. ClassroomId is indexed for the same reason
         // as above: the classroom-wide read and delete paths filter on it.
+        // Quiz ids are assigned in application code (Guid.NewGuid() in QuizService), never by the
+        // database. Saying so matters for more than tidiness: when EF meets an untracked entity
+        // through a navigation on an already-TRACKED parent, it decides Added vs Modified by
+        // asking whether the key is set. Left as store-generated, a key the code had already
+        // filled in read as "this row exists", so replacing a draft's questions issued
+        // UPDATE ... WHERE Id = <a brand-new Guid>, matched nothing, and failed the request with
+        // a DbUpdateConcurrencyException. Creating a quiz was unaffected, because AddAsync marks
+        // the whole graph Added regardless — which is why only the edit path broke.
         modelBuilder.Entity<Quiz>(quiz =>
         {
             quiz.HasKey(q => q.Id);
+            quiz.Property(q => q.Id).ValueGeneratedNever();
             quiz.Property(q => q.Title).HasMaxLength(200);
             quiz.HasIndex(q => q.SessionId);
             quiz.HasIndex(q => q.ClassroomId);
@@ -103,6 +112,7 @@ public sealed class ApplicationDbContext : DbContext
         modelBuilder.Entity<QuizQuestion>(question =>
         {
             question.HasKey(q => q.Id);
+            question.Property(q => q.Id).ValueGeneratedNever();
             question.Property(q => q.Text).IsRequired().HasMaxLength(1000);
             question.HasOne(q => q.Quiz)
                 .WithMany(q => q.Questions)
@@ -113,6 +123,7 @@ public sealed class ApplicationDbContext : DbContext
         modelBuilder.Entity<QuizAnswerOption>(option =>
         {
             option.HasKey(o => o.Id);
+            option.Property(o => o.Id).ValueGeneratedNever();
             option.Property(o => o.Text).IsRequired().HasMaxLength(500);
             option.HasOne(o => o.Question)
                 .WithMany(q => q.Options)
@@ -123,6 +134,7 @@ public sealed class ApplicationDbContext : DbContext
         modelBuilder.Entity<QuizAnswer>(answer =>
         {
             answer.HasKey(a => a.Id);
+            answer.Property(a => a.Id).ValueGeneratedNever();
             // THE integrity rule of this feature: one answer per student per question, arbitrated
             // by the database. An application-level "have they answered?" read is a race — two
             // concurrent submits both pass it and both insert. Changing an answer before the quiz

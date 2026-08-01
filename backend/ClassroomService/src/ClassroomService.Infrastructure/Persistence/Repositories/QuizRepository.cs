@@ -12,26 +12,18 @@ public sealed class QuizRepository : IQuizRepository
     public QuizRepository(ApplicationDbContext context) => _context = context;
 
     public async Task<Quiz?> GetWithQuestionsAsync(Guid quizId, CancellationToken ct = default)
-    {
-        var quiz = await _context.Quizzes
-            .Include(q => q.Questions)
-            .ThenInclude(q => q.Options)
+        => await _context.Quizzes
+            .Include(q => q.Questions.OrderBy(question => question.Order))
+                .ThenInclude(question => question.Options.OrderBy(option => option.Order))
             .FirstOrDefaultAsync(q => q.Id == quizId, ct);
 
-        return quiz is null ? null : Ordered(quiz);
-    }
-
     public async Task<Quiz?> GetOpenForSessionAsync(Guid sessionId, CancellationToken ct = default)
-    {
-        var quiz = await _context.Quizzes
-            .Include(q => q.Questions)
-            .ThenInclude(q => q.Options)
+        => await _context.Quizzes
+            .Include(q => q.Questions.OrderBy(question => question.Order))
+                .ThenInclude(question => question.Options.OrderBy(option => option.Order))
             .Where(q => q.SessionId == sessionId && q.Status == QuizStatus.Open)
             .OrderByDescending(q => q.PublishedAtUtc)
             .FirstOrDefaultAsync(ct);
-
-        return quiz is null ? null : Ordered(quiz);
-    }
 
     public async Task AddAsync(Quiz quiz, CancellationToken ct = default)
         => await _context.Quizzes.AddAsync(quiz, ct);
@@ -40,17 +32,12 @@ public sealed class QuizRepository : IQuizRepository
         => _context.QuizQuestions.RemoveRange(questions);
 
     public async Task<List<Quiz>> GetForSessionAsync(Guid sessionId, CancellationToken ct = default)
-    {
-        var quizzes = await _context.Quizzes
-            .Include(q => q.Questions)
-            .ThenInclude(q => q.Options)
+        => await _context.Quizzes
+            .Include(q => q.Questions.OrderBy(question => question.Order))
+                .ThenInclude(question => question.Options.OrderBy(option => option.Order))
             .Where(q => q.SessionId == sessionId)
             .OrderBy(q => q.CreatedAtUtc)
             .ToListAsync(ct);
-
-        foreach (var quiz in quizzes) Ordered(quiz);
-        return quizzes;
-    }
 
     public async Task<List<QuizAnswer>> GetAnswersForSessionAsync(
         Guid sessionId, CancellationToken ct = default)
@@ -75,18 +62,16 @@ public sealed class QuizRepository : IQuizRepository
     public async Task AddAnswerAsync(QuizAnswer answer, CancellationToken ct = default)
         => await _context.QuizAnswers.AddAsync(answer, ct);
 
-    /// <summary>
-    /// Sorts questions and options by their explicit Order in memory. EF cannot order an included
-    /// collection portably, and relying on the order rows happen to come back in would shuffle a
-    /// student's options between page loads.
-    /// </summary>
-    private static Quiz Ordered(Quiz quiz)
-    {
-        quiz.Questions = quiz.Questions.OrderBy(q => q.Order).ToList();
-        foreach (var question in quiz.Questions)
-        {
-            question.Options = question.Options.OrderBy(o => o.Order).ToList();
-        }
-        return quiz;
-    }
+    // Ordering is done in the INCLUDE, not in memory afterwards.
+    //
+    // The previous version sorted by reassigning the navigations
+    // (`quiz.Questions = quiz.Questions.OrderBy(...).ToList()`), which quietly swapped EF's own
+    // tracked collection instances for plain lists and broke change tracking on the graph. Reads
+    // did not care, so it looked harmless — until an update tried to replace a draft's questions
+    // and EF issued deletes for rows it no longer had a correct picture of, failing the whole
+    // request with a DbUpdateConcurrencyException.
+    //
+    // Ordered includes (EF Core 5+) sort in SQL and leave the tracked collections alone, which is
+    // both the fix and the reason the ordering still cannot be left to whatever order rows come
+    // back in — a student's options must not shuffle between page loads.
 }

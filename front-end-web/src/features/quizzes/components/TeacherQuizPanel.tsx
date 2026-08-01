@@ -262,6 +262,10 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   };
 
   const save = async (publishAfter: boolean) => {
+    // Which STEP failed, not which button was pressed. Saving and publishing are two requests, and
+    // reporting a failed save as "Could not publish" sends you looking at the questions when the
+    // quiz never reached the validation stage at all — it cost real debugging time once already.
+    let saved = false;
     try {
       // Generation already created a draft, and so does a first save — updating it keeps one quiz
       // rather than leaving an abandoned draft behind on every save.
@@ -269,12 +273,15 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
         ? await updateDraft.mutateAsync({ quizId: draftId, draft: { title, questions } })
         : await createDraft.mutateAsync({ title, questions });
       setDraftId(draft.id);
+      saved = true;
       if (publishAfter) await publish.mutateAsync(draft.id);
     } catch {
       showToast({
         type: 'error',
-        title: publishAfter ? 'Could not publish' : 'Could not save',
-        message: 'Check every question has text, one correct answer and a mark above zero.',
+        title: saved ? 'Could not publish' : 'Could not save',
+        message: saved
+          ? 'Check every question has text, one correct answer and a mark above zero.'
+          : 'Your quiz could not be saved, so nothing was published. Please try again.',
       });
     }
   };
