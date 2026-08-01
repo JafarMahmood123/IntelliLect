@@ -29,6 +29,7 @@ import {
   useUpdateQuizDraft,
 } from '../hooks/useQuizQueries';
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
+import { useQuizCloseWatch } from '../hooks/useQuizCloseWatch';
 import { TeacherQuizSummary } from './TeacherQuizSummary';
 import type { QuestionDraft, QuizCorrection, QuizLimits } from '../types';
 
@@ -111,6 +112,9 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const cancel = useCancelQuiz(classroomId, sessionId);
 
   const remaining = useQuizCountdown(liveQuiz?.closesAtUtc, liveQuiz?.serverNowUtc);
+  // The server closes a timed-out quiz on its own; this re-reads until it has, so the panel hands
+  // the composer back without the teacher pressing anything.
+  useQuizCloseWatch(sessionId, liveQuiz?.id, liveQuiz?.status === 'Open' && remaining === 0);
 
   // Keeps the live tally moving for whoever published it, including a second teacher device.
   useEffect(() => {
@@ -148,11 +152,22 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
               {liveQuiz.totalPoints} marks
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300">
+          <div
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+              remaining === 0 ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-slate-300'
+            }`}
+          >
             <Clock size={12} />
-            {formatCountdown(remaining)}
+            {remaining === 0 ? 'Marking…' : formatCountdown(remaining)}
           </div>
         </div>
+
+        {remaining === 0 && (
+          <p className="text-[11px] text-amber-300/80">
+            Time is up. The quiz is closing on its own and marks are being released — no need to
+            press anything.
+          </p>
+        )}
 
         {liveQuiz.questions.map((question, index) => (
           <div key={question.id} className="rounded-xl border border-white/5 bg-white/5 p-3">

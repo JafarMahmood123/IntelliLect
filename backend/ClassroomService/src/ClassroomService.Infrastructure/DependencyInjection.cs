@@ -162,6 +162,11 @@ public static class DependencyInjection
         services.AddScoped<IQuizService, QuizService>();
         // Pushes state changes to the live room via StreamingService; best-effort, id-only payload.
         services.AddHttpClient<IQuizNotifier, StreamingQuizNotifier>();
+        // Closes quizzes whose time has run out. Registered unconditionally, unlike the two sweeps
+        // below: those are safety nets for states that should not arise, whereas a quiz reaching
+        // its deadline is the NORMAL end of one, and Closed is what releases the class's marks.
+        services.AddScoped<IQuizDeadlineSweeper, QuizDeadlineSweeper>();
+        services.AddHostedService<QuizDeadlineHostedService>();
 
         // Summary downloads (S-4): reuse the same S3 signer/bucket; only the URL TTL is new.
         services.Configure<SummariesOptions>(configuration.GetSection(SummariesOptions.SectionName));

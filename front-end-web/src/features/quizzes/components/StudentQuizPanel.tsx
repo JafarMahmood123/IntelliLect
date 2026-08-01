@@ -9,6 +9,7 @@ import {
   useSubmitQuizAnswer,
 } from '../hooks/useQuizQueries';
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
+import { useQuizCloseWatch } from '../hooks/useQuizCloseWatch';
 import { StudentQuizSummary } from './StudentQuizSummary';
 import type { QuizStudent } from '../types';
 
@@ -92,6 +93,11 @@ const StudentQuizForm = ({
   }, [quiz]);
 
   const timeUp = remaining === 0;
+  // Once the clock hits zero the server closes the quiz within a few seconds and announces it.
+  // This re-reads until that lands, so a missed broadcast cannot leave a student staring at an
+  // expired quiz with no marks.
+  useQuizCloseWatch(sessionId, quiz.id, timeUp);
+
   // Server-owned: the panel reports what the server recorded, never a local guess, so a reload or
   // a second device shows the same thing.
   const submitted = Boolean(quiz.submittedAtUtc);

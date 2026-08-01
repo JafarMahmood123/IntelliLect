@@ -25,4 +25,10 @@ public sealed class QuizOptions : IQuizSettings
     public int MaxQuizDurationSeconds { get; init; } = 7200;
 
     public int LateAnswerGraceSeconds { get; init; } = 3;
+
+    /// <summary>
+    /// How often to look for quizzes whose time has run out. Seconds, because a class that has just
+    /// finished is waiting on it — Closed is what releases their marks.
+    /// </summary>
+    public int DeadlineSweepSeconds { get; init; } = 5;
 }

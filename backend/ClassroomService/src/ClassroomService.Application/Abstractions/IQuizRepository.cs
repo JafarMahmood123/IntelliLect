@@ -14,6 +14,17 @@ public interface IQuizRepository
     /// </summary>
     Task<Quiz?> GetOpenForSessionAsync(Guid sessionId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Open quizzes whose deadline passed at or before <paramref name="cutoffUtc"/>, with their
+    /// questions.
+    ///
+    /// Nothing schedules a close, so without this a quiz whose time ran out stays Open forever: it
+    /// refuses answers but never releases marks, and it keeps blocking the composer. The cutoff
+    /// carries the late-answer grace, so an answer still in flight is never orphaned by the close
+    /// that follows it.
+    /// </summary>
+    Task<List<Quiz>> GetOpenPastDeadlineAsync(DateTime cutoffUtc, CancellationToken ct = default);
+
     Task AddAsync(Quiz quiz, CancellationToken ct = default);
 
     /// <summary>Drops a draft's questions (and their options, by cascade) before rewriting them.</summary>

@@ -28,6 +28,15 @@ public sealed class FakeQuizRepository : IQuizRepository
         => Task.FromResult(_quizzes.Values
             .FirstOrDefault(q => q.SessionId == sessionId && q.Status == QuizStatus.Open));
 
+    public Task<List<Quiz>> GetOpenPastDeadlineAsync(
+        DateTime cutoffUtc, CancellationToken ct = default)
+        => Task.FromResult(_quizzes.Values
+            .Where(q => q.Status == QuizStatus.Open
+                        && q.ClosesAtUtc is not null
+                        && q.ClosesAtUtc <= cutoffUtc)
+            .OrderBy(q => q.ClosesAtUtc)
+            .ToList());
+
     public Task AddAsync(Quiz quiz, CancellationToken ct = default)
     {
         _quizzes[quiz.Id] = quiz;

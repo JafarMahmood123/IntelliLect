@@ -25,6 +25,17 @@ public sealed class QuizRepository : IQuizRepository
             .OrderByDescending(q => q.PublishedAtUtc)
             .FirstOrDefaultAsync(ct);
 
+    public async Task<List<Quiz>> GetOpenPastDeadlineAsync(
+        DateTime cutoffUtc, CancellationToken ct = default)
+        => await _context.Quizzes
+            .Include(q => q.Questions.OrderBy(question => question.Order))
+                .ThenInclude(question => question.Options.OrderBy(option => option.Order))
+            .Where(q => q.Status == QuizStatus.Open
+                        && q.ClosesAtUtc != null
+                        && q.ClosesAtUtc <= cutoffUtc)
+            .OrderBy(q => q.ClosesAtUtc)
+            .ToListAsync(ct);
+
     public async Task AddAsync(Quiz quiz, CancellationToken ct = default)
         => await _context.Quizzes.AddAsync(quiz, ct);
 
