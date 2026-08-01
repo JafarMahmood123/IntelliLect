@@ -17,6 +17,9 @@ public sealed class FakeQuizRepository : IQuizRepository
     public void Seed(Quiz quiz) => _quizzes[quiz.Id] = quiz;
     public Quiz? Find(Guid quizId) => _quizzes.GetValueOrDefault(quizId);
 
+    /// <summary>Everything stored, so a test can assert that an operation persisted NOTHING.</summary>
+    public IReadOnlyCollection<Quiz> All => _quizzes.Values;
+
     public Task<Quiz?> GetWithQuestionsAsync(Guid quizId, CancellationToken ct = default)
         => Task.FromResult(_quizzes.GetValueOrDefault(quizId));
 

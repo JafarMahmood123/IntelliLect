@@ -22,6 +22,23 @@ public interface IQuizService
     Task<QuizTeacherDto> GenerateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default);
 
+    /// <summary>
+    /// One generated question for the composer to append, from the same idea and material.
+    /// <paramref name="avoid"/> carries the questions already written so it does not repeat them.
+    /// Returns content only — nothing is persisted, because the teacher is still composing.
+    /// </summary>
+    Task<GeneratedQuestionDraftDto> GenerateQuestionAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, IReadOnlyList<string>? avoid,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Answers for a question the TEACHER wrote, from that question plus the explanation they just
+    /// gave. Also returns content only.
+    /// </summary>
+    Task<GeneratedQuestionDraftDto> GenerateAnswersAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, string questionText,
+        CancellationToken ct = default);
+
     /// <summary>Replaces a DRAFT's content. Rejected once published — publishing freezes the quiz.</summary>
     Task<QuizTeacherDto> UpdateDraftAsync(
         Guid classroomId, Guid quizId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default);

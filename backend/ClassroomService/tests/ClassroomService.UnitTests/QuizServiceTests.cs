@@ -40,22 +40,43 @@ public sealed class QuizServiceTests
                 new GeneratedOptionDto("The wrong one", false),
             ])]);
 
+        public GeneratedQuestionDto AnswersResult = new("ignored — the teacher's text is kept", [
+            new GeneratedOptionDto("Generated right", true),
+            new GeneratedOptionDto("Generated wrong", false),
+        ]);
+
         public Exception? Throws;
         public int Calls;
+        public int AnswerCalls;
         public int LastQuestionCount;
         public int LastMinOptions;
         public int LastMaxOptions;
+        public IReadOnlyList<string>? LastAvoid;
+        public string? LastQuestionText;
 
         public Task<GeneratedQuizDto> GenerateQuizAsync(
             Guid sessionId, Guid classroomId, int questionCount, int minOptions, int maxOptions,
-            CancellationToken ct = default)
+            IReadOnlyList<string>? avoid = null, CancellationToken ct = default)
         {
             Calls++;
             LastQuestionCount = questionCount;
             LastMinOptions = minOptions;
             LastMaxOptions = maxOptions;
+            LastAvoid = avoid;
             if (Throws is not null) throw Throws;
             return Task.FromResult(Result);
+        }
+
+        public Task<GeneratedQuestionDto> GenerateAnswersAsync(
+            Guid sessionId, Guid classroomId, string questionText, int minOptions, int maxOptions,
+            CancellationToken ct = default)
+        {
+            AnswerCalls++;
+            LastQuestionText = questionText;
+            LastMinOptions = minOptions;
+            LastMaxOptions = maxOptions;
+            if (Throws is not null) throw Throws;
+            return Task.FromResult(AnswersResult);
         }
 
         public Task<int?> GetTranscriptSegmentCountAsync(Guid sessionId, CancellationToken ct = default)
@@ -302,6 +323,91 @@ public sealed class QuizServiceTests
 
         await Assert.ThrowsAsync<ConflictException>(
             () => h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default));
+    }
+
+    [Fact]
+    public async Task Generating_one_question_asks_for_exactly_one()
+    {
+        var h = Build();
+
+        await h.Service.GenerateQuestionAsync(ClassroomId, SessionId, TeacherId, null, default);
+
+        Assert.Equal(1, h.Assistant.LastQuestionCount);
+    }
+
+    [Fact]
+    public async Task Generating_one_question_passes_the_existing_ones_so_it_does_not_repeat_them()
+    {
+        var h = Build();
+
+        await h.Service.GenerateQuestionAsync(
+            ClassroomId, SessionId, TeacherId, ["What is a cache hit?"], default);
+
+        Assert.Equal(["What is a cache hit?"], h.Assistant.LastAvoid);
+    }
+
+    [Fact]
+    public async Task Generating_one_question_persists_nothing()
+    {
+        // The teacher is mid-compose and may delete it a second later. A quiz row per button press
+        // would litter the session with abandoned drafts.
+        var h = Build();
+
+        var question = await h.Service.GenerateQuestionAsync(
+            ClassroomId, SessionId, TeacherId, null, default);
+
+        Assert.NotEmpty(question.Options);
+        Assert.Empty(h.Quizzes.All);
+    }
+
+    [Fact]
+    public async Task Generated_answers_keep_the_teachers_question_text()
+    {
+        // The assistant is given the question and returns options for it; it is not asked to
+        // rewrite the question, and its own text field is ignored on this path.
+        var h = Build();
+
+        await h.Service.GenerateAnswersAsync(
+            ClassroomId, SessionId, TeacherId, "What the teacher asked", default);
+
+        Assert.Equal("What the teacher asked", h.Assistant.LastQuestionText);
+    }
+
+    [Fact]
+    public async Task Generating_answers_persists_nothing()
+    {
+        var h = Build();
+
+        var question = await h.Service.GenerateAnswersAsync(
+            ClassroomId, SessionId, TeacherId, "A question", default);
+
+        Assert.Equal(1, question.Options.Count(o => o.IsCorrect));
+        Assert.Empty(h.Quizzes.All);
+    }
+
+    [Fact]
+    public async Task Generating_answers_for_an_empty_question_does_not_call_the_assistant()
+    {
+        var h = Build();
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.GenerateAnswersAsync(ClassroomId, SessionId, TeacherId, "   ", default));
+
+        Assert.Equal(0, h.Assistant.AnswerCalls);
+    }
+
+    [Fact]
+    public async Task A_student_cannot_spend_a_question_or_answer_generation()
+    {
+        var h = Build();
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.GenerateQuestionAsync(ClassroomId, SessionId, StudentId, null, default));
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.GenerateAnswersAsync(ClassroomId, SessionId, StudentId, "Q", default));
+
+        Assert.Equal(0, h.Assistant.Calls);
+        Assert.Equal(0, h.Assistant.AnswerCalls);
     }
 
     // --- the answer key must not leak --------------------------------------------

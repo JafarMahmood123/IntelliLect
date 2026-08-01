@@ -33,6 +33,12 @@ export interface QuizDraftRequest {
   questions: QuestionDraft[];
 }
 
+/**
+ * A generated question shaped for the composer to append directly. Marks and timing are the
+ * server's defaults, so it drops straight into `QuestionDraft` with no translation.
+ */
+export type GeneratedQuestionDraft = QuestionDraft;
+
 // --- teacher view ------------------------------------------------------------
 
 export interface QuizOptionTeacher {

@@ -73,6 +73,31 @@ def parse_quiz(
     )
 
 
+def parse_answers(
+    content: str, question_text: str, *, min_options: int, max_options: int
+) -> GeneratedQuestion | None:
+    """Parse an options-only reply into the teacher's question. ``None`` if unusable.
+
+    Routed through the SAME ``_parse_question`` as a full quiz, so the index-in-range and
+    duplicate-option rules cannot drift between the two paths. The question text is the teacher's
+    own and is never taken from the model — it was not asked for, and accepting one would let a
+    request for answers quietly rewrite the question.
+    """
+    try:
+        data = json.loads(strip_code_fences(content))
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Brain returned non-JSON output for an answers request.")
+        return None
+
+    if not isinstance(data, dict):
+        logger.warning("Brain returned JSON that is not an object for an answers request.")
+        return None
+
+    return _parse_question(
+        {**data, "text": question_text}, min_options=min_options, max_options=max_options
+    )
+
+
 def _parse_question(
     raw: Any, *, min_options: int, max_options: int
 ) -> GeneratedQuestion | None:

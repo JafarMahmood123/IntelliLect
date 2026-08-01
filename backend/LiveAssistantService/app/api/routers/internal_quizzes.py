@@ -38,6 +38,15 @@ class GenerateQuizRequest(BaseModel):
     questionCount: int = Field(default=3, ge=1, le=50)
     minOptions: int = Field(default=2, ge=2, le=10)
     maxOptions: int = Field(default=4, ge=2, le=10)
+    # Questions already in the teacher's draft, so a newly generated one does not repeat them.
+    avoid: list[str] = Field(default_factory=list)
+
+
+class GenerateAnswersRequest(BaseModel):
+    classroomId: UUID
+    questionText: str = Field(min_length=1)
+    minOptions: int = Field(default=2, ge=2, le=10)
+    maxOptions: int = Field(default=4, ge=2, le=10)
 
 
 class GeneratedOptionResponse(BaseModel):
@@ -84,6 +93,7 @@ async def generate_quiz(
             question_count=request.questionCount,
             min_options=request.minOptions,
             max_options=request.maxOptions,
+            avoid=request.avoid,
         )
     except NoIdeaAvailable as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -97,14 +107,48 @@ async def generate_quiz(
         title=quiz.title,
         grounded=quiz.grounded,
         citations=quiz.citations,
-        questions=[
-            GeneratedQuestionResponse(
-                text=question.text,
-                options=[
-                    GeneratedOptionResponse(text=option.text, isCorrect=option.is_correct)
-                    for option in question.options
-                ],
-            )
-            for question in quiz.questions
+        questions=[_to_response(question) for question in quiz.questions],
+    )
+
+
+@router.post("/{session_id}/quiz/answers", response_model=GeneratedQuestionResponse)
+async def generate_answers(
+    session_id: UUID, request: GenerateAnswersRequest, generator: QuizGeneratorDep
+) -> GeneratedQuestionResponse:
+    """Write answer options for a question the teacher wrote themselves.
+
+    Same status contract as generation: 409 when the session has produced no idea yet, 503 when
+    the assistant could not produce usable options.
+    """
+    if request.maxOptions < request.minOptions:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="maxOptions cannot be smaller than minOptions.",
+        )
+
+    try:
+        question = await generator.generate_answers(
+            session_id,
+            request.classroomId,
+            request.questionText,
+            min_options=request.minOptions,
+            max_options=request.maxOptions,
+        )
+    except NoIdeaAvailable as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except QuizGenerationFailed as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    return _to_response(question)
+
+
+def _to_response(question) -> GeneratedQuestionResponse:
+    return GeneratedQuestionResponse(
+        text=question.text,
+        options=[
+            GeneratedOptionResponse(text=option.text, isCorrect=option.is_correct)
+            for option in question.options
         ],
     )

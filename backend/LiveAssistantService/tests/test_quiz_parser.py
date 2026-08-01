@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from app.infrastructure.brain.quiz_parser import DEFAULT_TITLE, parse_quiz
+from app.infrastructure.brain.quiz_parser import DEFAULT_TITLE, parse_answers, parse_quiz
 
 BOUNDS = {"max_questions": 5, "min_options": 2, "max_options": 4}
 
@@ -161,3 +161,56 @@ def test_grounded_flag_is_carried_through():
 
     assert quiz is not None
     assert quiz.grounded is False
+
+
+# --- answers for a question the teacher wrote --------------------------------
+
+
+def _answers(**overrides) -> str:
+    body = {"options": ["Right", "Wrong"], "correct_index": 0}
+    body.update(overrides)
+    return json.dumps(body)
+
+
+def _parse_answers_reply(content: str, question: str = "The teacher's question"):
+    return parse_answers(content, question, min_options=2, max_options=4)
+
+
+def test_answers_keep_the_teachers_question_text():
+    """The model is not asked for the question and must not be able to change it — a request for
+    answers that quietly rewrote the question would be worse than one that failed."""
+    question = _parse_answers_reply(
+        json.dumps({"options": ["a", "b"], "correct_index": 0, "text": "A REWRITTEN question"}),
+        question="What the teacher actually asked",
+    )
+
+    assert question is not None
+    assert question.text == "What the teacher actually asked"
+
+
+def test_answers_mark_exactly_one_option_correct():
+    question = _parse_answers_reply(_answers(options=["a", "b", "c"], correct_index=1))
+
+    assert question is not None
+    assert [o.is_correct for o in question.options] == [False, True, False]
+
+
+def test_answers_with_an_out_of_range_index_are_rejected():
+    assert _parse_answers_reply(_answers(correct_index=9)) is None
+
+
+def test_answers_below_the_minimum_are_rejected():
+    assert _parse_answers_reply(_answers(options=["only"], correct_index=0)) is None
+
+
+def test_duplicate_answers_are_removed():
+    question = _parse_answers_reply(
+        _answers(options=["Same", "same", "Other"], correct_index=0)
+    )
+
+    assert question is not None
+    assert [o.text for o in question.options] == ["Same", "Other"]
+
+
+def test_non_json_answers_return_none():
+    assert _parse_answers_reply("Sure! Here are some options:") is None

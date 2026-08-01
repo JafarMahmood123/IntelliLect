@@ -8,7 +8,9 @@ import {
   useCancelQuiz,
   useCloseQuiz,
   useCreateQuizDraft,
+  useGenerateQuizAnswers,
   useGenerateQuizDraft,
+  useGenerateQuizQuestion,
   useOpenQuiz,
   usePublishQuiz,
   useQuizLimits,
@@ -57,7 +59,11 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const createDraft = useCreateQuizDraft(classroomId, sessionId);
   const updateDraft = useUpdateQuizDraft(classroomId);
   const generate = useGenerateQuizDraft(classroomId, sessionId);
+  const generateQuestion = useGenerateQuizQuestion(classroomId, sessionId);
+  const generateAnswers = useGenerateQuizAnswers(classroomId, sessionId);
   const [questionCount, setQuestionCount] = useState(3);
+  /** Which question is waiting on its answers, so only that card shows a spinner. */
+  const [answeringIndex, setAnsweringIndex] = useState<number | null>(null);
   const publish = usePublishQuiz(classroomId, sessionId);
   const close = useCloseQuiz(classroomId, sessionId);
   const cancel = useCancelQuiz(classroomId, sessionId);
@@ -175,6 +181,28 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
     setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, ...next } : q)));
 
   /**
+   * 409 and 503 mean genuinely different things and the fix differs: one is "keep teaching", the
+   * other is "try again". Collapsing them into one apology would hide the only useful part.
+   */
+  const reportGenerationError = (error: unknown, what: 'quiz' | 'question' | 'answers') => {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    if (status === 409) {
+      showToast({
+        type: 'error',
+        title: 'Nothing to work from yet',
+        message:
+          'The assistant has not transcribed enough of this session. Keep teaching and try again in a moment.',
+      });
+      return;
+    }
+    showToast({
+      type: 'error',
+      title: `Could not generate ${what === 'answers' ? 'answers' : `a ${what}`}`,
+      message: 'The assistant could not do that right now. You can still write it yourself.',
+    });
+  };
+
+  /**
    * Loads a generated draft into the composer so it can be edited before publishing. The teacher
    * reviews the questions with the correct answers marked, exactly as if they had typed them.
    */
@@ -195,17 +223,41 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
         })),
       );
     } catch (error) {
-      // 409 and 503 mean genuinely different things and the fix differs: one is "keep teaching",
-      // the other is "try again". Collapsing them into one apology would hide that.
-      const status = (error as { response?: { status?: number } })?.response?.status;
-      const noIdeaYet = status === 409;
+      reportGenerationError(error, 'quiz');
+    }
+  };
+
+  /** Appends one generated question, telling the assistant what is already there so it varies. */
+  const runGenerateQuestion = async () => {
+    try {
+      const question = await generateQuestion.mutateAsync(
+        questions.map((q) => q.text).filter((text) => text.trim()),
+      );
+      setQuestions((prev) => [...prev, question]);
+    } catch (error) {
+      reportGenerationError(error, 'question');
+    }
+  };
+
+  /** Fills one question's options in place. The question text is the teacher's and stays theirs. */
+  const runGenerateAnswers = async (index: number) => {
+    const question = questions[index];
+    if (!question.text.trim()) {
       showToast({
         type: 'error',
-        title: noIdeaYet ? 'Nothing to quiz on yet' : 'Could not generate',
-        message: noIdeaYet
-          ? 'The assistant has not transcribed enough of this session. Keep teaching and try again in a moment.'
-          : 'The assistant could not write a quiz right now. You can still write one yourself below.',
+        title: 'Write the question first',
+        message: 'The assistant needs the question before it can write answers for it.',
       });
+      return;
+    }
+    setAnsweringIndex(index);
+    try {
+      const generated = await generateAnswers.mutateAsync(question.text);
+      patch(index, { options: generated.options });
+    } catch (error) {
+      reportGenerationError(error, 'answers');
+    } finally {
+      setAnsweringIndex(null);
     }
   };
 
@@ -370,30 +422,60 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
               </div>
             ))}
 
-            {question.options.length < limits.maxAnswersPerQuestion && (
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              {question.options.length < limits.maxAnswersPerQuestion ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    patch(qi, { options: [...question.options, { text: '', isCorrect: false }] })
+                  }
+                  className="text-[11px] text-violet-400"
+                >
+                  + Add answer
+                </button>
+              ) : (
+                <span />
+              )}
+
+              {/* Writes the options for the question the teacher typed, from that question plus
+                  the explanation they just gave. Their wording is never touched. */}
               <button
                 type="button"
-                onClick={() =>
-                  patch(qi, { options: [...question.options, { text: '', isCorrect: false }] })
-                }
-                className="text-[11px] text-violet-400"
+                onClick={() => runGenerateAnswers(qi)}
+                disabled={answeringIndex !== null}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-violet-500/15 px-2 py-1 text-[11px] font-bold text-violet-300 transition-colors hover:bg-violet-500/25 disabled:opacity-50"
               >
-                + Add answer
+                <Sparkles size={11} />
+                {answeringIndex === qi ? 'Writing…' : 'Generate answers'}
               </button>
-            )}
+            </div>
           </div>
         </div>
       ))}
 
-      <button
-        type="button"
-        disabled={atQuestionLimit}
-        onClick={() => setQuestions((prev) => [...prev, blankQuestion(limits)])}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
-      >
-        <Plus size={14} />
-        {atQuestionLimit ? `Limit is ${limits.maxQuestionsPerQuiz} questions` : 'Add question'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={atQuestionLimit}
+          onClick={() => setQuestions((prev) => [...prev, blankQuestion(limits)])}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
+        >
+          <Plus size={14} />
+          {atQuestionLimit ? `Limit is ${limits.maxQuestionsPerQuiz}` : 'Add question'}
+        </button>
+
+        {/* Appends one generated question. It is told what is already in the composer, so pressing
+            it repeatedly varies rather than restating the same point. */}
+        <button
+          type="button"
+          disabled={atQuestionLimit || generateQuestion.isPending}
+          onClick={runGenerateQuestion}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-xs font-bold text-violet-300 transition-colors hover:bg-violet-500/25 disabled:opacity-40"
+        >
+          <Sparkles size={14} />
+          {generateQuestion.isPending ? 'Writing…' : 'Generate question'}
+        </button>
+      </div>
 
       {questions.length > 0 && (
         <>

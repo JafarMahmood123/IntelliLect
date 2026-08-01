@@ -84,9 +84,11 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         int questionCount,
         int minOptions,
         int maxOptions,
+        IReadOnlyList<string>? avoid = null,
         CancellationToken ct = default)
     {
-        var body = new GenerateQuizRequest(classroomId, questionCount, minOptions, maxOptions);
+        var body = new GenerateQuizRequest(
+            classroomId, questionCount, minOptions, maxOptions, avoid ?? []);
 
         using var response = await SendWithRetryAsync(
             () => new HttpRequestMessage(HttpMethod.Post, $"api/internal/sessions/{sessionId}/quiz")
@@ -96,10 +98,8 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
             "quiz generation",
             sessionId,
             ct,
-            // Generation runs a language model over the transcript: tens of seconds is normal, not
-            // a fault, so it gets its own budget instead of the transcript calls' short one.
-            timeout: TimeSpan.FromSeconds(
-                _options.GenerationTimeoutSeconds > 0 ? _options.GenerationTimeoutSeconds : 120),
+            // Its own budget instead of the transcript calls' short one — see GenerationTimeout.
+            timeout: GenerationTimeout,
             // NOT retried. A retry here would re-run the model — another minute of a teacher
             // standing in front of a class, and another call's cost, to repeat work that just
             // failed. Better to report it and let them press the button again if they want to.
@@ -133,14 +133,67 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         return new GeneratedQuizDto(
             quiz.Title ?? string.Empty,
             quiz.Grounded,
-            quiz.Questions
-                .Select(q => new GeneratedQuestionDto(
-                    q.Text ?? string.Empty,
-                    q.Options
-                        .Select(o => new GeneratedOptionDto(o.Text ?? string.Empty, o.IsCorrect))
-                        .ToList()))
-                .ToList());
+            quiz.Questions.Select(ToDto).ToList());
     }
+
+    public async Task<GeneratedQuestionDto> GenerateAnswersAsync(
+        Guid sessionId,
+        Guid classroomId,
+        string questionText,
+        int minOptions,
+        int maxOptions,
+        CancellationToken ct = default)
+    {
+        var body = new GenerateAnswersRequest(classroomId, questionText, minOptions, maxOptions);
+
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(
+                HttpMethod.Post, $"api/internal/sessions/{sessionId}/quiz/answers")
+            {
+                Content = JsonContent.Create(body),
+            },
+            "answer generation",
+            sessionId,
+            ct,
+            timeout: GenerationTimeout,
+            maxAttempts: 1);
+
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new ConflictException(
+                "There is nothing to write answers from yet — the assistant has not transcribed "
+                + "enough of this session. Keep teaching and try again in a moment.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "LiveAssistant answer generation for {SessionId} returned {StatusCode}.",
+                sessionId, (int)response.StatusCode);
+            throw new ServiceUnavailableException(
+                "The teaching assistant could not write answers right now. Please try again.");
+        }
+
+        var question = await response.Content.ReadFromJsonAsync<GeneratedQuestionResponse>(ct);
+        if (question is null || question.Options.Count == 0)
+        {
+            throw new ServiceUnavailableException(
+                "The teaching assistant returned no answers. Please try again.");
+        }
+
+        return ToDto(question);
+    }
+
+    /// <summary>Generation runs a language model: tens of seconds is normal, not a fault.</summary>
+    private TimeSpan GenerationTimeout => TimeSpan.FromSeconds(
+        _options.GenerationTimeoutSeconds > 0 ? _options.GenerationTimeoutSeconds : 120);
+
+    private static GeneratedQuestionDto ToDto(GeneratedQuestionResponse question)
+        => new(
+            question.Text ?? string.Empty,
+            question.Options
+                .Select(o => new GeneratedOptionDto(o.Text ?? string.Empty, o.IsCorrect))
+                .ToList());
 
     // Sends a request (recreated per attempt) with the internal secret, retrying transient faults.
     // Terminal statuses (including 404) are returned to the caller to interpret.
@@ -213,6 +266,13 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
     private sealed record GenerateQuizRequest(
         [property: JsonPropertyName("classroomId")] Guid ClassroomId,
         [property: JsonPropertyName("questionCount")] int QuestionCount,
+        [property: JsonPropertyName("minOptions")] int MinOptions,
+        [property: JsonPropertyName("maxOptions")] int MaxOptions,
+        [property: JsonPropertyName("avoid")] IReadOnlyList<string> Avoid);
+
+    private sealed record GenerateAnswersRequest(
+        [property: JsonPropertyName("classroomId")] Guid ClassroomId,
+        [property: JsonPropertyName("questionText")] string QuestionText,
         [property: JsonPropertyName("minOptions")] int MinOptions,
         [property: JsonPropertyName("maxOptions")] int MaxOptions);
 

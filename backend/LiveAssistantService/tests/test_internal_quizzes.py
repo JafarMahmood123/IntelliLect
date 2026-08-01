@@ -163,3 +163,100 @@ async def test_wrong_internal_secret_is_rejected():
 
     assert response.status_code == 401
     assert generator.calls == []
+
+
+# --- answers for a question the teacher wrote --------------------------------
+
+
+class StubAnswerGenerator:
+    def __init__(self, question=None, *, error: Exception | None = None):
+        self._question = question
+        self._error = error
+        self.calls: list[dict] = []
+
+    async def generate_answers(self, session_id, classroom_id, question_text, **kwargs):
+        self.calls.append({"question_text": question_text, **kwargs})
+        if self._error is not None:
+            raise self._error
+        return self._question
+
+    async def generate(self, *a, **k):  # pragma: no cover - not used by these tests
+        raise AssertionError("the answers endpoint must not generate a whole quiz")
+
+
+def _answers_body(**overrides) -> dict:
+    return {
+        "classroomId": str(uuid4()),
+        "questionText": "What is a cache miss?",
+        "minOptions": 2,
+        "maxOptions": 4,
+    } | overrides
+
+
+async def test_answers_endpoint_returns_the_options():
+    generator = StubAnswerGenerator(_quiz().questions[0])
+
+    async with _client(generator) as client:
+        response = await client.post(
+            f"/api/internal/sessions/{uuid4()}/quiz/answers",
+            json=_answers_body(),
+            headers=_HEADERS,
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert sum(1 for o in body["options"] if o["isCorrect"]) == 1
+
+
+async def test_answers_endpoint_passes_the_teachers_question_through():
+    generator = StubAnswerGenerator(_quiz().questions[0])
+
+    async with _client(generator) as client:
+        await client.post(
+            f"/api/internal/sessions/{uuid4()}/quiz/answers",
+            json=_answers_body(questionText="Something the teacher wrote"),
+            headers=_HEADERS,
+        )
+
+    assert generator.calls[0]["question_text"] == "Something the teacher wrote"
+
+
+async def test_answers_endpoint_rejects_an_empty_question():
+    generator = StubAnswerGenerator(_quiz().questions[0])
+
+    async with _client(generator) as client:
+        response = await client.post(
+            f"/api/internal/sessions/{uuid4()}/quiz/answers",
+            json=_answers_body(questionText=""),
+            headers=_HEADERS,
+        )
+
+    assert response.status_code == 422
+    assert generator.calls == []
+
+
+async def test_answers_endpoint_keeps_the_409_503_distinction():
+    for error, expected in (
+        (NoIdeaAvailable("nothing yet"), 409),
+        (QuizGenerationFailed("brain down"), 503),
+    ):
+        generator = StubAnswerGenerator(error=error)
+        async with _client(generator) as client:
+            response = await client.post(
+                f"/api/internal/sessions/{uuid4()}/quiz/answers",
+                json=_answers_body(),
+                headers=_HEADERS,
+            )
+        assert response.status_code == expected
+
+
+async def test_answers_endpoint_requires_the_internal_secret():
+    generator = StubAnswerGenerator(_quiz().questions[0])
+
+    async with _client(generator) as client:
+        response = await client.post(
+            f"/api/internal/sessions/{uuid4()}/quiz/answers", json=_answers_body()
+        )
+
+    assert response.status_code == 401
+    assert generator.calls == []

@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from app.domain.evaluation.evaluation_outcome import EvaluationOutcome
 from app.domain.evaluation.retrieved_chunk import RetrievedChunk
 from app.domain.idea.completed_idea import CompletedIdea
-from app.domain.quiz.generated_quiz import GeneratedQuiz
+from app.domain.quiz.generated_quiz import GeneratedQuestion, GeneratedQuiz
 
 
 class BrainClient(ABC):
@@ -38,6 +38,7 @@ class BrainClient(ABC):
         question_count: int,
         min_options: int,
         max_options: int,
+        avoid: list[str] | None = None,
     ) -> GeneratedQuiz | None:
         """Write multiple-choice questions testing the explanation in ``idea_text``.
 
@@ -50,6 +51,25 @@ class BrainClient(ABC):
         NOT an acceptable outcome here — a teacher asked for this — so the caller reports the
         failure instead of pretending there was nothing to say. Transport/HTTP failures may raise
         a catchable error.
+        """
+        raise NotImplementedError
+
+    async def generate_answers(
+        self,
+        question_text: str,
+        idea_text: str,
+        chunks: list[RetrievedChunk],
+        *,
+        min_options: int,
+        max_options: int,
+    ) -> GeneratedQuestion | None:
+        """Write answer options for a question the TEACHER wrote.
+
+        Given the teacher's question, the explanation they just gave, and the retrieved material.
+        The question text is not the model's to change — implementations return it unchanged
+        alongside the options, so asking for answers can never rewrite the question.
+
+        Returns ``None`` when the reply yielded no usable set of options.
         """
         raise NotImplementedError
 

@@ -3,7 +3,9 @@ import {
   cancelQuiz,
   closeQuiz,
   createQuizDraft,
+  generateQuizAnswers,
   generateQuizDraft,
+  generateQuizQuestion,
   getMyQuizResult,
   getMySessionQuizSummary,
   getOpenQuizForSession,
@@ -108,6 +110,19 @@ export const useGenerateQuizDraft = (classroomId: string, sessionId: string) =>
  * The quiz id travels with the CALL, not the hook, because the draft being edited is only known
  * once one exists — created by the teacher's first save, or by generation.
  */
+/** One question appended to the composer. Nothing is persisted server-side. */
+export const useGenerateQuizQuestion = (classroomId: string, sessionId: string) =>
+  useMutation({
+    mutationFn: (avoid: string[]) => generateQuizQuestion(classroomId, sessionId, avoid),
+  });
+
+/** Answers for a question the teacher wrote. Also unpersisted. */
+export const useGenerateQuizAnswers = (classroomId: string, sessionId: string) =>
+  useMutation({
+    mutationFn: (questionText: string) =>
+      generateQuizAnswers(classroomId, sessionId, questionText),
+  });
+
 export const useUpdateQuizDraft = (classroomId: string) =>
   useMutation({
     mutationFn: ({ quizId, draft }: { quizId: string; draft: QuizDraftRequest }) =>

@@ -41,12 +41,21 @@ class RecordingBrain:
         self._quiz = _quiz() if quiz is _UNSET else quiz
         self._error = error
         self.calls: list[tuple[str, list[RetrievedChunk]]] = []
+        self.answer_calls: list[tuple[str, str, list[RetrievedChunk]]] = []
+        self.kwargs: list[dict] = []
 
     async def generate_quiz(self, idea_text, chunks, **kwargs):
         self.calls.append((idea_text, list(chunks)))
+        self.kwargs.append(kwargs)
         if self._error is not None:
             raise self._error
         return self._quiz
+
+    async def generate_answers(self, question_text, idea_text, chunks, **kwargs):
+        self.answer_calls.append((question_text, idea_text, list(chunks)))
+        if self._error is not None:
+            raise self._error
+        return None if self._quiz is None else self._quiz.questions[0]
 
 
 def _quiz() -> GeneratedQuiz:
@@ -205,3 +214,81 @@ async def test_ideas_are_scoped_to_their_session():
 
     with pytest.raises(NoIdeaAvailable):
         await generator.generate(mine, uuid4(), **BOUNDS)
+
+
+# --- answers for a question the teacher wrote --------------------------------
+
+
+async def test_answers_are_written_for_the_teachers_question():
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    brain = RecordingBrain()
+    generator = _generator(FakeRetrievalClient([_chunk(0.8)]), brain, ideas)
+
+    question = await generator.generate_answers(
+        session_id, uuid4(), "What is a cache miss?", min_options=2, max_options=4
+    )
+
+    assert question.options
+    assert brain.answer_calls[0][0] == "What is a cache miss?"
+
+
+async def test_answer_retrieval_is_keyed_on_the_question_as_well_as_the_idea():
+    """The teacher may ask about a detail the idea only touches on; material matching the question
+    is what keeps the options correct rather than merely plausible."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("caches store recently used items"))
+
+    retrieval = FakeRetrievalClient([_chunk(0.8)])
+    generator = _generator(retrieval, RecordingBrain(), ideas)
+
+    await generator.generate_answers(
+        session_id, uuid4(), "What is an eviction policy?", min_options=2, max_options=4
+    )
+
+    query = retrieval.calls[0][1]
+    assert "eviction policy" in query
+    assert "caches store recently used items" in query
+
+
+async def test_answers_without_an_idea_are_reported_distinctly():
+    generator = _generator(FakeRetrievalClient([]), RecordingBrain(), LastIdeaStore())
+
+    with pytest.raises(NoIdeaAvailable):
+        await generator.generate_answers(
+            uuid4(), uuid4(), "A question", min_options=2, max_options=4
+        )
+
+
+async def test_unusable_answers_are_a_failure():
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]), RecordingBrain(quiz=None), ideas
+    )
+
+    with pytest.raises(QuizGenerationFailed):
+        await generator.generate_answers(
+            session_id, uuid4(), "A question", min_options=2, max_options=4
+        )
+
+
+async def test_already_written_questions_are_passed_through_so_a_new_one_varies():
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    brain = RecordingBrain()
+    generator = _generator(FakeRetrievalClient([_chunk(0.8)]), brain, ideas)
+
+    await generator.generate(
+        session_id, uuid4(), question_count=1, min_options=2, max_options=4,
+        avoid=["What is a cache hit?"],
+    )
+
+    assert brain.kwargs[0]["avoid"] == ["What is a cache hit?"]

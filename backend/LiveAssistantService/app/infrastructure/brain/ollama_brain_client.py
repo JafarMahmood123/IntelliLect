@@ -27,13 +27,16 @@ from app.infrastructure.brain.evaluation_prompt import (
     build_user_prompt,
 )
 from app.infrastructure.brain.outcome_parser import parse_outcome
-from app.infrastructure.brain.quiz_parser import parse_quiz
+from app.infrastructure.brain.quiz_parser import parse_answers, parse_quiz
 from app.infrastructure.brain.quiz_prompt import (
+    ANSWERS_SYSTEM_PROMPT,
     SYSTEM_PROMPT as QUIZ_SYSTEM_PROMPT,
+    build_answers_response_schema,
+    build_answers_user_prompt,
     build_response_schema,
     build_user_prompt as build_quiz_user_prompt,
 )
-from app.domain.quiz.generated_quiz import GeneratedQuiz
+from app.domain.quiz.generated_quiz import GeneratedQuestion, GeneratedQuiz
 from app.infrastructure.config.settings import Settings
 
 logger = logging.getLogger("liveassistant.brain")
@@ -75,11 +78,12 @@ class OllamaBrainClient(BrainClient):
         question_count: int,
         min_options: int,
         max_options: int,
+        avoid: list[str] | None = None,
     ) -> GeneratedQuiz | None:
         context, citation_map = build_numbered_context(chunks)
         content = await self._complete(
             QUIZ_SYSTEM_PROMPT,
-            build_quiz_user_prompt(idea_text, context, question_count),
+            build_quiz_user_prompt(idea_text, context, question_count, avoid),
             # Ollama takes a JSON Schema in `format` and constrains decoding to it, so the shape
             # is enforced during generation the same way Gemini's responseSchema does.
             response_format=build_response_schema(
@@ -98,6 +102,30 @@ class OllamaBrainClient(BrainClient):
             max_options=max_options,
             citation_numbers=set(citation_map),
             grounded=bool(chunks),
+        )
+
+    async def generate_answers(
+        self,
+        question_text: str,
+        idea_text: str,
+        chunks: list[RetrievedChunk],
+        *,
+        min_options: int,
+        max_options: int,
+    ) -> GeneratedQuestion | None:
+        context, _ = build_numbered_context(chunks)
+        content = await self._complete(
+            ANSWERS_SYSTEM_PROMPT,
+            build_answers_user_prompt(question_text, idea_text, context, max_options),
+            response_format=build_answers_response_schema(
+                min_options=min_options, max_options=max_options
+            ),
+            temperature=self._quiz_temperature,
+            max_tokens=self._quiz_max_tokens,
+            timeout=self._quiz_timeout,
+        )
+        return parse_answers(
+            content, question_text, min_options=min_options, max_options=max_options
         )
 
     async def smoke_complete(self, transcript_text: str) -> str:

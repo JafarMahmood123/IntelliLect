@@ -71,15 +71,7 @@ public sealed class QuizService : IQuizService
     public async Task<QuizTeacherDto> GenerateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default)
     {
-        // Authorised BEFORE the assistant is called: generation costs a model call, and it should
-        // not be spendable by someone who could not create the draft afterwards anyway.
-        await EnsureTeacherAsync(classroomId, teacherId, ct);
-
-        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
-        if (session is null || session.ClassroomId != classroomId)
-        {
-            throw new KeyNotFoundException("Session not found.");
-        }
+        await EnsureGenerationAllowedAsync(classroomId, sessionId, teacherId, ct);
 
         // Clamped rather than rejected: asking for more questions than the limit allows is a
         // reasonable request to round down, not an error worth refusing a live teacher over.
@@ -91,6 +83,8 @@ public sealed class QuizService : IQuizService
             count,
             _settings.MinAnswersPerQuestion,
             _settings.MaxAnswersPerQuestion,
+            // A whole quiz has nothing to avoid — it replaces the composer rather than adding to it.
+            avoid: null,
             ct);
 
         // Marks and timing are this service's to set, not the model's: a mark is a pedagogical
@@ -111,6 +105,83 @@ public sealed class QuizService : IQuizService
 
         return await CreateDraftAsync(classroomId, sessionId, teacherId, draft, ct);
     }
+
+    /// <summary>
+    /// One generated question for the composer to append, from the same idea and material the
+    /// whole-quiz generation uses.
+    ///
+    /// Nothing is persisted. The teacher is mid-compose and may delete it a second later; writing
+    /// a quiz row per button press would leave the session full of abandoned drafts.
+    /// </summary>
+    public async Task<GeneratedQuestionDraftDto> GenerateQuestionAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, IReadOnlyList<string>? avoid,
+        CancellationToken ct = default)
+    {
+        await EnsureGenerationAllowedAsync(classroomId, sessionId, teacherId, ct);
+
+        var generated = await _liveAssistant.GenerateQuizAsync(
+            sessionId,
+            classroomId,
+            questionCount: 1,
+            _settings.MinAnswersPerQuestion,
+            _settings.MaxAnswersPerQuestion,
+            avoid,
+            ct);
+
+        var question = generated.Questions.FirstOrDefault()
+            ?? throw new ServiceUnavailableException(
+                "The teaching assistant returned no question. Please try again.");
+
+        return ToDraftDto(question);
+    }
+
+    /// <summary>
+    /// Answers for a question the teacher wrote themselves. Also unpersisted, for the same reason.
+    /// </summary>
+    public async Task<GeneratedQuestionDraftDto> GenerateAnswersAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, string questionText,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(questionText))
+        {
+            throw new ConflictException("Write the question first, then generate its answers.");
+        }
+
+        await EnsureGenerationAllowedAsync(classroomId, sessionId, teacherId, ct);
+
+        var question = await _liveAssistant.GenerateAnswersAsync(
+            sessionId,
+            classroomId,
+            questionText,
+            _settings.MinAnswersPerQuestion,
+            _settings.MaxAnswersPerQuestion,
+            ct);
+
+        return ToDraftDto(question);
+    }
+
+    /// <summary>
+    /// Authorised BEFORE the assistant is called: generation costs a model call, and it should not
+    /// be spendable by someone who could not use the result anyway.
+    /// </summary>
+    private async Task EnsureGenerationAllowedAsync(
+        Guid classroomId, Guid sessionId, Guid teacherId, CancellationToken ct)
+    {
+        await EnsureTeacherAsync(classroomId, teacherId, ct);
+
+        var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
+        if (session is null || session.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("Session not found.");
+        }
+    }
+
+    private GeneratedQuestionDraftDto ToDraftDto(GeneratedQuestionDto question)
+        => new(
+            question.Text,
+            DefaultGeneratedPoints,
+            _settings.DefaultSecondsPerQuestion,
+            question.Options.Select(o => new OptionDraftRequest(o.Text, o.IsCorrect)).ToList());
 
     public async Task<QuizTeacherDto> CreateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default)

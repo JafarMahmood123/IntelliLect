@@ -50,6 +50,23 @@ public interface ILiveAssistantInternalClient
         int questionCount,
         int minOptions,
         int maxOptions,
+        IReadOnlyList<string>? avoid = null,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Write answer options for a question the TEACHER wrote, from that question plus the
+    /// explanation they just gave and the classroom's material.
+    /// </summary>
+    /// <remarks>
+    /// Throws the same two exceptions, meaning the same two things, as
+    /// <see cref="GenerateQuizAsync"/>.
+    /// </remarks>
+    Task<GeneratedQuestionDto> GenerateAnswersAsync(
+        Guid sessionId,
+        Guid classroomId,
+        string questionText,
+        int minOptions,
+        int maxOptions,
         CancellationToken ct = default);
 }
 

@@ -25,7 +25,7 @@ from app.application.ports.brain_client import BrainClient
 from app.application.ports.retrieval_client import RetrievalClient
 from app.application.services.last_idea_store import LastIdeaStore
 from app.application.services.token_estimate import estimate_tokens
-from app.domain.quiz.generated_quiz import GeneratedQuiz
+from app.domain.quiz.generated_quiz import GeneratedQuestion, GeneratedQuiz
 
 logger = logging.getLogger("liveassistant.quiz")
 
@@ -70,13 +70,9 @@ class QuizGenerator:
         question_count: int,
         min_options: int,
         max_options: int,
+        avoid: list[str] | None = None,
     ) -> GeneratedQuiz:
-        idea_text = self._recent_idea_text(session_id)
-        if not idea_text:
-            raise NoIdeaAvailable(
-                "Nothing has been transcribed for this session yet, so there is no idea to build "
-                "a quiz from."
-            )
+        idea_text = self._require_idea(session_id)
 
         chunks = await self._retrieve(classroom_id, idea_text)
         try:
@@ -86,6 +82,7 @@ class QuizGenerator:
                 question_count=question_count,
                 min_options=min_options,
                 max_options=max_options,
+                avoid=avoid,
             )
         except Exception as exc:  # noqa: BLE001 — reported to the teacher, not swallowed
             logger.warning("quiz_generation_failed", extra={"error_type": type(exc).__name__})
@@ -105,6 +102,53 @@ class QuizGenerator:
             },
         )
         return quiz
+
+    async def generate_answers(
+        self,
+        session_id: UUID,
+        classroom_id: UUID,
+        question_text: str,
+        *,
+        min_options: int,
+        max_options: int,
+    ) -> GeneratedQuestion:
+        """Write options for a question the teacher typed themselves.
+
+        Retrieval is keyed on the QUESTION as well as the idea: the teacher may have written it
+        about a detail the idea only touches on, and material matching the question is what keeps
+        the answers correct rather than merely plausible.
+        """
+        idea_text = self._require_idea(session_id)
+
+        chunks = await self._retrieve(classroom_id, f"{question_text}\n{idea_text}")
+        try:
+            question = await self._brain.generate_answers(
+                question_text,
+                idea_text,
+                chunks,
+                min_options=min_options,
+                max_options=max_options,
+            )
+        except Exception as exc:  # noqa: BLE001 — reported to the teacher, not swallowed
+            logger.warning("answers_generation_failed", extra={"error_type": type(exc).__name__})
+            raise QuizGenerationFailed("The assistant could not write answers.") from exc
+
+        if question is None:
+            raise QuizGenerationFailed(
+                "The assistant could not write usable answers for that question."
+            )
+
+        logger.info("answers_generated", extra={"options": len(question.options)})
+        return question
+
+    def _require_idea(self, session_id: UUID) -> str:
+        idea_text = self._recent_idea_text(session_id)
+        if not idea_text:
+            raise NoIdeaAvailable(
+                "Nothing has been transcribed for this session yet, so there is no idea to build "
+                "a quiz from."
+            )
+        return idea_text
 
     def _recent_idea_text(self, session_id: UUID) -> str:
         """The newest finished idea, widened with earlier ones only if it is too thin.

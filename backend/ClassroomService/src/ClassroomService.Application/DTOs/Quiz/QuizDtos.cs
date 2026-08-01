@@ -20,6 +20,23 @@ public record SubmitAnswerRequest(Guid QuestionId, Guid OptionId);
 /// </summary>
 public record GenerateQuizRequest(int QuestionCount = 3);
 
+/// <summary>Questions already in the composer, so a newly generated one does not repeat them.</summary>
+public record GenerateQuestionRequest(List<string>? Avoid = null);
+
+/// <summary>The teacher's own question, for which the assistant writes the answers.</summary>
+public record GenerateAnswersRequest(string QuestionText);
+
+/// <summary>
+/// One generated question, returned for the composer to append. NOT persisted: the teacher is
+/// mid-compose, and writing a row per button press would litter the session with abandoned drafts.
+/// Marks and timing are this service's defaults, so the composer can drop it straight in.
+/// </summary>
+public record GeneratedQuestionDraftDto(
+    string Text,
+    int Points,
+    int TimeLimitSeconds,
+    List<OptionDraftRequest> Options);
+
 // --- teacher reads -----------------------------------------------------------
 
 /// <summary>

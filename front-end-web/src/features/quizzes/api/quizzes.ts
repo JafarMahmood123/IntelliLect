@@ -1,5 +1,6 @@
 import { apiClient } from '../../../lib/axios';
 import type {
+  GeneratedQuestionDraft,
   MySessionQuizSummary,
   MyQuizResult,
   QuizDraftRequest,
@@ -47,6 +48,37 @@ export const generateQuizDraft = async (
   const { data } = await apiClient.post<QuizTeacher>(
     `${base(classroomId)}/sessions/${sessionId}/quizzes/generate`,
     { questionCount },
+  );
+  return data;
+};
+
+/**
+ * One generated question for the composer to append. Returns content only — the server persists
+ * nothing, so generating one and deleting it leaves no abandoned draft behind.
+ *
+ * `avoid` carries the questions already written, so a second press does not repeat the first.
+ */
+export const generateQuizQuestion = async (
+  classroomId: string,
+  sessionId: string,
+  avoid: string[],
+): Promise<GeneratedQuestionDraft> => {
+  const { data } = await apiClient.post<GeneratedQuestionDraft>(
+    `${base(classroomId)}/sessions/${sessionId}/quizzes/generate-question`,
+    { avoid },
+  );
+  return data;
+};
+
+/** Answers for a question the teacher wrote themselves. The question text is never changed. */
+export const generateQuizAnswers = async (
+  classroomId: string,
+  sessionId: string,
+  questionText: string,
+): Promise<GeneratedQuestionDraft> => {
+  const { data } = await apiClient.post<GeneratedQuestionDraft>(
+    `${base(classroomId)}/sessions/${sessionId}/quizzes/generate-answers`,
+    { questionText },
   );
   return data;
 };

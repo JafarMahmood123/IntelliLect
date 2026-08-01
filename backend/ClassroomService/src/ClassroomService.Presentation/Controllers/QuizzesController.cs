@@ -50,6 +50,25 @@ public sealed class QuizzesController : ApiBaseController
         Guid classroomId, Guid sessionId, [FromBody] GenerateQuizRequest request, CancellationToken ct)
         => Ok(await _quizService.GenerateDraftAsync(classroomId, sessionId, UserId, request.QuestionCount, ct));
 
+    /// <summary>
+    /// One generated question for the composer to append. Returns content only — nothing is
+    /// persisted, so a teacher can generate, dislike it, and move on without leaving a draft behind.
+    /// </summary>
+    [HttpPost("sessions/{sessionId:guid}/quizzes/generate-question")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GenerateQuestion(
+        Guid classroomId, Guid sessionId, [FromBody] GenerateQuestionRequest request, CancellationToken ct)
+        => Ok(await _quizService.GenerateQuestionAsync(
+            classroomId, sessionId, UserId, request.Avoid, ct));
+
+    /// <summary>Answers for a question the teacher wrote themselves. Also unpersisted.</summary>
+    [HttpPost("sessions/{sessionId:guid}/quizzes/generate-answers")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GenerateAnswers(
+        Guid classroomId, Guid sessionId, [FromBody] GenerateAnswersRequest request, CancellationToken ct)
+        => Ok(await _quizService.GenerateAnswersAsync(
+            classroomId, sessionId, UserId, request.QuestionText, ct));
+
     [HttpPut("quizzes/{quizId:guid}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> UpdateDraft(
