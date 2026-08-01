@@ -1,17 +1,31 @@
 # KnowledgeService
 
-A Python microservice for the IntelliLect platform. Its eventual purpose is to
-ingest classroom files (PDF, `.docx`, `.pptx`), extract and OCR their text, chunk
-it, embed the chunks with a **local embedding model (via host Ollama)**, store them
-in PostgreSQL + `pgvector`, and serve retrieval.
+The platform's retrieval layer. It ingests course material (PDF, DOCX, PPTX, TXT), extracts and OCRs
+its text, chunks it, embeds the chunks, stores them in PostgreSQL + `pgvector`, and serves semantic
+search to the rest of the platform.
 
-**This build is the foundation only.** Extraction, OCR, chunking, real embedding
-of files, and retrieval are intentionally **not** implemented — the code leaves
-clearly-marked ports and placeholders for them.
+Python 3.12 · FastAPI · Clean Architecture · Postgres + pgvector · **242 tests**
 
-> **No model weights in the container.** There is no `torch`,
-> `transformers`, or `sentence-transformers` dependency. All embedding inference
-> is HTTP calls to a host-side Ollama server.
+The pipeline is complete and in use: PDF/DOCX/PPTX/TXT extractors
+(`infrastructure/extraction/`), Tesseract OCR over embedded images (`infrastructure/ocr/`),
+structural **and** semantic chunkers (`infrastructure/chunking/`), Ollama or Gemini embeddings
+(`infrastructure/embeddings/`), and `RetrievalService.search` scoped per classroom. Quiz generation
+and student answering both depend on it.
+
+> **No model weights in the container.** There is no `torch`, `transformers` or
+> `sentence-transformers` dependency. All embedding inference is HTTP — to a host-side Ollama server
+> by default, or to Gemini. The image stays small and the service starts instantly.
+
+## Consumers
+
+| Caller | Uses it for |
+| --- | --- |
+| [LiveAssistantService](../LiveAssistantService/) | Material for a detected idea, so a generated quiz question can be corrected against what the course actually says |
+| [ClassroomService](../ClassroomService/) | Indexing uploaded course files; grounded answers to student questions |
+
+Retrieval returning **nothing** is a meaningful result, not an error: downstream, corrections are
+discarded entirely when nothing was retrieved, rather than letting the model assert something
+ungrounded.
 
 ## What works today
 
@@ -171,10 +185,13 @@ adjust:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DATABASE_URL` | — | Async SQLAlchemy URL (`postgresql+asyncpg://…`). |
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama base URL. |
+| `EMBEDDING_PROVIDER` | code `ollama`, **compose sets `gemini`** | `gemini` (hosted) or `ollama` (local host model). **Not a free switch** — see the warning below. |
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Host Ollama base URL; used when the provider is `ollama`. Host Ollama must listen on `0.0.0.0:11434`. |
 | `OLLAMA_AUTH_TOKEN` | `""` | Optional bearer token; sent only if set. |
-| `EMBEDDING_MODEL` | `qwen3-embedding` | Ollama embedding model name. |
-| `EMBEDDING_DIM` | `1024` | Embedding dimensionality; also the `pgvector` column dimension. |
+| `EMBEDDING_MODEL` | `qwen3-embedding` | Ollama embedding model name (1024-dim). |
+| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-001` | Used when the provider is `gemini` (3072-dim native). |
+| `GEMINI_API_KEY` | `""` | **Secret** — keep it in `.env`, never in compose. |
+| `EMBEDDING_DIM` | **`3072`** | Embedding dimensionality, and therefore the `pgvector` column width. Must match what the configured provider returns; the provider raises on a mismatch rather than failing at INSERT after a long ingestion. |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | Per-request timeout for embedding calls. |
 | `RETRIEVAL_INSTRUCTION` | see settings | Instruction prepended to queries; must contain `{query}`. |
 | `GENERATION_MODEL` | `qwen2.5:7b-instruct` | Ollama chat model for `/api/answer` (Phase 10). |
@@ -195,6 +212,15 @@ adjust:
 > `EMBEDDING_DIM` is read by both the ORM models and the Alembic migration, so the
 > schema and the app always agree. Changing it after the first migration requires
 > a new migration that alters the vector column.
+>
+> **Changing the provider or model is not a free switch.** Vectors from two different models live in
+> different spaces — mixing them returns *confident nonsense* rather than an error, so a partial
+> migration is worse than none. It requires an Alembic migration for the column and its HNSW index,
+> **and** re-embedding every stored chunk (`/api/internal/reembed`).
+>
+> At 3072 dimensions the column is `halfvec`, not `vector`: pgvector's HNSW index refuses more than
+> 2000 dimensions for `vector`, while `halfvec` indexes to 4000. fp16 costs nothing meaningful for
+> cosine ranking and halves storage. Below 2001 either type works.
 
 ## Run via docker-compose
 
