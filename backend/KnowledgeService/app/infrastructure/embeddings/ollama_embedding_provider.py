@@ -39,6 +39,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     def __init__(self, settings: Settings, batch_size: int = 64) -> None:
         self._base_url = settings.ollama_base_url.rstrip("/")
         self._model = settings.embedding_model
+        self._dimensions = settings.embedding_dim
         self._timeout = settings.embedding_timeout_seconds
         self._instruction = settings.retrieval_instruction
         self._batch_size = batch_size
@@ -93,5 +94,16 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
                 f"Ollama returned no embeddings. Confirm that '{self._model}' is an "
                 f"embedding model and has been pulled (`ollama pull {self._model}`). "
                 f"Response: {data}"
+            )
+        width = len(embeddings[0])
+        if width != self._dimensions:
+            # Loud and immediate, mirroring GeminiEmbeddingProvider. Without this the mismatch
+            # only surfaces at INSERT, as a pgvector column-width error, potentially after a full
+            # extract + OCR + chunk + embed run — an error that names the column rather than the
+            # configuration mistake that caused it.
+            raise OllamaEmbeddingError(
+                f"Model '{self._model}' returned {width} dimensions but EMBEDDING_DIM is "
+                f"{self._dimensions}; the pgvector column would reject this. Align "
+                f"EMBEDDING_DIM with the model and re-run the migration."
             )
         return [_l2_normalize(list(vector)) for vector in embeddings]

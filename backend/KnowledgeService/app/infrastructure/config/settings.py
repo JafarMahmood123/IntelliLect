@@ -29,7 +29,12 @@ class Settings(BaseSettings):
     # model means: (1) an Alembic migration for the column + HNSW index, and (2) re-embedding every
     # stored chunk. Vectors from two different models live in different spaces — mixing them
     # returns confident nonsense rather than an error, so a partial migration is worse than none.
-    embedding_provider: str = "ollama"
+    #
+    # DEFAULTS "gemini" TO STAY CONSISTENT WITH embedding_dim BELOW. This used to default to
+    # "ollama" while embedding_dim defaulted to 3072 — but qwen3-embedding returns 1024, so the
+    # two defaults contradicted each other and a run without compose's overrides would fail. The
+    # provider and the width have to agree, and gemini/3072 is what actually deploys.
+    embedding_provider: str = "gemini"
 
     # On Linux, host.docker.internal resolves to the host via the compose
     # `extra_hosts: host-gateway` mapping; host Ollama must listen on 0.0.0.0:11434.
