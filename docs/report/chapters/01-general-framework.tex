@@ -1,0 +1,76 @@
+\chapter{الإطار العام للمشروع}
+
+\begin{chaptersummary}
+يعرض هذا الفصل السياق العام للمشروع، بدءاً من تطور طرق التدريس عبر العصور،
+وصولاً إلى تحديد الهدف من المشروع ومتطلباته الوظيفية وغير الوظيفية.
+\end{chaptersummary}
+
+\section{مقدمة}
+[مقدمة الفصل.]
+
+\section{نبذة تاريخية عن تطور طرق التدريس}
+مرت عملية التدريس عبر العصور بتحولات جذرية، انتقلت فيها المعرفة من النطاق الضيق
+والفردي إلى النطاق العالمي المفتوح.
+
+\subsection{العصور القديمة: التعليم الفردي والشفهي}
+اعتمد التعليم في بداياته على نظام التلمذة \en{(Apprenticeship)} والتقليد الشفهي.
+
+\subsection{عصر الإنترنت والويب}
+ظهرت منصات إدارة التعلم \en{(LMS)} مثل \en{Moodle}، وبرزت منصات مؤتمرات الفيديو
+كبديل للفصل التقليدي.
+
+\subsubsection{مثال على عنوان من المستوى الرابع}
+[نص. هذا المستوى موجود للتحقق من التنسيق فقط.]
+
+\section{الهدف من المشروع}
+[الهدف من المشروع.]
+
+\section{المتطلبات}
+
+\subsection{المتطلبات الوظيفية}
+[المتطلبات الوظيفية.]
+
+\subsection{المتطلبات غير الوظيفية}
+[المتطلبات غير الوظيفية.]
+
+% --- Formatting verification: figure, table and code -----------------------
+\begin{figure}[htbp]
+  \centering
+  \rule{6cm}{4cm}%
+  \caption{مخطط صندوقي مبدئي لبنية النظام.}
+  \label{fig:architecture}
+\end{figure}
+
+يبين الشكل \ref{fig:architecture} البنية العامة للنظام. لاحظ أن تعليق الشكل
+يوضع تحته، بينما يوضع عنوان الجدول فوقه.
+
+\begin{table}[htbp]
+  \caption{الخدمات والمنافذ المستخدمة في النظام.}
+  \label{tab:services}
+  \centering
+  \begin{tabular}{lr}
+    \toprule
+    \textbf{الخدمة} & \textbf{المنفذ} \\
+    \midrule
+    \en{UserManagementService} & 5001 \\
+    \en{ClassroomService}      & 5002 \\
+    \en{StreamingService}      & 5003 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+يعرض الجدول \ref{tab:services} توزع الخدمات على المنافذ.
+
+\begin{english}
+\begin{lstlisting}[language=Java]
+public record QuizOptionStudentDto(Guid Id, int Order, string Text);
+\end{lstlisting}
+\end{english}
+
+يستخدم النظام النمط \code{QuizOptionStudentDto} لإخفاء الإجابة الصحيحة عن الطالب.
+
+\section{الخاتمة}
+[خاتمة الفصل: تلخص ما عُرض وتسرد الاستنتاجات.]
+
+\transition{بعد تحديد الإطار العام للمشروع ومتطلباته، ننتقل في الفصل التالي إلى
+الدراسة النظرية للتقنيات التي يستند إليها العمل.}

@@ -1,39 +1,148 @@
 % ===========================================================================
-% IntelliLect — final report (Arabic).
-% Build:  latexmk -xelatex main.tex
-% Clean:  latexmk -C
+% IntelliLect — graduation project report (HIAST).
+% Structure and formatting spec: STRUCTURE.md
+% Build:  latexmk -xelatex main.tex     Clean: latexmk -C
 % ===========================================================================
-\documentclass[12pt,a4paper,oneside]{report}
+\documentclass[12pt,letterpaper,oneside]{report}
 
 \input{preamble}
 
-\title{إنتلي‌لكت: منصة تعليمية تفاعلية مباشرة}
-\author{جعفر}
-\date{\today}
-
 \begin{document}
 
-\maketitle
+% ===========================================================================
+% FRONT MATTER — unnumbered pages, then lower-case Roman (STRUCTURE.md §3)
+% ===========================================================================
+\pagestyle{empty}
 
-\tableofcontents
+% --- 1. Cover page --------------------------------------------------------
+% TODO(jafar): confirm department, academic year, degree wording, supervisor.
+\begin{center}
+  {\bfseries\fontsize{12}{16}\selectfont
+   الجمهورية العربية السورية\\
+   المعهد العالي للعلوم التطبيقية والتكنولوجيا\\
+   قسم هندسة المعلوماتية\\
+   العام الدراسي 2025/2026\par}
 
-% --- Chapters are \input separately so each can be written and compiled
-% --- independently. Add them here as they are written.
-% \input{chapters/01-introduction}
+  \vspace{2.5cm}
+  {\fontsize{14.4}{18}\selectfont مشروع تخرج\\[6pt]
+   أعد لنيل درجة الإجازة في هندسة المعلوماتية\par}
 
-\chapter{تمهيد}
+  \vspace{2cm}
+  {\fontsize{22.4}{28}\selectfont
+   \en{IntelliLect}: منصة تعليمية تفاعلية مباشرة\\[6pt]
+   معززة بالذكاء الاصطناعي\par}
 
-هذا الهيكل المبدئي للتقرير. تم التحقق من أن سلسلة الأدوات تعمل: تُعرض
-اللغة العربية من اليمين إلى اليسار بحروف متصلة، وتظهر المصطلحات الإنجليزية
-مثل \en{LiveKit} و\en{PostgreSQL} في مواضعها الصحيحة، وتستخدم الأرقام
-الغربية مثل 1283 و5001 بشكل موحد.
+  \vspace{2.5cm}
+  {\fontsize{14.4}{18}\selectfont تقديم\par}
+  {\bfseries\fontsize{14.4}{18}\selectfont جعفر\par}
 
-يمكن الإشارة إلى المعرّفات البرمجية داخل النص هكذا: \code{QuizOptionStudentDto}.
+  \vspace{1.5cm}
+  {\fontsize{14.4}{18}\selectfont إشراف\par}
+  {\bfseries\fontsize{14.4}{18}\selectfont [اسم المشرف]\par}
 
+  \vfill
+  {\fontsize{14.4}{18}\selectfont \today\par}
+\end{center}
+\clearpage
+
+% --- 2. Dedication --------------------------------------------------------
+\vspace*{4cm}
+\begin{center}\bfseries
+  [الإهداء]
+\end{center}
+\clearpage
+
+% --- 3. Quote (optional) --------------------------------------------------
+\vspace*{4cm}
+\begin{center}\bfseries
+  [اقتباس اختياري مع ذكر قائله]
+\end{center}
+\clearpage
+
+% --- 4. Acknowledgements --------------------------------------------------
+\centredtitle{كلمة شكر}
+[كلمة الشكر — تُذكر الأسماء كاملةً.]
+\clearpage
+
+% --- Roman numbering starts here (STRUCTURE.md §3) ------------------------
+\pagestyle{plain}
+\pagenumbering{roman}
+
+% --- 5-6. Abstract, Arabic then English -----------------------------------
+\centredtitle{الخلاصة}
+[الخلاصة: الهدف من المشروع، دفتر الشروط الأولي، ولمحة عما أُنجز فعلياً.
+لا تتجاوز نصف صفحة.]
+
+\vspace{1cm}
 \begin{english}
-\begin{lstlisting}[language=Java]
-public record QuizOptionStudentDto(Guid Id, int Order, string Text);
-\end{lstlisting}
+\begin{center}\bfseries\large Abstract\end{center}
+[English translation of the abstract.]
+\end{english}
+\clearpage
+
+% --- 7-9. Contents, figures, tables ---------------------------------------
+\centredtitle{المحتويات}
+\vspace{-24pt}
+\tableofcontents
+\clearpage
+
+\centredtitle{قائمة الأشكال}
+\vspace{-24pt}
+\listoffigures
+\clearpage
+
+\centredtitle{قائمة الجداول}
+\vspace{-24pt}
+\listoftables
+\clearpage
+
+% --- 10. Abbreviations ----------------------------------------------------
+\centredtitle{الاختصارات}
+\begin{tabbing}
+\hspace{6cm}\=\kill
+\en{SFU: Selective Forwarding Unit} \> وحدة التوجيه الانتقائي \\
+\en{RAG: Retrieval-Augmented Generation} \> التوليد المعزز بالاسترجاع \\
+\en{ASR: Automatic Speech Recognition} \> التعرف التلقائي على الكلام \\
+\end{tabbing}
+\clearpage
+
+% --- 11. Symbols — omit if the report has little mathematics --------------
+
+% --- 12. General introduction ---------------------------------------------
+\centredtitle{مقدمة عامة}
+[المقدمة العامة: تعرض أهمية المشروع في سياقه العلمي والتطبيقي، وتنتقل تدريجياً
+من العام إلى المشكلة المعالجة تحديداً.]
+\clearpage
+
+% ===========================================================================
+% BODY — page numbering restarts at 1 (STRUCTURE.md §3)
+% ===========================================================================
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{chapters/01-general-framework}
+\input{chapters/02-theoretical-study}
+\input{chapters/03-related-work}
+\input{chapters/04-requirements-analysis}
+\input{chapters/05-system-design}
+\input{chapters/06-development-environment}
+
+% ===========================================================================
+% BACK MATTER
+% ===========================================================================
+\centredtitle{الخاتمة}
+[الخاتمة: تلخص الهدف وما تم تحقيقه والنتائج، ثم الصعوبات التي واجهت العمل،
+وتنتهي بالآفاق المستقبلية لتطويره.]
+\clearpage
+
+\centredtitle{المراجع}
+\begin{english}
+\begin{enumerate}
+  \item Martin, R. C. (2017). \textit{Clean Architecture: A Craftsman's Guide to
+        Software Structure and Design}. Prentice Hall.
+  \item Newman, S. (2021). \textit{Building Microservices: Designing Fine-Grained
+        Systems}. O'Reilly Media.
+\end{enumerate}
 \end{english}
 
 \end{document}
