@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   AlertTriangle,
   Ban,
+  BookOpen,
   CheckCircle2,
   Clock,
   Plus,
@@ -99,6 +100,10 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const generateQuestion = useGenerateQuizQuestion(classroomId, sessionId);
   const generateAnswers = useGenerateQuizAnswers(classroomId, sessionId);
   const [questionCount, setQuestionCount] = useState(3);
+  /** A whole lesson is worth more questions than one explanation, so the two counts are separate. */
+  const [fullQuestionCount, setFullQuestionCount] = useState(10);
+  /** Which of the two generators is running, so only that button shows its own progress. */
+  const [generating, setGenerating] = useState<'quick' | 'full' | null>(null);
   /** Which question is waiting on its answers, so only that card shows a spinner. */
   const [answeringIndex, setAnsweringIndex] = useState<number | null>(null);
   const publish = usePublishQuiz(classroomId, sessionId);
@@ -251,9 +256,13 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
    * Loads a generated draft into the composer so it can be edited before publishing. The teacher
    * reviews the questions with the correct answers marked, exactly as if they had typed them.
    */
-  const runGenerate = async () => {
+  const runGenerate = async (wholeSession: boolean) => {
+    setGenerating(wholeSession ? 'full' : 'quick');
     try {
-      const { quiz: draft, corrections: reported } = await generate.mutateAsync(questionCount);
+      const { quiz: draft, corrections: reported } = await generate.mutateAsync({
+        questionCount: wholeSession ? fullQuestionCount : questionCount,
+        wholeSession,
+      });
       setDraftId(draft.id);
       setTitle(draft.title);
       setQuestions(
@@ -270,6 +279,8 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
       setCorrections(reported);
     } catch (error) {
       reportGenerationError(error, 'quiz');
+    } finally {
+      setGenerating(null);
     }
   };
 
@@ -379,16 +390,19 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
         </p>
       </div>
 
-      {/* Generation is the primary way in; typing one by hand stays available below, and is the
-          only way to make a quiz at all when the assistant has no transcript to work from. */}
+      {/* Two generators, because they answer two different questions a teacher asks: "did you
+          follow THAT?" mid-explanation, and "what did you learn today?" at the end. They differ
+          only in what the assistant reads — the recent ideas, or the whole session transcript —
+          and both land in this same composer to be edited and published. Typing one by hand stays
+          available below, and is the only way to make a quiz when there is no transcript at all. */}
       <div className="space-y-2 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3">
         <div className="flex items-center gap-2">
           <Sparkles size={14} className="shrink-0 text-violet-300" />
-          <p className="text-xs font-bold text-slate-200">Generate from your lesson</p>
+          <p className="text-xs font-bold text-slate-200">Quick test</p>
         </div>
         <p className="text-[11px] text-slate-400">
-          Writes questions about the idea you have just been explaining, using this session and your
-          course material. You can edit everything before publishing.
+          Questions on the idea you have just been explaining. Each one asks about what you have
+          said since the last quiz, so pressing it again moves on rather than repeating itself.
         </p>
         <div className="flex items-center gap-2">
           <label className="text-[10px] text-slate-500">
@@ -404,18 +418,56 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           </label>
           <button
             type="button"
-            onClick={runGenerate}
-            disabled={generate.isPending}
+            onClick={() => runGenerate(false)}
+            disabled={generating !== null}
             className="mt-3 flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-60"
           >
             <Sparkles size={13} />
-            {generate.isPending ? 'Writing questions…' : 'Generate'}
+            {generating === 'quick' ? 'Writing questions…' : 'Quick test'}
           </button>
         </div>
-        {generate.isPending && (
+        {generating === 'quick' && (
           <p className="text-[10px] text-slate-500">
             Reading back what you said and checking it against your material — this takes a few
             seconds.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-3">
+        <div className="flex items-center gap-2">
+          <BookOpen size={14} className="shrink-0 text-sky-300" />
+          <p className="text-xs font-bold text-slate-200">Full quiz</p>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Covers the whole lesson so far, spread across everything you have taught this session —
+          including the parts a quick test has already been on.
+        </p>
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-slate-500">
+            Questions
+            <input
+              type="number"
+              min={1}
+              max={limits.maxQuestionsPerQuiz}
+              value={fullQuestionCount}
+              onChange={(e) => setFullQuestionCount(Number(e.target.value))}
+              className="mt-0.5 w-14 rounded border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-200 outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => runGenerate(true)}
+            disabled={generating !== null}
+            className="mt-3 flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-sky-500 disabled:opacity-60"
+          >
+            <BookOpen size={13} />
+            {generating === 'full' ? 'Reading the lesson…' : 'Full quiz'}
+          </button>
+        </div>
+        {generating === 'full' && (
+          <p className="text-[10px] text-slate-500">
+            Reading the whole session back — a longer lesson takes longer.
           </p>
         )}
       </div>

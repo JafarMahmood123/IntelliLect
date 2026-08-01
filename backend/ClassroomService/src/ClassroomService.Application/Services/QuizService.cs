@@ -69,7 +69,8 @@ public sealed class QuizService : IQuizService
     /// decides what the class sees.
     /// </summary>
     public async Task<GeneratedQuizDraftDto> GenerateDraftAsync(
-        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default)
+        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount,
+        bool wholeSession = false, CancellationToken ct = default)
     {
         await EnsureGenerationAllowedAsync(classroomId, sessionId, teacherId, ct);
 
@@ -85,6 +86,7 @@ public sealed class QuizService : IQuizService
             _settings.MaxAnswersPerQuestion,
             // A whole quiz has nothing to avoid — it replaces the composer rather than adding to it.
             avoid: null,
+            wholeSession,
             ct);
 
         // Marks and timing are this service's to set, not the model's: a mark is a pedagogical
@@ -101,8 +103,9 @@ public sealed class QuizService : IQuizService
 
         _logger.LogInformation(
             "Generated a {QuestionCount}-question quiz draft for session {SessionId} "
-            + "(grounded: {Grounded}, corrections: {Corrections}).",
-            draft.Questions.Count, sessionId, generated.Grounded, generated.Corrections.Count);
+            + "(wholeSession: {WholeSession}, grounded: {Grounded}, corrections: {Corrections}).",
+            draft.Questions.Count, sessionId, wholeSession, generated.Grounded,
+            generated.Corrections.Count);
 
         var quiz = await CreateDraftAsync(classroomId, sessionId, teacherId, draft, ct);
         return new GeneratedQuizDraftDto(quiz, ToCorrections(generated.Corrections));
@@ -128,6 +131,9 @@ public sealed class QuizService : IQuizService
             _settings.MinAnswersPerQuestion,
             _settings.MaxAnswersPerQuestion,
             avoid,
+            // Always the recent explanation: this appends ONE question to a draft the teacher is
+            // composing about what they are teaching now, not about the lesson so far.
+            wholeSession: false,
             ct);
 
         var question = generated.Questions.FirstOrDefault()

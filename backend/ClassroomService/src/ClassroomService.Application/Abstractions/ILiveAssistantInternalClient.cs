@@ -44,6 +44,11 @@ public interface ILiveAssistantInternalClient
     /// <see cref="Exceptions.ServiceUnavailableException"/> when the assistant could not produce a
     /// usable quiz. Kept distinct so the teacher is told which of the two happened.
     /// </remarks>
+    /// <param name="wholeSession">
+    /// False for a quick test on what the teacher has just finished explaining. True for a quiz
+    /// over the WHOLE lesson, which the assistant reads from the session's durable transcript
+    /// rather than its short, bounded memory of recent ideas.
+    /// </param>
     Task<GeneratedQuizDto> GenerateQuizAsync(
         Guid sessionId,
         Guid classroomId,
@@ -51,6 +56,7 @@ public interface ILiveAssistantInternalClient
         int minOptions,
         int maxOptions,
         IReadOnlyList<string>? avoid = null,
+        bool wholeSession = false,
         CancellationToken ct = default);
 
     /// <summary>

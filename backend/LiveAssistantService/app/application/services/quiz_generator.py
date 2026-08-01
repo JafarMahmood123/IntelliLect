@@ -23,6 +23,7 @@ from uuid import UUID
 
 from app.application.ports.brain_client import BrainClient
 from app.application.ports.retrieval_client import RetrievalClient
+from app.application.ports.transcript_repository import TranscriptRepository
 from app.application.services.last_idea_store import LastIdeaStore
 from app.application.services.token_estimate import estimate_tokens
 from app.domain.idea.completed_idea import CompletedIdea
@@ -52,17 +53,23 @@ class QuizGenerator:
         retrieval: RetrievalClient,
         brain: BrainClient,
         ideas: LastIdeaStore,
+        transcripts: TranscriptRepository,
         *,
         top_k: int,
         min_score: float,
         min_idea_tokens: int,
+        full_max_chars: int = 24_000,
+        full_top_k: int | None = None,
     ) -> None:
         self._retrieval = retrieval
         self._brain = brain
         self._ideas = ideas
+        self._transcripts = transcripts
         self._top_k = top_k
         self._min_score = min_score
         self._min_idea_tokens = min_idea_tokens
+        self._full_max_chars = max(1000, full_max_chars)
+        self._full_top_k = full_top_k or top_k
 
     async def generate(
         self,
@@ -73,14 +80,28 @@ class QuizGenerator:
         min_options: int,
         max_options: int,
         avoid: list[str] | None = None,
+        whole_session: bool = False,
     ) -> GeneratedQuiz:
-        # Only what has not been quizzed yet: pressing Generate a second time should ask about what
-        # the teacher has said SINCE the first quiz, not produce a second quiz on the same
-        # explanation with the questions reworded.
-        ideas = self._require_ideas(session_id, unused_only=True)
-        idea_text = " ".join(idea.text for idea in ideas).strip()
+        """A quick test on what was just taught, or a full quiz on the whole lesson.
 
-        chunks = await self._retrieve(classroom_id, idea_text)
+        The two differ in what they read, not in how they are generated. A quick test reads the
+        IDEAS the boundary detector has just finished — recent, bounded, and spent once used. A
+        full quiz reads the session TRANSCRIPT, which is durable and still holds the start of a
+        lecture long after the idea history has evicted it.
+        """
+        if whole_session:
+            idea_text = await self._require_transcript(session_id)
+            ideas = self._ideas.recent(session_id)
+            top_k = self._full_top_k
+        else:
+            # Only what has not been quizzed yet: pressing Generate a second time should ask about
+            # what the teacher has said SINCE the first quiz, not produce a second quiz on the same
+            # explanation with the questions reworded.
+            ideas = self._require_ideas(session_id, unused_only=True)
+            idea_text = " ".join(idea.text for idea in ideas).strip()
+            top_k = self._top_k
+
+        chunks = await self._retrieve(classroom_id, idea_text, top_k=top_k)
         try:
             quiz = await self._brain.generate_quiz(
                 idea_text,
@@ -89,6 +110,7 @@ class QuizGenerator:
                 min_options=min_options,
                 max_options=max_options,
                 avoid=avoid,
+                whole_session=whole_session,
             )
         except Exception as exc:  # noqa: BLE001 — reported to the teacher, not swallowed
             logger.warning("quiz_generation_failed", extra={"error_type": type(exc).__name__})
@@ -101,6 +123,10 @@ class QuizGenerator:
 
         # Marked only once a usable quiz exists. Spending the ideas before the brain answered would
         # mean a failed generation quietly cost the teacher the explanation they wanted to quiz.
+        #
+        # A full quiz spends EVERY retained idea, because it has just asked about all of them. A
+        # quick test straight afterwards should say "nothing new" rather than re-ask what the full
+        # quiz already covered.
         self._ideas.mark_used(session_id, ideas)
 
         logger.info(
@@ -111,6 +137,7 @@ class QuizGenerator:
                 "citations": len(quiz.citations),
                 "corrections": len(quiz.corrections),
                 "ideas_used": len(ideas),
+                "whole_session": whole_session,
             },
         )
         return quiz
@@ -157,6 +184,39 @@ class QuizGenerator:
         logger.info("answers_generated", extra={"options": len(question.options)})
         return question
 
+    async def _require_transcript(self, session_id: UUID) -> str:
+        """The whole lesson, as recorded. Capped, because a two-hour lecture would not fit.
+
+        When the cap bites the TAIL is kept. Neither half is a good thing to lose, but the earliest
+        material is the likeliest to have been covered by the quick tests taken along the way,
+        whereas nothing has yet asked about what was said in the last stretch. The teacher is told
+        which lesson the quiz covers by its questions, so a silently narrower quiz is a
+        disappointment rather than a fault — but it is still logged.
+        """
+        try:
+            text = (await self._transcripts.assemble_text(session_id)).strip()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "quiz_transcript_read_failed", extra={"error_type": type(exc).__name__}
+            )
+            raise QuizGenerationFailed(
+                "The assistant could not read this session's transcript."
+            ) from exc
+
+        if not text:
+            raise NoIdeaAvailable(
+                "Nothing has been transcribed for this session yet, so there is no lesson to "
+                "build a quiz from."
+            )
+
+        if len(text) > self._full_max_chars:
+            logger.info(
+                "quiz_transcript_truncated",
+                extra={"length": len(text), "kept": self._full_max_chars},
+            )
+            text = text[-self._full_max_chars :]
+        return text
+
     def _require_ideas(self, session_id: UUID, *, unused_only: bool) -> list[CompletedIdea]:
         ideas = self._recent_ideas(session_id, unused_only=unused_only)
         if ideas:
@@ -195,11 +255,13 @@ class QuizGenerator:
             chosen.insert(0, idea)
         return chosen
 
-    async def _retrieve(self, classroom_id: UUID, idea_text: str):
+    async def _retrieve(self, classroom_id: UUID, idea_text: str, *, top_k: int | None = None):
         """Course material for the idea. Retrieval failure downgrades to ungrounded, never fatal —
         a quiz written from the teacher's own words is still worth offering."""
         try:
-            chunks = await self._retrieval.retrieve(classroom_id, idea_text, self._top_k)
+            chunks = await self._retrieval.retrieve(
+                classroom_id, idea_text, top_k or self._top_k
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("quiz_retrieval_failed", extra={"error_type": type(exc).__name__})
             return []

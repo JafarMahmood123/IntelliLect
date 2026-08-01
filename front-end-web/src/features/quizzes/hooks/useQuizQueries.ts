@@ -103,8 +103,13 @@ export const useCreateQuizDraft = (classroomId: string, sessionId: string) =>
  */
 export const useGenerateQuizDraft = (classroomId: string, sessionId: string) =>
   useMutation({
-    mutationFn: (questionCount: number) =>
-      generateQuizDraft(classroomId, sessionId, questionCount),
+    mutationFn: ({
+      questionCount,
+      wholeSession = false,
+    }: {
+      questionCount: number;
+      wholeSession?: boolean;
+    }) => generateQuizDraft(classroomId, sessionId, questionCount, wholeSession),
   });
 
 /** One question appended to the composer. Nothing is persisted server-side. */

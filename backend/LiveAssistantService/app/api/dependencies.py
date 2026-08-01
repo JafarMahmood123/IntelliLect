@@ -301,7 +301,9 @@ def get_last_idea_store(request: Request) -> LastIdeaStore:
 LastIdeaStoreDep = Annotated[LastIdeaStore, Depends(get_last_idea_store)]
 
 
-def build_quiz_generator(settings: Settings, ideas: LastIdeaStore) -> QuizGenerator:
+def build_quiz_generator(
+    settings: Settings, ideas: LastIdeaStore, transcripts: TranscriptRepository
+) -> QuizGenerator:
     """Retrieve + generate for one quiz request.
 
     The retrieval and brain clients are stateless HTTP clients, so building them per request costs
@@ -311,16 +313,19 @@ def build_quiz_generator(settings: Settings, ideas: LastIdeaStore) -> QuizGenera
         KnowledgeRetrievalClient(settings),
         build_brain_client(settings),
         ideas,
+        transcripts,
         top_k=settings.retrieval_top_k,
         min_score=settings.retrieval_min_score,
         min_idea_tokens=settings.quiz_min_idea_tokens,
+        full_max_chars=settings.quiz_full_max_chars,
+        full_top_k=settings.quiz_full_top_k,
     )
 
 
 def get_quiz_generator(
-    settings: SettingsDep, ideas: LastIdeaStoreDep
+    settings: SettingsDep, ideas: LastIdeaStoreDep, transcripts: TranscriptRepositoryDep
 ) -> QuizGenerator:
-    return build_quiz_generator(settings, ideas)
+    return build_quiz_generator(settings, ideas, transcripts)
 
 
 QuizGeneratorDep = Annotated[QuizGenerator, Depends(get_quiz_generator)]

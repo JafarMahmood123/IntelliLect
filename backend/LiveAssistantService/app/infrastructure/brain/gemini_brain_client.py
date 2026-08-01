@@ -88,6 +88,7 @@ class GeminiBrainClient(BrainClient):
         min_options: int,
         max_options: int,
         avoid: list[str] | None = None,
+        whole_session: bool = False,
     ) -> GeneratedQuiz | None:
         context, citation_map = build_numbered_context(chunks)
         schema = build_response_schema(
@@ -97,7 +98,9 @@ class GeminiBrainClient(BrainClient):
         )
         content = await self._complete(
             QUIZ_SYSTEM_PROMPT,
-            build_quiz_user_prompt(idea_text, context, question_count, avoid),
+            build_quiz_user_prompt(
+                idea_text, context, question_count, avoid, whole_session=whole_session
+            ),
             # Constrained decoding: Gemini generates AGAINST the schema, so a wrong shape is
             # prevented rather than detected. The parser still runs — see quiz_parser.
             generation_config={

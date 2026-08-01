@@ -46,10 +46,12 @@ export const generateQuizDraft = async (
   classroomId: string,
   sessionId: string,
   questionCount: number,
+  /** True for a quiz over the whole lesson, read from the session transcript. */
+  wholeSession = false,
 ): Promise<GeneratedQuizDraft> => {
   const { data } = await apiClient.post<GeneratedQuizDraft>(
     `${base(classroomId)}/sessions/${sessionId}/quizzes/generate`,
-    { questionCount },
+    { questionCount, wholeSession },
   );
   return data;
 };

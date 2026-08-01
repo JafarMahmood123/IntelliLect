@@ -168,10 +168,29 @@ def _avoid_block(avoid: list[str] | None) -> str:
 
 
 def build_user_prompt(
-    idea_text: str, context: str, question_count: int, avoid: list[str] | None = None
+    idea_text: str,
+    context: str,
+    question_count: int,
+    avoid: list[str] | None = None,
+    *,
+    whole_session: bool = False,
 ) -> str:
-    """The turn: what was just taught, what the course says, and how many questions to write."""
+    """The turn: what was taught, what the course says, and how many questions to write.
+
+    ``whole_session`` swaps a quick test on the last explanation for a quiz over the entire
+    lesson. The wording has to change with it: told "the teacher has just finished explaining"
+    over a full transcript, the model reliably writes every question about the final minute.
+    """
     plural = "question" if question_count == 1 else "questions"
+    if whole_session:
+        return (
+            f"The complete lesson the teacher has taught in this session:\n{idea_text}\n\n"
+            f"Reference material from this course:\n{_material_block(context)}"
+            f"{_avoid_block(avoid)}\n\n"
+            f"Write EXACTLY {question_count} multiple-choice {plural} covering this lesson AS A "
+            "WHOLE. Spread them ACROSS the lesson rather than clustering on any one part, and "
+            "favour the points the teacher spent the most time on. Respond with ONLY the JSON."
+        )
     return (
         f"The teacher has just finished explaining:\n{idea_text}\n\n"
         f"Reference material from this course:\n{_material_block(context)}"

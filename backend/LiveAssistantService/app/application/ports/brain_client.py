@@ -39,6 +39,7 @@ class BrainClient(ABC):
         min_options: int,
         max_options: int,
         avoid: list[str] | None = None,
+        whole_session: bool = False,
     ) -> GeneratedQuiz | None:
         """Write multiple-choice questions testing the explanation in ``idea_text``.
 

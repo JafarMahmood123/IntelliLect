@@ -267,7 +267,8 @@ public class ClassroomDeletionServiceTests
         // it has no business taking, so it fails loudly rather than returning a plausible blank.
         public Task<GeneratedQuizDto> GenerateQuizAsync(
             Guid sessionId, Guid classroomId, int questionCount, int minOptions, int maxOptions,
-            IReadOnlyList<string>? avoid = null, CancellationToken ct = default)
+            IReadOnlyList<string>? avoid = null, bool wholeSession = false,
+            CancellationToken ct = default)
             => throw new NotSupportedException("Deletion does not generate quizzes.");
 
         public Task<GeneratedQuestionDto> GenerateAnswersAsync(

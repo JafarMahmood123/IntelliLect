@@ -55,16 +55,19 @@ public sealed class QuizServiceTests
         public int LastMaxOptions;
         public IReadOnlyList<string>? LastAvoid;
         public string? LastQuestionText;
+        public bool LastWholeSession;
 
         public Task<GeneratedQuizDto> GenerateQuizAsync(
             Guid sessionId, Guid classroomId, int questionCount, int minOptions, int maxOptions,
-            IReadOnlyList<string>? avoid = null, CancellationToken ct = default)
+            IReadOnlyList<string>? avoid = null, bool wholeSession = false,
+            CancellationToken ct = default)
         {
             Calls++;
             LastQuestionCount = questionCount;
             LastMinOptions = minOptions;
             LastMaxOptions = maxOptions;
             LastAvoid = avoid;
+            LastWholeSession = wholeSession;
             if (Throws is not null) throw Throws;
             return Task.FromResult(Result);
         }
@@ -292,6 +295,66 @@ public sealed class QuizServiceTests
 
         await Assert.ThrowsAsync<ConflictException>(
             () => h.Service.PublishAsync(ClassroomId, generated.Quiz.Id, TeacherId, default));
+    }
+
+    [Fact]
+    public async Task A_quick_test_asks_only_about_the_recent_explanation()
+    {
+        var h = Build();
+
+        await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+
+        Assert.False(h.Assistant.LastWholeSession);
+    }
+
+    [Fact]
+    public async Task A_full_quiz_asks_the_assistant_for_the_whole_lesson()
+    {
+        var h = Build();
+
+        await h.Service.GenerateDraftAsync(
+            ClassroomId, SessionId, TeacherId, 10, wholeSession: true, default);
+
+        Assert.True(h.Assistant.LastWholeSession);
+        Assert.Equal(10, h.Assistant.LastQuestionCount);
+    }
+
+    [Fact]
+    public async Task A_full_quiz_is_still_only_a_draft()
+    {
+        // Covering a whole lesson does not buy the model a second route to Open. The same review
+        // step stands between it and the class.
+        var h = Build();
+
+        var generated = await h.Service.GenerateDraftAsync(
+            ClassroomId, SessionId, TeacherId, 10, wholeSession: true, default);
+
+        Assert.Equal("Draft", generated.Quiz.Status);
+    }
+
+    [Fact]
+    public async Task A_full_quiz_is_clamped_to_the_configured_maximum()
+    {
+        // The obvious place to ask for more questions than a quiz may hold, and the limit is the
+        // same one publish enforces.
+        var h = Build(new FakeQuizSettings { MaxQuestionsPerQuiz = 8 });
+
+        await h.Service.GenerateDraftAsync(
+            ClassroomId, SessionId, TeacherId, 40, wholeSession: true, default);
+
+        Assert.Equal(8, h.Assistant.LastQuestionCount);
+    }
+
+    [Fact]
+    public async Task Generating_one_extra_question_never_reaches_for_the_whole_lesson()
+    {
+        // It appends to a draft about what is being taught NOW; pulling a question from an hour
+        // ago would be a non-sequitur in the middle of the composer.
+        var h = Build();
+
+        await h.Service.GenerateQuestionAsync(ClassroomId, SessionId, TeacherId, null, default);
+
+        Assert.False(h.Assistant.LastWholeSession);
     }
 
     [Fact]

@@ -295,6 +295,17 @@ class Settings(BaseSettings):
     quiz_min_idea_tokens: int = 60
     # How many finished ideas to retain per session for the generator to draw on.
     quiz_idea_history: int = 3
+    # --- Whole-lesson quizzes ---
+    # A quick test is built from the ideas just finished; a full quiz is built from the session's
+    # whole TRANSCRIPT, which is durable and covers material the bounded idea history has long
+    # since evicted.
+    #
+    # The character cap is a guard against a two-hour lecture blowing the model's context. When it
+    # bites, the TAIL is kept — see QuizGenerator for why the end is the better half to keep.
+    quiz_full_max_chars: int = 24_000
+    # Wider than retrieval_top_k because a whole lesson spans more ground than one idea, and a
+    # single idea's worth of material would leave most of the quiz ungrounded.
+    quiz_full_top_k: int = 12
 
     # --- Feedback delivery (LA-5): private, teacher-only ---
     # Primary transport is a reliable LiveKit data message from the agent's existing

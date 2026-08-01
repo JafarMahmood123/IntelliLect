@@ -41,14 +41,17 @@ public sealed class QuizzesController : ApiBaseController
         => Ok(await _quizService.CreateDraftAsync(classroomId, sessionId, UserId, request, ct));
 
     /// <summary>
-    /// Draft a quiz from what the teacher has just been explaining. Returns the same DTO as
-    /// composing one by hand, in Draft, for the teacher to review and edit before publishing.
+    /// Draft a quiz, in Draft, for the teacher to review and edit before publishing.
+    ///
+    /// <c>wholeSession</c> chooses between a quick test on what was just explained and a quiz over
+    /// the whole lesson. Both land in the same composer and publish the same way.
     /// </summary>
     [HttpPost("sessions/{sessionId:guid}/quizzes/generate")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> GenerateDraft(
         Guid classroomId, Guid sessionId, [FromBody] GenerateQuizRequest request, CancellationToken ct)
-        => Ok(await _quizService.GenerateDraftAsync(classroomId, sessionId, UserId, request.QuestionCount, ct));
+        => Ok(await _quizService.GenerateDraftAsync(
+            classroomId, sessionId, UserId, request.QuestionCount, request.WholeSession, ct));
 
     /// <summary>
     /// One generated question for the composer to append. Returns content only — nothing is

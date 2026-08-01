@@ -18,7 +18,7 @@ public record SubmitAnswerRequest(Guid QuestionId, Guid OptionId);
 /// How many questions to ask the assistant for. Clamped server-side to the configured maximum,
 /// so a client asking for more gets the most it is allowed rather than an error.
 /// </summary>
-public record GenerateQuizRequest(int QuestionCount = 3);
+public record GenerateQuizRequest(int QuestionCount = 3, bool WholeSession = false);
 
 /// <summary>Questions already in the composer, so a newly generated one does not repeat them.</summary>
 public record GenerateQuestionRequest(List<string>? Avoid = null);

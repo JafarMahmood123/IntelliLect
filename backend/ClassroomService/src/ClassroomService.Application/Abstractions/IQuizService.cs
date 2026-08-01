@@ -14,13 +14,19 @@ public interface IQuizService
         Guid classroomId, Guid sessionId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default);
 
     /// <summary>
-    /// Builds a DRAFT from the idea the teacher has just been explaining, using the assistant's
-    /// transcript of the session and the classroom's material. The result is an ordinary draft —
-    /// reviewed, edited and published exactly like a hand-composed one — so the teacher, not the
-    /// model, decides what the class is asked.
+    /// Builds a DRAFT from what the teacher has been explaining, using the assistant's record of
+    /// the session and the classroom's material. The result is an ordinary draft — reviewed,
+    /// edited and published exactly like a hand-composed one — so the teacher, not the model,
+    /// decides what the class is asked.
     /// </summary>
+    /// <param name="wholeSession">
+    /// False for a quick test on the idea just finished. True for a quiz over the whole lesson,
+    /// which the assistant reads from the session transcript instead of its recent ideas — the
+    /// difference between "did you follow that?" and an end-of-lesson test.
+    /// </param>
     Task<GeneratedQuizDraftDto> GenerateDraftAsync(
-        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default);
+        Guid classroomId, Guid sessionId, Guid teacherId, int questionCount,
+        bool wholeSession = false, CancellationToken ct = default);
 
     /// <summary>
     /// One generated question for the composer to append, from the same idea and material.

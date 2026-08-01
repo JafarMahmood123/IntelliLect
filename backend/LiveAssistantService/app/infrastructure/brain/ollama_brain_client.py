@@ -79,11 +79,14 @@ class OllamaBrainClient(BrainClient):
         min_options: int,
         max_options: int,
         avoid: list[str] | None = None,
+        whole_session: bool = False,
     ) -> GeneratedQuiz | None:
         context, citation_map = build_numbered_context(chunks)
         content = await self._complete(
             QUIZ_SYSTEM_PROMPT,
-            build_quiz_user_prompt(idea_text, context, question_count, avoid),
+            build_quiz_user_prompt(
+                idea_text, context, question_count, avoid, whole_session=whole_session
+            ),
             # Ollama takes a JSON Schema in `format` and constrains decoding to it, so the shape
             # is enforced during generation the same way Gemini's responseSchema does.
             response_format=build_response_schema(

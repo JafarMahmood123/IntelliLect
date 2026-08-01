@@ -40,6 +40,10 @@ class GenerateQuizRequest(BaseModel):
     maxOptions: int = Field(default=4, ge=2, le=10)
     # Questions already in the teacher's draft, so a newly generated one does not repeat them.
     avoid: list[str] = Field(default_factory=list)
+    # False: a quick test on what the teacher has just finished explaining, from the ideas that
+    # have not been quizzed yet. True: a quiz over the WHOLE lesson, read from the session's
+    # durable transcript, which still holds the start of a lecture the idea history has evicted.
+    wholeSession: bool = False
 
 
 class GenerateAnswersRequest(BaseModel):
@@ -108,6 +112,7 @@ async def generate_quiz(
             min_options=request.minOptions,
             max_options=request.maxOptions,
             avoid=request.avoid,
+            whole_session=request.wholeSession,
         )
     except NoIdeaAvailable as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc

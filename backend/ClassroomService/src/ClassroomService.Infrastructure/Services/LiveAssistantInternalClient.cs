@@ -85,10 +85,11 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         int minOptions,
         int maxOptions,
         IReadOnlyList<string>? avoid = null,
+        bool wholeSession = false,
         CancellationToken ct = default)
     {
         var body = new GenerateQuizRequest(
-            classroomId, questionCount, minOptions, maxOptions, avoid ?? []);
+            classroomId, questionCount, minOptions, maxOptions, avoid ?? [], wholeSession);
 
         using var response = await SendWithRetryAsync(
             () => new HttpRequestMessage(HttpMethod.Post, $"api/internal/sessions/{sessionId}/quiz")
@@ -312,7 +313,8 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         [property: JsonPropertyName("questionCount")] int QuestionCount,
         [property: JsonPropertyName("minOptions")] int MinOptions,
         [property: JsonPropertyName("maxOptions")] int MaxOptions,
-        [property: JsonPropertyName("avoid")] IReadOnlyList<string> Avoid);
+        [property: JsonPropertyName("avoid")] IReadOnlyList<string> Avoid,
+        [property: JsonPropertyName("wholeSession")] bool WholeSession);
 
     private sealed record GenerateAnswersRequest(
         [property: JsonPropertyName("classroomId")] Guid ClassroomId,

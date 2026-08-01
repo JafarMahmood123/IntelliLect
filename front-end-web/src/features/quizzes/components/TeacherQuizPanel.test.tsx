@@ -153,18 +153,35 @@ describe('TeacherQuizPanel', () => {
     });
     setup();
 
-    await userEvent.click(await screen.findByRole('button', { name: /^Generate$/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Quick test$/ }));
 
     expect(await screen.findByText(/Answered from your course material/)).toBeInTheDocument();
     expect(screen.getByText(/the hit rate should be 55%/)).toBeInTheDocument();
     expect(screen.getByText(/the target is 85%/)).toBeInTheDocument();
   });
 
+  it('asks for the whole lesson only when the full-quiz button is pressed', async () => {
+    // The two buttons differ ONLY in this flag — quick test reads the recent ideas, full quiz
+    // reads the session transcript — so it is the whole of what distinguishes them.
+    mockGenerate.mockResolvedValue({ quiz: draft(), corrections: [] });
+    setup();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^Quick test$/ }));
+    await waitFor(() =>
+      expect(mockGenerate).toHaveBeenLastCalledWith(CLASSROOM_ID, SESSION_ID, 3, false),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Full quiz$/ }));
+    await waitFor(() =>
+      expect(mockGenerate).toHaveBeenLastCalledWith(CLASSROOM_ID, SESSION_ID, 10, true),
+    );
+  });
+
   it('says nothing when the assistant agreed with the teacher', async () => {
     mockGenerate.mockResolvedValue({ quiz: draft(), corrections: [] });
     setup();
 
-    await userEvent.click(await screen.findByRole('button', { name: /^Generate$/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Quick test$/ }));
 
     await waitFor(() => expect(mockGenerate).toHaveBeenCalled());
     expect(screen.queryByText(/Answered from your course material/)).not.toBeInTheDocument();
@@ -183,7 +200,7 @@ describe('TeacherQuizPanel', () => {
     );
     setup();
 
-    await userEvent.click(await screen.findByRole('button', { name: /^Generate$/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Quick test$/ }));
 
     expect(await screen.findByText(/already been used/)).toBeInTheDocument();
   });

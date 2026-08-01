@@ -88,9 +88,42 @@ def _chunk(score: float) -> RetrievedChunk:
     return RetrievedChunk("material", score, uuid4(), uuid4())
 
 
-def _generator(retrieval, brain, ideas, *, min_score=0.25, min_idea_tokens=5):
+class FakeTranscripts:
+    """Only ``assemble_text`` is exercised — it is the whole of what a full quiz reads."""
+
+    def __init__(self, text: str = "", error: Exception | None = None):
+        self.text = text
+        self.error = error
+        self.calls: list[UUID] = []
+
+    async def assemble_text(self, session_id):
+        self.calls.append(session_id)
+        if self.error is not None:
+            raise self.error
+        return self.text
+
+
+def _generator(
+    retrieval,
+    brain,
+    ideas,
+    *,
+    min_score=0.25,
+    min_idea_tokens=5,
+    transcripts=None,
+    full_max_chars=24_000,
+    full_top_k=None,
+):
     return QuizGenerator(
-        retrieval, brain, ideas, top_k=6, min_score=min_score, min_idea_tokens=min_idea_tokens
+        retrieval,
+        brain,
+        ideas,
+        transcripts or FakeTranscripts(),
+        top_k=6,
+        min_score=min_score,
+        min_idea_tokens=min_idea_tokens,
+        full_max_chars=full_max_chars,
+        full_top_k=full_top_k,
     )
 
 
@@ -382,3 +415,136 @@ async def test_writing_answers_still_works_for_an_idea_already_quizzed():
 
     assert question is not None
     assert brain.answer_calls[0][1] == "a cache miss is when an item is not in the cache"
+
+
+# --- a full quiz over the whole lesson ------------------------------------------
+
+
+async def test_a_full_quiz_reads_the_transcript_not_the_recent_ideas():
+    """The idea history is bounded and holds minutes; the transcript is durable and holds the
+    lesson. A whole-lesson quiz built from the ideas would silently be a quiz on the last five
+    minutes."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("and finally, eviction"))
+
+    brain = RecordingBrain()
+    transcripts = FakeTranscripts("the entire lesson, from caches to eviction")
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]), brain, ideas, transcripts=transcripts
+    )
+
+    await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
+
+    assert brain.calls[0][0] == "the entire lesson, from caches to eviction"
+    assert brain.kwargs[0]["whole_session"] is True
+
+
+async def test_a_full_quiz_works_on_ideas_already_quizzed():
+    """The whole point: a teacher runs quick tests through the lesson, then a full quiz at the end
+    over everything — including the parts the quick tests already used up."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]),
+        RecordingBrain(),
+        ideas,
+        transcripts=FakeTranscripts("the whole lesson"),
+    )
+    await generator.generate(session_id, uuid4(), **BOUNDS)
+
+    quiz = await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
+
+    assert quiz.questions
+
+
+async def test_a_full_quiz_spends_every_retained_idea():
+    """It has just asked about all of them, so a quick test straight afterwards should say there
+    is nothing new rather than re-ask what the full quiz covered."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("caches store recently used items"))
+    ideas.record(session_id, _idea("eviction decides what leaves"))
+
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]),
+        RecordingBrain(),
+        ideas,
+        transcripts=FakeTranscripts("the whole lesson"),
+    )
+    await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
+
+    with pytest.raises(NoIdeaAvailable) as spent:
+        await generator.generate(session_id, uuid4(), **BOUNDS)
+    assert "already been used" in str(spent.value)
+
+
+async def test_a_full_quiz_with_no_transcript_is_reported_as_nothing_to_work_from():
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]),
+        RecordingBrain(),
+        LastIdeaStore(),
+        transcripts=FakeTranscripts(""),
+    )
+
+    with pytest.raises(NoIdeaAvailable):
+        await generator.generate(uuid4(), uuid4(), **BOUNDS, whole_session=True)
+
+
+async def test_an_over_long_transcript_keeps_the_most_recent_part():
+    """Neither half is good to lose, but the earliest material is the likeliest to have been
+    covered by the quick tests taken along the way."""
+    session_id = uuid4()
+    brain = RecordingBrain()
+    transcripts = FakeTranscripts("A" * 500 + "THE-END")
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]),
+        brain,
+        LastIdeaStore(),
+        transcripts=transcripts,
+        full_max_chars=1000,
+    )
+
+    await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
+
+    sent = brain.calls[0][0]
+    assert len(sent) <= 1000
+    assert sent.endswith("THE-END")
+
+
+async def test_a_full_quiz_retrieves_more_material_than_a_quick_test():
+    """A whole lesson spans more ground than one idea; one idea's worth of material would leave
+    most of the quiz ungrounded."""
+    session_id = uuid4()
+    retrieval = FakeRetrievalClient([_chunk(0.8)])
+    generator = _generator(
+        retrieval,
+        RecordingBrain(),
+        LastIdeaStore(),
+        transcripts=FakeTranscripts("the whole lesson"),
+        full_top_k=12,
+    )
+
+    await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
+
+    assert retrieval.calls[-1][2] == 12
+
+
+async def test_an_unreadable_transcript_is_a_failure_not_a_silent_quick_test():
+    """Falling back to the recent ideas would hand the teacher a five-minute quiz labelled as a
+    whole-lesson one, and they would have no way to tell."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    generator = _generator(
+        FakeRetrievalClient([_chunk(0.8)]),
+        RecordingBrain(),
+        ideas,
+        transcripts=FakeTranscripts(error=RuntimeError("database down")),
+    )
+
+    with pytest.raises(QuizGenerationFailed):
+        await generator.generate(session_id, uuid4(), **BOUNDS, whole_session=True)
