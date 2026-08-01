@@ -150,7 +150,13 @@ export const InteractionSidebar = () => {
   };
 
   return (
-    <aside className="z-20 flex h-full w-80 flex-col overflow-hidden border-l border-white/10 bg-slate-900 shadow-2xl">
+    // Widens with the viewport rather than taking a fixed bite out of it. At 320px the quiz
+    // composer's answer fields cut text off mid-word, which is the one panel where the exact
+    // wording matters — a teacher is proof-reading what the class is about to be asked.
+    //
+    // shrink-0 because a fixed width is not a guaranteed one: the aside is a flex child, so
+    // without it a long unbroken string in a message could squeeze the whole drawer narrower.
+    <aside className="z-20 flex h-full w-80 shrink-0 flex-col overflow-hidden border-l border-white/10 bg-slate-900 shadow-2xl xl:w-96 2xl:w-[28rem]">
       {current ? (
         <>
           <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/5 bg-slate-950/50 p-2">
