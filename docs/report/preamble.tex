@@ -79,6 +79,12 @@
 % simply correct by default.
 % ===========================================================================
 
+% The template allows 4 levels (chapter + 3) and lists 2 levels in the contents.
+% report's defaults are secnumdepth=2 (subsubsections come out UNNUMBERED) and
+% tocdepth=2 (contents too deep), so both must be set explicitly.
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{1}
+
 % Figures, tables and equations run sequentially across the WHOLE report —
 % the chapter number must never appear in them (STRUCTURE.md §5).
 \counterwithout{figure}{chapter}
@@ -110,6 +116,19 @@
 \newcommand{\centredtitle}[1]{%
   \begin{center}\bfseries\fontsize{19.2}{24}\selectfont #1\end{center}%
   \vspace{12pt}}
+
+% The contents/figure/table lists print their OWN heading. Style those to match
+% \centredtitle rather than adding a second one above them, which duplicates it.
+\renewcommand{\contentsname}{المحتويات}
+\renewcommand{\listfigurename}{قائمة الأشكال}
+\renewcommand{\listtablename}{قائمة الجداول}
+\newcommand{\listtitlefont}{\hfill\bfseries\fontsize{19.2}{24}\selectfont}
+\renewcommand{\cfttoctitlefont}{\listtitlefont}
+\renewcommand{\cftloftitlefont}{\listtitlefont}
+\renewcommand{\cftlottitlefont}{\listtitlefont}
+\renewcommand{\cftaftertoctitle}{\hfill}
+\renewcommand{\cftafterloftitle}{\hfill}
+\renewcommand{\cftafterlottitle}{\hfill}
 
 % The short summary paragraph that opens every chapter (STRUCTURE.md §4).
 % Style "ملخص الفصل": italic, justified, indented ~0.75in both sides, 36pt after.
