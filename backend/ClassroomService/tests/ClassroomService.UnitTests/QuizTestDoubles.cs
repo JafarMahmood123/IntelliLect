@@ -65,6 +65,28 @@ public sealed class FakeQuizRepository : IQuizRepository
         return Task.FromResult(Submissions.Where(s => quizIds.Contains(s.QuizId)).ToList());
     }
 
+    public Task<List<Quiz>> GetForClassroomAsync(Guid classroomId, CancellationToken ct = default)
+        => Task.FromResult(_quizzes.Values
+            .Where(q => q.ClassroomId == classroomId)
+            .OrderBy(q => q.CreatedAtUtc)
+            .ToList());
+
+    public Task<List<QuizAnswer>> GetAnswersForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default)
+    {
+        var quizIds = _quizzes.Values.Where(q => q.ClassroomId == classroomId)
+            .Select(q => q.Id).ToHashSet();
+        return Task.FromResult(Answers.Where(a => quizIds.Contains(a.QuizId)).ToList());
+    }
+
+    public Task<List<QuizSubmission>> GetSubmissionsForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default)
+    {
+        var quizIds = _quizzes.Values.Where(q => q.ClassroomId == classroomId)
+            .Select(q => q.Id).ToHashSet();
+        return Task.FromResult(Submissions.Where(s => quizIds.Contains(s.QuizId)).ToList());
+    }
+
     public Task<List<QuizAnswer>> GetAnswersAsync(Guid quizId, CancellationToken ct = default)
         => Task.FromResult(Answers.Where(a => a.QuizId == quizId).ToList());
 

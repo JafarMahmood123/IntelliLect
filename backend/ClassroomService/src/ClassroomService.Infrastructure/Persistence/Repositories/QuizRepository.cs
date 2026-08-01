@@ -62,6 +62,27 @@ public sealed class QuizRepository : IQuizRepository
             .Where(s => _context.Quizzes.Any(q => q.Id == s.QuizId && q.SessionId == sessionId))
             .ToListAsync(ct);
 
+    public async Task<List<Quiz>> GetForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default)
+        => await _context.Quizzes
+            .Include(q => q.Questions.OrderBy(question => question.Order))
+                .ThenInclude(question => question.Options.OrderBy(option => option.Order))
+            .Where(q => q.ClassroomId == classroomId)
+            .OrderBy(q => q.CreatedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task<List<QuizAnswer>> GetAnswersForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default)
+        => await _context.QuizAnswers
+            .Where(a => _context.Quizzes.Any(q => q.Id == a.QuizId && q.ClassroomId == classroomId))
+            .ToListAsync(ct);
+
+    public async Task<List<QuizSubmission>> GetSubmissionsForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default)
+        => await _context.QuizSubmissions
+            .Where(s => _context.Quizzes.Any(q => q.Id == s.QuizId && q.ClassroomId == classroomId))
+            .ToListAsync(ct);
+
     public async Task<List<QuizAnswer>> GetAnswersAsync(Guid quizId, CancellationToken ct = default)
         => await _context.QuizAnswers.Where(a => a.QuizId == quizId).ToListAsync(ct);
 

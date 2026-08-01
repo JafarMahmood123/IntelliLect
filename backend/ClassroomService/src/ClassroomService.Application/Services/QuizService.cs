@@ -814,6 +814,237 @@ public sealed class QuizService : IQuizService
             rows);
     }
 
+    // --- classroom-wide tracking ----------------------------------------------------
+
+    public async Task<ClassroomQuizTrackingDto> GetClassroomTrackingAsync(
+        Guid classroomId, Guid teacherId, CancellationToken ct = default)
+    {
+        await EnsureTeacherAsync(classroomId, teacherId, ct);
+
+        var (quizzes, answers, submissions, sessions) = await LoadClassroomAsync(classroomId, ct);
+        var counted = CountedQuizzes(quizzes);
+        var countedIds = counted.Select(q => q.Id).ToHashSet();
+        var totalAvailable = counted.Sum(q => q.Questions.Sum(x => x.Points));
+        var sessionOfQuiz = quizzes.ToDictionary(q => q.Id, q => q.SessionId);
+        var sessionsWithQuizzes = counted.Select(q => q.SessionId).ToHashSet();
+
+        var participants = Participants(answers, submissions, countedIds);
+
+        var students = participants
+            .Select(participant =>
+            {
+                var mine = answers
+                    .Where(a => a.StudentId == participant.Key && countedIds.Contains(a.QuizId))
+                    .ToList();
+                var mySubmissions = submissions
+                    .Where(s => s.StudentId == participant.Key && countedIds.Contains(s.QuizId))
+                    .ToList();
+                var score = mine.Sum(a => a.PointsAwarded);
+
+                // A quiz counts as "taken" if they answered it OR declared themselves finished on
+                // it. Answers alone would miss the student who opened it and engaged with nothing —
+                // which is a fact about their term worth keeping, not one to round away.
+                var quizzesTaken = mine.Select(a => a.QuizId)
+                    .Concat(mySubmissions.Select(s => s.QuizId))
+                    .Distinct()
+                    .Count();
+
+                var sessionsTakenPart = mine.Select(a => a.QuizId)
+                    .Concat(mySubmissions.Select(s => s.QuizId))
+                    .Select(quizId => sessionOfQuiz.GetValueOrDefault(quizId))
+                    .Distinct()
+                    .Count();
+
+                return new StudentTrackingDto(
+                    participant.Key,
+                    participant.Value,
+                    quizzesTaken,
+                    counted.Count,
+                    mine.Count,
+                    mine.Count(a => a.IsCorrect),
+                    score,
+                    totalAvailable,
+                    Percentage(score, totalAvailable),
+                    sessionsTakenPart,
+                    sessionsWithQuizzes.Count);
+            })
+            .OrderByDescending(s => s.Score)
+            .ThenBy(s => s.StudentName)
+            .ToList();
+
+        var members = await _membershipRepository.GetMembersWithDetailsAsync(classroomId, ct);
+
+        return new ClassroomQuizTrackingDto(
+            classroomId,
+            members.Count,
+            students.Count,
+            sessions.Count,
+            sessionsWithQuizzes.Count,
+            counted.Count,
+            totalAvailable,
+            // Mean of the students who took part, not of the enrolled list. Counting a student who
+            // has never sat a quiz as a zero would say the class is failing when it is absent.
+            students.Count == 0 ? 0 : (int)Math.Round(students.Average(s => s.Percentage)),
+            students,
+            BuildSessionTracking(sessions, counted, answers, submissions));
+    }
+
+    public async Task<MyClassroomQuizTrackingDto> GetMyClassroomTrackingAsync(
+        Guid classroomId, Guid studentId, CancellationToken ct = default)
+    {
+        await EnsureMemberAsync(classroomId, studentId, ct);
+
+        var (quizzes, answers, submissions, sessions) = await LoadClassroomAsync(classroomId, ct);
+        var counted = CountedQuizzes(quizzes);
+        var countedIds = counted.Select(q => q.Id).ToHashSet();
+        var totalAvailable = counted.Sum(q => q.Questions.Sum(x => x.Points));
+
+        var mine = answers
+            .Where(a => a.StudentId == studentId && countedIds.Contains(a.QuizId))
+            .ToList();
+        var mySubmissions = submissions
+            .Where(s => s.StudentId == studentId && countedIds.Contains(s.QuizId))
+            .ToList();
+        var myQuizIds = mine.Select(a => a.QuizId)
+            .Concat(mySubmissions.Select(s => s.QuizId))
+            .ToHashSet();
+        var score = mine.Sum(a => a.PointsAwarded);
+
+        var quizzesBySession = counted.GroupBy(q => q.SessionId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = sessions
+            .Where(session => quizzesBySession.ContainsKey(session.Id))
+            .Select(session =>
+            {
+                var sessionQuizzes = quizzesBySession[session.Id];
+                var sessionQuizIds = sessionQuizzes.Select(q => q.Id).ToHashSet();
+                var sessionScore = mine
+                    .Where(a => sessionQuizIds.Contains(a.QuizId))
+                    .Sum(a => a.PointsAwarded);
+                var sessionTotal = sessionQuizzes.Sum(q => q.Questions.Sum(x => x.Points));
+
+                return new MySessionTrackingDto(
+                    session.Id,
+                    session.Title,
+                    session.ScheduledAtUtc,
+                    session.StartedAtUtc,
+                    sessionScore,
+                    sessionTotal,
+                    Percentage(sessionScore, sessionTotal),
+                    sessionQuizIds.Count(myQuizIds.Contains),
+                    sessionQuizzes.Count);
+            })
+            .OrderByDescending(r => r.ScheduledAtUtc)
+            .ToList();
+
+        // The class average, computed the same way the teacher's view computes it, so the two
+        // never disagree about the number a student is being compared against.
+        var classAverage = ClassAverage(answers, submissions, countedIds, totalAvailable);
+
+        return new MyClassroomQuizTrackingDto(
+            classroomId,
+            score,
+            totalAvailable,
+            Percentage(score, totalAvailable),
+            myQuizIds.Count,
+            counted.Count,
+            rows.Count(r => r.QuizzesTaken > 0),
+            rows.Count,
+            classAverage,
+            rows);
+    }
+
+    private async Task<(List<Quiz> Quizzes, List<QuizAnswer> Answers,
+        List<QuizSubmission> Submissions, List<Session> Sessions)> LoadClassroomAsync(
+        Guid classroomId, CancellationToken ct)
+        => (await _quizRepository.GetForClassroomAsync(classroomId, ct),
+            await _quizRepository.GetAnswersForClassroomAsync(classroomId, ct),
+            await _quizRepository.GetSubmissionsForClassroomAsync(classroomId, ct),
+            (await _sessionRepository.GetByClassroomIdAsync(classroomId, ct)).ToList());
+
+    /// <summary>
+    /// Quizzes that count towards a total: published, and not withdrawn. The same rule the session
+    /// summary applies, expressed once so a term total and a lesson total cannot disagree.
+    /// </summary>
+    private static List<Quiz> CountedQuizzes(List<Quiz> quizzes)
+        => quizzes.Where(q => q.Status is not QuizStatus.Draft && CountsTowardsMarks(q)).ToList();
+
+    private static int Percentage(int score, int available)
+        => available > 0 ? (int)Math.Round(score * 100.0 / available) : 0;
+
+    /// <summary>Everyone who answered or finished a counted quiz, with their latest known name.</summary>
+    private static Dictionary<Guid, string> Participants(
+        List<QuizAnswer> answers,
+        List<QuizSubmission> submissions,
+        HashSet<Guid> countedIds)
+        => answers
+            .Where(a => countedIds.Contains(a.QuizId))
+            .Select(a => (a.StudentId, a.StudentName, At: a.AnsweredAtUtc))
+            .Concat(submissions
+                .Where(s => countedIds.Contains(s.QuizId))
+                .Select(s => (s.StudentId, s.StudentName, At: s.SubmittedAtUtc)))
+            .GroupBy(x => x.StudentId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.At).First().StudentName);
+
+    private static int ClassAverage(
+        List<QuizAnswer> answers,
+        List<QuizSubmission> submissions,
+        HashSet<Guid> countedIds,
+        int totalAvailable)
+    {
+        var participants = Participants(answers, submissions, countedIds);
+        if (participants.Count == 0) return 0;
+
+        var percentages = participants.Keys.Select(studentId =>
+        {
+            var score = answers
+                .Where(a => a.StudentId == studentId && countedIds.Contains(a.QuizId))
+                .Sum(a => a.PointsAwarded);
+            return Percentage(score, totalAvailable);
+        });
+
+        return (int)Math.Round(percentages.Average());
+    }
+
+    private static List<SessionTrackingDto> BuildSessionTracking(
+        List<Session> sessions,
+        List<Quiz> counted,
+        List<QuizAnswer> answers,
+        List<QuizSubmission> submissions)
+    {
+        var quizzesBySession = counted.GroupBy(q => q.SessionId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        return sessions
+            .Where(session => quizzesBySession.ContainsKey(session.Id))
+            .Select(session =>
+            {
+                var sessionQuizzes = quizzesBySession[session.Id];
+                var quizIds = sessionQuizzes.Select(q => q.Id).ToHashSet();
+                var total = sessionQuizzes.Sum(q => q.Questions.Sum(x => x.Points));
+
+                var took = answers.Where(a => quizIds.Contains(a.QuizId))
+                    .Select(a => a.StudentId)
+                    .Concat(submissions.Where(s => quizIds.Contains(s.QuizId)).Select(s => s.StudentId))
+                    .Distinct()
+                    .ToList();
+
+                var average = took.Count == 0
+                    ? 0
+                    : (int)Math.Round(took.Average(studentId => Percentage(
+                        answers.Where(a => a.StudentId == studentId && quizIds.Contains(a.QuizId))
+                            .Sum(a => a.PointsAwarded),
+                        total)));
+
+                return new SessionTrackingDto(
+                    session.Id, session.Title, session.ScheduledAtUtc, session.StartedAtUtc,
+                    sessionQuizzes.Count, total, took.Count, average);
+            })
+            .OrderByDescending(s => s.ScheduledAtUtc)
+            .ToList();
+    }
+
     // --- helpers ----------------------------------------------------------------
 
     /// <summary>

@@ -158,6 +158,20 @@ public sealed class QuizzesController : ApiBaseController
     public async Task<IActionResult> GetMySessionSummary(Guid classroomId, Guid sessionId, CancellationToken ct)
         => Ok(await _quizService.GetMySessionSummaryAsync(classroomId, sessionId, UserId, ct));
 
+    /// <summary>
+    /// Teacher: the whole classroom's progress across every session — how many students, how many
+    /// quizzes, and each student's cumulative score.
+    /// </summary>
+    [HttpGet("quiz-tracking")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GetClassroomTracking(Guid classroomId, CancellationToken ct)
+        => Ok(await _quizService.GetClassroomTrackingAsync(classroomId, UserId, ct));
+
+    /// <summary>Student: their own progress across the classroom, and how the class averaged.</summary>
+    [HttpGet("my-quiz-tracking")]
+    public async Task<IActionResult> GetMyClassroomTracking(Guid classroomId, CancellationToken ct)
+        => Ok(await _quizService.GetMyClassroomTrackingAsync(classroomId, UserId, ct));
+
     [HttpGet("quizzes/{quizId:guid}/my-result")]
     public async Task<IActionResult> GetMyResult(Guid classroomId, Guid quizId, CancellationToken ct)
         => Ok(await _quizService.GetMyResultAsync(classroomId, quizId, UserId, ct));

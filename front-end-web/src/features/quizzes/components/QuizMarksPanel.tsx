@@ -3,6 +3,7 @@ import { Calendar, ChevronLeft } from 'lucide-react';
 import { useClassroomSessions } from '../../classrooms/hooks/useClassroomQueries';
 import { StudentQuizSummary } from './StudentQuizSummary';
 import { TeacherQuizSummary } from './TeacherQuizSummary';
+import { QuizTrackingPanel } from './QuizTrackingPanel';
 
 interface Props {
   classroomId: string;
@@ -36,6 +37,14 @@ export const QuizMarksPanel = ({ classroomId, isTeacher }: Props) => {
   }
 
   const open = sessions.find((session) => session.id === openSessionId);
+
+  // Cumulative first, one lesson second. "How is this going" is the question someone opening a
+  // marks tab has; "how did that one lesson go" is the follow-up they drill into.
+  const overview = !open && (
+    <div className="mb-6 border-b border-slate-200 pb-6 dark:border-slate-800">
+      <QuizTrackingPanel classroomId={classroomId} isTeacher={isTeacher} />
+    </div>
+  );
 
   if (open) {
     return (
@@ -74,8 +83,13 @@ export const QuizMarksPanel = ({ classroomId, isTeacher }: Props) => {
   }
 
   return (
-    <div className="grid gap-3">
-      {sessions.map((session) => (
+    <div>
+      {overview}
+      <h3 className="mb-2 text-sm font-bold text-slate-900 dark:text-white">
+        {isTeacher ? 'Marks by session' : 'Your marks by session'}
+      </h3>
+      <div className="grid gap-3">
+        {sessions.map((session) => (
         <button
           key={session.id}
           type="button"
@@ -95,7 +109,8 @@ export const QuizMarksPanel = ({ classroomId, isTeacher }: Props) => {
             {isTeacher ? 'View marks' : 'My marks'}
           </span>
         </button>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };

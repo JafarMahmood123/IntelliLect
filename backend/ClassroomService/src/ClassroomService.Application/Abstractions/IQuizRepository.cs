@@ -39,6 +39,21 @@ public interface IQuizRepository
     Task<List<QuizAnswer>> GetAnswersForSessionAsync(Guid sessionId, CancellationToken ct = default);
 
     /// <summary>
+    /// Every quiz in a classroom, across all its sessions, with questions and options.
+    ///
+    /// Classroom-scoped rather than session-scoped because a term's progress is the question the
+    /// tracking view answers, and reading it session by session would be one query per lesson.
+    /// </summary>
+    Task<List<Quiz>> GetForClassroomAsync(Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>Every answer in a classroom, for the same reason.</summary>
+    Task<List<QuizAnswer>> GetAnswersForClassroomAsync(Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>Every submission in a classroom, so a student who took part without answering counts.</summary>
+    Task<List<QuizSubmission>> GetSubmissionsForClassroomAsync(
+        Guid classroomId, CancellationToken ct = default);
+
+    /// <summary>
     /// Every submission across a whole session. The summary needs these as well as the answers,
     /// because a student who finished without answering anything took part and would otherwise be
     /// missing from the class list entirely.

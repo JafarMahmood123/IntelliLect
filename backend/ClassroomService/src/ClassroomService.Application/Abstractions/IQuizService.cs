@@ -108,5 +108,17 @@ public interface IQuizService
     Task<MySessionQuizSummaryDto> GetMySessionSummaryAsync(
         Guid classroomId, Guid sessionId, Guid studentId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Teacher: the whole CLASSROOM across every session — cumulative scores per student, and how
+    /// each lesson went. The question the session summary cannot answer, because the interesting
+    /// facts over a term are the cumulative ones.
+    /// </summary>
+    Task<ClassroomQuizTrackingDto> GetClassroomTrackingAsync(
+        Guid classroomId, Guid teacherId, CancellationToken ct = default);
+
+    /// <summary>Student: their own progress across the classroom, plus the class average.</summary>
+    Task<MyClassroomQuizTrackingDto> GetMyClassroomTrackingAsync(
+        Guid classroomId, Guid studentId, CancellationToken ct = default);
+
     QuizLimitsDto GetLimits();
 }

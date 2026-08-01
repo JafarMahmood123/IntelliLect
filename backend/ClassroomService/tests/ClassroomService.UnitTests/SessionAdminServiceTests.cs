@@ -255,7 +255,10 @@ public sealed class FakeSessionRepository : ISessionRepository
         return Task.CompletedTask;
     }
 
-    public Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default) => throw new NotImplementedException();
+    /// <summary>The seeded sessions for a classroom. Needed since classroom-wide quiz tracking
+    /// reads the session list to title and date its rows.</summary>
+    public Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default)
+        => Task.FromResult(_store.Values.Where(s => s.ClassroomId == classroomId).AsEnumerable());
     public Task AddAsync(Session session, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<(List<AdminSessionResponse> Items, int TotalCount)> GetAdminSessionsPagedAsync(
         int page, int pageSize, string? search, SessionStatus? status, Guid? classroomId, CancellationToken ct = default)

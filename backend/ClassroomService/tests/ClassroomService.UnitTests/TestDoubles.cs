@@ -369,8 +369,16 @@ public sealed class FakeMembershipRepository : IMembershipRepository
     public Task<bool> IsEnrolledAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
         => Task.FromResult(_enrollments.Contains((classroomId, studentId)));
 
+    /// <summary>
+    /// The enrolled list, built from what was seeded. It used to return empty regardless, which was
+    /// harmless until something started COUNTING members — the classroom tracking summary reports
+    /// "n students enrolled", and a fake that always says none would pass a broken implementation.
+    /// </summary>
     public Task<List<ClassroomMembership>> GetMembersWithDetailsAsync(Guid classroomId, CancellationToken ct = default)
-        => Task.FromResult(new List<ClassroomMembership>());
+        => Task.FromResult(_enrollments
+            .Where(e => e.ClassroomId == classroomId)
+            .Select(e => new ClassroomMembership { ClassroomId = e.ClassroomId, StudentId = e.StudentId })
+            .ToList());
 
     public Task<ClassroomMembership?> GetMembershipAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
         => Task.FromResult<ClassroomMembership?>(null);

@@ -1,7 +1,9 @@
 import { apiClient } from '../../../lib/axios';
 import type {
+  ClassroomQuizTracking,
   GeneratedQuestionDraft,
   GeneratedQuizDraft,
+  MyClassroomQuizTracking,
   MySessionQuizSummary,
   MyQuizResult,
   QuizDraftRequest,
@@ -203,6 +205,28 @@ export const getSessionQuizSummary = async (
 ): Promise<SessionQuizSummary> => {
   const { data } = await apiClient.get<SessionQuizSummary>(
     `${base(classroomId)}/sessions/${sessionId}/quiz-summary`,
+  );
+  return data;
+};
+
+// --- classroom-wide tracking ---------------------------------------------------
+
+/** Teacher: the whole classroom across every session it has run. */
+export const getClassroomQuizTracking = async (
+  classroomId: string,
+): Promise<ClassroomQuizTracking> => {
+  const { data } = await apiClient.get<ClassroomQuizTracking>(
+    `${base(classroomId)}/quiz-tracking`,
+  );
+  return data;
+};
+
+/** Student: their own progress across the classroom, and how the class averaged. */
+export const getMyClassroomQuizTracking = async (
+  classroomId: string,
+): Promise<MyClassroomQuizTracking> => {
+  const { data } = await apiClient.get<MyClassroomQuizTracking>(
+    `${base(classroomId)}/my-quiz-tracking`,
   );
   return data;
 };

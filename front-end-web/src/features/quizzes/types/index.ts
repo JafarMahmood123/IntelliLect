@@ -271,6 +271,72 @@ export interface MyQuizScore {
   questions: MyQuestionReview[];
 }
 
+// --- classroom-wide tracking ---------------------------------------------------
+
+export interface StudentTracking {
+  studentId: string;
+  studentName: string;
+  quizzesTaken: number;
+  quizCount: number;
+  answeredCount: number;
+  correctCount: number;
+  score: number;
+  totalPointsAvailable: number;
+  percentage: number;
+  sessionsTakenPart: number;
+  sessionsWithQuizzesCount: number;
+}
+
+export interface SessionTracking {
+  sessionId: string;
+  title: string;
+  scheduledAtUtc: string;
+  startedAtUtc: string | null;
+  quizCount: number;
+  totalPoints: number;
+  participantCount: number;
+  averagePercentage: number;
+}
+
+export interface ClassroomQuizTracking {
+  classroomId: string;
+  enrolledStudentCount: number;
+  activeStudentCount: number;
+  sessionCount: number;
+  sessionsWithQuizzesCount: number;
+  quizCount: number;
+  totalPointsAvailable: number;
+  classAveragePercentage: number;
+  students: StudentTracking[];
+  sessions: SessionTracking[];
+}
+
+export interface MySessionTracking {
+  sessionId: string;
+  title: string;
+  scheduledAtUtc: string;
+  startedAtUtc: string | null;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  quizzesTaken: number;
+  quizCount: number;
+}
+
+export interface MyClassroomQuizTracking {
+  classroomId: string;
+  score: number;
+  totalPointsAvailable: number;
+  percentage: number;
+  quizzesTaken: number;
+  quizCount: number;
+  sessionsTakenPart: number;
+  sessionsWithQuizzesCount: number;
+  /** One number about everyone else, so a score has something to mean. Names nobody. */
+  classAveragePercentage: number;
+  sessions: MySessionTracking[];
+}
+
 export interface MySessionQuizSummary {
   sessionId: string;
   score: number;

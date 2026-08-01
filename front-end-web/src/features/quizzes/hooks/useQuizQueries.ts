@@ -7,6 +7,8 @@ import {
   generateQuizAnswers,
   generateQuizDraft,
   generateQuizQuestion,
+  getClassroomQuizTracking,
+  getMyClassroomQuizTracking,
   getMyQuizResult,
   getMySessionQuizSummary,
   getOpenQuizForSession,
@@ -32,6 +34,8 @@ export const quizKeys = {
   myResult: (quizId: string) => [...quizKeys.all, 'my-result', quizId] as const,
   sessionSummary: (sessionId: string) => [...quizKeys.all, 'session-summary', sessionId] as const,
   mySessionSummary: (sessionId: string) => [...quizKeys.all, 'my-session-summary', sessionId] as const,
+  tracking: (classroomId: string) => [...quizKeys.all, 'tracking', classroomId] as const,
+  myTracking: (classroomId: string) => [...quizKeys.all, 'my-tracking', classroomId] as const,
 };
 
 /** Teacher's session-wide marks. Refetched on every quiz state change so the tally stays live. */
@@ -47,6 +51,22 @@ export const useMySessionQuizSummary = (classroomId: string, sessionId: string) 
     queryKey: quizKeys.mySessionSummary(sessionId),
     queryFn: () => getMySessionQuizSummary(classroomId, sessionId),
     enabled: Boolean(classroomId && sessionId),
+  });
+
+/** Teacher: cumulative progress across every session in the classroom. */
+export const useClassroomQuizTracking = (classroomId: string) =>
+  useQuery({
+    queryKey: quizKeys.tracking(classroomId),
+    queryFn: () => getClassroomQuizTracking(classroomId),
+    enabled: Boolean(classroomId),
+  });
+
+/** Student: their own cumulative progress, plus the class average. */
+export const useMyClassroomQuizTracking = (classroomId: string) =>
+  useQuery({
+    queryKey: quizKeys.myTracking(classroomId),
+    queryFn: () => getMyClassroomQuizTracking(classroomId),
+    enabled: Boolean(classroomId),
   });
 
 /** Composer bounds. Effectively static for a deployment, so it is cached indefinitely. */

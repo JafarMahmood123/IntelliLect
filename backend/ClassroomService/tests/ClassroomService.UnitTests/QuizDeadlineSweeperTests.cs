@@ -284,6 +284,6 @@ public sealed class QuizDeadlineSweeperTests
 
         Assert.Equal(1, await h.Sweeper.SweepAsync());
         Assert.Equal(0, await h.Sweeper.SweepAsync());
-        Assert.Single(h.Notifier.Notifications.Where(n => n.State == "Closed"));
+        Assert.Single(h.Notifier.Notifications, n => n.State == "Closed");
     }
 }
