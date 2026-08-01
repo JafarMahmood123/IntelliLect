@@ -19,6 +19,7 @@ import {
   useCancelQuiz,
   useCloseQuiz,
   useCreateQuizDraft,
+  useExtendQuiz,
   useGenerateQuizAnswers,
   useGenerateQuizDraft,
   useGenerateQuizQuestion,
@@ -31,6 +32,7 @@ import {
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
 import { useQuizCloseWatch } from '../hooks/useQuizCloseWatch';
 import { TeacherQuizSummary } from './TeacherQuizSummary';
+import { QuizTimeControls } from './QuizTimeControls';
 import type { QuestionDraft, QuizCorrection, QuizLimits } from '../types';
 
 interface Props {
@@ -109,6 +111,7 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const [answeringIndex, setAnsweringIndex] = useState<number | null>(null);
   const publish = usePublishQuiz(classroomId, sessionId);
   const close = useCloseQuiz(classroomId, sessionId);
+  const extend = useExtendQuiz(classroomId, sessionId);
   const cancel = useCancelQuiz(classroomId, sessionId);
 
   const remaining = useQuizCountdown(liveQuiz?.closesAtUtc, liveQuiz?.serverNowUtc);
@@ -164,10 +167,36 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
 
         {remaining === 0 && (
           <p className="text-[11px] text-amber-300/80">
-            Time is up. The quiz is closing on its own and marks are being released — no need to
-            press anything.
+            Time is up. The quiz is closing on its own and marks are being released — add time below
+            if the class needs longer.
           </p>
         )}
+
+        <QuizTimeControls
+          quiz={liveQuiz}
+          onExtend={(seconds, studentIds) =>
+            extend.mutate(
+              { quizId: liveQuiz.id, seconds, studentIds },
+              {
+                onSuccess: () =>
+                  showToast({
+                    type: 'success',
+                    title: 'Time added',
+                    message: studentIds?.length
+                      ? `${studentIds.length} student(s) have ${Math.round(seconds / 60)} more minute(s).`
+                      : `The class has ${Math.round(seconds / 60)} more minute(s).`,
+                  }),
+                onError: () =>
+                  showToast({
+                    type: 'error',
+                    title: 'Could not add time',
+                    message: 'The quiz may have closed already. Please try again.',
+                  }),
+              },
+            )
+          }
+          busy={extend.isPending}
+        />
 
         {liveQuiz.questions.map((question, index) => (
           <div key={question.id} className="rounded-xl border border-white/5 bg-white/5 p-3">

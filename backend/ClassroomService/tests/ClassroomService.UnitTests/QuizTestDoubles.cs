@@ -14,6 +14,7 @@ public sealed class FakeQuizRepository : IQuizRepository
     private readonly Dictionary<Guid, Quiz> _quizzes = new();
     public List<QuizAnswer> Answers { get; } = new();
     public List<QuizSubmission> Submissions { get; } = new();
+    public List<QuizExtension> Extensions { get; } = new();
 
     public void Seed(Quiz quiz) => _quizzes[quiz.Id] = quiz;
     public Quiz? Find(Guid quizId) => _quizzes.GetValueOrDefault(quizId);
@@ -88,9 +89,31 @@ public sealed class FakeQuizRepository : IQuizRepository
     public Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default)
         => Task.FromResult(Submissions.Count(s => s.QuizId == quizId));
 
+    public Task<List<QuizSubmission>> GetSubmissionsForQuizAsync(
+        Guid quizId, CancellationToken ct = default)
+        => Task.FromResult(Submissions.Where(s => s.QuizId == quizId).ToList());
+
     public Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default)
     {
         Submissions.Add(submission);
+        return Task.CompletedTask;
+    }
+
+    public Task<QuizExtension?> GetExtensionAsync(
+        Guid quizId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult(Extensions
+            .FirstOrDefault(e => e.QuizId == quizId && e.StudentId == studentId));
+
+    public Task<List<QuizExtension>> GetExtensionsAsync(Guid quizId, CancellationToken ct = default)
+        => Task.FromResult(Extensions.Where(e => e.QuizId == quizId).ToList());
+
+    public Task<List<QuizExtension>> GetExtensionsForQuizzesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default)
+        => Task.FromResult(Extensions.Where(e => quizIds.Contains(e.QuizId)).ToList());
+
+    public Task AddExtensionAsync(QuizExtension extension, CancellationToken ct = default)
+    {
+        Extensions.Add(extension);
         return Task.CompletedTask;
     }
 }

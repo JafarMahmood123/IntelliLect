@@ -294,10 +294,100 @@ public sealed class QuizService : IQuizService
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
-        return ToTeacherDto(
-            quiz,
-            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
-            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
+        return await BuildTeacherDtoAsync(quiz, ct);
+    }
+
+    public async Task<QuizTeacherDto> ExtendAsync(
+        Guid classroomId, Guid quizId, Guid teacherId, ExtendQuizRequest request,
+        CancellationToken ct = default)
+    {
+        var quiz = await ResolveForTeacherAsync(classroomId, quizId, teacherId, ct);
+
+        // Only a running quiz. Extending a closed one would reopen it after its marks had been
+        // released — students would already have seen the answer key.
+        if (quiz.Status != QuizStatus.Open)
+        {
+            throw new ConflictException("Only a running quiz can be given more time.");
+        }
+
+        if (request.Seconds <= 0)
+        {
+            throw new ValidationException("Extra time must be more than zero seconds.");
+        }
+
+        if (request.Seconds > _settings.MaxQuizDurationSeconds)
+        {
+            throw new ValidationException(
+                $"A quiz cannot be extended by more than {_settings.MaxQuizDurationSeconds} seconds at once.");
+        }
+
+        var studentIds = request.StudentIds?.Where(id => id != Guid.Empty).Distinct().ToList() ?? [];
+        var now = _clock.UtcNow;
+
+        if (studentIds.Count == 0)
+        {
+            // Everyone. Measured from whichever is LATER — the deadline or now — so extending a
+            // quiz whose clock has already run out (the usual reason to) actually buys the class
+            // the time asked for, rather than expiring again the moment it is granted.
+            var basis = quiz.ClosesAtUtc is { } closesAt && closesAt > now ? closesAt : now;
+            quiz.ClosesAtUtc = basis.AddSeconds(request.Seconds);
+        }
+        else
+        {
+            await ExtendForStudentsAsync(quiz, studentIds, request.Seconds, now, ct);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        // Announced as a state change like any other, so every client re-reads and picks up its own
+        // new deadline. The message carries no times: a student must be told THEIR deadline by the
+        // endpoint that knows which student is asking.
+        await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
+
+        _logger.LogInformation(
+            "Quiz {QuizId} extended by {Seconds}s for {Scope}.",
+            quiz.Id, request.Seconds,
+            studentIds.Count == 0 ? "the whole class" : $"{studentIds.Count} student(s)");
+
+        return await BuildTeacherDtoAsync(quiz, ct);
+    }
+
+    /// <summary>
+    /// Grants extra time to named students, updating an existing grant rather than stacking a
+    /// second row on it — the unique index would refuse that anyway, and "add five minutes" pressed
+    /// twice should mean ten from now, not two overlapping windows.
+    /// </summary>
+    private async Task ExtendForStudentsAsync(
+        Quiz quiz, List<Guid> studentIds, int seconds, DateTime now, CancellationToken ct)
+    {
+        var existing = (await _quizRepository.GetExtensionsAsync(quiz.Id, ct))
+            .ToDictionary(e => e.StudentId);
+
+        foreach (var studentId in studentIds)
+        {
+            // Their current deadline is whatever they already have, or the class's. Measured from
+            // now when that has passed, for the same reason as the class-wide branch.
+            var current = existing.TryGetValue(studentId, out var already)
+                ? EffectiveDeadline(quiz, already)
+                : quiz.ClosesAtUtc;
+            var basis = current is { } deadline && deadline > now ? deadline : now;
+
+            if (already is not null)
+            {
+                already.ClosesAtUtc = basis.AddSeconds(seconds);
+                already.GrantedAtUtc = now;
+                continue;
+            }
+
+            await _quizRepository.AddExtensionAsync(new QuizExtension
+            {
+                Id = Guid.NewGuid(),
+                QuizId = quiz.Id,
+                StudentId = studentId,
+                ClosesAtUtc = basis.AddSeconds(seconds),
+                GrantedAtUtc = now,
+            }, ct);
+        }
     }
 
     public async Task<QuizTeacherDto> CancelAsync(
@@ -322,10 +412,7 @@ public sealed class QuizService : IQuizService
             quiz.Id, teacherId);
 
         await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
-        return ToTeacherDto(
-            quiz,
-            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
-            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
+        return await BuildTeacherDtoAsync(quiz, ct);
     }
 
     // --- reads ------------------------------------------------------------------
@@ -334,10 +421,7 @@ public sealed class QuizService : IQuizService
         Guid classroomId, Guid quizId, Guid teacherId, CancellationToken ct = default)
     {
         var quiz = await ResolveForTeacherAsync(classroomId, quizId, teacherId, ct);
-        return ToTeacherDto(
-            quiz,
-            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
-            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
+        return await BuildTeacherDtoAsync(quiz, ct);
     }
 
     public async Task<QuizStudentDto> GetForStudentAsync(
@@ -359,7 +443,8 @@ public sealed class QuizService : IQuizService
 
         var mine = await _quizRepository.GetAnswersForStudentAsync(quiz.Id, userId, ct);
         var submission = await _quizRepository.GetSubmissionAsync(quiz.Id, userId, ct);
-        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc);
+        var extension = await _quizRepository.GetExtensionAsync(quiz.Id, userId, ct);
+        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc, extension);
     }
 
     public async Task<QuizStudentDto?> GetOpenForSessionAsync(
@@ -370,13 +455,18 @@ public sealed class QuizService : IQuizService
         var quiz = await _quizRepository.GetOpenForSessionAsync(sessionId, ct);
         if (quiz is null || quiz.ClassroomId != classroomId) return null;
 
-        // Its deadline may have passed without anything having flipped the status yet; to a student
-        // arriving now there is nothing to answer.
-        if (IsPastDeadline(quiz)) return null;
+        // Its deadline may have passed without the sweep having flipped the status yet; to a
+        // student arriving now there is nothing to answer — unless they are one of the students
+        // given extra time, for whom it is very much still running.
+        var extension = await _quizRepository.GetExtensionAsync(quiz.Id, userId, ct);
+        if (IsPastDeadline(quiz, extension)) return null;
 
+        // Everything a student needs on rejoining is read from the server here, not replayed from
+        // a broadcast they were not connected for: the quiz, their own answers so far, and whether
+        // they had already declared themselves finished.
         var mine = await _quizRepository.GetAnswersForStudentAsync(quiz.Id, userId, ct);
         var submission = await _quizRepository.GetSubmissionAsync(quiz.Id, userId, ct);
-        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc);
+        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc, extension);
     }
 
     // --- student: answer --------------------------------------------------------
@@ -398,9 +488,11 @@ public sealed class QuizService : IQuizService
             throw new ConflictException("This quiz is not accepting answers.");
         }
 
-        // The DEADLINE is the authority, not the status field. Nothing schedules a close, so a quiz
-        // whose time has run out is still Open in the database — and must still refuse answers.
-        if (IsPastDeadline(quiz))
+        // THIS student's deadline, which may be later than the class's. The deadline is the
+        // authority rather than the status field: the sweep closes a timed-out quiz within seconds,
+        // but between the two it is still Open in the database and must already refuse answers.
+        var extension = await _quizRepository.GetExtensionAsync(quiz.Id, studentId, ct);
+        if (IsPastDeadline(quiz, extension))
         {
             throw new ConflictException("Time is up for this quiz.");
         }
@@ -489,8 +581,9 @@ public sealed class QuizService : IQuizService
         }
 
         // Past the deadline there is nothing left to freeze — the answers are already final — so
-        // this is refused rather than recording a submission that changes nothing.
-        if (IsPastDeadline(quiz))
+        // this is refused rather than recording a submission that changes nothing. Their own
+        // deadline, so a student given extra time can still declare themselves finished during it.
+        if (IsPastDeadline(quiz, await _quizRepository.GetExtensionAsync(quiz.Id, studentId, ct)))
         {
             throw new ConflictException("Time is up for this quiz.");
         }
@@ -761,6 +854,28 @@ public sealed class QuizService : IQuizService
     /// </summary>
     private static bool CountsTowardsMarks(Quiz quiz) => quiz.Status != QuizStatus.Cancelled;
 
+    /// <summary>
+    /// When the quiz closes FOR THIS STUDENT: their own extension if they have one, otherwise the
+    /// class deadline.
+    ///
+    /// Extensions are stored as absolute deadlines and never earlier than the class one, so this is
+    /// a max rather than a replacement — a class-wide extension granted after an individual one
+    /// must not shorten the individual's time.
+    /// </summary>
+    private static DateTime? EffectiveDeadline(Quiz quiz, QuizExtension? extension)
+    {
+        if (quiz.ClosesAtUtc is null) return extension?.ClosesAtUtc;
+        if (extension is null) return quiz.ClosesAtUtc;
+        return extension.ClosesAtUtc > quiz.ClosesAtUtc ? extension.ClosesAtUtc : quiz.ClosesAtUtc;
+    }
+
+    private bool IsPastDeadline(Quiz quiz, QuizExtension? extension)
+    {
+        var deadline = EffectiveDeadline(quiz, extension);
+        return deadline is { } closesAt
+               && _clock.UtcNow > closesAt.AddSeconds(Math.Max(0, _settings.LateAnswerGraceSeconds));
+    }
+
     private bool IsPastDeadline(Quiz quiz)
         => quiz.ClosesAtUtc is { } closesAt
            && _clock.UtcNow > closesAt.AddSeconds(Math.Max(0, _settings.LateAnswerGraceSeconds));
@@ -853,8 +968,28 @@ public sealed class QuizService : IQuizService
         }
     }
 
+    /// <summary>
+    /// The teacher's view of a live quiz, with everything that changes while it runs: the tallies,
+    /// who is taking part, and whose clock has been extended. Gathered in one place because four
+    /// call sites needed the same three reads and drifted apart the moment one of them changed.
+    /// </summary>
+    private async Task<QuizTeacherDto> BuildTeacherDtoAsync(Quiz quiz, CancellationToken ct)
+    {
+        var submissions = await _quizRepository.GetSubmissionsForQuizAsync(quiz.Id, ct);
+        return ToTeacherDto(
+            quiz,
+            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
+            submissions.Count,
+            submissions,
+            await _quizRepository.GetExtensionsAsync(quiz.Id, ct));
+    }
+
     private QuizTeacherDto ToTeacherDto(
-        Quiz quiz, IReadOnlyCollection<QuizAnswer> answers, int submittedCount = 0)
+        Quiz quiz,
+        IReadOnlyCollection<QuizAnswer> answers,
+        int submittedCount = 0,
+        IReadOnlyCollection<QuizSubmission>? submissions = null,
+        IReadOnlyCollection<QuizExtension>? extensions = null)
     {
         var perOption = answers
             .GroupBy(a => a.SelectedOptionId)
@@ -871,6 +1006,7 @@ public sealed class QuizService : IQuizService
             _clock.UtcNow,
             answers.Select(a => a.StudentId).Distinct().Count(),
             submittedCount,
+            BuildRespondents(quiz, answers, submissions, extensions),
             quiz.Questions
                 .OrderBy(q => q.Order)
                 .Select(q => new QuizQuestionTeacherDto(
@@ -884,12 +1020,61 @@ public sealed class QuizService : IQuizService
     }
 
     /// <summary>
+    /// Who is taking part, from BOTH answers and submissions — a student who opened the quiz and
+    /// finished without answering is exactly the one a teacher might be about to give more time to.
+    ///
+    /// Ordered with the unfinished first, because that is who the list is for.
+    /// </summary>
+    private List<QuizRespondentDto> BuildRespondents(
+        Quiz quiz,
+        IReadOnlyCollection<QuizAnswer> answers,
+        IReadOnlyCollection<QuizSubmission>? submissions,
+        IReadOnlyCollection<QuizExtension>? extensions)
+    {
+        submissions ??= [];
+        extensions ??= [];
+        if (answers.Count == 0 && submissions.Count == 0)
+        {
+            return [];
+        }
+
+        var submittedBy = submissions.ToDictionary(s => s.StudentId);
+        var extraFor = extensions.ToDictionary(e => e.StudentId);
+
+        var names = answers
+            .Select(a => (a.StudentId, a.StudentName, At: a.AnsweredAtUtc))
+            .Concat(submissions.Select(s => (s.StudentId, s.StudentName, At: s.SubmittedAtUtc)))
+            .GroupBy(x => x.StudentId)
+            // Latest wins, so a renamed student shows their current name.
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.At).First().StudentName);
+
+        return names
+            .Select(entry =>
+            {
+                var extension = extraFor.GetValueOrDefault(entry.Key);
+                return new QuizRespondentDto(
+                    entry.Key,
+                    entry.Value,
+                    answers.Count(a => a.StudentId == entry.Key),
+                    submittedBy.ContainsKey(entry.Key),
+                    EffectiveDeadline(quiz, extension),
+                    extension is not null);
+            })
+            .OrderBy(r => r.HasSubmitted)
+            .ThenBy(r => r.StudentName)
+            .ToList();
+    }
+
+    /// <summary>
     /// Projects to the student shape. The option type here has no IsCorrect member at all, so the
     /// answer key cannot reach a browser by omission — only by someone deliberately changing the
     /// contract.
     /// </summary>
     private QuizStudentDto ToStudentDto(
-        Quiz quiz, IReadOnlyCollection<QuizAnswer> myAnswers, DateTime? submittedAtUtc = null)
+        Quiz quiz,
+        IReadOnlyCollection<QuizAnswer> myAnswers,
+        DateTime? submittedAtUtc = null,
+        QuizExtension? extension = null)
     {
         var mine = myAnswers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionId);
 
@@ -899,7 +1084,10 @@ public sealed class QuizService : IQuizService
             quiz.Title,
             quiz.Status.ToString(),
             quiz.Questions.Sum(q => q.Points),
-            quiz.ClosesAtUtc,
+            // THEIR deadline, so an extended student's clock shows the time they actually have.
+            // Sending the class deadline and correcting it later would show them a countdown that
+            // hits zero while the server is still accepting their answers.
+            EffectiveDeadline(quiz, extension),
             _clock.UtcNow,
             submittedAtUtc,
             quiz.Questions

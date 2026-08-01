@@ -3,6 +3,7 @@ import {
   cancelQuiz,
   closeQuiz,
   createQuizDraft,
+  extendQuiz,
   generateQuizAnswers,
   generateQuizDraft,
   generateQuizQuestion,
@@ -162,6 +163,30 @@ export const useCloseQuiz = (classroomId: string, sessionId: string) =>
 
 export const useCancelQuiz = (classroomId: string, sessionId: string) =>
   useQuizLifecycleMutation(classroomId, sessionId, cancelQuiz);
+
+/**
+ * More time on a running quiz. Invalidates the same keys as the lifecycle actions, because a new
+ * deadline changes what every client should be counting down to.
+ */
+export const useExtendQuiz = (classroomId: string, sessionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      quizId,
+      seconds,
+      studentIds,
+    }: {
+      quizId: string;
+      seconds: number;
+      studentIds?: string[];
+    }) => extendQuiz(classroomId, quizId, seconds, studentIds),
+    onSuccess: (_data, { quizId }) => {
+      queryClient.invalidateQueries({ queryKey: quizKeys.detail(quizId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.openForSession(sessionId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.studentView(quizId) });
+    },
+  });
+};
 
 /**
  * Finishing early. Invalidates the open-quiz read so the panel flips to its submitted state from

@@ -89,7 +89,19 @@ export interface QuizTeacher {
   respondentCount: number;
   /** How many students have finished, so the teacher can close early. */
   submittedCount: number;
+  /** Who is taking part, so time can be given to a named student rather than to the room. */
+  respondents: QuizRespondent[];
   questions: QuizQuestionTeacher[];
+}
+
+export interface QuizRespondent {
+  studentId: string;
+  studentName: string;
+  answeredCount: number;
+  hasSubmitted: boolean;
+  /** Their own deadline — later than the quiz's when they have been given extra time. */
+  closesAtUtc: string | null;
+  hasExtraTime: boolean;
 }
 
 // --- student view ------------------------------------------------------------

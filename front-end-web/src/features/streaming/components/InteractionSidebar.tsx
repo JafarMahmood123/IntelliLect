@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   HelpCircle,
@@ -15,6 +16,8 @@ import { SessionSettingsPanel } from './SessionSettingsPanel';
 import { SidebarMenu, type SidebarSection } from './SidebarMenu';
 import { TeacherQuizPanel } from '../../quizzes/components/TeacherQuizPanel';
 import { StudentQuizPanel } from '../../quizzes/components/StudentQuizPanel';
+import { quizKeys, useOpenQuiz } from '../../quizzes/hooks/useQuizQueries';
+import { useToast } from '../../../components/ui/ToastProvider';
 
 /**
  * The in-session drawer. It owns no session behaviour of its own — it is the container the
@@ -29,9 +32,44 @@ export const InteractionSidebar = () => {
   const { user } = useAuthStore();
   const { messages, sendMessage, isConnected, publishPolicy, recordingState, quizEvent } = useStreamHub(sessionId);
   const isTeacher = user?.roleName === 'Teacher';
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   /** `null` is the menu. Opening a section replaces the whole drawer body with it. */
   const [openSection, setOpenSection] = useState<string | null>(null);
+
+  // Asked for HERE, not only inside the quiz panel. The panel is unmounted while the drawer is on
+  // its menu or another section, so it cannot notice a quiz starting — which is exactly when a
+  // student most needs to be told. Reading it at the container also covers the student who joins
+  // or rejoins mid-quiz: the answer arrives from the server, not from a broadcast they missed.
+  const { data: openQuiz } = useOpenQuiz(
+    isTeacher ? '' : (classroomId ?? ''),
+    isTeacher ? '' : (sessionId ?? ''),
+  );
+
+  // The broadcast carries an id and a state, never the quiz, so this refetches rather than trusting
+  // the wire — the same rule the panels follow, and what keeps the answer key off the socket.
+  useEffect(() => {
+    if (!quizEvent || !sessionId) return;
+    queryClient.invalidateQueries({ queryKey: quizKeys.openForSession(sessionId) });
+  }, [quizEvent, queryClient, sessionId]);
+
+  // Announced once per quiz. A student on the chat panel would otherwise find out only by opening
+  // the drawer's quiz section on a hunch.
+  const announcedQuizId = useRef<string | null>(null);
+  useEffect(() => {
+    if (isTeacher || !openQuiz || announcedQuizId.current === openQuiz.id) return;
+    announcedQuizId.current = openQuiz.id;
+    showToast({
+      type: 'info',
+      title: 'Quiz started',
+      message: `${openQuiz.title || 'A quiz'} is open. Open the Quiz panel to answer it.`,
+    });
+  }, [openQuiz, isTeacher, showToast]);
+
+  // Cleared as soon as they open it — a badge that outstays what it announced is noise.
+  const quizWaiting = Boolean(openQuiz) && !isTeacher && openSection !== 'quiz';
+
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +107,7 @@ export const InteractionSidebar = () => {
       label: 'Quiz',
       description: isTeacher ? 'Compose, run and mark a quiz' : 'Answer and see your marks',
       icon: <ListChecks size={17} />,
+      badge: quizWaiting ? 'Live' : undefined,
     },
     // The teacher's live student-permission and recording controls; hidden from students.
     ...(isTeacher

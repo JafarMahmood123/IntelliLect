@@ -88,6 +88,16 @@ public sealed class QuizzesController : ApiBaseController
     public async Task<IActionResult> Close(Guid classroomId, Guid quizId, CancellationToken ct)
         => Ok(await _quizService.CloseAsync(classroomId, quizId, UserId, ct));
 
+    /// <summary>
+    /// More time on a running quiz. An empty <c>studentIds</c> extends it for the whole class;
+    /// naming students gives the time only to them.
+    /// </summary>
+    [HttpPost("quizzes/{quizId:guid}/extend")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> Extend(
+        Guid classroomId, Guid quizId, [FromBody] ExtendQuizRequest request, CancellationToken ct)
+        => Ok(await _quizService.ExtendAsync(classroomId, quizId, UserId, request, ct));
+
     /// <summary>Withdraws the quiz from marking. Answers are kept; they simply stop counting.</summary>
     [HttpPost("quizzes/{quizId:guid}/cancel")]
     [Authorize(Roles = "Teacher")]

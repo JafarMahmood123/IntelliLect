@@ -87,8 +87,30 @@ public sealed class QuizRepository : IQuizRepository
     public async Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default)
         => await _context.QuizSubmissions.CountAsync(s => s.QuizId == quizId, ct);
 
+    public async Task<List<QuizSubmission>> GetSubmissionsForQuizAsync(
+        Guid quizId, CancellationToken ct = default)
+        => await _context.QuizSubmissions.Where(s => s.QuizId == quizId).ToListAsync(ct);
+
     public async Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default)
         => await _context.QuizSubmissions.AddAsync(submission, ct);
+
+    public async Task<QuizExtension?> GetExtensionAsync(
+        Guid quizId, Guid studentId, CancellationToken ct = default)
+        => await _context.QuizExtensions
+            .FirstOrDefaultAsync(e => e.QuizId == quizId && e.StudentId == studentId, ct);
+
+    public async Task<List<QuizExtension>> GetExtensionsAsync(
+        Guid quizId, CancellationToken ct = default)
+        => await _context.QuizExtensions.Where(e => e.QuizId == quizId).ToListAsync(ct);
+
+    public async Task<List<QuizExtension>> GetExtensionsForQuizzesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default)
+        => quizIds.Count == 0
+            ? []
+            : await _context.QuizExtensions.Where(e => quizIds.Contains(e.QuizId)).ToListAsync(ct);
+
+    public async Task AddExtensionAsync(QuizExtension extension, CancellationToken ct = default)
+        => await _context.QuizExtensions.AddAsync(extension, ct);
 
     // Ordering is done in the INCLUDE, not in memory afterwards.
     //

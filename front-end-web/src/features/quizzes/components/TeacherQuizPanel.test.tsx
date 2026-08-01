@@ -60,6 +60,7 @@ const draft = (overrides: Partial<QuizTeacher> = {}): QuizTeacher => ({
   serverNowUtc: '2026-01-01T10:00:00Z',
   respondentCount: 0,
   submittedCount: 0,
+  respondents: [],
   questions: [],
   ...overrides,
 });

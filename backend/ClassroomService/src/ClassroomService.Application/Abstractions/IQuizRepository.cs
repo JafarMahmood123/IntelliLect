@@ -58,5 +58,24 @@ public interface IQuizRepository
     /// can then close the quiz rather than waiting out a timer nobody is still using.</summary>
     Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default);
 
+    /// <summary>Every submission on one quiz, for the teacher's list of who has finished.</summary>
+    Task<List<QuizSubmission>> GetSubmissionsForQuizAsync(Guid quizId, CancellationToken ct = default);
+
     Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default);
+
+    /// <summary>Extra time granted to one student on this quiz, or null if they have none.</summary>
+    Task<QuizExtension?> GetExtensionAsync(Guid quizId, Guid studentId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Every extension on a quiz. The deadline sweep needs these: closing at the class deadline
+    /// while an extended student is still answering would both cut them off and reveal the answer
+    /// key to them mid-quiz.
+    /// </summary>
+    Task<List<QuizExtension>> GetExtensionsAsync(Guid quizId, CancellationToken ct = default);
+
+    /// <summary>Extensions across a whole session, so the sweep needs one query, not one per quiz.</summary>
+    Task<List<QuizExtension>> GetExtensionsForQuizzesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default);
+
+    Task AddExtensionAsync(QuizExtension extension, CancellationToken ct = default);
 }

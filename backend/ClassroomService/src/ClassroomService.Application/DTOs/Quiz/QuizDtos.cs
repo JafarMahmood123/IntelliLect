@@ -15,6 +15,16 @@ public record OptionDraftRequest(string Text, bool IsCorrect);
 public record SubmitAnswerRequest(Guid QuestionId, Guid OptionId);
 
 /// <summary>
+/// More time on a running quiz.
+///
+/// <paramref name="StudentIds"/> empty means the whole class, which moves the quiz's own deadline
+/// and stores nothing per student. Naming students instead gives the time only to them — the case
+/// where a class-wide extension would be wrong, because it hands the extra minutes to everyone
+/// including those who already finished.
+/// </summary>
+public record ExtendQuizRequest(int Seconds, List<Guid>? StudentIds = null);
+
+/// <summary>
 /// How many questions to ask the assistant for. Clamped server-side to the configured maximum,
 /// so a client asking for more gets the most it is allowed rather than an error.
 /// </summary>
@@ -80,7 +90,26 @@ public record QuizTeacherDto(
     /// <summary>How many students have declared themselves finished. The teacher can close once
     /// everyone has, instead of waiting out a timer nobody is still using.</summary>
     int SubmittedCount,
+    /// <summary>
+    /// Who is taking part, so the teacher can give time to a NAMED student rather than to the room.
+    /// Empty for a draft and for a quiz nobody has touched.
+    /// </summary>
+    List<QuizRespondentDto> Respondents,
     List<QuizQuestionTeacherDto> Questions);
+
+/// <summary>
+/// One student's standing in a running quiz — enough to decide who needs longer, and nothing more.
+/// Carries no answers: which options they picked is a marks question, and it lives in the session
+/// summary where the teacher goes to review, not in the panel they run the quiz from.
+/// </summary>
+public record QuizRespondentDto(
+    Guid StudentId,
+    string StudentName,
+    int AnsweredCount,
+    bool HasSubmitted,
+    /// <summary>Their own deadline. Later than the quiz's when they have been given extra time.</summary>
+    DateTime? ClosesAtUtc,
+    bool HasExtraTime);
 
 public record QuizQuestionTeacherDto(
     Guid Id,

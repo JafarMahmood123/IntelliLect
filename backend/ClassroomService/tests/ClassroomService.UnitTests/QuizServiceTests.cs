@@ -978,6 +978,182 @@ public sealed class QuizServiceTests
         Assert.True(afterClose.Answers[0].IsCorrect);
     }
 
+    // --- more time ------------------------------------------------------------------
+
+    [Fact]
+    public async Task Extending_for_the_class_moves_everyones_deadline()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var before = published.ClosesAtUtc!.Value;
+
+        var extended = await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(120), default);
+
+        Assert.Equal(before.AddSeconds(120), extended.ClosesAtUtc);
+        var studentView = await h.Service.GetForStudentAsync(
+            ClassroomId, published.Id, StudentId, default);
+        Assert.Equal(before.AddSeconds(120), studentView.ClosesAtUtc);
+    }
+
+    [Fact]
+    public async Task Extending_after_the_clock_ran_out_buys_the_time_asked_for()
+    {
+        // The usual moment to press it. Measuring from the expired deadline would grant time that
+        // had already passed, and the quiz would close again immediately.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        h.Clock.UtcNow = published.ClosesAtUtc!.Value.AddSeconds(30);
+
+        var extended = await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60), default);
+
+        Assert.Equal(h.Clock.UtcNow.AddSeconds(60), extended.ClosesAtUtc);
+        await AnswerFirstAsync(h, published, StudentId);  // must not throw
+    }
+
+    [Fact]
+    public async Task Extending_for_one_student_leaves_everyone_elses_deadline_alone()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var classDeadline = published.ClosesAtUtc!.Value;
+
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId,
+            new ExtendQuizRequest(120, [StudentId]), default);
+
+        var extendedStudent = await h.Service.GetForStudentAsync(
+            ClassroomId, published.Id, StudentId, default);
+        var otherStudent = await h.Service.GetForStudentAsync(
+            ClassroomId, published.Id, SecondStudentId, default);
+
+        Assert.Equal(classDeadline.AddSeconds(120), extendedStudent.ClosesAtUtc);
+        Assert.Equal(classDeadline, otherStudent.ClosesAtUtc);
+    }
+
+    [Fact]
+    public async Task An_extended_student_can_still_answer_after_the_class_deadline()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId,
+            new ExtendQuizRequest(300, [StudentId]), default);
+
+        h.Clock.UtcNow = published.ClosesAtUtc!.Value.AddSeconds(60);
+
+        await AnswerFirstAsync(h, published, StudentId);  // must not throw
+        await Assert.ThrowsAsync<ConflictException>(
+            () => AnswerFirstAsync(h, published, SecondStudentId));
+    }
+
+    [Fact]
+    public async Task An_extended_student_still_sees_the_quiz_when_they_rejoin()
+    {
+        // The case this is for: they dropped out, came back after the class deadline, and the
+        // open-quiz read is the only thing that can tell them the quiz is still theirs to finish.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId,
+            new ExtendQuizRequest(300, [StudentId]), default);
+        h.Clock.UtcNow = published.ClosesAtUtc!.Value.AddSeconds(60);
+
+        var theirs = await h.Service.GetOpenForSessionAsync(
+            ClassroomId, SessionId, StudentId, default);
+        var everyone_elses = await h.Service.GetOpenForSessionAsync(
+            ClassroomId, SessionId, SecondStudentId, default);
+
+        Assert.NotNull(theirs);
+        Assert.Null(everyone_elses);
+    }
+
+    [Fact]
+    public async Task Extending_twice_adds_to_what_a_student_already_had()
+    {
+        // "Add two minutes" pressed twice means four minutes from the deadline, not two overlapping
+        // windows — and the unique index would refuse a second row anyway.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var classDeadline = published.ClosesAtUtc!.Value;
+
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60, [StudentId]), default);
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60, [StudentId]), default);
+
+        var view = await h.Service.GetForStudentAsync(ClassroomId, published.Id, StudentId, default);
+        Assert.Equal(classDeadline.AddSeconds(120), view.ClosesAtUtc);
+        Assert.Single(h.Quizzes.Extensions);
+    }
+
+    [Fact]
+    public async Task A_class_extension_never_shortens_an_individual_one()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var classDeadline = published.ClosesAtUtc!.Value;
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(600, [StudentId]), default);
+
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60), default);
+
+        var view = await h.Service.GetForStudentAsync(ClassroomId, published.Id, StudentId, default);
+        Assert.Equal(classDeadline.AddSeconds(600), view.ClosesAtUtc);
+    }
+
+    [Fact]
+    public async Task A_closed_quiz_cannot_be_given_more_time()
+    {
+        // Reopening it would be giving time on a quiz whose answer key the class has already seen.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.CloseAsync(ClassroomId, published.Id, TeacherId, default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.ExtendAsync(
+                ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60), default));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-30)]
+    public async Task Extra_time_must_be_a_positive_number_of_seconds(int seconds)
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => h.Service.ExtendAsync(
+                ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(seconds), default));
+    }
+
+    [Fact]
+    public async Task A_student_cannot_give_themselves_more_time()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.ExtendAsync(
+                ClassroomId, published.Id, StudentId, new ExtendQuizRequest(600), default));
+    }
+
+    [Fact]
+    public async Task Extending_tells_the_room_so_every_clock_is_re_read()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        h.Notifier.Notifications.Clear();
+
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId, new ExtendQuizRequest(60), default);
+
+        Assert.Equal((SessionId, published.Id, "Open"), Assert.Single(h.Notifier.Notifications));
+    }
+
     // --- session-wide summaries ---------------------------------------------------
 
     [Fact]

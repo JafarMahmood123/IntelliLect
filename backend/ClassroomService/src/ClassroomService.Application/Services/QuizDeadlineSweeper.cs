@@ -46,7 +46,25 @@ public sealed class QuizDeadlineSweeper : IQuizDeadlineSweeper
         // exact thing the grace exists to prevent.
         var cutoff = now.AddSeconds(-Math.Max(0, _settings.LateAnswerGraceSeconds));
 
-        var expired = await _quizRepository.GetOpenPastDeadlineAsync(cutoff, ct);
+        var candidates = await _quizRepository.GetOpenPastDeadlineAsync(cutoff, ct);
+        if (candidates.Count == 0)
+        {
+            return 0;
+        }
+
+        // A student given extra time is still answering after the class deadline. Closing on it
+        // would cut them off AND hand them the answer key mid-question, since closing is what
+        // releases the review. So the quiz's real end is the latest deadline anyone holds.
+        var extensions = await _quizRepository.GetExtensionsForQuizzesAsync(
+            candidates.Select(q => q.Id).ToList(), ct);
+        var lastExtension = extensions
+            .GroupBy(e => e.QuizId)
+            .ToDictionary(g => g.Key, g => g.Max(e => e.ClosesAtUtc));
+
+        var expired = candidates
+            .Where(q => !lastExtension.TryGetValue(q.Id, out var until) || until <= cutoff)
+            .ToList();
+
         if (expired.Count == 0)
         {
             return 0;
@@ -55,9 +73,13 @@ public sealed class QuizDeadlineSweeper : IQuizDeadlineSweeper
         foreach (var quiz in expired)
         {
             quiz.Status = QuizStatus.Closed;
-            // Its deadline, not the moment the sweep noticed. A quiz that ran out at 10:05 was over
-            // at 10:05 whether the sweep ran a second later or the service was restarting.
-            quiz.ClosedAtUtc = quiz.ClosesAtUtc ?? now;
+            // The last deadline anyone was working to, not the moment the sweep noticed. A quiz
+            // that ran out at 10:05 was over at 10:05 whether the sweep ran a second later or the
+            // service was restarting.
+            quiz.ClosedAtUtc = lastExtension.TryGetValue(quiz.Id, out var extendedTo)
+                && (quiz.ClosesAtUtc is null || extendedTo > quiz.ClosesAtUtc)
+                ? extendedTo
+                : quiz.ClosesAtUtc ?? now;
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

@@ -240,6 +240,40 @@ public sealed class QuizDeadlineSweeperTests
     }
 
     [Fact]
+    public async Task A_quiz_is_held_open_while_an_extended_student_is_still_answering()
+    {
+        // Closing on the class deadline would cut them off AND hand them the answer key mid-
+        // question, because closing is what releases the review.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId,
+            new ExtendQuizRequest(300, [StudentId]), default);
+
+        h.Clock.UtcNow = published.ClosesAtUtc!.Value.AddSeconds(60);
+
+        Assert.Equal(0, await h.Sweeper.SweepAsync());
+        Assert.Equal(QuizStatus.Open, h.Quizzes.Find(published.Id)!.Status);
+    }
+
+    [Fact]
+    public async Task The_quiz_closes_once_the_last_extension_has_run_out()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.ExtendAsync(
+            ClassroomId, published.Id, TeacherId,
+            new ExtendQuizRequest(300, [StudentId]), default);
+        var extendedTo = published.ClosesAtUtc!.Value.AddSeconds(300);
+
+        h.Clock.UtcNow = extendedTo.AddSeconds(30);
+
+        Assert.Equal(1, await h.Sweeper.SweepAsync());
+        // Stamped at the last deadline anyone was working to, not the class's.
+        Assert.Equal(extendedTo, h.Quizzes.Find(published.Id)!.ClosedAtUtc);
+    }
+
+    [Fact]
     public async Task Sweeping_twice_closes_nothing_the_second_time()
     {
         // It runs every few seconds forever; a second pass must be a no-op rather than a second

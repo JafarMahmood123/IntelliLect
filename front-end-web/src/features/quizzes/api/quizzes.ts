@@ -106,6 +106,23 @@ export const closeQuiz = async (classroomId: string, quizId: string): Promise<Qu
   return data;
 };
 
+/**
+ * More time on a running quiz. Omitting `studentIds` extends it for the whole class; naming
+ * students gives the time only to them, leaving everyone else's clock where it was.
+ */
+export const extendQuiz = async (
+  classroomId: string,
+  quizId: string,
+  seconds: number,
+  studentIds?: string[],
+): Promise<QuizTeacher> => {
+  const { data } = await apiClient.post<QuizTeacher>(
+    `${base(classroomId)}/quizzes/${quizId}/extend`,
+    { seconds, studentIds: studentIds ?? [] },
+  );
+  return data;
+};
+
 /** Withdraws the quiz from marking. Answers are kept; they simply stop counting. */
 export const cancelQuiz = async (classroomId: string, quizId: string): Promise<QuizTeacher> => {
   const { data } = await apiClient.post<QuizTeacher>(`${base(classroomId)}/quizzes/${quizId}/cancel`);

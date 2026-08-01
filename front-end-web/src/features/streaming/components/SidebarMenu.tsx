@@ -7,6 +7,12 @@ export interface SidebarSection {
   /** One line on what the section is for, so the menu explains itself without being opened. */
   description: string;
   icon: React.ReactNode;
+  /**
+   * Something is waiting inside. The menu is the drawer's resting state, so without this a student
+   * sitting on it has no way to learn that a quiz has started — the panel that reacts to the
+   * broadcast is not even mounted until they open it.
+   */
+  badge?: string;
 }
 
 interface Props {
@@ -29,7 +35,11 @@ export const SidebarMenu = ({ sections, onOpen }: Props) => (
         key={section.id}
         type="button"
         onClick={() => onOpen(section.id)}
-        className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-3 text-left outline-none transition-colors hover:border-violet-500/30 hover:bg-white/10 focus-visible:border-violet-500"
+        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:border-violet-500 ${
+          section.badge
+            ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/15'
+            : 'border-white/5 bg-white/5 hover:border-violet-500/30 hover:bg-white/10'
+        }`}
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
           {section.icon}
@@ -38,6 +48,11 @@ export const SidebarMenu = ({ sections, onOpen }: Props) => (
           <span className="block truncate text-sm font-bold text-slate-200">{section.label}</span>
           <span className="block truncate text-[11px] text-slate-500">{section.description}</span>
         </span>
+        {section.badge && (
+          <span className="shrink-0 animate-pulse rounded-full bg-violet-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            {section.badge}
+          </span>
+        )}
         <ChevronRight size={16} className="shrink-0 text-slate-600" />
       </button>
     ))}

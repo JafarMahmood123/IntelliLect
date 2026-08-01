@@ -20,6 +20,7 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<QuizAnswerOption> QuizAnswerOptions => Set<QuizAnswerOption>();
     public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
     public DbSet<QuizSubmission> QuizSubmissions => Set<QuizSubmission>();
+    public DbSet<QuizExtension> QuizExtensions => Set<QuizExtension>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -162,6 +163,20 @@ public sealed class ApplicationDbContext : DbContext
             submission.HasOne(s => s.Quiz)
                 .WithMany()
                 .HasForeignKey(s => s.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Extra time for ONE student. Extending the whole class moves Quiz.ClosesAtUtc instead and
+        // writes nothing here.
+        modelBuilder.Entity<QuizExtension>(extension =>
+        {
+            extension.HasKey(e => e.Id);
+            extension.Property(e => e.Id).ValueGeneratedNever();
+            // One row per student per quiz; a second grant updates it rather than stacking.
+            extension.HasIndex(e => new { e.QuizId, e.StudentId }).IsUnique();
+            extension.HasOne(e => e.Quiz)
+                .WithMany()
+                .HasForeignKey(e => e.QuizId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
