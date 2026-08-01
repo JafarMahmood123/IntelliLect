@@ -51,6 +51,12 @@ public sealed class EgressConfigHealthCheck : IHealthCheck
             ["egressEnabled"] = _egress.Enabled,
             ["keyTemplateConfigured"] = !string.IsNullOrWhiteSpace(_egress.KeyTemplate),
             ["layout"] = _egress.Layout,
+            // Same reasoning as s3Endpoint: this URL is resolved by the egress worker, not by a
+            // browser, so a value that looks right from the outside can still be unreachable
+            // where it matters — and the symptom is a failed recording after the lesson.
+            ["recordingTemplate"] = string.IsNullOrWhiteSpace(_egress.CustomBaseUrl)
+                ? "(LiveKit built-in)"
+                : _egress.CustomBaseUrl,
             // Surfaced because the wrong value here is invisible otherwise: the egress worker runs
             // on host networking, so a bridge-network service name resolves for THIS service but
             // never for the uploader, and recordings then fail only at the upload step.

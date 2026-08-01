@@ -28,6 +28,29 @@ public sealed class EgressOptions
     public string Layout { get; init; } = "speaker";
 
     /// <summary>
+    /// Base URL of a CUSTOM recording template, or empty for LiveKit's built-in one.
+    ///
+    /// Room-composite egress does not composite tracks: it opens headless Chrome, loads a web page
+    /// and captures it. Pointing that page at our own recorder means the recording contains
+    /// whatever the page renders — which is how the teacher's whiteboard annotations reach the
+    /// downloaded MP4 at all. They are drawn on a canvas in the browser, so LiveKit's template,
+    /// which only knows about tracks, cannot see them.
+    ///
+    /// EMPTY IS THE SAFE DEFAULT AND MEANS EXACTLY TODAY'S BEHAVIOUR. Taking over the template also
+    /// takes over responsibility for what a lesson recording looks like, and a mistake there is
+    /// discovered after the lesson rather than during it. Keeping this in configuration means the
+    /// way back is an appsettings edit, not a rebuild.
+    ///
+    /// LiveKit appends <c>?url=</c>, <c>?token=</c> and <c>?layout=</c> and waits for the page to
+    /// log START_RECORDING before it captures anything, so a page that fails to load produces a
+    /// failed egress rather than a silent hour of blank video.
+    ///
+    /// Must be reachable FROM THE EGRESS CONTAINER, which is not the URL a browser uses — the same
+    /// split that S3:Endpoint carries below.
+    /// </summary>
+    public string? CustomBaseUrl { get; init; }
+
+    /// <summary>
     /// Output video dimensions and frame rate for the room-composite encode. Deliberately modest
     /// by default (720p @ 15fps): room-composite runs headless Chrome + a GStreamer H.264 encode,
     /// and on a constrained/virtualized host (e.g. Docker Desktop) a heavier encode starves the

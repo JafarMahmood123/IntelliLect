@@ -94,6 +94,15 @@ public sealed class LiveKitRecordingEgressService : IRecordingEgressService
             Advanced = encoding,
         };
 
+        // Only when configured. Left unset, LiveKit renders its own template and this records
+        // exactly what it recorded before — see EgressOptions.CustomBaseUrl for why that is the
+        // default. Assigning unconditionally would put an empty string on the wire, which is NOT
+        // the same as unset: it is a template URL that resolves to nothing.
+        if (!string.IsNullOrWhiteSpace(_options.CustomBaseUrl))
+        {
+            request.CustomBaseUrl = _options.CustomBaseUrl;
+        }
+
         // A single MP4 written directly to S3 by LiveKit — bytes never touch this service.
         // NOTE (SDK 1.2.1): the repeated `FileOutputs` is the current API; the singular `File`
         // is obsolete. One output is all we need for a room recording.

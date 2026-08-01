@@ -29,6 +29,7 @@ import {
 import { StudentClassroomDashboard } from "./features/classrooms/components/StudentClassroomDashboard";
 import { ClassroomDiscoveryPage } from "./features/classrooms/components/ClassroomDiscoveryPage";
 import { LiveRoomPage } from "./features/streaming/components/LiveRoomPage";
+import { RECORDER_PATH, RecorderPage } from "./features/recorder/RecorderPage";
 import { useAuthStore } from "./store/useAuthStore";
 
 /**
@@ -43,6 +44,13 @@ const ClassroomsHome = () => {
 };
 
 function App() {
+  // Short-circuited ahead of every provider and the router itself. This page is loaded by LiveKit's
+  // egress worker in headless Chrome and CAPTURED — the theme controls, the page background and
+  // anything else the shell renders would be burned into the lesson recording. Routing it normally
+  // would put <AppControls> in the corner of every recorded lesson, because that sits outside
+  // <Routes> and renders on every path.
+  if (window.location.pathname === RECORDER_PATH) return <RecorderPage />;
+
   return (
     <ThemeProvider>
       <ToastProvider>

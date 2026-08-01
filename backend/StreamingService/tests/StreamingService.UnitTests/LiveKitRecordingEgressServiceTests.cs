@@ -15,11 +15,13 @@ public sealed class LiveKitRecordingEgressServiceTests
         int? audioBitrate = null,
         double? keyFrameInterval = null,
         bool audioOnly = false,
-        int finalizeWaitSeconds = 20) => new()
+        int finalizeWaitSeconds = 20,
+        string? customBaseUrl = null) => new()
     {
         Enabled = enabled,
         KeyTemplate = "recordings/{room_name}/{time}.mp4",
         Layout = layout,
+        CustomBaseUrl = customBaseUrl,
         VideoBitrate = videoBitrate,
         AudioBitrate = audioBitrate,
         KeyFrameInterval = keyFrameInterval,
@@ -147,6 +149,59 @@ public sealed class LiveKitRecordingEgressServiceTests
         await service.StartRoomRecordingAsync("room-1");
 
         Assert.Equal("speaker", client.LastStartRequest!.Layout);
+    }
+
+    // --- recording template ---------------------------------------------------
+
+    [Fact]
+    public async Task StartRoomRecording_uses_LiveKits_own_template_by_default()
+    {
+        // The default has to be byte-for-byte what was recorded before this option existed:
+        // taking over the template is opt-in precisely because a mistake in it is discovered
+        // after the lesson.
+        var client = new FakeLiveKitEgressClient();
+        var service = CreateService(client, Options());
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal(string.Empty, client.LastStartRequest!.CustomBaseUrl);
+    }
+
+    [Fact]
+    public async Task StartRoomRecording_uses_the_custom_template_when_configured()
+    {
+        var client = new FakeLiveKitEgressClient();
+        var service = CreateService(client, Options(customBaseUrl: "http://web:80/recorder"));
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal("http://web:80/recorder", client.LastStartRequest!.CustomBaseUrl);
+    }
+
+    [Fact]
+    public async Task StartRoomRecording_treats_a_blank_template_url_as_unset()
+    {
+        // An empty string is not "no template" to LiveKit — it is a template URL that resolves to
+        // nothing, which fails the egress instead of falling back.
+        var client = new FakeLiveKitEgressClient();
+        var service = CreateService(client, Options(customBaseUrl: "   "));
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal(string.Empty, client.LastStartRequest!.CustomBaseUrl);
+    }
+
+    [Fact]
+    public async Task StartRoomRecording_still_sends_the_layout_to_a_custom_template()
+    {
+        // LiveKit forwards it as ?layout= rather than interpreting it, so the template can still
+        // honour the configured choice.
+        var client = new FakeLiveKitEgressClient();
+        var service = CreateService(client, Options(layout: "grid", customBaseUrl: "http://web/recorder"));
+
+        await service.StartRoomRecordingAsync("room-1");
+
+        Assert.Equal("grid", client.LastStartRequest!.Layout);
     }
 
     [Fact]

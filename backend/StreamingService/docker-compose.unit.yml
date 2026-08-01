@@ -158,6 +158,19 @@ services:
       # an equal tile. For a lecture with screen share this decides whether the SLIDES or the
       # talking head end up in the recording, so it is worth trying both.
       - Egress__Layout=speaker
+      # OPT-IN: record OUR page instead of LiveKit's built-in template. This is the only way the
+      # teacher's whiteboard annotations reach the MP4 — they are drawn on a canvas in a browser,
+      # and LiveKit's template only knows about tracks.
+      #
+      # Blank (the default) records exactly what it recorded before, so this line is also the way
+      # back if a recording comes out wrong: comment it out and restart, no rebuild.
+      #
+      # The URL is fetched BY the egress worker, which runs on host networking — so it is a HOST
+      # address, not a service name (the same trap as Egress__S3__Endpoint above). With the
+      # frontend on the Vite dev server that is 127.0.0.1:5173; served as static files behind the
+      # gateway it would be 127.0.0.1:80. NOTE that this makes recording depend on the frontend
+      # being up: with the dev server stopped, egress loads nothing and the recording fails.
+      # - Egress__CustomBaseUrl=http://127.0.0.1:5173/recorder
       # Modest composite encode so the egress pipeline doesn't starve/freeze at finalization on
       # this virtualized host (Docker Desktop). Raise on a beefier machine for a sharper capture.
       - Egress__Width=1280

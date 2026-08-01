@@ -14,6 +14,11 @@ interface Props {
   mode: 'annotate' | 'board';
   /** The shared screen's element, so the canvas can be fitted to it — and paused for a freeze. */
   video?: HTMLVideoElement | null;
+  /**
+   * False in the recorder, where there is nobody to click anything and every control would be
+   * burned into the lesson recording as furniture nobody can use.
+   */
+  controls?: boolean;
 }
 
 /**
@@ -23,7 +28,7 @@ interface Props {
  * itself never blocks the pointer: only the canvas does, and only while the teacher has a tool
  * in hand — otherwise it would swallow clicks meant for the video controls beneath it.
  */
-export const WhiteboardLayer = ({ mode, video = null }: Props) => {
+export const WhiteboardLayer = ({ mode, video = null, controls = true }: Props) => {
   const board = useWhiteboard();
   const [box, setBox] = useState<HTMLDivElement | null>(null);
 
@@ -37,7 +42,10 @@ export const WhiteboardLayer = ({ mode, video = null }: Props) => {
   useEffect(() => {
     if (!video || mode !== 'annotate') return;
     if (board.frozen) video.pause();
-    else void video.play().catch(() => {});
+    // Optional-chained because play() is only specified to return a promise in modern browsers —
+    // it is undefined in jsdom and in older engines, and an unguarded .catch throws inside the
+    // effect, which takes the whole stage down rather than just failing to resume.
+    else void video.play()?.catch(() => {});
   }, [video, mode, board.frozen]);
 
   const visible = board.enabled && !board.hidden;
@@ -46,7 +54,7 @@ export const WhiteboardLayer = ({ mode, video = null }: Props) => {
   if (!visible || !rect) {
     return (
       <div ref={setBox} className="pointer-events-none absolute inset-0">
-        {board.enabled && board.hidden && (
+        {controls && board.enabled && board.hidden && (
           <HideToggle hidden onClick={() => board.setHidden(false)} />
         )}
       </div>
@@ -104,7 +112,7 @@ export const WhiteboardLayer = ({ mode, video = null }: Props) => {
         />
       )}
 
-      {board.canDraw ? (
+      {!controls ? null : board.canDraw ? (
         <Toolbox
           tool={board.tool}
           color={board.color}
