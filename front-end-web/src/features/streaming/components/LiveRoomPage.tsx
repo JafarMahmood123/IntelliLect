@@ -30,6 +30,7 @@ import { TeacherStage } from "./stage/TeacherStage";
 import { StudentStage } from "./stage/StudentStage";
 import { SpeakerPicker } from "./SpeakerPicker";
 import { toRoomConnectOptions, toRoomOptions } from "../config/toRoomOptions";
+import { WhiteboardProvider, WhiteboardToggle } from "../../whiteboard";
 import { shouldExitSession } from "../utils/disconnectPolicy";
 
 const toLiveKitServerUrl = (host: string): string => {
@@ -329,26 +330,32 @@ export const LiveRoomPage = () => {
               onDisconnected={handleDisconnected}
               className="flex flex-col h-full w-full"
             >
-              <div className="flex-1 min-h-0 bg-slate-900">
-                {isTeacher ? <TeacherStage /> : <StudentStage />}
-              </div>
+              {/* Inside the room, because the whiteboard rides the room's OWN data channel —
+                  strokes never touch our backend. Wraps the stage and the control bar so the
+                  toggle and the canvas share one board. */}
+              <WhiteboardProvider canDraw={isTeacher}>
+                <div className="flex-1 min-h-0 bg-slate-900">
+                  {isTeacher ? <TeacherStage /> : <StudentStage />}
+                </div>
 
-              <div className="h-20 bg-slate-950 border-t border-white/5 flex items-center justify-center">
-                <ControlBar
-                  variation="minimal"
-                  controls={{
-                    chat: false,
-                    settings: false,
-                    leave: true,
-                    camera: canPublishVideo,
-                    microphone: canPublishAudio,
-                    screenShare: isTeacher,
-                  }}
-                />
-                {/* ControlBar has no speaker picker of its own — it only ever renders audioinput
-                    and videoinput menus — so this sits alongside it rather than inside it. */}
-                <SpeakerPicker />
-              </div>
+                <div className="h-20 bg-slate-950 border-t border-white/5 flex items-center justify-center gap-2">
+                  <ControlBar
+                    variation="minimal"
+                    controls={{
+                      chat: false,
+                      settings: false,
+                      leave: true,
+                      camera: canPublishVideo,
+                      microphone: canPublishAudio,
+                      screenShare: isTeacher,
+                    }}
+                  />
+                  {/* ControlBar has no speaker picker of its own — it only ever renders audioinput
+                      and videoinput menus — so this sits alongside it rather than inside it. */}
+                  <SpeakerPicker />
+                  <WhiteboardToggle />
+                </div>
+              </WhiteboardProvider>
 
               <RoomAudioRenderer />
 

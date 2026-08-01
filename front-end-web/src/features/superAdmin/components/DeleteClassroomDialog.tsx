@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -96,7 +97,7 @@ export const DeleteClassroomDialog = ({
     }
   };
 
-  const stats: Array<{ icon: JSX.Element; label: string; value: string | number }> = impact
+  const stats: Array<{ icon: ReactElement; label: string; value: string | number }> = impact
     ? [
         { icon: <Presentation size={16} />, label: t('classrooms.delete.stats.sessions'), value: impact.sessionCount },
         { icon: <UsersIcon size={16} />, label: t('classrooms.delete.stats.members'), value: impact.memberCount },

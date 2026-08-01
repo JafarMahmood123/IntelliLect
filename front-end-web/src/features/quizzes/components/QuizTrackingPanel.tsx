@@ -3,7 +3,7 @@ import {
   useClassroomQuizTracking,
   useMyClassroomQuizTracking,
 } from '../hooks/useQuizQueries';
-import type { MyClassroomQuizTracking, ClassroomQuizTracking } from '../types';
+import type { MyClassroomQuizTracking } from '../types';
 
 interface Props {
   classroomId: string;

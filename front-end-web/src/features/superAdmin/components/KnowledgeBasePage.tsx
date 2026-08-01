@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -366,7 +367,7 @@ const StatCard = ({
   value,
   tone,
 }: {
-  icon: JSX.Element;
+  icon: ReactElement;
   label: string;
   value: number | string;
   tone?: 'warn';

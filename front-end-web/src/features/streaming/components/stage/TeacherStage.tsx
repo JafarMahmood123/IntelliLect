@@ -6,7 +6,8 @@ import {
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { useMemo } from "react";
-import { TileGrid, ScreenShareView, cameraTrackRefFor } from "./stageShared";
+import { TileGrid, ScreenShareView, BoardView, cameraTrackRefFor } from "./stageShared";
+import { WhiteboardLayer, useWhiteboard } from "../../../whiteboard";
 
 /**
  * Teacher view (Google-Meet style): the teacher sees EVERYONE currently connected. Tiles are
@@ -17,6 +18,7 @@ import { TileGrid, ScreenShareView, cameraTrackRefFor } from "./stageShared";
 export const TeacherStage = () => {
   // Authoritative set of tiles: self + every connected student, whatever their publish perms.
   const participants = useParticipants();
+  const board = useWhiteboard();
 
   // Live media (re-renders on publish/unpublish); used to fill tiles that actually have video.
   const tracks = useTracks(
@@ -50,8 +52,22 @@ export const TeacherStage = () => {
     [participants, liveCameras],
   );
 
-  return screen ? (
-    <ScreenShareView screen={screen} cameraTiles={tiles} />
+  // With a screen shared the whiteboard annotates it; without one it becomes the stage. Same
+  // canvas either way — only what sits behind it changes.
+  if (screen) {
+    return (
+      <ScreenShareView
+        screen={screen}
+        cameraTiles={tiles}
+        overlay={(video) => <WhiteboardLayer mode="annotate" video={video} />}
+      />
+    );
+  }
+
+  return board.enabled ? (
+    <BoardView cameraTiles={tiles}>
+      <WhiteboardLayer mode="board" />
+    </BoardView>
   ) : (
     <TileGrid tiles={tiles} />
   );

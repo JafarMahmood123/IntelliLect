@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, HardDrive, Radio, ScrollText, Check, X } from 'lucide-react';
@@ -91,7 +92,7 @@ export const DeleteSessionDialog = ({
     present,
     note,
   }: {
-    icon: JSX.Element;
+    icon: ReactElement;
     label: string;
     present: boolean;
     note?: string;

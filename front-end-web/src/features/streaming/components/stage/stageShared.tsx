@@ -9,6 +9,7 @@ import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import type { Participant } from "livekit-client";
 import { Mic, MicOff } from "lucide-react";
+import { useState } from "react";
 
 /**
  * Shared building blocks for the live-session "stages". The base room shell (LiveRoomPage) owns
@@ -118,27 +119,71 @@ export const TileGrid = ({ tiles }: { tiles: TrackReferenceOrPlaceholder[] }) =>
   );
 };
 
-/** Google-Meet screen-share view: the shared screen is focused, camera tiles run in a strip. */
+/** The row of participant thumbnails that runs under a focused surface. */
+export const CameraStrip = ({ tiles }: { tiles: TrackReferenceOrPlaceholder[] }) =>
+  tiles.length > 0 ? (
+    <div className="flex h-28 shrink-0 gap-2 overflow-x-auto pb-1">
+      {tiles.map((t) => (
+        <div key={tileKey(t)} className="aspect-video h-full shrink-0">
+          <StageTile trackRef={t} />
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+/**
+ * Google-Meet screen-share view: the shared screen is focused, camera tiles run in a strip.
+ *
+ * `overlay` receives the <video> element itself rather than being rendered blindly on top,
+ * because anything drawn over a letterboxed picture has to know the picture's real dimensions to
+ * line up. It stays a render prop so this component keeps knowing nothing about what an overlay
+ * might be.
+ */
 export const ScreenShareView = ({
   screen,
   cameraTiles,
+  overlay,
 }: {
   screen: TrackReferenceOrPlaceholder;
   cameraTiles: TrackReferenceOrPlaceholder[];
+  overlay?: (video: HTMLVideoElement | null) => React.ReactNode;
+}) => {
+  // A callback ref rather than a plain one: the overlay has to re-render when the element
+  // attaches, and a ref object mutating would not tell it to.
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+
+  return (
+    <div className="flex h-full w-full flex-col gap-2 p-3">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-black ring-1 ring-white/10">
+        {/* Narrowed rather than cast: a placeholder has no publication and so nothing to play,
+            and <VideoTrack> rejects one by type. */}
+        {isTrackReference(screen) && (
+          <VideoTrack ref={setVideo} trackRef={screen} className="h-full w-full object-contain" />
+        )}
+        {overlay?.(video)}
+      </div>
+      <CameraStrip tiles={cameraTiles} />
+    </div>
+  );
+};
+
+/**
+ * A blank whiteboard in place of the stage, for when the teacher wants to explain something they
+ * have not put on a slide. The surface is a fixed 16:9 frame, so unlike the annotation overlay
+ * there is no picture to fit and nothing to misalign.
+ */
+export const BoardView = ({
+  cameraTiles,
+  children,
+}: {
+  cameraTiles: TrackReferenceOrPlaceholder[];
+  children: React.ReactNode;
 }) => (
   <div className="flex h-full w-full flex-col gap-2 p-3">
-    <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-black ring-1 ring-white/10">
-      <VideoTrack trackRef={screen} className="h-full w-full object-contain" />
+    <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-white ring-1 ring-white/10">
+      {children}
     </div>
-    {cameraTiles.length > 0 && (
-      <div className="flex h-28 shrink-0 gap-2 overflow-x-auto pb-1">
-        {cameraTiles.map((t) => (
-          <div key={tileKey(t)} className="aspect-video h-full shrink-0">
-            <StageTile trackRef={t} />
-          </div>
-        ))}
-      </div>
-    )}
+    <CameraStrip tiles={cameraTiles} />
   </div>
 );
 
