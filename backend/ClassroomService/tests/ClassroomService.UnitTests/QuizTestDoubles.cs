@@ -48,6 +48,13 @@ public sealed class FakeQuizRepository : IQuizRepository
         return Task.FromResult(Answers.Where(a => quizIds.Contains(a.QuizId)).ToList());
     }
 
+    public Task<List<QuizSubmission>> GetSubmissionsForSessionAsync(
+        Guid sessionId, CancellationToken ct = default)
+    {
+        var quizIds = _quizzes.Values.Where(q => q.SessionId == sessionId).Select(q => q.Id).ToHashSet();
+        return Task.FromResult(Submissions.Where(s => quizIds.Contains(s.QuizId)).ToList());
+    }
+
     public Task<List<QuizAnswer>> GetAnswersAsync(Guid quizId, CancellationToken ct = default)
         => Task.FromResult(Answers.Where(a => a.QuizId == quizId).ToList());
 

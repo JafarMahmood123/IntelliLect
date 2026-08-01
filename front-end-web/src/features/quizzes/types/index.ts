@@ -156,6 +156,15 @@ export interface MyQuizResult {
 
 // --- session-wide summaries ---------------------------------------------------
 
+export interface StudentAnswer {
+  quizId: string;
+  questionId: string;
+  selectedOptionId: string;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  answeredAtUtc: string;
+}
+
 export interface StudentScore {
   studentId: string;
   studentName: string;
@@ -164,6 +173,8 @@ export interface StudentScore {
   answeredCount: number;
   correctCount: number;
   percentage: number;
+  /** Ids only — question and option text live once in `SessionQuizSummary.questions`. */
+  answers: StudentAnswer[];
 }
 
 export interface OptionBreakdown {
@@ -196,6 +207,26 @@ export interface SessionQuizSummary {
   questions: QuestionBreakdown[];
 }
 
+export interface MyOptionReview {
+  optionId: string;
+  order: number;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface MyQuestionReview {
+  questionId: string;
+  order: number;
+  text: string;
+  points: number;
+  /** Null if this one was skipped. */
+  selectedOptionId: string | null;
+  /** Null means UNANSWERED — a withheld review carries no questions at all. */
+  isCorrect: boolean | null;
+  pointsAwarded: number;
+  options: MyOptionReview[];
+}
+
 export interface MyQuizScore {
   quizId: string;
   title: string;
@@ -205,6 +236,8 @@ export interface MyQuizScore {
   totalPoints: number;
   answeredCount: number;
   questionCount: number;
+  /** Empty while the quiz is open — the review names the correct option. */
+  questions: MyQuestionReview[];
 }
 
 export interface MySessionQuizSummary {

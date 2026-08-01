@@ -45,6 +45,12 @@ public sealed class QuizRepository : IQuizRepository
             .Where(a => _context.Quizzes.Any(q => q.Id == a.QuizId && q.SessionId == sessionId))
             .ToListAsync(ct);
 
+    public async Task<List<QuizSubmission>> GetSubmissionsForSessionAsync(
+        Guid sessionId, CancellationToken ct = default)
+        => await _context.QuizSubmissions
+            .Where(s => _context.Quizzes.Any(q => q.Id == s.QuizId && q.SessionId == sessionId))
+            .ToListAsync(ct);
+
     public async Task<List<QuizAnswer>> GetAnswersAsync(Guid quizId, CancellationToken ct = default)
         => await _context.QuizAnswers.Where(a => a.QuizId == quizId).ToListAsync(ct);
 

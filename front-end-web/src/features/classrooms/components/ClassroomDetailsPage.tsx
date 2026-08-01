@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { FileText, Film, MessagesSquare, ScrollText, Video } from 'lucide-react';
+import { Award, FileText, Film, MessagesSquare, ScrollText, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
@@ -11,8 +11,9 @@ import { ClassroomSessionList } from './ClassroomSessionList';
 import { RecordingsList } from '../../recordings';
 import { SummariesList } from '../../summaries';
 import { QaPanel } from '../../qa';
+import { QuizMarksPanel } from '../../quizzes/components/QuizMarksPanel';
 
-type ClassroomTab = 'files' | 'sessions' | 'recordings' | 'summaries' | 'qa';
+type ClassroomTab = 'files' | 'sessions' | 'recordings' | 'summaries' | 'qa' | 'marks';
 
 export const ClassroomDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,6 +54,7 @@ export const ClassroomDetailsPage = () => {
     { id: 'recordings', label: t('tab'), icon: <Film size={18} /> },
     { id: 'summaries', label: t('tab', { ns: 'summaries' }), icon: <ScrollText size={18} /> },
     { id: 'qa', label: t('tab', { ns: 'qa' }), icon: <MessagesSquare size={18} /> },
+    { id: 'marks', label: 'Quiz Marks', icon: <Award size={18} /> },
   ];
 
   return (
@@ -95,6 +97,10 @@ export const ClassroomDetailsPage = () => {
 
         {activeTab === 'qa' && (
           <QaPanel classroomId={classroom.id} />
+        )}
+
+        {activeTab === 'marks' && (
+          <QuizMarksPanel classroomId={classroom.id} isTeacher={isTeacher} />
         )}
       </div>
     </div>

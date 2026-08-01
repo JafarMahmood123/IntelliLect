@@ -27,6 +27,13 @@ public interface IQuizRepository
     /// <summary>Every answer across a whole session, for the session-wide summaries.</summary>
     Task<List<QuizAnswer>> GetAnswersForSessionAsync(Guid sessionId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Every submission across a whole session. The summary needs these as well as the answers,
+    /// because a student who finished without answering anything took part and would otherwise be
+    /// missing from the class list entirely.
+    /// </summary>
+    Task<List<QuizSubmission>> GetSubmissionsForSessionAsync(Guid sessionId, CancellationToken ct = default);
+
     Task<List<QuizAnswer>> GetAnswersForStudentAsync(Guid quizId, Guid studentId, CancellationToken ct = default);
 
     Task<QuizAnswer?> GetAnswerAsync(Guid questionId, Guid studentId, CancellationToken ct = default);

@@ -970,4 +970,170 @@ public sealed class QuizServiceTests
         await Assert.ThrowsAsync<ForbiddenAccessException>(
             () => h.Service.GetSessionSummaryAsync(ClassroomId, SessionId, StudentId, default));
     }
+
+    // --- reviewing a finished quiz -------------------------------------------------
+
+    [Fact]
+    public async Task A_students_review_shows_what_they_picked_and_which_option_was_right()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, published.Id, TeacherId, default);
+        var wrong = teacherView.Questions[0].Options.First(o => !o.IsCorrect);
+        var right = teacherView.Questions[0].Options.First(o => o.IsCorrect);
+
+        await h.Service.SubmitAnswerAsync(
+            ClassroomId, published.Id, StudentId, "Amina",
+            new SubmitAnswerRequest(teacherView.Questions[0].Id, wrong.Id), default);
+        await h.Service.CloseAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var summary = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+
+        var question = Assert.Single(Assert.Single(summary.Quizzes).Questions);
+        Assert.Equal(wrong.Id, question.SelectedOptionId);
+        Assert.False(question.IsCorrect);
+        Assert.Equal(0, question.PointsAwarded);
+        // The whole point of a review: not just that they were wrong, but what was right.
+        Assert.Equal(right.Id, question.Options.Single(o => o.IsCorrect).OptionId);
+        Assert.All(question.Options, o => Assert.False(string.IsNullOrWhiteSpace(o.Text)));
+    }
+
+    [Fact]
+    public async Task A_review_is_withheld_entirely_while_the_quiz_is_open()
+    {
+        // The review names the correct option. Releasing it early would end the quiz for anyone who
+        // opens their marks in another tab — so the list is empty, not blanked.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await AnswerFirstAsync(h, published, StudentId);
+
+        var whileOpen = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+        Assert.Empty(Assert.Single(whileOpen.Quizzes).Questions);
+
+        await h.Service.CloseAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var afterClose = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+        Assert.NotEmpty(Assert.Single(afterClose.Quizzes).Questions);
+    }
+
+    [Fact]
+    public async Task A_skipped_question_is_still_listed_in_the_review()
+    {
+        // "You did not answer this, and here is what it was" is the most useful row in a review.
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(questions: 2), default);
+        var published = await h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default);
+        await AnswerFirstAsync(h, published, StudentId);
+        await h.Service.CloseAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var summary = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+
+        var questions = Assert.Single(summary.Quizzes).Questions;
+        Assert.Equal(2, questions.Count);
+        var skipped = questions[1];
+        Assert.Null(skipped.SelectedOptionId);
+        // Null here means UNANSWERED, which is only unambiguous because a withheld review has no
+        // questions at all.
+        Assert.Null(skipped.IsCorrect);
+        Assert.NotEmpty(skipped.Options);
+    }
+
+    [Fact]
+    public async Task A_cancelled_quiz_can_still_be_reviewed()
+    {
+        // Cancelling withdraws the marks, not the lesson. The quiz is over, so nothing is leaked.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await AnswerFirstAsync(h, published, StudentId);
+        await h.Service.CancelAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var summary = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+
+        var quiz = Assert.Single(summary.Quizzes);
+        Assert.False(quiz.CountsTowardsMarks);
+        Assert.NotEmpty(quiz.Questions);
+    }
+
+    [Fact]
+    public async Task A_students_review_never_carries_another_students_answers()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await AnswerFirstAsync(h, published, StudentId);
+        await AnswerFirstAsync(h, published, SecondStudentId);
+        await h.Service.CloseAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var summary = await h.Service.GetMySessionSummaryAsync(ClassroomId, SessionId, StudentId, default);
+
+        var quiz = Assert.Single(summary.Quizzes);
+        Assert.Equal(1, quiz.AnsweredCount);
+        Assert.Single(quiz.Questions);
+    }
+
+    [Fact]
+    public async Task The_teacher_summary_carries_each_students_individual_choices()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, published.Id, TeacherId, default);
+        var right = teacherView.Questions[0].Options.First(o => o.IsCorrect);
+        var wrong = teacherView.Questions[0].Options.First(o => !o.IsCorrect);
+
+        await h.Service.SubmitAnswerAsync(
+            ClassroomId, published.Id, StudentId, "Amina",
+            new SubmitAnswerRequest(teacherView.Questions[0].Id, right.Id), default);
+        await h.Service.SubmitAnswerAsync(
+            ClassroomId, published.Id, SecondStudentId, "Bilal",
+            new SubmitAnswerRequest(teacherView.Questions[0].Id, wrong.Id), default);
+
+        var summary = await h.Service.GetSessionSummaryAsync(ClassroomId, SessionId, TeacherId, default);
+
+        var amina = summary.Students.Single(s => s.StudentName == "Amina");
+        Assert.Equal(right.Id, Assert.Single(amina.Answers).SelectedOptionId);
+        Assert.True(Assert.Single(amina.Answers).IsCorrect);
+
+        var bilal = summary.Students.Single(s => s.StudentName == "Bilal");
+        Assert.Equal(wrong.Id, Assert.Single(bilal.Answers).SelectedOptionId);
+        Assert.False(Assert.Single(bilal.Answers).IsCorrect);
+    }
+
+    [Fact]
+    public async Task A_student_who_finished_without_answering_still_appears_for_the_teacher()
+    {
+        // Building the class list from answers alone would drop exactly the student a teacher most
+        // wants to see: the one who sat the quiz and engaged with none of it.
+        var h = Build();
+        var published = await PublishedAsync(h);
+        await h.Service.SubmitQuizAsync(ClassroomId, published.Id, StudentId, "Amina", default);
+
+        var summary = await h.Service.GetSessionSummaryAsync(ClassroomId, SessionId, TeacherId, default);
+
+        var student = Assert.Single(summary.Students);
+        Assert.Equal("Amina", student.StudentName);
+        Assert.Equal(0, student.Score);
+        Assert.Empty(student.Answers);
+    }
+
+    [Fact]
+    public async Task A_cancelled_quizzes_answers_are_listed_for_the_teacher_but_not_scored()
+    {
+        var h = Build();
+        var published = await PublishedAsync(h);
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, published.Id, TeacherId, default);
+        var correct = teacherView.Questions[0].Options.First(o => o.IsCorrect).Id;
+        await h.Service.SubmitAnswerAsync(
+            ClassroomId, published.Id, StudentId, "Amina",
+            new SubmitAnswerRequest(teacherView.Questions[0].Id, correct), default);
+
+        await h.Service.CancelAsync(ClassroomId, published.Id, TeacherId, default);
+
+        var summary = await h.Service.GetSessionSummaryAsync(ClassroomId, SessionId, TeacherId, default);
+
+        var student = Assert.Single(summary.Students);
+        Assert.Equal(0, student.Score);
+        Assert.Equal(0, student.AnsweredCount);
+        // The answer is still part of the record of what the student did.
+        Assert.Single(student.Answers);
+    }
 }

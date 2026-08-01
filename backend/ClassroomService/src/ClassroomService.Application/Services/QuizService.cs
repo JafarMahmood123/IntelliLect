@@ -582,6 +582,7 @@ public sealed class QuizService : IQuizService
             .Where(q => q.ClassroomId == classroomId)
             .ToList();
         var answers = await _quizRepository.GetAnswersForSessionAsync(sessionId, ct);
+        var submissions = await _quizRepository.GetSubmissionsForSessionAsync(sessionId, ct);
 
         // Drafts were never shown to anyone, and cancelled quizzes are withdrawn from marks. Both
         // are excluded from what is AVAILABLE, so a percentage cannot be dragged down by a quiz
@@ -590,21 +591,49 @@ public sealed class QuizService : IQuizService
         var countedIds = counted.Select(q => q.Id).ToHashSet();
         var totalAvailable = counted.Sum(q => q.Questions.Sum(x => x.Points));
 
-        var students = answers
-            .Where(a => countedIds.Contains(a.QuizId))
+        // Drafts are excluded from the record as well as the totals: a draft's questions were never
+        // put to anyone, so there is nothing about them for a teacher to review.
+        var publishedIds = quizzes.Where(q => q.Status != QuizStatus.Draft).Select(q => q.Id).ToHashSet();
+        var visibleAnswers = answers.Where(a => publishedIds.Contains(a.QuizId)).ToList();
+
+        // The class list is everyone who took part, from BOTH sources. Building it from answers
+        // alone would silently drop a student who opened the quiz, answered nothing and finished —
+        // which is precisely the student a teacher most wants to see in this table.
+        var participants = visibleAnswers
+            .Select(a => (a.StudentId, a.StudentName, At: a.AnsweredAtUtc))
+            .Concat(submissions
+                .Where(s => publishedIds.Contains(s.QuizId))
+                .Select(s => (s.StudentId, s.StudentName, At: s.SubmittedAtUtc)))
+            .GroupBy(x => x.StudentId)
+            // Latest wins, so a renamed student shows their current name.
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.At).First().StudentName);
+
+        var answersByStudent = visibleAnswers
             .GroupBy(a => a.StudentId)
-            .Select(g =>
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var students = participants
+            .Select(participant =>
             {
-                var score = g.Sum(a => a.PointsAwarded);
+                var mine = answersByStudent.GetValueOrDefault(participant.Key) ?? [];
+                // Scored on counted quizzes only; LISTED in full. A cancelled quiz's answers are
+                // still part of what this student did, they just stop being worth anything.
+                var scoring = mine.Where(a => countedIds.Contains(a.QuizId)).ToList();
+                var score = scoring.Sum(a => a.PointsAwarded);
                 return new StudentScoreDto(
-                    g.Key,
-                    // Latest submission wins, so a renamed student shows their current name.
-                    g.OrderByDescending(a => a.AnsweredAtUtc).First().StudentName,
+                    participant.Key,
+                    participant.Value,
                     score,
                     totalAvailable,
-                    g.Count(),
-                    g.Count(a => a.IsCorrect),
-                    totalAvailable > 0 ? (int)Math.Round(score * 100.0 / totalAvailable) : 0);
+                    scoring.Count,
+                    scoring.Count(a => a.IsCorrect),
+                    totalAvailable > 0 ? (int)Math.Round(score * 100.0 / totalAvailable) : 0,
+                    mine
+                        .OrderBy(a => a.AnsweredAtUtc)
+                        .Select(a => new StudentAnswerDto(
+                            a.QuizId, a.QuestionId, a.SelectedOptionId,
+                            a.IsCorrect, a.PointsAwarded, a.AnsweredAtUtc))
+                        .ToList());
             })
             .OrderByDescending(s => s.Score)
             .ThenBy(s => s.StudentName)
@@ -660,7 +689,10 @@ public sealed class QuizService : IQuizService
                 revealed ? mine.Sum(a => a.PointsAwarded) : 0,
                 quiz.Questions.Sum(q => q.Points),
                 mine.Count,
-                quiz.Questions.Count);
+                quiz.Questions.Count,
+                // The same gate as the score, and for the same reason — the review names the correct
+                // option, so releasing it early would end the quiz for anyone who reads it.
+                revealed ? BuildReview(quiz, mine) : []);
         }).ToList();
 
         var counted = rows.Where(r => r.CountsTowardsMarks).ToList();
@@ -674,6 +706,38 @@ public sealed class QuizService : IQuizService
     }
 
     // --- helpers ----------------------------------------------------------------
+
+    /// <summary>
+    /// A finished quiz, question by question, with this student's choice alongside the right answer.
+    ///
+    /// Only ever called for a quiz that is no longer being answered. Every question is listed,
+    /// including the ones this student skipped — "you did not answer this, and here is what it was"
+    /// is the most useful row in a review, and dropping it would make the numbering jump.
+    /// </summary>
+    private static List<MyQuestionReviewDto> BuildReview(Quiz quiz, List<QuizAnswer> mine)
+    {
+        var byQuestion = mine.ToDictionary(a => a.QuestionId);
+
+        return quiz.Questions
+            .OrderBy(q => q.Order)
+            .Select(question =>
+            {
+                var answer = byQuestion.GetValueOrDefault(question.Id);
+                return new MyQuestionReviewDto(
+                    question.Id,
+                    question.Order,
+                    question.Text,
+                    question.Points,
+                    answer?.SelectedOptionId,
+                    answer?.IsCorrect,
+                    answer?.PointsAwarded ?? 0,
+                    question.Options
+                        .OrderBy(o => o.Order)
+                        .Select(o => new MyOptionReviewDto(o.Id, o.Order, o.Text, o.IsCorrect))
+                        .ToList());
+            })
+            .ToList();
+    }
 
     /// <summary>
     /// A cancelled quiz's marks are preserved but excluded from every total. Expressed once, here,
