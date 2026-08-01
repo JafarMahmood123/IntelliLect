@@ -34,10 +34,29 @@ export interface QuizDraftRequest {
 }
 
 /**
+ * A point where the course material contradicted what the teacher said out loud.
+ *
+ * The assistant writes the answer key from the MATERIAL — a class must never be marked wrong for
+ * having listened — and reports the disagreement here so the teacher sees it before publishing.
+ */
+export interface QuizCorrection {
+  taught: string;
+  corrected: string;
+}
+
+/**
  * A generated question shaped for the composer to append directly. Marks and timing are the
  * server's defaults, so it drops straight into `QuestionDraft` with no translation.
  */
-export type GeneratedQuestionDraft = QuestionDraft;
+export interface GeneratedQuestionDraft extends QuestionDraft {
+  corrections: QuizCorrection[];
+}
+
+/** A generated draft, and what the assistant had to correct to write it. */
+export interface GeneratedQuizDraft {
+  quiz: QuizTeacher;
+  corrections: QuizCorrection[];
+}
 
 // --- teacher view ------------------------------------------------------------
 

@@ -39,12 +39,13 @@ public sealed class QuizServiceTests
             [new GeneratedQuestionDto("What was said?", [
                 new GeneratedOptionDto("The right one", true),
                 new GeneratedOptionDto("The wrong one", false),
-            ])]);
+            ], [])],
+            []);
 
         public GeneratedQuestionDto AnswersResult = new("ignored — the teacher's text is kept", [
             new GeneratedOptionDto("Generated right", true),
             new GeneratedOptionDto("Generated wrong", false),
-        ]);
+        ], []);
 
         public Exception? Throws;
         public int Calls;
@@ -220,7 +221,7 @@ public sealed class QuizServiceTests
         // went straight to Open would put unreviewed questions in front of a class.
         var h = Build();
 
-        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+        var draft = (await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default)).Quiz;
 
         Assert.Equal("Draft", draft.Status);
         Assert.Equal("Generated", draft.Title);
@@ -232,7 +233,7 @@ public sealed class QuizServiceTests
     {
         var h = Build();
 
-        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+        var draft = (await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default)).Quiz;
 
         var options = draft.Questions[0].Options;
         Assert.Equal(1, options.Count(o => o.IsCorrect));
@@ -246,7 +247,7 @@ public sealed class QuizServiceTests
         // so the model is never asked for either.
         var h = Build(new FakeQuizSettings { DefaultSecondsPerQuestion = 45 });
 
-        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default);
+        var draft = (await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 3, default)).Quiz;
 
         Assert.Equal(1, draft.Questions[0].Points);
         Assert.Equal(45, draft.Questions[0].TimeLimitSeconds);
@@ -284,12 +285,66 @@ public sealed class QuizServiceTests
         h.Assistant.Result = new GeneratedQuizDto(
             "Bad",
             true,
-            [new GeneratedQuestionDto("Only one option", [new GeneratedOptionDto("a", true)])]);
+            [new GeneratedQuestionDto("Only one option", [new GeneratedOptionDto("a", true)], [])],
+            []);
 
-        var draft = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 1, default);
+        var generated = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 1, default);
 
         await Assert.ThrowsAsync<ConflictException>(
-            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+            () => h.Service.PublishAsync(ClassroomId, generated.Quiz.Id, TeacherId, default));
+    }
+
+    [Fact]
+    public async Task What_the_assistant_had_to_correct_reaches_the_teacher()
+    {
+        // The questions are written to match the MATERIAL, so a class is never marked against a
+        // slip. Doing that silently would be worse than the slip: the teacher would publish an
+        // answer key contradicting what they told the room and never learn why students protested.
+        var h = Build();
+        h.Assistant.Result = h.Assistant.Result with
+        {
+            Corrections = [new GeneratedCorrectionDto("the hit rate is 55%", "the target is 85%")],
+        };
+
+        var generated = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 1, default);
+
+        var correction = Assert.Single(generated.Corrections);
+        Assert.Equal("the hit rate is 55%", correction.Taught);
+        Assert.Equal("the target is 85%", correction.Corrected);
+    }
+
+    [Fact]
+    public async Task Corrections_are_not_stored_on_the_quiz()
+    {
+        // They describe this act of generation, not the quiz. Persisting a model's opinion about
+        // the teacher into what is otherwise an academic record is not something to do casually.
+        var h = Build();
+        h.Assistant.Result = h.Assistant.Result with
+        {
+            Corrections = [new GeneratedCorrectionDto("the hit rate is 55%", "the target is 85%")],
+        };
+
+        var generated = await h.Service.GenerateDraftAsync(ClassroomId, SessionId, TeacherId, 1, default);
+        var reread = await h.Service.GetForTeacherAsync(
+            ClassroomId, generated.Quiz.Id, TeacherId, default);
+
+        Assert.Equal(generated.Quiz.Id, reread.Id);
+        Assert.Equal(generated.Quiz.Questions.Count, reread.Questions.Count);
+    }
+
+    [Fact]
+    public async Task A_generated_answer_set_carries_its_own_corrections()
+    {
+        var h = Build();
+        h.Assistant.AnswersResult = h.Assistant.AnswersResult with
+        {
+            Corrections = [new GeneratedCorrectionDto("evictions are random", "the default is LRU")],
+        };
+
+        var question = await h.Service.GenerateAnswersAsync(
+            ClassroomId, SessionId, TeacherId, "How does eviction choose?", default);
+
+        Assert.Equal("the default is LRU", Assert.Single(question.Corrections).Corrected);
     }
 
     [Fact]

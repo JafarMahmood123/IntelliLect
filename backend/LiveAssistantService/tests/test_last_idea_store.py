@@ -14,8 +14,15 @@ from app.domain.idea.boundary_trigger import BoundaryTrigger
 from app.domain.idea.completed_idea import CompletedIdea
 
 
+_next_start = 0
+
+
 def _idea(text: str) -> CompletedIdea:
-    return CompletedIdea(text, 0, 1000, 1, BoundaryTrigger.PAUSE)
+    """Consecutive, non-overlapping spans, as the buffer emits them — the span identifies an idea
+    for the used-already check, so shared spans would conflate different explanations."""
+    global _next_start
+    _next_start += 1000
+    return CompletedIdea(text, _next_start, _next_start + 900, 1, BoundaryTrigger.PAUSE)
 
 
 def test_latest_is_the_most_recently_recorded():
@@ -91,3 +98,73 @@ def test_release_is_idempotent():
 
     store.release(session_id)
     store.release(session_id)  # must not raise
+
+
+# --- ideas already turned into a quiz ------------------------------------------
+
+
+def test_used_ideas_are_left_out_when_asked_for_fresh_ones():
+    session_id = uuid4()
+    store = LastIdeaStore()
+    first, second = _idea("caches"), _idea("eviction")
+    store.record(session_id, first)
+    store.record(session_id, second)
+
+    store.mark_used(session_id, [first])
+
+    assert [i.text for i in store.recent(session_id, include_used=False)] == ["eviction"]
+    # The full history is unchanged: answering a teacher's own question still needs the context.
+    assert [i.text for i in store.recent(session_id)] == ["caches", "eviction"]
+
+
+def test_marking_the_same_idea_twice_is_harmless():
+    session_id = uuid4()
+    store = LastIdeaStore()
+    idea = _idea("caches")
+    store.record(session_id, idea)
+
+    store.mark_used(session_id, [idea])
+    store.mark_used(session_id, [idea])
+
+    assert store.recent(session_id, include_used=False) == []
+
+
+def test_used_markers_do_not_leak_between_sessions():
+    first_session, second_session = uuid4(), uuid4()
+    store = LastIdeaStore()
+    shared_text = _idea("caches")
+    store.record(first_session, shared_text)
+    store.record(second_session, _idea("caches"))
+
+    store.mark_used(first_session, [shared_text])
+
+    assert store.recent(first_session, include_used=False) == []
+    assert len(store.recent(second_session, include_used=False)) == 1
+
+
+def test_used_markers_are_forgotten_once_the_idea_ages_out():
+    """Otherwise a lecture running for hours accumulates a marker per idea forever, for ideas that
+    can never be offered again anyway."""
+    session_id = uuid4()
+    store = LastIdeaStore(history=2)
+    oldest = _idea("caches")
+    store.record(session_id, oldest)
+    store.mark_used(session_id, [oldest])
+
+    store.record(session_id, _idea("eviction"))
+    store.record(session_id, _idea("hit rate"))
+
+    assert store._used.get(session_id) in (None, set())
+
+
+def test_release_forgets_used_markers_too():
+    session_id = uuid4()
+    store = LastIdeaStore()
+    idea = _idea("caches")
+    store.record(session_id, idea)
+    store.mark_used(session_id, [idea])
+
+    store.release(session_id)
+    store.record(session_id, _idea("caches again"))
+
+    assert len(store.recent(session_id, include_used=False)) == 1

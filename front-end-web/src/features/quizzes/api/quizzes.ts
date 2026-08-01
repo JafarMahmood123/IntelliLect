@@ -1,6 +1,7 @@
 import { apiClient } from '../../../lib/axios';
 import type {
   GeneratedQuestionDraft,
+  GeneratedQuizDraft,
   MySessionQuizSummary,
   MyQuizResult,
   QuizDraftRequest,
@@ -45,8 +46,8 @@ export const generateQuizDraft = async (
   classroomId: string,
   sessionId: string,
   questionCount: number,
-): Promise<QuizTeacher> => {
-  const { data } = await apiClient.post<QuizTeacher>(
+): Promise<GeneratedQuizDraft> => {
+  const { data } = await apiClient.post<GeneratedQuizDraft>(
     `${base(classroomId)}/sessions/${sessionId}/quizzes/generate`,
     { questionCount },
   );

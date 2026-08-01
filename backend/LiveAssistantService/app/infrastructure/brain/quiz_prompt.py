@@ -19,14 +19,42 @@ from __future__ import annotations
 
 from typing import Any
 
+# Shared by both prompts, so the rule that decides what counts as the RIGHT answer cannot end up
+# stated one way for a whole quiz and another way for a single question's options.
+#
+# The ordering matters. A teacher mid-lesson can misspeak — a number, a direction, a definition —
+# and a quiz built faithfully on that mistake marks the whole class wrong for listening. So the
+# material wins where it actually addresses the point. The second half is the load-bearing half:
+# without it, "the material overrules the teacher" becomes licence to overrule from the model's own
+# knowledge whenever retrieval is thin, which is the failure this service is built to avoid.
+_ACCURACY_RULES = (
+    "WHAT COUNTS AS CORRECT:\n"
+    "- Where the reference material speaks to a point, the MATERIAL is authoritative — even when "
+    "the teacher said otherwise. Teachers misspeak. A quiz built on a slip marks the whole class "
+    "wrong for having listened.\n"
+    "- So: if the explanation conflicts with the material, write the question so the option the "
+    "MATERIAL supports is the correct one, and put the teacher's version among the wrong options "
+    "if it makes a plausible distractor.\n"
+    "- Then REPORT every such conflict in the `corrections` field: `taught` quotes what the "
+    "teacher said, `corrected` states what the material says. The teacher reads these before "
+    "publishing. Never change an answer without recording it here.\n"
+    "- You may ONLY overrule the teacher from the material in front of you. If the material does "
+    "not cover the point, is only loosely related, or is empty, the teacher is right by default — "
+    "take their explanation as given and leave `corrections` empty. Your own knowledge is not "
+    "evidence, and a disagreement you cannot cite is not a correction.\n"
+    "- Differences of wording, emphasis, simplification or level of detail are NOT conflicts. "
+    "Report only a genuine contradiction of fact.\n"
+)
+
 SYSTEM_PROMPT = (
     "You are a teaching assistant helping a teacher quiz their class during a live lesson.\n\n"
     "You are given the explanation the teacher has JUST finished giving, and NUMBERED reference "
     "material from THIS course.\n\n"
     "Write multiple-choice questions that check whether students understood THAT explanation.\n\n"
+    f"{_ACCURACY_RULES}\n"
     "Rules:\n"
-    "- Question ONLY what the teacher actually explained. The reference material is there to keep "
-    "you accurate and to settle wording — it is NOT a second syllabus to quiz from.\n"
+    "- Question ONLY the SUBJECT the teacher explained. The reference material fixes what is TRUE "
+    "about that subject — it is not a second syllabus to pick new topics from.\n"
     "- Never invent facts or use outside knowledge.\n"
     "- Write EXACTLY the number of questions asked for. If the explanation is short, test "
     "different aspects of it — a definition, a consequence, a comparison, an edge case — rather "
@@ -39,6 +67,32 @@ SYSTEM_PROMPT = (
     "- Cite by [n] the material you relied on, in the citations field.\n"
     "- Write in the same language the teacher was speaking."
 )
+
+
+# Shared by both schemas. An ARRAY rather than an optional object on purpose: "empty list" is a
+# shape every provider's constrained decoding handles cleanly, and it makes "nothing to report" the
+# default the model falls into rather than a field it has to remember to omit.
+_CORRECTIONS_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "description": (
+        "Points where the reference material contradicts the teacher. Empty unless the material "
+        "directly covers the point and genuinely disagrees."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "taught": {
+                "type": "string",
+                "description": "What the teacher said, quoted as closely as possible.",
+            },
+            "corrected": {
+                "type": "string",
+                "description": "What the reference material says instead.",
+            },
+        },
+        "required": ["taught", "corrected"],
+    },
+}
 
 
 def build_response_schema(
@@ -87,6 +141,7 @@ def build_response_schema(
                 "items": {"type": "integer"},
                 "description": "Numbers [n] of the reference material used.",
             },
+            "corrections": _CORRECTIONS_SCHEMA,
         },
         "required": ["title", "questions"],
     }
@@ -134,10 +189,12 @@ ANSWERS_SYSTEM_PROMPT = (
     "The teacher has written the QUESTION themselves. You are given that question, the "
     "explanation they just gave in class, and NUMBERED reference material from THIS course. "
     "Write the answer options.\n\n"
+    f"{_ACCURACY_RULES}\n"
     "Rules:\n"
     "- Answer the teacher's question as asked. Do not reinterpret or rewrite it.\n"
-    "- Exactly one option is correct, and it must be correct according to the explanation and the "
-    "material — never according to outside knowledge.\n"
+    "- Exactly one option is correct, chosen by the rule above: the material decides where it "
+    "covers the point, the explanation decides where it does not, and outside knowledge never "
+    "decides.\n"
     "- The wrong options must be plausible: a believable misunderstanding of THIS explanation, "
     "not obvious filler. A question every student answers correctly teaches the teacher nothing.\n"
     "- Keep the options short and plain; they are read on a phone mid-lesson.\n"
@@ -167,6 +224,7 @@ def build_answers_response_schema(*, min_options: int, max_options: int) -> dict
                 "items": {"type": "integer"},
                 "description": "Numbers [n] of the reference material used.",
             },
+            "corrections": _CORRECTIONS_SCHEMA,
         },
         "required": ["options", "correct_index"],
     }

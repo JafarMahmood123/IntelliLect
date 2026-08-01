@@ -214,3 +214,91 @@ def test_duplicate_answers_are_removed():
 
 def test_non_json_answers_return_none():
     assert _parse_answers_reply("Sure! Here are some options:") is None
+
+
+# --- corrections: where the material disagreed with the teacher -----------------
+
+CORRECTION = {"taught": "the hit rate should be 55%", "corrected": "the target hit rate is 85%"}
+
+
+def test_a_correction_is_kept_when_the_quiz_was_grounded():
+    quiz = _parse(_reply(corrections=[CORRECTION]))
+
+    assert quiz is not None
+    assert [(c.taught, c.corrected) for c in quiz.corrections] == [
+        (CORRECTION["taught"], CORRECTION["corrected"])
+    ]
+
+
+def test_corrections_are_dropped_when_there_was_no_material_to_correct_from():
+    """Ungrounded means retrieval found nothing, so a "correction" cannot have come from the course
+    — only from the model's own knowledge, which this service does not treat as evidence. Telling a
+    teacher they are wrong on no authority is worse than saying nothing."""
+    quiz = _parse(_reply(corrections=[CORRECTION]), grounded=False)
+
+    assert quiz is not None
+    assert quiz.corrections == []
+
+
+def test_a_half_written_correction_is_dropped():
+    """Unreadable either way round: the teacher cannot check "you said X" against a blank, nor act
+    on "the material says Y" without knowing which statement it contradicts."""
+    quiz = _parse(
+        _reply(corrections=[{"taught": "", "corrected": "85%"}, {"taught": "55%"}])
+    )
+
+    assert quiz is not None
+    assert quiz.corrections == []
+
+
+def test_a_correction_that_merely_restates_the_teacher_is_dropped():
+    """Not a correction, and it would send a teacher hunting for a difference that is not there."""
+    quiz = _parse(_reply(corrections=[{"taught": "85%", "corrected": "85%"}]))
+
+    assert quiz is not None
+    assert quiz.corrections == []
+
+
+def test_corrections_are_de_duplicated():
+    quiz = _parse(_reply(corrections=[CORRECTION, dict(CORRECTION)]))
+
+    assert quiz is not None
+    assert len(quiz.corrections) == 1
+
+
+def test_a_reply_with_no_corrections_field_is_normal():
+    quiz = _parse(_reply())
+
+    assert quiz is not None
+    assert quiz.corrections == []
+
+
+def test_answers_carry_their_own_corrections():
+    content = json.dumps(
+        {
+            "options": ["85%", "55%"],
+            "correct_index": 0,
+            "corrections": [CORRECTION],
+        }
+    )
+
+    question = parse_answers(
+        content, "What is the target hit rate?", min_options=2, max_options=4
+    )
+
+    assert question is not None
+    assert question.text == "What is the target hit rate?"
+    assert [c.corrected for c in question.corrections] == [CORRECTION["corrected"]]
+
+
+def test_answers_corrections_are_dropped_when_ungrounded():
+    content = json.dumps(
+        {"options": ["85%", "55%"], "correct_index": 0, "corrections": [CORRECTION]}
+    )
+
+    question = parse_answers(
+        content, "What is the target hit rate?", min_options=2, max_options=4, grounded=False
+    )
+
+    assert question is not None
+    assert question.corrections == []

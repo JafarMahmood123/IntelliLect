@@ -22,9 +22,30 @@ class GeneratedOption:
 
 
 @dataclass(frozen=True)
+class GeneratedCorrection:
+    """A point where the course material contradicts what the teacher said.
+
+    The quiz is written to match the MATERIAL, so a class is never marked against a mistake. This
+    records the disagreement so the teacher finds out — silently flipping an answer key would be
+    worse than the original error, because the teacher would publish a quiz whose correct answer
+    contradicts what they told the room a minute earlier and never know why students protested.
+
+    Both sides are quoted rather than summarised: "you said X, the material says Y" is checkable by
+    the teacher in a second, and a paraphrase of their own words is not.
+    """
+
+    taught: str
+    corrected: str
+
+
+@dataclass(frozen=True)
 class GeneratedQuestion:
     text: str
     options: list[GeneratedOption]
+    #: Only populated on the answers-for-my-question path, where the question is the carrier of the
+    #: whole reply. Questions nested inside a ``GeneratedQuiz`` leave this empty — the quiz holds
+    #: the corrections for that path, so there is exactly one place to read them per request.
+    corrections: list[GeneratedCorrection] = field(default_factory=list)
 
     @property
     def correct_count(self) -> int:
@@ -45,6 +66,8 @@ class GeneratedQuiz:
     questions: list[GeneratedQuestion]
     citations: list[int] = field(default_factory=list)
     grounded: bool = True
+    #: Where the material contradicted the explanation. Empty is the normal case.
+    corrections: list[GeneratedCorrection] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:

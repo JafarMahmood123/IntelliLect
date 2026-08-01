@@ -27,6 +27,19 @@ public record GenerateQuestionRequest(List<string>? Avoid = null);
 public record GenerateAnswersRequest(string QuestionText);
 
 /// <summary>
+/// A point where the classroom's material contradicted what the teacher said aloud.
+///
+/// The assistant writes the question so the option the MATERIAL supports is the correct one — a
+/// class must never be marked wrong for having listened. This carries the disagreement back so the
+/// teacher sees it before publishing: an answer key that silently contradicts what they told the
+/// room a minute ago is worse than the slip it corrects.
+///
+/// NOT persisted. It describes this act of generation, not the quiz — once the teacher has read it
+/// and accepted or edited the draft, it has done its job.
+/// </summary>
+public record QuizCorrectionDto(string Taught, string Corrected);
+
+/// <summary>
 /// One generated question, returned for the composer to append. NOT persisted: the teacher is
 /// mid-compose, and writing a row per button press would litter the session with abandoned drafts.
 /// Marks and timing are this service's defaults, so the composer can drop it straight in.
@@ -35,7 +48,18 @@ public record GeneratedQuestionDraftDto(
     string Text,
     int Points,
     int TimeLimitSeconds,
-    List<OptionDraftRequest> Options);
+    List<OptionDraftRequest> Options,
+    List<QuizCorrectionDto> Corrections);
+
+/// <summary>
+/// A generated draft and what the assistant had to correct to write it.
+///
+/// A wrapper rather than fields on <see cref="QuizTeacherDto"/>, because corrections belong to the
+/// GENERATION and not to the quiz: the same quiz read back a minute later is the same quiz, and
+/// storing a transient note about how it came to be would put a model's opinion into an academic
+/// record.
+/// </summary>
+public record GeneratedQuizDraftDto(QuizTeacherDto Quiz, List<QuizCorrectionDto> Corrections);
 
 // --- teacher reads -----------------------------------------------------------
 

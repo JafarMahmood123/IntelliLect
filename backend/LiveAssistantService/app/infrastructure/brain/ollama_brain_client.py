@@ -125,7 +125,11 @@ class OllamaBrainClient(BrainClient):
             timeout=self._quiz_timeout,
         )
         return parse_answers(
-            content, question_text, min_options=min_options, max_options=max_options
+            content,
+            question_text,
+            min_options=min_options,
+            max_options=max_options,
+            grounded=bool(chunks),
         )
 
     async def smoke_complete(self, transcript_text: str) -> str:

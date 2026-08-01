@@ -19,7 +19,7 @@ public interface IQuizService
     /// reviewed, edited and published exactly like a hand-composed one — so the teacher, not the
     /// model, decides what the class is asked.
     /// </summary>
-    Task<QuizTeacherDto> GenerateDraftAsync(
+    Task<GeneratedQuizDraftDto> GenerateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default);
 
     /// <summary>

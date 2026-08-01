@@ -70,8 +70,18 @@ def _quiz() -> GeneratedQuiz:
     )
 
 
+_next_start = 0
+
+
 def _idea(text: str) -> CompletedIdea:
-    return CompletedIdea(text, 0, 1000, 1, BoundaryTrigger.PAUSE)
+    """Ideas get consecutive, non-overlapping spans, as the buffer emits them.
+
+    The span is an idea's identity for the used-already check, so a fixture that gave every idea
+    the same one would make two different explanations look like the same explanation.
+    """
+    global _next_start
+    _next_start += 1000
+    return CompletedIdea(text, _next_start, _next_start + 900, 1, BoundaryTrigger.PAUSE)
 
 
 def _chunk(score: float) -> RetrievedChunk:
@@ -292,3 +302,83 @@ async def test_already_written_questions_are_passed_through_so_a_new_one_varies(
     )
 
     assert brain.kwargs[0]["avoid"] == ["What is a cache hit?"]
+
+
+# --- ideas are spent once they have been quizzed -------------------------------
+
+
+async def test_an_idea_is_not_quizzed_twice():
+    """Pressing Generate again should ask about what the teacher has said SINCE, not reword the
+    same explanation into a second quiz."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    brain = RecordingBrain()
+    generator = _generator(FakeRetrievalClient([_chunk(0.8)]), brain, ideas)
+
+    await generator.generate(session_id, uuid4(), **BOUNDS)
+    ideas.record(session_id, _idea("eviction decides what leaves when the cache is full"))
+    await generator.generate(session_id, uuid4(), **BOUNDS)
+
+    assert brain.calls[0][0] == "a cache miss is when an item is not in the cache"
+    assert brain.calls[1][0] == "eviction decides what leaves when the cache is full"
+
+
+async def test_everything_already_quizzed_is_reported_differently_from_nothing_said():
+    """Both are 409s, but the teacher acts on them differently — one means keep talking, the other
+    means talk about something new. The same sentence for both would read as a broken assistant."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    generator = _generator(FakeRetrievalClient([_chunk(0.8)]), RecordingBrain(), ideas)
+    await generator.generate(session_id, uuid4(), **BOUNDS)
+
+    with pytest.raises(NoIdeaAvailable) as spent:
+        await generator.generate(session_id, uuid4(), **BOUNDS)
+    assert "already been used" in str(spent.value)
+
+    with pytest.raises(NoIdeaAvailable) as silent:
+        await generator.generate(uuid4(), uuid4(), **BOUNDS)
+    assert "Nothing has been transcribed" in str(silent.value)
+
+
+async def test_a_failed_generation_does_not_spend_the_idea():
+    """Otherwise a brain hiccup would cost the teacher the explanation they wanted to quiz, and no
+    amount of retrying would get it back."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    failing = _generator(
+        FakeRetrievalClient([_chunk(0.8)]), RecordingBrain(error=RuntimeError("boom")), ideas
+    )
+    with pytest.raises(QuizGenerationFailed):
+        await failing.generate(session_id, uuid4(), **BOUNDS)
+
+    brain = RecordingBrain()
+    working = _generator(FakeRetrievalClient([_chunk(0.8)]), brain, ideas)
+    quiz = await working.generate(session_id, uuid4(), **BOUNDS)
+
+    assert quiz.title == "Caching"
+    assert brain.calls[0][0] == "a cache miss is when an item is not in the cache"
+
+
+async def test_writing_answers_still_works_for_an_idea_already_quizzed():
+    """The teacher is composing ONE quiz and wrote the question themselves. The explanation is
+    context for answering it, not a topic being spent — so a used idea is still the right one."""
+    session_id = uuid4()
+    ideas = LastIdeaStore()
+    ideas.record(session_id, _idea("a cache miss is when an item is not in the cache"))
+
+    brain = RecordingBrain()
+    generator = _generator(FakeRetrievalClient([_chunk(0.8)]), brain, ideas)
+    await generator.generate(session_id, uuid4(), **BOUNDS)
+
+    question = await generator.generate_answers(
+        session_id, uuid4(), "What is a cache miss?", min_options=2, max_options=4
+    )
+
+    assert question is not None
+    assert brain.answer_calls[0][1] == "a cache miss is when an item is not in the cache"

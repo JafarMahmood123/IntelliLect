@@ -105,12 +105,18 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
             // failed. Better to report it and let them press the button again if they want to.
             maxAttempts: 1);
 
-        // 409: the session has produced no idea yet. Nothing is broken and a retry now would fail
+        // 409: there is no fresh idea to build from. Nothing is broken and a retry now would fail
         // the same way, so it is reported as a conflict rather than a transient fault.
+        //
+        // The assistant's own wording is preferred, because it distinguishes two situations that
+        // need different actions from the teacher — "nothing transcribed yet" (keep talking) and
+        // "everything said since has already been quizzed" (talk about something new). One
+        // sentence covering both would read as a broken assistant to whichever teacher got the
+        // wrong half.
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new ConflictException(
-                "There is nothing to build a quiz from yet — the assistant has not transcribed "
+            throw new ConflictException(await ReadDetailAsync(response, ct)
+                ?? "There is nothing to build a quiz from yet — the assistant has not transcribed "
                 + "enough of this session. Keep teaching and try again in a moment.");
         }
 
@@ -133,7 +139,8 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         return new GeneratedQuizDto(
             quiz.Title ?? string.Empty,
             quiz.Grounded,
-            quiz.Questions.Select(ToDto).ToList());
+            quiz.Questions.Select(ToDto).ToList(),
+            ToCorrections(quiz.Corrections));
     }
 
     public async Task<GeneratedQuestionDto> GenerateAnswersAsync(
@@ -160,8 +167,8 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            throw new ConflictException(
-                "There is nothing to write answers from yet — the assistant has not transcribed "
+            throw new ConflictException(await ReadDetailAsync(response, ct)
+                ?? "There is nothing to write answers from yet — the assistant has not transcribed "
                 + "enough of this session. Keep teaching and try again in a moment.");
         }
 
@@ -184,6 +191,30 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
         return ToDto(question);
     }
 
+    /// <summary>
+    /// FastAPI's <c>{"detail": "..."}</c>, or null if the body is not one. Only ever used for a
+    /// status this service ALREADY decided how to classify — it borrows the assistant's wording,
+    /// never its judgement, so an unexpected body can change what a teacher reads and nothing else.
+    /// </summary>
+    private static async Task<string?> ReadDetailAsync(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var body = await response.Content.ReadFromJsonAsync<ProblemDetail>(ct);
+            var detail = body?.Detail?.Trim();
+            return string.IsNullOrEmpty(detail) ? null : detail;
+        }
+        catch (Exception)
+        {
+            // A message is a nicety; failing to read one must not turn a handled conflict into an
+            // unhandled exception.
+            return null;
+        }
+    }
+
+    private sealed record ProblemDetail([property: JsonPropertyName("detail")] string? Detail);
+
     /// <summary>Generation runs a language model: tens of seconds is normal, not a fault.</summary>
     private TimeSpan GenerationTimeout => TimeSpan.FromSeconds(
         _options.GenerationTimeoutSeconds > 0 ? _options.GenerationTimeoutSeconds : 120);
@@ -193,7 +224,20 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
             question.Text ?? string.Empty,
             question.Options
                 .Select(o => new GeneratedOptionDto(o.Text ?? string.Empty, o.IsCorrect))
-                .ToList());
+                .ToList(),
+            ToCorrections(question.Corrections));
+
+    // Half a correction is unreadable — "you said X" against a blank, or "the material says Y"
+    // with nothing to compare it to — so an incomplete one is dropped rather than shown.
+    private static IReadOnlyList<GeneratedCorrectionDto> ToCorrections(
+        IReadOnlyList<CorrectionResponse>? corrections)
+        => corrections is null
+            ? []
+            : corrections
+                .Where(c => !string.IsNullOrWhiteSpace(c.Taught)
+                            && !string.IsNullOrWhiteSpace(c.Corrected))
+                .Select(c => new GeneratedCorrectionDto(c.Taught!.Trim(), c.Corrected!.Trim()))
+                .ToList();
 
     // Sends a request (recreated per attempt) with the internal secret, retrying transient faults.
     // Terminal statuses (including 404) are returned to the caller to interpret.
@@ -279,11 +323,17 @@ public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
     private sealed record GenerateQuizResponse(
         [property: JsonPropertyName("title")] string? Title,
         [property: JsonPropertyName("grounded")] bool Grounded,
-        [property: JsonPropertyName("questions")] IReadOnlyList<GeneratedQuestionResponse> Questions);
+        [property: JsonPropertyName("questions")] IReadOnlyList<GeneratedQuestionResponse> Questions,
+        [property: JsonPropertyName("corrections")] IReadOnlyList<CorrectionResponse>? Corrections);
 
     private sealed record GeneratedQuestionResponse(
         [property: JsonPropertyName("text")] string? Text,
-        [property: JsonPropertyName("options")] IReadOnlyList<GeneratedOptionResponse> Options);
+        [property: JsonPropertyName("options")] IReadOnlyList<GeneratedOptionResponse> Options,
+        [property: JsonPropertyName("corrections")] IReadOnlyList<CorrectionResponse>? Corrections);
+
+    private sealed record CorrectionResponse(
+        [property: JsonPropertyName("taught")] string? Taught,
+        [property: JsonPropertyName("corrected")] string? Corrected);
 
     private sealed record GeneratedOptionResponse(
         [property: JsonPropertyName("text")] string? Text,

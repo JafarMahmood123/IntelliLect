@@ -73,9 +73,21 @@ public interface ILiveAssistantInternalClient
 /// <summary>An option the assistant proposed. Exactly one per question is correct.</summary>
 public sealed record GeneratedOptionDto(string Text, bool IsCorrect);
 
+/// <summary>
+/// A point where the course material contradicted what the teacher said out loud.
+///
+/// The questions are written to match the MATERIAL, so a class is never marked against a slip.
+/// This is how the teacher finds out that happened: an answer key that silently disagrees with
+/// what they told the room a minute ago is worse than the mistake it fixes.
+/// </summary>
+public sealed record GeneratedCorrectionDto(string Taught, string Corrected);
+
 /// <summary>A question the assistant proposed. Carries no marks or timing — those are the
 /// teacher's to set, and this service supplies its own defaults.</summary>
-public sealed record GeneratedQuestionDto(string Text, IReadOnlyList<GeneratedOptionDto> Options);
+public sealed record GeneratedQuestionDto(
+    string Text,
+    IReadOnlyList<GeneratedOptionDto> Options,
+    IReadOnlyList<GeneratedCorrectionDto> Corrections);
 
 /// <summary>
 /// The assistant's proposal. <paramref name="Grounded"/> is false when no course material was
@@ -84,4 +96,5 @@ public sealed record GeneratedQuestionDto(string Text, IReadOnlyList<GeneratedOp
 public sealed record GeneratedQuizDto(
     string Title,
     bool Grounded,
-    IReadOnlyList<GeneratedQuestionDto> Questions);
+    IReadOnlyList<GeneratedQuestionDto> Questions,
+    IReadOnlyList<GeneratedCorrectionDto> Corrections);

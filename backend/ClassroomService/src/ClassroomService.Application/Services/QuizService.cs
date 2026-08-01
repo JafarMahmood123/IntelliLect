@@ -68,7 +68,7 @@ public sealed class QuizService : IQuizService
     /// projection — the model gets a proposal in front of the teacher, and the teacher still
     /// decides what the class sees.
     /// </summary>
-    public async Task<QuizTeacherDto> GenerateDraftAsync(
+    public async Task<GeneratedQuizDraftDto> GenerateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, int questionCount, CancellationToken ct = default)
     {
         await EnsureGenerationAllowedAsync(classroomId, sessionId, teacherId, ct);
@@ -100,10 +100,12 @@ public sealed class QuizService : IQuizService
                 .ToList());
 
         _logger.LogInformation(
-            "Generated a {QuestionCount}-question quiz draft for session {SessionId} (grounded: {Grounded}).",
-            draft.Questions.Count, sessionId, generated.Grounded);
+            "Generated a {QuestionCount}-question quiz draft for session {SessionId} "
+            + "(grounded: {Grounded}, corrections: {Corrections}).",
+            draft.Questions.Count, sessionId, generated.Grounded, generated.Corrections.Count);
 
-        return await CreateDraftAsync(classroomId, sessionId, teacherId, draft, ct);
+        var quiz = await CreateDraftAsync(classroomId, sessionId, teacherId, draft, ct);
+        return new GeneratedQuizDraftDto(quiz, ToCorrections(generated.Corrections));
     }
 
     /// <summary>
@@ -132,7 +134,9 @@ public sealed class QuizService : IQuizService
             ?? throw new ServiceUnavailableException(
                 "The teaching assistant returned no question. Please try again.");
 
-        return ToDraftDto(question);
+        // Corrections come back on the QUIZ for this route — it is the whole-quiz endpoint asked
+        // for one question — so they are read from there rather than from the question.
+        return ToDraftDto(question, generated.Corrections);
     }
 
     /// <summary>
@@ -157,7 +161,7 @@ public sealed class QuizService : IQuizService
             _settings.MaxAnswersPerQuestion,
             ct);
 
-        return ToDraftDto(question);
+        return ToDraftDto(question, question.Corrections);
     }
 
     /// <summary>
@@ -176,12 +180,18 @@ public sealed class QuizService : IQuizService
         }
     }
 
-    private GeneratedQuestionDraftDto ToDraftDto(GeneratedQuestionDto question)
+    private GeneratedQuestionDraftDto ToDraftDto(
+        GeneratedQuestionDto question, IReadOnlyList<GeneratedCorrectionDto> corrections)
         => new(
             question.Text,
             DefaultGeneratedPoints,
             _settings.DefaultSecondsPerQuestion,
-            question.Options.Select(o => new OptionDraftRequest(o.Text, o.IsCorrect)).ToList());
+            question.Options.Select(o => new OptionDraftRequest(o.Text, o.IsCorrect)).ToList(),
+            ToCorrections(corrections));
+
+    private static List<QuizCorrectionDto> ToCorrections(
+        IReadOnlyList<GeneratedCorrectionDto> corrections)
+        => corrections.Select(c => new QuizCorrectionDto(c.Taught, c.Corrected)).ToList();
 
     public async Task<QuizTeacherDto> CreateDraftAsync(
         Guid classroomId, Guid sessionId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default)

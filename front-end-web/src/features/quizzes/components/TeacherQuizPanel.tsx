@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Plus, Trash2, Send, Clock, Ban, CheckCircle2, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Save,
+  Send,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../../components/ui/ToastProvider';
@@ -19,7 +29,7 @@ import {
 } from '../hooks/useQuizQueries';
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
 import { TeacherQuizSummary } from './TeacherQuizSummary';
-import type { QuestionDraft, QuizLimits } from '../types';
+import type { QuestionDraft, QuizCorrection, QuizLimits } from '../types';
 
 interface Props {
   classroomId: string;
@@ -55,6 +65,33 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   const [draftId, setDraftId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
+  /**
+   * Where the course material contradicted what the teacher said. Held in composer state rather
+   * than fetched, because it belongs to the act of GENERATION and not to the quiz — reopening a
+   * draft later must not re-accuse the teacher of a mistake they have already dealt with.
+   */
+  const [corrections, setCorrections] = useState<QuizCorrection[]>([]);
+
+  /**
+   * Publishing hands the quiz to the room. It stops being the teacher's to edit at that moment, so
+   * it must leave the composer with it — otherwise the next press of Publish tries to rewrite a
+   * quiz the server will refuse to change, and reports it as a save failure.
+   */
+  const resetComposer = () => {
+    setDraftId(null);
+    setTitle('');
+    setQuestions([]);
+    setCorrections([]);
+  };
+
+  // Watches the draft the composer is holding. Resetting on publish alone is not enough: the same
+  // quiz can be published from a second device, and a lost publish response would leave this
+  // composer editing something that has already gone out to the class.
+  const { data: draftQuiz } = useTeacherQuiz(classroomId, draftId ?? undefined);
+  const draftWasPublished = Boolean(draftQuiz && draftQuiz.status !== 'Draft');
+  useEffect(() => {
+    if (draftWasPublished) resetComposer();
+  }, [draftWasPublished]);
 
   const createDraft = useCreateQuizDraft(classroomId, sessionId);
   const updateDraft = useUpdateQuizDraft(classroomId);
@@ -177,6 +214,9 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
 
   const atQuestionLimit = questions.length >= limits.maxQuestionsPerQuiz;
   const totalSeconds = questions.reduce((sum, q) => sum + q.timeLimitSeconds, 0);
+  const saving = createDraft.isPending || updateDraft.isPending;
+  // Both buttons write the same quiz, so neither is available while the other is mid-flight.
+  const busy = saving || publish.isPending;
 
   const patch = (index: number, next: Partial<QuestionDraft>) =>
     setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, ...next } : q)));
@@ -186,12 +226,16 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
    * other is "try again". Collapsing them into one apology would hide the only useful part.
    */
   const reportGenerationError = (error: unknown, what: 'quiz' | 'question' | 'answers') => {
-    const status = (error as { response?: { status?: number } })?.response?.status;
-    if (status === 409) {
+    const response = (error as { response?: { status?: number; data?: { detail?: string } } })
+      ?.response;
+    if (response?.status === 409) {
       showToast({
         type: 'error',
-        title: 'Nothing to work from yet',
+        title: 'Nothing new to work from',
+        // The server's wording, because it distinguishes "keep talking" from "talk about something
+        // new" — two 409s that need different things from the teacher.
         message:
+          response.data?.detail ??
           'The assistant has not transcribed enough of this session. Keep teaching and try again in a moment.',
       });
       return;
@@ -209,7 +253,7 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
    */
   const runGenerate = async () => {
     try {
-      const draft = await generate.mutateAsync(questionCount);
+      const { quiz: draft, corrections: reported } = await generate.mutateAsync(questionCount);
       setDraftId(draft.id);
       setTitle(draft.title);
       setQuestions(
@@ -223,6 +267,7 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           })),
         })),
       );
+      setCorrections(reported);
     } catch (error) {
       reportGenerationError(error, 'quiz');
     }
@@ -235,9 +280,19 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
         questions.map((q) => q.text).filter((text) => text.trim()),
       );
       setQuestions((prev) => [...prev, question]);
+      addCorrections(question.corrections);
     } catch (error) {
       reportGenerationError(error, 'question');
     }
+  };
+
+  /** Accumulated across presses, de-duplicated: the same slip reported twice is still one slip. */
+  const addCorrections = (reported: QuizCorrection[]) => {
+    if (!reported?.length) return;
+    setCorrections((prev) => {
+      const seen = new Set(prev.map((c) => c.taught.toLowerCase()));
+      return [...prev, ...reported.filter((c) => !seen.has(c.taught.toLowerCase()))];
+    });
   };
 
   /** Fills one question's options in place. The question text is the teacher's and stays theirs. */
@@ -255,6 +310,7 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
     try {
       const generated = await generateAnswers.mutateAsync(question.text);
       patch(index, { options: generated.options });
+      addCorrections(generated.corrections);
     } catch (error) {
       reportGenerationError(error, 'answers');
     } finally {
@@ -275,8 +331,34 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
         : await createDraft.mutateAsync({ title, questions });
       setDraftId(draft.id);
       saved = true;
-      if (publishAfter) await publish.mutateAsync(draft.id);
-    } catch {
+
+      if (!publishAfter) {
+        showToast({
+          type: 'success',
+          title: 'Draft saved',
+          message: 'Nobody can see it yet. Publish when you are ready to ask the class.',
+        });
+        return;
+      }
+
+      await publish.mutateAsync(draft.id);
+      resetComposer();
+    } catch (error) {
+      // 409 on the SAVE step means this quiz is no longer a draft — it has already gone to the
+      // class. Telling the teacher to "try again" would just fail again, so the composer clears
+      // itself instead of sitting there holding a quiz it cannot change.
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (!saved && status === 409) {
+        resetComposer();
+        showToast({
+          type: 'error',
+          title: 'Already published',
+          message:
+            'This quiz has gone out to the class and can no longer be edited. The composer is ready for a new one.',
+        });
+        return;
+      }
+
       showToast({
         type: 'error',
         title: saved ? 'Could not publish' : 'Could not save',
@@ -337,6 +419,40 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           </p>
         )}
       </div>
+
+      {corrections.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-amber-200">
+                Answered from your course material
+              </p>
+              <p className="mt-0.5 text-[11px] text-amber-200/70">
+                Your material disagrees with what you said, so the answer key follows the material —
+                the class should not be marked wrong for listening. Check these before publishing.
+              </p>
+            </div>
+          </div>
+
+          {corrections.map((correction, index) => (
+            <div key={index} className="rounded-lg bg-slate-900/40 p-2 text-[11px]">
+              <p className="text-slate-400">
+                <span className="font-bold text-slate-500">You said: </span>
+                {correction.taught}
+              </p>
+              <p className="mt-0.5 text-emerald-300">
+                <span className="font-bold text-emerald-500/80">Material: </span>
+                {correction.corrected}
+              </p>
+            </div>
+          ))}
+
+          <p className="text-[10px] text-amber-200/60">
+            If your material is out of date, edit the answers below — the quiz is still yours.
+          </p>
+        </div>
+      )}
 
       <input
         value={title}
@@ -490,15 +606,34 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           <p className="text-[11px] text-slate-500">
             Total time {formatCountdown(totalSeconds)} · {questions.reduce((s, q) => s + q.points, 0)} marks
           </p>
-          <button
-            type="button"
-            onClick={() => save(true)}
-            disabled={publish.isPending || createDraft.isPending}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
-          >
-            <Send size={14} />
-            Publish to students
-          </button>
+
+          {/* Saving and publishing are separate on purpose. A teacher can prepare a quiz while
+              still explaining and put it to the class later, and publishing stays one press —
+              it saves first, so a quiz can never go out in a state the server did not accept. */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => save(false)}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-200 disabled:opacity-50"
+            >
+              <Save size={14} />
+              {saving ? 'Saving…' : 'Save draft'}
+            </button>
+            <button
+              type="button"
+              onClick={() => save(true)}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+            >
+              <Send size={14} />
+              {publish.isPending ? 'Publishing…' : 'Publish to students'}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Publishing is final — once the class can see a quiz, its questions and answers can no
+            longer be changed.
+          </p>
         </>
       )}
 

@@ -25,16 +25,18 @@ from app.application.ports.brain_client import BrainClient
 from app.application.ports.retrieval_client import RetrievalClient
 from app.application.services.last_idea_store import LastIdeaStore
 from app.application.services.token_estimate import estimate_tokens
+from app.domain.idea.completed_idea import CompletedIdea
 from app.domain.quiz.generated_quiz import GeneratedQuestion, GeneratedQuiz
 
 logger = logging.getLogger("liveassistant.quiz")
 
 
 class NoIdeaAvailable(RuntimeError):
-    """The session has not produced an idea to quiz on yet.
+    """The session has no fresh idea to quiz on.
 
-    Distinct from a generation failure: nothing is broken, the lecture simply has not said enough.
-    That difference matters to the teacher, who can fix this one by carrying on talking.
+    Distinct from a generation failure: nothing is broken, the lecture simply has not said enough
+    that has not already been asked about. That difference matters to the teacher, who can fix this
+    one by carrying on talking.
     """
 
 
@@ -72,7 +74,11 @@ class QuizGenerator:
         max_options: int,
         avoid: list[str] | None = None,
     ) -> GeneratedQuiz:
-        idea_text = self._require_idea(session_id)
+        # Only what has not been quizzed yet: pressing Generate a second time should ask about what
+        # the teacher has said SINCE the first quiz, not produce a second quiz on the same
+        # explanation with the questions reworded.
+        ideas = self._require_ideas(session_id, unused_only=True)
+        idea_text = " ".join(idea.text for idea in ideas).strip()
 
         chunks = await self._retrieve(classroom_id, idea_text)
         try:
@@ -93,12 +99,18 @@ class QuizGenerator:
                 "The assistant could not turn that explanation into questions."
             )
 
+        # Marked only once a usable quiz exists. Spending the ideas before the brain answered would
+        # mean a failed generation quietly cost the teacher the explanation they wanted to quiz.
+        self._ideas.mark_used(session_id, ideas)
+
         logger.info(
             "quiz_generated",
             extra={
                 "questions": len(quiz.questions),
                 "grounded": quiz.grounded,
                 "citations": len(quiz.citations),
+                "corrections": len(quiz.corrections),
+                "ideas_used": len(ideas),
             },
         )
         return quiz
@@ -118,7 +130,11 @@ class QuizGenerator:
         about a detail the idea only touches on, and material matching the question is what keeps
         the answers correct rather than merely plausible.
         """
-        idea_text = self._require_idea(session_id)
+        # Every retained idea, used or not. The teacher is composing ONE quiz here and has written
+        # the question themselves; the explanation is context for answering it, not a topic being
+        # spent, so an idea already quizzed is still the right thing to answer from.
+        ideas = self._require_ideas(session_id, unused_only=False)
+        idea_text = " ".join(idea.text for idea in ideas).strip()
 
         chunks = await self._retrieve(classroom_id, f"{question_text}\n{idea_text}")
         try:
@@ -141,25 +157,35 @@ class QuizGenerator:
         logger.info("answers_generated", extra={"options": len(question.options)})
         return question
 
-    def _require_idea(self, session_id: UUID) -> str:
-        idea_text = self._recent_idea_text(session_id)
-        if not idea_text:
-            raise NoIdeaAvailable(
-                "Nothing has been transcribed for this session yet, so there is no idea to build "
-                "a quiz from."
-            )
-        return idea_text
+    def _require_ideas(self, session_id: UUID, *, unused_only: bool) -> list[CompletedIdea]:
+        ideas = self._recent_ideas(session_id, unused_only=unused_only)
+        if ideas:
+            return ideas
 
-    def _recent_idea_text(self, session_id: UUID) -> str:
+        # Two different situations wearing the same status code, so they get different words. One
+        # is fixed by talking; the other is fixed by talking about something NEW, and a teacher who
+        # has just been told "nothing transcribed yet" mid-lecture would reasonably think the
+        # assistant was broken.
+        if unused_only and self._ideas.recent(session_id):
+            raise NoIdeaAvailable(
+                "Everything said since the last quiz has already been used. Carry on teaching and "
+                "generate again once you have explained something new."
+            )
+        raise NoIdeaAvailable(
+            "Nothing has been transcribed for this session yet, so there is no idea to build "
+            "a quiz from."
+        )
+
+    def _recent_ideas(self, session_id: UUID, *, unused_only: bool) -> list[CompletedIdea]:
         """The newest finished idea, widened with earlier ones only if it is too thin.
 
         A boundary that fired on a pause can be a few seconds of speech — not enough to build
         several questions from. Reaching back keeps the quiz about what was just taught while
         giving the model enough to work with; the newest idea always leads.
         """
-        recent = self._ideas.recent(session_id)
+        recent = self._ideas.recent(session_id, include_used=not unused_only)
         if not recent:
-            return ""
+            return []
 
         chosen = [recent[-1]]
         # recent is oldest-first, so walk backwards from the one before the newest.
@@ -167,7 +193,7 @@ class QuizGenerator:
             if estimate_tokens(" ".join(i.text for i in chosen)) >= self._min_idea_tokens:
                 break
             chosen.insert(0, idea)
-        return " ".join(idea.text for idea in chosen).strip()
+        return chosen
 
     async def _retrieve(self, classroom_id: UUID, idea_text: str):
         """Course material for the idea. Retrieval failure downgrades to ungrounded, never fatal —

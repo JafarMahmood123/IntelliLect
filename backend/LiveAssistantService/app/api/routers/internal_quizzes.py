@@ -54,9 +54,22 @@ class GeneratedOptionResponse(BaseModel):
     isCorrect: bool
 
 
+class CorrectionResponse(BaseModel):
+    """A point where the course material contradicted the teacher.
+
+    Travels beside the questions rather than inside them because it is about the LESSON, not any
+    one question, and because the teacher must see it before publishing — a quiz whose answer key
+    silently disagrees with what they told the room is worse than the slip it corrects.
+    """
+
+    taught: str
+    corrected: str
+
+
 class GeneratedQuestionResponse(BaseModel):
     text: str
     options: list[GeneratedOptionResponse]
+    corrections: list[CorrectionResponse] = []
 
 
 class GenerateQuizResponse(BaseModel):
@@ -66,6 +79,7 @@ class GenerateQuizResponse(BaseModel):
     # Surfaced so the teacher knows which drafts deserve the closest read before publishing.
     grounded: bool
     citations: list[int]
+    corrections: list[CorrectionResponse]
     questions: list[GeneratedQuestionResponse]
 
 
@@ -107,6 +121,7 @@ async def generate_quiz(
         title=quiz.title,
         grounded=quiz.grounded,
         citations=quiz.citations,
+        corrections=[_to_correction(c) for c in quiz.corrections],
         questions=[_to_response(question) for question in quiz.questions],
     )
 
@@ -151,4 +166,9 @@ def _to_response(question) -> GeneratedQuestionResponse:
             GeneratedOptionResponse(text=option.text, isCorrect=option.is_correct)
             for option in question.options
         ],
+        corrections=[_to_correction(c) for c in question.corrections],
     )
+
+
+def _to_correction(correction) -> CorrectionResponse:
+    return CorrectionResponse(taught=correction.taught, corrected=correction.corrected)

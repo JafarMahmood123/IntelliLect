@@ -17,9 +17,15 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import replace
 from typing import Any
 
-from app.domain.quiz.generated_quiz import GeneratedOption, GeneratedQuestion, GeneratedQuiz
+from app.domain.quiz.generated_quiz import (
+    GeneratedCorrection,
+    GeneratedOption,
+    GeneratedQuestion,
+    GeneratedQuiz,
+)
 from app.infrastructure.brain.outcome_parser import strip_code_fences
 
 logger = logging.getLogger("liveassistant.brain")
@@ -70,11 +76,17 @@ def parse_quiz(
         questions=questions,
         citations=_valid_citations(data.get("citations"), citation_numbers),
         grounded=grounded,
+        corrections=_valid_corrections(data.get("corrections"), grounded=grounded),
     )
 
 
 def parse_answers(
-    content: str, question_text: str, *, min_options: int, max_options: int
+    content: str,
+    question_text: str,
+    *,
+    min_options: int,
+    max_options: int,
+    grounded: bool = True,
 ) -> GeneratedQuestion | None:
     """Parse an options-only reply into the teacher's question. ``None`` if unusable.
 
@@ -93,9 +105,14 @@ def parse_answers(
         logger.warning("Brain returned JSON that is not an object for an answers request.")
         return None
 
-    return _parse_question(
+    question = _parse_question(
         {**data, "text": question_text}, min_options=min_options, max_options=max_options
     )
+    if question is None:
+        return None
+
+    corrections = _valid_corrections(data.get("corrections"), grounded=grounded)
+    return question if not corrections else replace(question, corrections=corrections)
 
 
 def _parse_question(
@@ -141,6 +158,40 @@ def _parse_question(
             for index, option in enumerate(options)
         ],
     )
+
+
+def _valid_corrections(raw: Any, *, grounded: bool) -> list[GeneratedCorrection]:
+    """Corrections the model reported, kept only when they could possibly be true.
+
+    ``grounded`` is False when retrieval found nothing, so the quiz was written from the teacher's
+    words alone. A "correction" in that case cannot have come from the course material — there was
+    none — so it came from the model's own knowledge, which is exactly what this service refuses to
+    treat as evidence. Dropped rather than shown: telling a teacher they are wrong on no authority
+    is worse than saying nothing.
+
+    Both halves must be present. A correction missing either side is unreadable — the teacher
+    cannot check "you said X" against a blank, nor act on "the material says Y" without knowing
+    which of their statements it contradicts.
+    """
+    if not grounded or not isinstance(raw, list):
+        return []
+
+    kept: list[GeneratedCorrection] = []
+    for value in raw:
+        if not isinstance(value, dict):
+            continue
+        taught = str(value.get("taught") or "").strip()
+        corrected = str(value.get("corrected") or "").strip()
+        if not taught or not corrected:
+            continue
+        # A model restating the teacher back at them is not a correction, and would send a teacher
+        # hunting for a difference that is not there.
+        if taught.casefold() == corrected.casefold():
+            continue
+        if any(existing.taught.casefold() == taught.casefold() for existing in kept):
+            continue
+        kept.append(GeneratedCorrection(taught=taught, corrected=corrected))
+    return kept
 
 
 def _valid_citations(raw: Any, citation_numbers: set[int]) -> list[int]:

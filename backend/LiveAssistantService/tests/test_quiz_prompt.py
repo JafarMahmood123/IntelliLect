@@ -90,3 +90,38 @@ def test_gemini_dialect_uppercases_every_nested_type():
     found = list(types(converted))
     assert found  # guard against the walker silently finding nothing
     assert all(name.isupper() for name in found)
+
+
+# --- correcting the teacher ----------------------------------------------------
+
+
+def test_both_schemas_can_carry_corrections():
+    """The model has to be able to SAY it disagreed. Without a field for it, the only ways to
+    handle a teacher's mistake are to quiz the mistake or to fix it silently — and the silent fix
+    is the worse of the two, because the teacher publishes an answer key contradicting what they
+    just told the room and never finds out."""
+    quiz = build_response_schema(max_questions=3, min_options=2, max_options=4)
+    answers = build_answers_response_schema(min_options=2, max_options=4)
+
+    for schema in (quiz, answers):
+        corrections = schema["properties"]["corrections"]
+        assert corrections["type"] == "array"
+        assert set(corrections["items"]["required"]) == {"taught", "corrected"}
+
+
+def test_a_correction_is_never_required():
+    """Agreeing with the teacher is the normal case. A required field would push the model to
+    manufacture a disagreement to fill it."""
+    schema = build_response_schema(max_questions=3, min_options=2, max_options=4)
+
+    assert "corrections" not in schema["required"]
+
+
+def test_corrections_survive_translation_to_geminis_dialect():
+    schema = _to_gemini_schema(
+        build_response_schema(max_questions=3, min_options=2, max_options=4)
+    )
+
+    corrections = schema["properties"]["corrections"]
+    assert corrections["type"] == "ARRAY"
+    assert corrections["items"]["type"] == "OBJECT"
