@@ -180,13 +180,23 @@ services:
       - Egress__CustomBaseUrl=http://host.docker.internal:5173/recorder
       # Modest composite encode so the egress pipeline doesn't starve/freeze at finalization on
       # this virtualized host (Docker Desktop). Raise on a beefier machine for a sharper capture.
-      # Lowered from 1280x720@15 on 2026-08-01. The bottleneck is the Chrome-capture ->
-      # encode path, which scales with PIXELS x FRAMERATE, not bitrate — so unlike the note
-      # above, resolution IS the right lever here. At 720p15 this host dropped 809 video
-      # buffers in 83s (video frozen 54% of the time, an effective 4-10fps). This is 47% of
-      # that pixel throughput. Slides stay legible at 960x540.
-      - Egress__Width=960
-      - Egress__Height=540
+      #
+      # HISTORY on this host, all measured via egress's own videoBuffersDropped:
+      #   1280x720@15  -> 809 buffers dropped in 83s, video frozen 54% of the time
+      #    960x540@10  ->   0 dropped. Safe, but every frame is scaled to 50% of the 1080p
+      #                     source, so 12px source text lands at 6px and is unreadable.
+      #   1280x720@10  -> UNDER TEST. 1.8x the pixel throughput of 960x540@10, but the recorder
+      #                     page now sets adaptiveStream, so it subscribes to a layer near the
+      #                     viewport instead of decoding 1080p and scaling it every frame. That
+      #                     should pay for most of the increase.
+      #
+      # Framerate deliberately stays at 10: Media__ScreenShareFramerate is 5, so the SOURCE only
+      # sends 5 frames a second. Recording faster than that just duplicates frames and buys
+      # nothing but load. Raise the source first if motion is the complaint.
+      #
+      # If this drops buffers, go back to 960x540 — that configuration is known good.
+      - Egress__Width=1280
+      - Egress__Height=720
       - Egress__Framerate=10
       # Bitrates are KILObits per second, NOT bits — LiveKit's own defaults are 4500 / 128, which
       # only read sensibly as kbps. These previously sat unset, so capture ran against that 4500
@@ -194,7 +204,14 @@ services:
       # here roughly halves that AND lowers encoder load, which is the same pressure that freezes
       # the muxer at finalization. Tune these before dropping Width/Height — resolution is what
       # costs slide legibility.
-      - Egress__VideoBitrate=1200
+      #
+      # RAISED WITH THE RESOLUTION, and it has to be. 1280x720 is 2.25x the pixels of 960x540, so
+      # holding the bitrate at 1200 would spread the same bits over more than twice the area and
+      # the picture would come out WORSE despite the higher resolution — the opposite of the point.
+      # 2500 keeps roughly the same bits per pixel, and is still well under LiveKit's 4500 default.
+      # Costs disk, not CPU: the cap is ~1.1 GB/hour, though static slides undershoot it badly
+      # (the last 60s recording used 4 MB against a 540 MB/hour cap).
+      - Egress__VideoBitrate=2500
       - Egress__AudioBitrate=96
       # Longer keyframe interval = smaller file, coarser seeking. Left to the encoder default.
       # - Egress__KeyFrameInterval=4
