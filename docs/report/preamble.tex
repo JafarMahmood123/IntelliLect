@@ -1,0 +1,78 @@
+% ===========================================================================
+% preamble.tex — shared setup for the IntelliLect final report (Arabic).
+%
+% COMPILE WITH XeLaTeX. pdfLaTeX cannot shape Arabic. Use:
+%     latexmk -xelatex main.tex
+%
+% ORDERING RULE — READ BEFORE ADDING A PACKAGE
+% -------------------------------------------
+% polyglossia loads bidi, and bidi refuses most packages loaded after it:
+%     ! Package bidi Error: Oops! you have loaded package X after bidi package.
+% So EVERY new \usepackage goes in the block ABOVE polyglossia, not below.
+% The only things below it are language and font configuration.
+% ===========================================================================
+
+% --- Packages (must precede polyglossia) -----------------------------------
+\usepackage{listings}          % code blocks
+\usepackage{xcolor}
+\usepackage{booktabs}          % \toprule / \midrule / \bottomrule
+\usepackage{graphicx}          % figures, screenshots
+\usepackage{longtable}         % tables that span pages
+\usepackage{caption}
+\usepackage{setspace}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+
+% --- Language and direction ------------------------------------------------
+% numerals=maghrib gives Western digits (0-9) rather than Arabic-Indic
+% (٠-٩), keeping numbers consistent with the English terms and code that
+% appear throughout a software report.
+\usepackage{polyglossia}
+\setmainlanguage[numerals=maghrib]{arabic}
+\setotherlanguage{english}
+
+% --- Fonts -----------------------------------------------------------------
+% Amiri is the Arabic face; DejaVu covers embedded English and code. Scale
+% 1.2 on Amiri matches its x-height to the Latin face beside it.
+\newfontfamily\arabicfont[Script=Arabic,Scale=1.2]{Amiri}
+\newfontfamily\englishfont{DejaVu Sans}
+\setmonofont[Scale=0.85]{DejaVu Sans Mono}
+
+% --- Code listings ---------------------------------------------------------
+\definecolor{codebg}{gray}{0.96}
+\definecolor{codecomment}{rgb}{0.35,0.45,0.35}
+\definecolor{codekeyword}{rgb}{0.15,0.25,0.60}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  commentstyle=\color{codecomment}\itshape,
+  keywordstyle=\color{codekeyword}\bfseries,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray},
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  xleftmargin=2em,
+}
+
+% --- Convenience macros ----------------------------------------------------
+% \en{...} embeds an English/technical term inside Arabic prose. Use it for
+% EVERY Latin-script term — without it the bidi algorithm can reorder the
+% surrounding punctuation.
+\newcommand{\en}[1]{\textenglish{#1}}
+
+% \code{...} for an inline identifier inside Arabic prose.
+\newcommand{\code}[1]{\textenglish{\texttt{#1}}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+}
+
+\onehalfspacing

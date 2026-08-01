@@ -1,0 +1,39 @@
+% ===========================================================================
+% IntelliLect — final report (Arabic).
+% Build:  latexmk -xelatex main.tex
+% Clean:  latexmk -C
+% ===========================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+\input{preamble}
+
+\title{إنتلي‌لكت: منصة تعليمية تفاعلية مباشرة}
+\author{جعفر}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+% --- Chapters are \input separately so each can be written and compiled
+% --- independently. Add them here as they are written.
+% \input{chapters/01-introduction}
+
+\chapter{تمهيد}
+
+هذا الهيكل المبدئي للتقرير. تم التحقق من أن سلسلة الأدوات تعمل: تُعرض
+اللغة العربية من اليمين إلى اليسار بحروف متصلة، وتظهر المصطلحات الإنجليزية
+مثل \en{LiveKit} و\en{PostgreSQL} في مواضعها الصحيحة، وتستخدم الأرقام
+الغربية مثل 1283 و5001 بشكل موحد.
+
+يمكن الإشارة إلى المعرّفات البرمجية داخل النص هكذا: \code{QuizOptionStudentDto}.
+
+\begin{english}
+\begin{lstlisting}[language=Java]
+public record QuizOptionStudentDto(Guid Id, int Order, string Text);
+\end{lstlisting}
+\end{english}
+
+\end{document}

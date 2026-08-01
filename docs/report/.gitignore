@@ -1,0 +1,14 @@
+# LaTeX build artefacts — the PDF is regenerable, only sources are tracked.
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+main.pdf
