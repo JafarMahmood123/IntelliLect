@@ -278,7 +278,10 @@ public sealed class QuizService : IQuizService
         await _unitOfWork.SaveChangesAsync(ct);
 
         await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
-        return ToTeacherDto(quiz, await _quizRepository.GetAnswersAsync(quiz.Id, ct));
+        return ToTeacherDto(
+            quiz,
+            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
+            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
     }
 
     public async Task<QuizTeacherDto> CancelAsync(
@@ -303,7 +306,10 @@ public sealed class QuizService : IQuizService
             quiz.Id, teacherId);
 
         await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
-        return ToTeacherDto(quiz, await _quizRepository.GetAnswersAsync(quiz.Id, ct));
+        return ToTeacherDto(
+            quiz,
+            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
+            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
     }
 
     // --- reads ------------------------------------------------------------------
@@ -312,7 +318,10 @@ public sealed class QuizService : IQuizService
         Guid classroomId, Guid quizId, Guid teacherId, CancellationToken ct = default)
     {
         var quiz = await ResolveForTeacherAsync(classroomId, quizId, teacherId, ct);
-        return ToTeacherDto(quiz, await _quizRepository.GetAnswersAsync(quiz.Id, ct));
+        return ToTeacherDto(
+            quiz,
+            await _quizRepository.GetAnswersAsync(quiz.Id, ct),
+            await _quizRepository.CountSubmissionsAsync(quiz.Id, ct));
     }
 
     public async Task<QuizStudentDto> GetForStudentAsync(
@@ -333,7 +342,8 @@ public sealed class QuizService : IQuizService
         }
 
         var mine = await _quizRepository.GetAnswersForStudentAsync(quiz.Id, userId, ct);
-        return ToStudentDto(quiz, mine);
+        var submission = await _quizRepository.GetSubmissionAsync(quiz.Id, userId, ct);
+        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc);
     }
 
     public async Task<QuizStudentDto?> GetOpenForSessionAsync(
@@ -349,7 +359,8 @@ public sealed class QuizService : IQuizService
         if (IsPastDeadline(quiz)) return null;
 
         var mine = await _quizRepository.GetAnswersForStudentAsync(quiz.Id, userId, ct);
-        return ToStudentDto(quiz, mine);
+        var submission = await _quizRepository.GetSubmissionAsync(quiz.Id, userId, ct);
+        return ToStudentDto(quiz, mine, submission?.SubmittedAtUtc);
     }
 
     // --- student: answer --------------------------------------------------------
@@ -376,6 +387,14 @@ public sealed class QuizService : IQuizService
         if (IsPastDeadline(quiz))
         {
             throw new ConflictException("Time is up for this quiz.");
+        }
+
+        // Submitting is what freezes a student's answers. Until then they stay changeable, which is
+        // the whole point of being able to think again before declaring yourself finished.
+        var submission = await _quizRepository.GetSubmissionAsync(quiz.Id, studentId, ct);
+        if (submission is not null)
+        {
+            throw new ConflictException("You have already submitted this quiz.");
         }
 
         var question = quiz.Questions.FirstOrDefault(q => q.Id == request.QuestionId)
@@ -420,6 +439,80 @@ public sealed class QuizService : IQuizService
 
         // Acknowledgement only — see SubmitAnswerResultDto for why correctness is withheld.
         return new SubmitAnswerResultDto(question.Id, option.Id, now);
+    }
+
+    /// <summary>
+    /// The student declares they have finished, without sitting out the rest of the timer. Their
+    /// answers are frozen from this point; everything already answered still counts.
+    ///
+    /// IDEMPOTENT. A double-click, or a retry after a dropped response, must not tell a student
+    /// something went wrong when their submission is safely recorded — so a repeat returns the
+    /// submission that already exists rather than a conflict.
+    /// </summary>
+    public async Task<QuizSubmissionDto> SubmitQuizAsync(
+        Guid classroomId, Guid quizId, Guid studentId, string studentName,
+        CancellationToken ct = default)
+    {
+        await EnsureMemberAsync(classroomId, studentId, ct);
+
+        var quiz = await _quizRepository.GetWithQuestionsAsync(quizId, ct);
+        if (quiz is null || quiz.ClassroomId != classroomId)
+        {
+            throw new KeyNotFoundException("Quiz not found.");
+        }
+
+        var existing = await _quizRepository.GetSubmissionAsync(quiz.Id, studentId, ct);
+        if (existing is not null)
+        {
+            return await BuildSubmissionDtoAsync(quiz, existing.SubmittedAtUtc, studentId, ct);
+        }
+
+        if (quiz.Status != QuizStatus.Open)
+        {
+            throw new ConflictException("This quiz is not accepting submissions.");
+        }
+
+        // Past the deadline there is nothing left to freeze — the answers are already final — so
+        // this is refused rather than recording a submission that changes nothing.
+        if (IsPastDeadline(quiz))
+        {
+            throw new ConflictException("Time is up for this quiz.");
+        }
+
+        var now = _clock.UtcNow;
+        await _quizRepository.AddSubmissionAsync(new QuizSubmission
+        {
+            Id = Guid.NewGuid(),
+            QuizId = quiz.Id,
+            StudentId = studentId,
+            StudentName = studentName,
+            SubmittedAtUtc = now,
+        }, ct);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        // Tells the room a submission landed, so the teacher's "n submitted" count moves without
+        // them refreshing. Best-effort, like every other quiz broadcast.
+        await _notifier.QuizChangedAsync(quiz.SessionId, quiz.Id, quiz.Status.ToString(), ct);
+
+        _logger.LogInformation("Student {StudentId} submitted quiz {QuizId}.", studentId, quiz.Id);
+
+        return await BuildSubmissionDtoAsync(quiz, now, studentId, ct);
+    }
+
+    private async Task<QuizSubmissionDto> BuildSubmissionDtoAsync(
+        Quiz quiz, DateTime submittedAtUtc, Guid studentId, CancellationToken ct)
+    {
+        var mine = await _quizRepository.GetAnswersForStudentAsync(quiz.Id, studentId, ct);
+
+        // Marks are NOT revealed here. Freezing this student's answers does not close the quiz for
+        // everyone else, and telling an early finisher which options were right hands them the
+        // answer key while their classmates are still choosing.
+        return new QuizSubmissionDto(
+            quiz.Id,
+            submittedAtUtc,
+            mine.Count,
+            quiz.Questions.Count);
     }
 
     // --- results ----------------------------------------------------------------
@@ -680,7 +773,8 @@ public sealed class QuizService : IQuizService
         }
     }
 
-    private QuizTeacherDto ToTeacherDto(Quiz quiz, IReadOnlyCollection<QuizAnswer> answers)
+    private QuizTeacherDto ToTeacherDto(
+        Quiz quiz, IReadOnlyCollection<QuizAnswer> answers, int submittedCount = 0)
     {
         var perOption = answers
             .GroupBy(a => a.SelectedOptionId)
@@ -696,6 +790,7 @@ public sealed class QuizService : IQuizService
             quiz.ClosesAtUtc,
             _clock.UtcNow,
             answers.Select(a => a.StudentId).Distinct().Count(),
+            submittedCount,
             quiz.Questions
                 .OrderBy(q => q.Order)
                 .Select(q => new QuizQuestionTeacherDto(
@@ -713,7 +808,8 @@ public sealed class QuizService : IQuizService
     /// answer key cannot reach a browser by omission — only by someone deliberately changing the
     /// contract.
     /// </summary>
-    private QuizStudentDto ToStudentDto(Quiz quiz, IReadOnlyCollection<QuizAnswer> myAnswers)
+    private QuizStudentDto ToStudentDto(
+        Quiz quiz, IReadOnlyCollection<QuizAnswer> myAnswers, DateTime? submittedAtUtc = null)
     {
         var mine = myAnswers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionId);
 
@@ -725,6 +821,7 @@ public sealed class QuizService : IQuizService
             quiz.Questions.Sum(q => q.Points),
             quiz.ClosesAtUtc,
             _clock.UtcNow,
+            submittedAtUtc,
             quiz.Questions
                 .OrderBy(q => q.Order)
                 .Select(q => new QuizQuestionStudentDto(

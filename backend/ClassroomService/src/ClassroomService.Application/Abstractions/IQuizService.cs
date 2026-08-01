@@ -39,6 +39,15 @@ public interface IQuizService
         Guid classroomId, Guid sessionId, Guid teacherId, string questionText,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// The student declares they have finished, rather than sitting out the rest of the timer.
+    /// Freezes THEIR answers only; everyone else keeps answering. Idempotent, so a double-click
+    /// does not report a failure for something that already worked.
+    /// </summary>
+    Task<QuizSubmissionDto> SubmitQuizAsync(
+        Guid classroomId, Guid quizId, Guid studentId, string studentName,
+        CancellationToken ct = default);
+
     /// <summary>Replaces a DRAFT's content. Rejected once published — publishing freezes the quiz.</summary>
     Task<QuizTeacherDto> UpdateDraftAsync(
         Guid classroomId, Guid quizId, Guid teacherId, QuizDraftRequest request, CancellationToken ct = default);

@@ -18,6 +18,7 @@ public sealed class QuizServiceTests
     private static readonly Guid SessionId = Guid.NewGuid();
     private static readonly Guid TeacherId = Guid.NewGuid();
     private static readonly Guid StudentId = Guid.NewGuid();
+    private static readonly Guid SecondStudentId = Guid.NewGuid();
 
     private sealed record Harness(
         QuizService Service,
@@ -94,6 +95,7 @@ public sealed class QuizServiceTests
 
         var members = new FakeMembershipRepository();
         members.Enroll(ClassroomId, StudentId);
+        members.Enroll(ClassroomId, SecondStudentId);
 
         var sessions = new FakeSessionRepository(new Session { Id = SessionId, ClassroomId = ClassroomId });
         var quizzes = new FakeQuizRepository();
@@ -119,6 +121,17 @@ public sealed class QuizServiceTests
                 Enumerable.Range(0, optionsPerQuestion)
                     .Select(o => new OptionDraftRequest($"Option {o}", o < correctCount))
                     .ToList())).ToList());
+
+    /// <summary>Answers the quiz's first question for a student, as that student's client would.</summary>
+    private static async Task<SubmitAnswerResultDto> AnswerFirstAsync(
+        Harness h, QuizTeacherDto quiz, Guid studentId)
+    {
+        var view = await h.Service.GetForStudentAsync(ClassroomId, quiz.Id, studentId, default);
+        var question = view.Questions[0];
+        return await h.Service.SubmitAnswerAsync(
+            ClassroomId, quiz.Id, studentId, "Ammar",
+            new SubmitAnswerRequest(question.Id, question.Options[0].Id), default);
+    }
 
     private static async Task<QuizTeacherDto> PublishedAsync(Harness h)
     {
@@ -513,6 +526,157 @@ public sealed class QuizServiceTests
 
         var reloaded = await h.Service.GetForStudentAsync(ClassroomId, published.Id, StudentId, default);
         Assert.Equal(chosen.Id, reloaded.Questions[0].SelectedOptionId);
+    }
+
+    // --- submitting early ----------------------------------------------------------
+
+    [Fact]
+    public async Task A_student_can_finish_without_waiting_for_the_timer()
+    {
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        await AnswerFirstAsync(h, quiz, StudentId);
+
+        var submission = await h.Service.SubmitQuizAsync(
+            ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        Assert.Equal(quiz.Id, submission.QuizId);
+        Assert.Equal(1, submission.AnsweredCount);
+        Assert.Equal(h.Clock.UtcNow, submission.SubmittedAtUtc);
+    }
+
+    [Fact]
+    public async Task Submitting_freezes_that_students_answers()
+    {
+        // The point of submitting: answers stay changeable right up until you say you are done.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        await AnswerFirstAsync(h, quiz, StudentId);
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => AnswerFirstAsync(h, quiz, StudentId));
+    }
+
+    [Fact]
+    public async Task One_students_submission_does_not_stop_anyone_else_answering()
+    {
+        // It closes the quiz for THEM, not for the class.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        var answer = await AnswerFirstAsync(h, quiz, SecondStudentId);
+        Assert.NotEqual(Guid.Empty, answer.SelectedOptionId);
+    }
+
+    [Fact]
+    public async Task Submitting_twice_is_not_an_error()
+    {
+        // A double-click, or a retry after a dropped response, must not report a failure for
+        // something that already worked.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        var first = await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+        var second = await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        Assert.Equal(first.SubmittedAtUtc, second.SubmittedAtUtc);
+        Assert.Single(h.Quizzes.Submissions);
+    }
+
+    [Fact]
+    public async Task Submitting_reveals_no_marks()
+    {
+        // Freezing one student's answers does not close the quiz for everyone else, so telling an
+        // early finisher which options were right would hand them the answer key mid-quiz.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        await AnswerFirstAsync(h, quiz, StudentId);
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        var mine = await h.Service.GetMyResultAsync(ClassroomId, quiz.Id, StudentId, default);
+
+        Assert.Equal(0, mine.Score);
+        Assert.All(mine.Answers, a => Assert.Null(a.IsCorrect));
+    }
+
+    [Fact]
+    public async Task Submitting_without_answering_everything_is_allowed()
+    {
+        // A student may decide they are done having skipped questions; what they answered counts.
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(questions: 3), default);
+        var quiz = await h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default);
+
+        var submission = await h.Service.SubmitQuizAsync(
+            ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        Assert.Equal(0, submission.AnsweredCount);
+        Assert.Equal(3, submission.QuestionCount);
+    }
+
+    [Fact]
+    public async Task Submitting_after_the_deadline_is_refused()
+    {
+        // Nothing left to freeze — the answers are already final.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        h.Clock.UtcNow = quiz.ClosesAtUtc!.Value.AddSeconds(30);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default));
+    }
+
+    [Fact]
+    public async Task Submitting_to_a_draft_is_refused()
+    {
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(), default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, draft.Id, StudentId, "Ammar", default));
+    }
+
+    [Fact]
+    public async Task A_non_member_cannot_submit()
+    {
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, Guid.NewGuid(), "Nobody", default));
+    }
+
+    [Fact]
+    public async Task The_teacher_sees_how_many_students_have_finished()
+    {
+        // This is what makes finishing early useful to the room: the teacher can close the quiz
+        // rather than waiting out a timer nobody is still using.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, quiz.Id, TeacherId, default);
+
+        Assert.Equal(1, teacherView.SubmittedCount);
+    }
+
+    [Fact]
+    public async Task The_student_view_reports_whether_they_have_finished()
+    {
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        var before = await h.Service.GetForStudentAsync(ClassroomId, quiz.Id, StudentId, default);
+        Assert.Null(before.SubmittedAtUtc);
+
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, StudentId, "Ammar", default);
+
+        var after = await h.Service.GetForStudentAsync(ClassroomId, quiz.Id, StudentId, default);
+        Assert.Equal(h.Clock.UtcNow, after.SubmittedAtUtc);
     }
 
     // --- the deadline is the authority -------------------------------------------

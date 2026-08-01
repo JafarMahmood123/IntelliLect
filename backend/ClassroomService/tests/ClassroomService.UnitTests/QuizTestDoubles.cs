@@ -13,6 +13,7 @@ public sealed class FakeQuizRepository : IQuizRepository
 {
     private readonly Dictionary<Guid, Quiz> _quizzes = new();
     public List<QuizAnswer> Answers { get; } = new();
+    public List<QuizSubmission> Submissions { get; } = new();
 
     public void Seed(Quiz quiz) => _quizzes[quiz.Id] = quiz;
     public Quiz? Find(Guid quizId) => _quizzes.GetValueOrDefault(quizId);
@@ -60,6 +61,20 @@ public sealed class FakeQuizRepository : IQuizRepository
     public Task AddAnswerAsync(QuizAnswer answer, CancellationToken ct = default)
     {
         Answers.Add(answer);
+        return Task.CompletedTask;
+    }
+
+    public Task<QuizSubmission?> GetSubmissionAsync(
+        Guid quizId, Guid studentId, CancellationToken ct = default)
+        => Task.FromResult(Submissions
+            .FirstOrDefault(s => s.QuizId == quizId && s.StudentId == studentId));
+
+    public Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default)
+        => Task.FromResult(Submissions.Count(s => s.QuizId == quizId));
+
+    public Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default)
+    {
+        Submissions.Add(submission);
         return Task.CompletedTask;
     }
 }

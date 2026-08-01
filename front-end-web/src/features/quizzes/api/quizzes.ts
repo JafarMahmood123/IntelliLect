@@ -7,6 +7,7 @@ import type {
   QuizLimits,
   QuizResults,
   QuizStudent,
+  QuizSubmissionResult,
   QuizTeacher,
   SessionQuizSummary,
   SubmitAnswerResult,
@@ -150,6 +151,20 @@ export const submitQuizAnswer = async (
   const { data } = await apiClient.post<SubmitAnswerResult>(
     `${base(classroomId)}/quizzes/${quizId}/answers`,
     { questionId, optionId },
+  );
+  return data;
+};
+
+/**
+ * The student declares they have finished, rather than waiting for the timer. Freezes their
+ * answers only; the rest of the class carries on. Idempotent server-side.
+ */
+export const submitQuiz = async (
+  classroomId: string,
+  quizId: string,
+): Promise<QuizSubmissionResult> => {
+  const { data } = await apiClient.post<QuizSubmissionResult>(
+    `${base(classroomId)}/quizzes/${quizId}/submit`,
   );
   return data;
 };

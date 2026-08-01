@@ -102,7 +102,8 @@ export const TeacherQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
           <div className="min-w-0">
             <h3 className="truncate text-sm font-bold text-slate-200">{liveQuiz.title || 'Quiz'}</h3>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              {liveQuiz.respondentCount} student(s) answering · {liveQuiz.totalPoints} marks
+              {liveQuiz.respondentCount} answering · {liveQuiz.submittedCount} finished ·{' '}
+              {liveQuiz.totalPoints} marks
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-bold text-slate-300">

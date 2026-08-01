@@ -53,6 +53,9 @@ public record QuizTeacherDto(
     DateTime? ClosesAtUtc,
     DateTime ServerNowUtc,
     int RespondentCount,
+    /// <summary>How many students have declared themselves finished. The teacher can close once
+    /// everyone has, instead of waiting out a timer nobody is still using.</summary>
+    int SubmittedCount,
     List<QuizQuestionTeacherDto> Questions);
 
 public record QuizQuestionTeacherDto(
@@ -84,7 +87,21 @@ public record QuizStudentDto(
     int TotalPoints,
     DateTime? ClosesAtUtc,
     DateTime ServerNowUtc,
+    /// <summary>When this student declared themselves finished, or null if they have not. Once
+    /// set, their answers are frozen and the client stops offering to change them.</summary>
+    DateTime? SubmittedAtUtc,
     List<QuizQuestionStudentDto> Questions);
+
+/// <summary>
+/// Acknowledgement that a student has finished. Carries no marks: freezing one student's answers
+/// does not close the quiz for the rest of the class, and telling an early finisher which options
+/// were right would hand them the answer key while their classmates are still choosing.
+/// </summary>
+public record QuizSubmissionDto(
+    Guid QuizId,
+    DateTime SubmittedAtUtc,
+    int AnsweredCount,
+    int QuestionCount);
 
 public record QuizQuestionStudentDto(
     Guid Id,

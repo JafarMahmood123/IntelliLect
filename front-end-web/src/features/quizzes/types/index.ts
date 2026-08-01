@@ -68,6 +68,8 @@ export interface QuizTeacher {
   closesAtUtc: string | null;
   serverNowUtc: string;
   respondentCount: number;
+  /** How many students have finished, so the teacher can close early. */
+  submittedCount: number;
   questions: QuizQuestionTeacher[];
 }
 
@@ -99,7 +101,16 @@ export interface QuizStudent {
   closesAtUtc: string | null;
   /** Pair with `closesAtUtc` to count down against the SERVER's clock, never the device's. */
   serverNowUtc: string;
+  /** Set once this student has declared themselves finished; their answers are then frozen. */
+  submittedAtUtc: string | null;
   questions: QuizQuestionStudent[];
+}
+
+export interface QuizSubmissionResult {
+  quizId: string;
+  submittedAtUtc: string;
+  answeredCount: number;
+  questionCount: number;
 }
 
 export interface SubmitAnswerResult {

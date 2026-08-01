@@ -32,4 +32,13 @@ public interface IQuizRepository
     Task<QuizAnswer?> GetAnswerAsync(Guid questionId, Guid studentId, CancellationToken ct = default);
 
     Task AddAnswerAsync(QuizAnswer answer, CancellationToken ct = default);
+
+    /// <summary>A student's submission for a quiz, or null if they have not finished it.</summary>
+    Task<QuizSubmission?> GetSubmissionAsync(Guid quizId, Guid studentId, CancellationToken ct = default);
+
+    /// <summary>How many students have declared themselves finished. Shown to the teacher, who
+    /// can then close the quiz rather than waiting out a timer nobody is still using.</summary>
+    Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default);
+
+    Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default);
 }

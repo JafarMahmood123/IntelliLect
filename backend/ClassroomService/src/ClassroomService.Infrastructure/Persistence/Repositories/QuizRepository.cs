@@ -62,6 +62,17 @@ public sealed class QuizRepository : IQuizRepository
     public async Task AddAnswerAsync(QuizAnswer answer, CancellationToken ct = default)
         => await _context.QuizAnswers.AddAsync(answer, ct);
 
+    public async Task<QuizSubmission?> GetSubmissionAsync(
+        Guid quizId, Guid studentId, CancellationToken ct = default)
+        => await _context.QuizSubmissions
+            .FirstOrDefaultAsync(s => s.QuizId == quizId && s.StudentId == studentId, ct);
+
+    public async Task<int> CountSubmissionsAsync(Guid quizId, CancellationToken ct = default)
+        => await _context.QuizSubmissions.CountAsync(s => s.QuizId == quizId, ct);
+
+    public async Task AddSubmissionAsync(QuizSubmission submission, CancellationToken ct = default)
+        => await _context.QuizSubmissions.AddAsync(submission, ct);
+
     // Ordering is done in the INCLUDE, not in memory afterwards.
     //
     // The previous version sorted by reassigning the navigations

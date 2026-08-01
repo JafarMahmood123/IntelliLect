@@ -15,6 +15,7 @@ import {
   getQuizResults,
   getSessionQuizSummary,
   publishQuiz,
+  submitQuiz,
   submitQuizAnswer,
   updateQuizDraft,
 } from '../api/quizzes';
@@ -106,10 +107,6 @@ export const useGenerateQuizDraft = (classroomId: string, sessionId: string) =>
       generateQuizDraft(classroomId, sessionId, questionCount),
   });
 
-/**
- * The quiz id travels with the CALL, not the hook, because the draft being edited is only known
- * once one exists — created by the teacher's first save, or by generation.
- */
 /** One question appended to the composer. Nothing is persisted server-side. */
 export const useGenerateQuizQuestion = (classroomId: string, sessionId: string) =>
   useMutation({
@@ -123,6 +120,10 @@ export const useGenerateQuizAnswers = (classroomId: string, sessionId: string) =
       generateQuizAnswers(classroomId, sessionId, questionText),
   });
 
+/**
+ * The quiz id travels with the CALL, not the hook, because the draft being edited is only known
+ * once one exists — created by the teacher's first save, or by generation.
+ */
 export const useUpdateQuizDraft = (classroomId: string) =>
   useMutation({
     mutationFn: ({ quizId, draft }: { quizId: string; draft: QuizDraftRequest }) =>
@@ -156,6 +157,22 @@ export const useCloseQuiz = (classroomId: string, sessionId: string) =>
 
 export const useCancelQuiz = (classroomId: string, sessionId: string) =>
   useQuizLifecycleMutation(classroomId, sessionId, cancelQuiz);
+
+/**
+ * Finishing early. Invalidates the open-quiz read so the panel flips to its submitted state from
+ * the server's answer rather than a local guess.
+ */
+export const useSubmitQuiz = (classroomId: string, quizId: string, sessionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => submitQuiz(classroomId, quizId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quizKeys.openForSession(sessionId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.studentView(quizId) });
+      queryClient.invalidateQueries({ queryKey: quizKeys.mySessionSummary(sessionId) });
+    },
+  });
+};
 
 export const useSubmitQuizAnswer = (classroomId: string, quizId: string) =>
   useMutation({

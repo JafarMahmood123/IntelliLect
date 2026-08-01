@@ -19,6 +19,7 @@ public sealed class ApplicationDbContext : DbContext
     public DbSet<QuizQuestion> QuizQuestions => Set<QuizQuestion>();
     public DbSet<QuizAnswerOption> QuizAnswerOptions => Set<QuizAnswerOption>();
     public DbSet<QuizAnswer> QuizAnswers => Set<QuizAnswer>();
+    public DbSet<QuizSubmission> QuizSubmissions => Set<QuizSubmission>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -147,6 +148,20 @@ public sealed class ApplicationDbContext : DbContext
             answer.HasOne(a => a.Question)
                 .WithMany()
                 .HasForeignKey(a => a.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // A student declaring they have finished, so they need not sit out the timer.
+        modelBuilder.Entity<QuizSubmission>(submission =>
+        {
+            submission.HasKey(s => s.Id);
+            submission.Property(s => s.Id).ValueGeneratedNever();
+            // One per student per quiz, arbitrated by the database for the same reason as the
+            // answer index: two concurrent clicks both pass an application-level check.
+            submission.HasIndex(s => new { s.QuizId, s.StudentId }).IsUnique();
+            submission.HasOne(s => s.Quiz)
+                .WithMany()
+                .HasForeignKey(s => s.QuizId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

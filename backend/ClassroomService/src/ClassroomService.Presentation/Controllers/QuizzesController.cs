@@ -124,6 +124,14 @@ public sealed class QuizzesController : ApiBaseController
         => Ok(await _quizService.SubmitAnswerAsync(classroomId, quizId, UserId, UserName, request, ct));
 
     /// <summary>
+    /// The student declares they have finished, instead of waiting for the timer. Freezes their
+    /// answers; the rest of the class carries on.
+    /// </summary>
+    [HttpPost("quizzes/{quizId:guid}/submit")]
+    public async Task<IActionResult> SubmitQuiz(Guid classroomId, Guid quizId, CancellationToken ct)
+        => Ok(await _quizService.SubmitQuizAsync(classroomId, quizId, UserId, UserName, ct));
+
+    /// <summary>
     /// Teacher: the whole session's marks — who the students are, what they scored, and how the
     /// class handled each question. Available live and after the session has ended.
     /// </summary>

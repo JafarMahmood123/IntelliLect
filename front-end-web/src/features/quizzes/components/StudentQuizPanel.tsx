@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Clock, CheckCircle2 } from 'lucide-react';
+import { Clock, CheckCircle2, Send } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../../../components/ui/ToastProvider';
-import { quizKeys, useOpenQuiz, useSubmitQuizAnswer } from '../hooks/useQuizQueries';
+import {
+  quizKeys,
+  useOpenQuiz,
+  useSubmitQuiz,
+  useSubmitQuizAnswer,
+} from '../hooks/useQuizQueries';
 import { formatCountdown, useQuizCountdown } from '../hooks/useQuizCountdown';
 import { StudentQuizSummary } from './StudentQuizSummary';
 import type { QuizStudent } from '../types';
@@ -45,7 +50,7 @@ export const StudentQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   return (
     <>
       {quiz ? (
-        <StudentQuizForm classroomId={classroomId} quiz={quiz} />
+        <StudentQuizForm classroomId={classroomId} sessionId={sessionId} quiz={quiz} />
       ) : (
         <div className="p-4 pb-0">
           <p className="text-sm font-medium text-slate-300">No quiz running</p>
@@ -61,9 +66,18 @@ export const StudentQuizPanel = ({ classroomId, sessionId, liveEvent }: Props) =
   );
 };
 
-const StudentQuizForm = ({ classroomId, quiz }: { classroomId: string; quiz: QuizStudent }) => {
+const StudentQuizForm = ({
+  classroomId,
+  sessionId,
+  quiz,
+}: {
+  classroomId: string;
+  sessionId: string;
+  quiz: QuizStudent;
+}) => {
   const { showToast } = useToast();
   const { mutate } = useSubmitQuizAnswer(classroomId, quiz.id);
+  const submit = useSubmitQuiz(classroomId, quiz.id, sessionId);
   const remaining = useQuizCountdown(quiz.closesAtUtc, quiz.serverNowUtc);
 
   // Selections are held locally so the UI responds instantly; the server is the record of truth
@@ -78,6 +92,10 @@ const StudentQuizForm = ({ classroomId, quiz }: { classroomId: string; quiz: Qui
   }, [quiz]);
 
   const timeUp = remaining === 0;
+  // Server-owned: the panel reports what the server recorded, never a local guess, so a reload or
+  // a second device shows the same thing.
+  const submitted = Boolean(quiz.submittedAtUtc);
+  const locked = timeUp || submitted;
 
   const choose = (questionId: string, optionId: string) => {
     const previous = selected[questionId];
@@ -118,11 +136,15 @@ const StudentQuizForm = ({ classroomId, quiz }: { classroomId: string; quiz: Qui
         </div>
         <div
           className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-            timeUp ? 'bg-red-500/15 text-red-400' : 'bg-white/5 text-slate-300'
+            submitted
+              ? 'bg-emerald-500/15 text-emerald-400'
+              : timeUp
+                ? 'bg-red-500/15 text-red-400'
+                : 'bg-white/5 text-slate-300'
           }`}
         >
-          <Clock size={12} />
-          {timeUp ? 'Time up' : formatCountdown(remaining)}
+          {submitted ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+          {submitted ? 'Submitted' : timeUp ? 'Time up' : formatCountdown(remaining)}
         </div>
       </div>
 
@@ -140,7 +162,7 @@ const StudentQuizForm = ({ classroomId, quiz }: { classroomId: string; quiz: Qui
                 <button
                   key={option.id}
                   type="button"
-                  disabled={timeUp}
+                  disabled={locked}
                   onClick={() => choose(question.id, option.id)}
                   className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
                     isChosen
@@ -161,10 +183,45 @@ const StudentQuizForm = ({ classroomId, quiz }: { classroomId: string; quiz: Qui
         </div>
       ))}
 
-      <p className="text-[11px] text-slate-500">
-        You can change an answer until the time runs out. Your marks appear once the teacher closes
-        the quiz.
-      </p>
+      {submitted ? (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+            <CheckCircle2 size={13} />
+            You have finished this quiz
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Your answers are locked in. Your marks appear once your teacher closes the quiz.
+          </p>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled={timeUp || submit.isPending}
+            onClick={() =>
+              submit.mutate(undefined, {
+                onError: () =>
+                  showToast({
+                    type: 'error',
+                    title: 'Could not submit',
+                    message: 'It may be past the deadline. Please try again.',
+                  }),
+              })
+            }
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2.5 text-xs font-bold text-white transition-colors hover:bg-violet-500 disabled:opacity-50"
+          >
+            <Send size={14} />
+            {submit.isPending ? 'Submitting…' : 'Submit my answers'}
+          </button>
+          <p className="text-[11px] text-slate-500">
+            {answered < quiz.questions.length
+              ? `You have answered ${answered} of ${quiz.questions.length}. `
+              : ''}
+            Submitting finishes the quiz for you — you will not be able to change your answers
+            afterwards. Your marks appear once your teacher closes it.
+          </p>
+        </>
+      )}
     </div>
   );
 };
