@@ -1,0 +1,68 @@
+' Component diagram — ClassroomService.
+' Layout follows the pattern established in comp-01 (see the note there).
+'
+' This is the largest service in the platform — 18 application services — so
+' the application layer is grouped by the concern each cluster owns.
+'
+' The background sweepers are drawn as a separate box on purpose: nothing
+' calls them. They are timers, and they are what makes the platform
+' self-healing when a teacher's browser dies mid-lecture or a quiz deadline
+' passes with nobody watching.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+rectangle "طبقة الواجهات (API)\n\nClassroomsController · MembershipController\nSessionsController · QuizzesController\nClassroomFilesController · RecordingsController\nSummariesController · QaController\nInternal*Controller — نقاط داخلية للخدمات الأخرى" as L1
+
+rectangle "الفصول والعضوية\n\nClassroomManagementService\nMembershipService\nClassroomDeletionService" as G1
+rectangle "الجلسات\n\nSessionService\nSessionTerminationService\nSessionDeletionService" as G2
+rectangle "الاختبارات\n\nQuizService" as G3
+rectangle "الملفات والأسئلة\n\nClassroomFileService\nClassroomQaService" as G4
+rectangle "المخرجات\n\nClassroomRecordingService\nRecordingLifecycleService\nClassroomSummaryService" as G5
+
+rectangle "مهام دورية في الخلفية\n\nStalledSessionSweeper — إنهاء الجلسات المتوقّفة\nQuizDeadlineSweeper — إغلاق الاختبارات المنتهية" as SW
+
+rectangle "طبقة البنية التحتية (Infrastructure)\n\nEF Core Repositories + UnitOfWork" as L3
+rectangle "Transactional Outbox\n+ OutboxRelay" as Outbox
+rectangle "S3FileStorage\nروابط موقّعة" as S3C
+rectangle "Internal HTTP Clients\nStreaming, Knowledge, LiveAssistant" as Clients
+
+database "PostgreSQL\nقاعدة الفصول" as PG
+queue "RabbitMQ" as MQ
+storage "MinIO / S3" as S3
+rectangle "الخدمات الأخرى" as Others
+
+L1 --> G1
+L1 --> G2
+L1 --> G3
+L1 --> G4
+L1 --> G5
+
+SW --> G2
+SW --> G3
+
+G1 --> Outbox
+G2 --> Outbox
+G2 --> Clients
+G3 --> L3
+G4 --> S3C
+G4 --> Clients
+G5 --> L3
+G5 --> S3C
+
+L3      --> PG
+Outbox  --> PG
+Outbox  --> MQ
+S3C     --> S3
+Clients --> Others : HTTP داخلي + سرّ مشترك
+
+note bottom of Outbox
+  تُكتب الرسالة في الجدول ذاته وضمن المعاملة ذاتها
+  التي تغيّر حالة الجلسة، ثمّ يُرحّلها العامل إلى الناقل.
+  فإمّا أن تُحفَظ نهاية الجلسة ويُطلب الملخّص معًا،
+  أو لا يحدث أيٌّ منهما.
+end note
+@enduml

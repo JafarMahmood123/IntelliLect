@@ -1,0 +1,23 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم مصرح له" as AuthUser
+actor "مدير النظام" as Admin
+
+rectangle "النظام" {
+  usecase "إدارة المستخدمين وحساباتهم" as UC_ManageAccounts
+  usecase "مراجعة وقبول أو رفض طلبات التسجيل" as UC_ReviewRequests
+  usecase "إلغاء وتنشيط حسابات المستخدمين" as UC_ToggleAccounts
+  usecase "إدارة الفصول الدراسية" as UC_ManageClassrooms
+  usecase "إسناد المعلمين والطلاب للفصول" as UC_AssignMembers
+}
+
+Admin --|> AuthUser
+
+Admin --> UC_ManageAccounts
+Admin --> UC_ReviewRequests
+Admin --> UC_ToggleAccounts
+Admin --> UC_ManageClassrooms
+Admin --> UC_AssignMembers
+@enduml

@@ -1,0 +1,53 @@
+' Flowchart — super-admin login, stage 1 of 2 (UserManagementService).
+'
+' Split from a single diagram because the combined flow rendered at 0.28
+' aspect, taller than anything else in the report; the two stages are separate
+' HTTP requests anyway, so the split follows a real boundary rather than an
+' arbitrary one. Stage 2 is in flow-01b.
+'
+' Two details here are security decisions, not incidental:
+'   - every failure returns the same generic message, so the endpoint cannot
+'     be used to discover which e-mail addresses are registered;
+'   - the code is stored only as a hash, so a database leak does not hand an
+'     attacker a live second factor.
+@startuml
+!include _style.puml
+
+start
+:استقبال البريد وكلمة المرور;
+
+if (المستخدم موجود وكلمة المرور صحيحة؟) then (لا)
+  :إرجاع خطأ عامّ موحّد
+  «بيانات اعتماد غير صحيحة»;
+  stop
+else (نعم)
+endif
+
+if (حالة الحساب؟) then (غير مفعّل)
+  :إبلاغ المستخدم بحالة حسابه
+  (بانتظار الموافقة / مرفوض / معطّل);
+  stop
+else (مفعّل)
+endif
+
+if (الدور = مدير أعلى؟) then (لا)
+  :إصدار رمز وصول ورمز تحديث مباشرةً;
+  stop
+else (نعم)
+endif
+
+:توليد رمز من ستّة أرقام;
+:تخزين «بصمة» الرمز فقط دون الرمز نفسه
+مع صلاحية خمس دقائق وعدّاد محاولات;
+note right
+  إن وُجد تحدٍّ سابق غير مستعمَل
+  يُستبدل رمزه وتُصفَّر مهلته ومحاولاته،
+  فلا يبقى صالحًا سوى آخر رمز أُرسل.
+end note
+
+:نشر رسالة SendTwoFactorCode على الناقل;
+:خدمة البريد ترسل الرمز إلى بريد المدير;
+:إرجاع «مطلوب عامل ثانٍ» إلى الواجهة;
+
+stop
+@enduml

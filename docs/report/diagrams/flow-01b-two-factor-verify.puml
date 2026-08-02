@@ -1,0 +1,48 @@
+' Flowchart — super-admin login, stage 2 of 2 (UserManagementService).
+' Continues flow-01a.
+'
+' The decision worth drawing is the deletion at the bottom: the challenge is
+' removed BEFORE the token is minted, so a correct code can never be replayed.
+' Note also that a missing challenge and an expired one produce the identical
+' message, for the same anti-enumeration reason as stage 1.
+@startuml
+!include _style.puml
+
+start
+:المستخدم يُدخل الرمز المُرسَل إلى بريده;
+
+if (يوجد تحدٍّ فعّال وغير منتهٍ؟) then (لا)
+  :حذف السجلّ القديم إن وُجد;
+  :رسالة موحّدة: انتهت صلاحية الرمز،
+  أعِد تسجيل الدخول;
+  stop
+else (نعم)
+endif
+
+if (الرمز صحيح؟) then (لا)
+  :زيادة عدّاد المحاولات الفاشلة;
+  if (تجاوز الحدّ الأقصى للمحاولات؟) then (نعم)
+    :إبطال التحدّي بالكامل;
+    :رسالة: محاولات كثيرة،
+    أعِد تسجيل الدخول;
+    stop
+  else (لا)
+    :رسالة: رمز تحقّق غير صحيح;
+    stop
+  endif
+else (نعم)
+endif
+
+:حذف التحدّي قبل إصدار الجلسة;
+note right
+  استعمال لمرّة واحدة: لا يمكن
+  إعادة تشغيل رمز صحيح مرّة ثانية.
+end note
+
+:إصدار رمز وصول موسوم بـ amr:mfa
+ورمز تحديث ضمن المعاملة ذاتها;
+
+:يفتح الرمز الموسوم الصلاحيات المحميّة
+بسياسة SuperAdminTwoFactor;
+stop
+@enduml

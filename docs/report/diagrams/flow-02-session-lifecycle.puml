@@ -1,0 +1,81 @@
+' Flowchart — ending a live session (ClassroomService).
+'
+' This is the most intricate piece of logic in the service, and it is drawn
+' because three separate correctness problems meet in one method:
+'
+'   1. RACE. A session can be ended by the teacher, by a super admin, or by
+'      the background sweeper — possibly at the same instant. An atomic
+'      conditional UPDATE lets the database arbitrate; the loser does nothing.
+'
+'   2. ATOMICITY. The status change and the "a summary is owed" record must
+'      either both survive or both vanish, so the summary request is written
+'      to the outbox inside the same transaction, not published directly.
+'
+'   3. ORDERING. Tearing down the LiveKit room is done AFTER the commit on
+'      purpose: the summary is built from the transcript the assistant flushes
+'      during teardown, and the request is already durable, so a slow or
+'      failing teardown can no longer cost us the summary.
+@startuml
+!include _style.puml
+
+start
+:طلب إنهاء الجلسة;
+note right
+  المصدر قد يكون المعلّم، أو المدير الأعلى،
+  أو الكانس الدوري للجلسات المتوقّفة.
+end note
+
+if (الجلسة موجودة؟) then (لا)
+  :خطأ: الجلسة غير موجودة;
+  stop
+else (نعم)
+endif
+
+if (حالة الجلسة = حيّة؟) then (لا)
+  :لا عملية — إرجاع الحالة الراهنة
+  (منتهية أو لم تبدأ أو قيد الحذف);
+  stop
+else (نعم)
+endif
+
+partition "معاملة واحدة على قاعدة البيانات" {
+  :محاولة حجز ذرّي للجلسة
+  (تحديث مشروط بأنّها ما تزال حيّة);
+
+  if (نجح الحجز؟) then (لا)
+    :تراجع عن المعاملة;
+    :طرف آخر كسب السباق ويتولّى الإنهاء
+    — لا يُنفَّذ التفكيك مرّتين;
+    stop
+  else (نعم)
+  endif
+
+  if (حالة الملخّص = قيد الحذف؟) then (نعم)
+    :عدم طلب ملخّص جديد
+    تفاديًا لملفّات يتيمة في S3;
+  else (لا)
+    :تعيين حالة الملخّص إلى «قيد التوليد»;
+    :كتابة رسالة SessionSummaryRequested
+    في «صندوق الصادر» ضمن المعاملة نفسها;
+  endif
+
+  :إيداع المعاملة (Commit);
+}
+
+:إنهاء غرفة البث في StreamingService;
+note right
+  يجري هذا بعد الإيداع عمدًا: طلب الملخّص صار دائمًا،
+  فتعثّر تفكيك الغرفة لم يعد قادرًا على إضاعته.
+end note
+
+if (نجح تفكيك الغرفة؟) then (لا)
+  :تسجيل تحذير — قد يحتاج المشاركون
+  إلى مغادرة الغرفة يدويًّا;
+else (نعم)
+endif
+
+:عامل الترحيل ينقل رسالة صندوق الصادر
+إلى ناقل الرسائل;
+:خدمة المعرفة تستهلك الرسالة وتبدأ التلخيص;
+stop
+@enduml

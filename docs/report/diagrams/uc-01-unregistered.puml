@@ -1,0 +1,20 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم غير مسجل" as Guest
+
+rectangle "النظام" {
+  usecase "طلب التسجيل كطالب أو معلم" as UC_Register
+  usecase "تسجيل الدخول بالنظام" as UC_Login
+  usecase "طلب رمز إعادة تعيين كلمة المرور" as UC_RequestCode
+  usecase "إعادة تعيين كلمة المرور" as UC_ResetPassword
+}
+
+Guest --> UC_Register
+Guest --> UC_Login
+Guest --> UC_RequestCode
+Guest --> UC_ResetPassword
+
+UC_ResetPassword ..> UC_RequestCode : <<include>>
+@enduml

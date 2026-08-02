@@ -1,0 +1,86 @@
+' Class diagram — the quiz aggregate in ClassroomService.
+'
+' The security-relevant detail is at the bottom: two separate DTOs. The one
+' sent to students is structurally incapable of carrying the correct answer,
+' so the answer cannot leak by mistake — it is not a runtime check that can be
+' forgotten, it is the shape of the type.
+@startuml
+!include _style.puml
+skinparam linetype ortho
+
+class Quiz {
+  + Id : Guid
+  + SessionId : Guid
+  + ClassroomId : Guid
+  + CreatedByTeacherId : Guid
+  + Title : string
+  + Status : QuizStatus
+  + PublishedAtUtc : DateTime?
+  + ClosesAtUtc : DateTime?
+}
+
+class QuizQuestion {
+  + Id : Guid
+  + QuizId : Guid
+  + Order : int
+  + Text : string
+  + Points : int
+  + TimeLimitSeconds : int
+}
+
+class QuizAnswerOption {
+  + Id : Guid
+  + QuestionId : Guid
+  + Order : int
+  + Text : string
+  + IsCorrect : bool
+}
+
+class QuizAnswer {
+  + StudentId : Guid
+  + SelectedOptionId : Guid
+  + IsCorrect : bool
+  + PointsAwarded : int
+  + AnsweredAtUtc : DateTime
+}
+
+class QuizSubmission {
+  + StudentId : Guid
+  + SubmittedAtUtc : DateTime
+}
+
+class QuizExtension {
+  + StudentId : Guid
+  + ClosesAtUtc : DateTime
+  + GrantedAtUtc : DateTime
+}
+
+Quiz "1" *-- "many" QuizQuestion
+QuizQuestion "1" *-- "many" QuizAnswerOption
+QuizQuestion "1" o-- "many" QuizAnswer
+Quiz "1" o-- "many" QuizSubmission
+Quiz "1" o-- "many" QuizExtension
+
+package "كائنات نقل البيانات (DTOs)" {
+  class QuizOptionTeacherDto {
+    + Id : Guid
+    + Order : int
+    + Text : string
+    + IsCorrect : bool
+  }
+  class QuizOptionStudentDto {
+    + Id : Guid
+    + Order : int
+    + Text : string
+  }
+}
+
+QuizAnswerOption ..> QuizOptionTeacherDto
+QuizAnswerOption ..> QuizOptionStudentDto
+
+note bottom of QuizOptionStudentDto
+  لا تحوي هذه البنية حقل IsCorrect إطلاقًا،
+  فتسريب الإجابة الصحيحة إلى الطالب مستحيل بنيويًّا
+  لا مجرّد ممنوع بفحص قد يُنسى.
+end note
+@enduml

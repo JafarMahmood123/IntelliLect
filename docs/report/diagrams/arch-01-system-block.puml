@@ -1,0 +1,71 @@
+' System block diagram — the whole platform in one view.
+' Two transports are deliberately separated: request/response over internal
+' HTTP with a shared secret, and fire-and-forget domain events over RabbitMQ.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+actor "المستخدم\n(متصفح)" as User
+
+package "الواجهة الأمامية" {
+  [React 19 + Vite\nSPA] as SPA
+}
+
+node "بوابة nginx" as GW
+
+package "خدمات .NET" {
+  [UserManagementService\nالهوية والأدوار] as UMS
+  [ClassroomService\nالفصول والجلسات والاختبارات] as CS
+  [StreamingService\nغرف البث والتسجيل] as SS
+  [EmailService\nمستهلك أحداث فقط] as ES
+}
+
+package "خدمات الذكاء (Python / FastAPI)" {
+  [KnowledgeService\nالفهرسة والاسترجاع RAG] as KS
+  [LiveAssistantService\nتحويل الكلام والتحليل] as LAS
+}
+
+package "البنية التحتية" {
+  database "PostgreSQL ×5\nقاعدة لكل خدمة" as PG
+  queue "RabbitMQ\nMassTransit" as MQ
+  storage "MinIO / S3\nتسجيلات وملخصات وملفات" as S3
+  node "LiveKit\nSFU + Egress + Redis" as LK
+}
+
+cloud "خدمات خارجية" {
+  [Gemini\nتوليد وتضمين] as GEM
+  [Groq\nتحويل الكلام إلى نص] as GRQ
+}
+
+User --> SPA
+SPA --> GW : HTTPS
+SPA ..> LK : **WebRTC**\n(لا يمر عبر البوابة)
+
+GW --> UMS
+GW --> CS
+GW --> SS
+
+CS --> KS : HTTP داخلي + سر مشترك
+CS --> LAS : HTTP داخلي + سر مشترك
+SS --> LK : واجهة LiveKit
+
+UMS --> MQ
+CS --> MQ
+SS --> MQ
+MQ --> ES : أحداث المجال
+
+UMS --> PG
+CS --> PG
+SS --> PG
+KS --> PG
+LAS --> PG
+
+LK --> S3 : تسجيل MP4
+CS --> S3
+KS --> S3
+
+KS --> GEM
+LAS --> GRQ
+LAS --> GEM
+@enduml

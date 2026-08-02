@@ -1,0 +1,65 @@
+' Flowchart — generating a session summary (KnowledgeService).
+'
+' Replaces the earlier five-box sketch, which showed the happy path only and
+' hid the one decision that actually matters here.
+'
+' That decision is at the bottom: generating and publishing are deliberately
+' split. A failed attempt publishes NOTHING while retries remain. The naive
+' version announced every failure immediately, so a summary that failed on
+' attempt 1 and succeeded on attempt 3 flipped the classroom from Generating
+' to Failed and back to Available — which reads as a bug to anyone watching
+' the screen, even though the outcome was correct.
+@startuml
+!include _style.puml
+
+start
+:وصول رسالة SessionSummaryRequested
+من ClassroomService عبر الناقل;
+
+:تسجيل محاولة جديدة (SummaryRun)
+لتتبّع عدد المحاولات ونتيجتها;
+
+partition "التوليد — لا يُنشر شيء في هذه المرحلة" {
+  :طلب النصّ الكامل للجلسة
+  من LiveAssistantService;
+
+  if (يوجد نصّ للجلسة؟) then (لا)
+    :فشل المحاولة: لا مادّة للتلخيص;
+  else (نعم)
+    :توليد الملخّص بصيغة Markdown
+    عبر نموذج Gemini;
+    :تصيير الملخّص إلى ملفّ PDF;
+    :رفع الملفّين (md و pdf)
+    إلى مخزن S3 بمفتاحين مشتقّين
+    من معرّفي الفصل والجلسة;
+  endif
+}
+
+if (نجحت المحاولة؟) then (نعم)
+  :نشر SessionSummaryReady
+  مع مفتاحَي الملفّين;
+  :ClassroomService يحدّث حالة الملخّص
+  إلى «متاح»;
+  stop
+else (لا)
+endif
+
+if (استُنفدت ميزانية المحاولات؟) then (لا)
+  :لا يُنشر أيّ شيء إلى ClassroomService;
+  note right
+    الفشل المؤقّت يبقى داخل الخدمة.
+    فلو أُعلن فورًا لانتقلت حالة الفصل
+    من «قيد التوليد» إلى «فشل» ثمّ إلى «متاح»
+    عند نجاح محاولة لاحقة — وهو ما يبدو خللًا
+    في عين المستخدم رغم صحّة النتيجة.
+  end note
+  :الكانس الدوري يعيد المحاولة لاحقًا;
+  stop
+else (نعم)
+  :نشر SessionSummaryReady
+  موسومة بالفشل مع سبب العطل;
+  :ClassroomService يحدّث حالة الملخّص
+  إلى «فشل» ويعرض السبب للمعلّم;
+  stop
+endif
+@enduml

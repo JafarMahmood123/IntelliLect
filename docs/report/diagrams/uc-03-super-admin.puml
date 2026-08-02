@@ -1,0 +1,27 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم مصرح له" as AuthUser
+actor "المدير الأعلى للنظام" as SuperAdmin
+
+rectangle "النظام" {
+  usecase "تسجيل الدخول بالمصادقة الثنائية" as UC_TwoFactorLogin
+  usecase "إدارة مدراء النظام" as UC_ManageAdmins
+  usecase "إدارة المستخدمين على مستوى المنصة" as UC_ManageUsers
+  usecase "الإشراف على الفصول الدراسية" as UC_SuperviseClassrooms
+  usecase "الإشراف على جلسات التعلم" as UC_SuperviseSessions
+  usecase "إدارة المحتوى وقاعدة المعرفة" as UC_ManageKnowledge
+  usecase "إدارة التسجيلات والملخصات" as UC_ManageRecordings
+}
+
+SuperAdmin --|> AuthUser
+
+SuperAdmin --> UC_TwoFactorLogin
+SuperAdmin --> UC_ManageAdmins
+SuperAdmin --> UC_ManageUsers
+SuperAdmin --> UC_SuperviseClassrooms
+SuperAdmin --> UC_SuperviseSessions
+SuperAdmin --> UC_ManageKnowledge
+SuperAdmin --> UC_ManageRecordings
+@enduml

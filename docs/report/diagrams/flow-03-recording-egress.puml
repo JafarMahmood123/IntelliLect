@@ -1,0 +1,65 @@
+' Flowchart — recording a live session (StreamingService).
+'
+' Drawn because recording is the one flow the service cannot complete on its
+' own: it asks LiveKit to start an Egress, and the answer arrives later over a
+' webhook that may never come. Two mechanisms cover that gap — a claim that
+' prevents a double start, and a periodic reconciler that repairs the state
+' when the notification is lost.
+@startuml
+!include _style.puml
+
+start
+:طلب بدء التسجيل من المعلّم;
+
+if (محاولة حجز التسجيل (EgressClaim)؟) then (فشل)
+  :تسجيل جارٍ بالفعل لهذه الجلسة
+  — تُرفض المحاولة الثانية;
+  stop
+else (نجح)
+endif
+
+:طلب Egress من LiveKit;
+
+if (استجاب LiveKit؟) then (لا)
+  :تحرير الحجز وإرجاع خطأ;
+  stop
+else (نعم)
+endif
+
+:تخزين معرّف Egress وتحديث حالة التسجيل
+إلى «قيد المعالجة»;
+:إشعار المتصفّحات عبر SignalR
+بأنّ التسجيل بدأ;
+
+fork
+  partition "المسار الطبيعي — إشعار من LiveKit" {
+    :LiveKit يسجّل الجلسة ويرفع ملفّ MP4 إلى S3;
+    :وصول Webhook إلى الخدمة;
+
+    if (توقيع الإشعار صحيح؟) then (لا)
+      :رفض الإشعار — لا يُوثَق بمصدر مجهول;
+      stop
+    else (نعم)
+    endif
+
+    :تحديث حالة التسجيل إلى «جاهز»
+    مع مفتاح الملفّ في S3;
+    :نشر رسالة SessionRecordingReady على الناقل;
+  }
+fork again
+  partition "مسار الأمان — مُصالِح دوري" {
+    :فحص دوري للتسجيلات العالقة
+    في حالة «قيد المعالجة»;
+    :الاستعلام عن حالتها الفعلية من LiveKit;
+    if (انتهى التسجيل فعلًا ولم يصل الإشعار؟) then (نعم)
+      :تصحيح الحالة محليًّا;
+    else (لا)
+      :تركها كما هي حتى الدورة التالية;
+    endif
+  }
+end fork
+
+:يصبح التسجيل متاحًا للتنزيل
+عبر رابط موقّع من ClassroomService;
+stop
+@enduml

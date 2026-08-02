@@ -1,0 +1,14 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "تسجيل الخروج" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم مصرح له" as User
+participant ":النظام" as System
+
+User -> System : تسجيل الخروج()
+activate System
+System --> User : تأكيد إنهاء الجلسة وإبطال رمز الوصول
+deactivate System
+@enduml

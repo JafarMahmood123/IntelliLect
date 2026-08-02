@@ -1,0 +1,90 @@
+' Class diagram — the ports-and-adapters (Clean Architecture) design of
+' KnowledgeService, shown for the ingestion pipeline.
+'
+' The point of the diagram: the application layer depends only on the abstract
+' ports. Every concrete technology (Gemini, S3, PostgreSQL, Tesseract) sits in
+' the infrastructure layer behind one of them, so swapping a provider never
+' touches the pipeline.
+@startuml
+!include _style.puml
+skinparam linetype ortho
+
+package "طبقة التطبيق — المنافذ (Ports)" {
+  interface Extractor {
+    + supports(content_type) : bool
+    + extract(file_bytes, file_name) : ExtractionResult
+  }
+  interface OcrProcessor {
+    + process(file_bytes, result) : ExtractionResult
+  }
+  interface Chunker {
+    + chunk(result, document_id, classroom_id) : Chunk[]
+  }
+  interface EmbeddingProvider {
+    + embed_documents(texts) : float[][]
+    + embed_query(text) : float[]
+  }
+  interface FileStorage {
+    + get_bytes(s3_key) : bytes
+  }
+  interface DocumentRepository {
+    + add(document)
+    + claim_for_processing(document, now) : bool
+    + update_status(file_id, status, last_error)
+    + stats(classroom_id) : KnowledgeStats
+  }
+  interface ChunkRepository {
+    + replace_for_document(document_id, chunks, embeddings)
+    + search(classroom_id, query_embedding, top_k) : Chunk[]
+  }
+
+  class IngestionPipeline {
+    - _extractor : Extractor
+    - _ocr : OcrProcessor
+    - _chunker : Chunker
+    - _embedder : EmbeddingProvider
+    + run(document) : void
+  }
+}
+
+package "طبقة البنية التحتية — المحوِّلات (Adapters)" {
+  class ExtractorRouter
+  class PdfExtractor
+  class DocxExtractor
+  class PptxExtractor
+  class SemanticChunker
+  class GeminiEmbeddingProvider
+  class S3FileStorage
+}
+
+' Hidden links stack the interfaces into two columns. Without them PlantUML
+' lays all seven side by side and the diagram comes out ~4.5:1, which shrinks
+' to an unreadable strip once fitted to the page width.
+Extractor -[hidden]down- OcrProcessor
+OcrProcessor -[hidden]down- Chunker
+Chunker -[hidden]down- EmbeddingProvider
+FileStorage -[hidden]down- DocumentRepository
+DocumentRepository -[hidden]down- ChunkRepository
+
+IngestionPipeline ..> Extractor
+IngestionPipeline ..> OcrProcessor
+IngestionPipeline ..> Chunker
+IngestionPipeline ..> EmbeddingProvider
+IngestionPipeline ..> FileStorage
+IngestionPipeline ..> DocumentRepository
+IngestionPipeline ..> ChunkRepository
+
+Extractor <|.. ExtractorRouter
+ExtractorRouter o-- PdfExtractor
+ExtractorRouter o-- DocxExtractor
+ExtractorRouter o-- PptxExtractor
+Chunker <|.. SemanticChunker
+EmbeddingProvider <|.. GeminiEmbeddingProvider
+FileStorage <|.. S3FileStorage
+
+note bottom of IngestionPipeline
+  تتّجه التبعيات نحو الداخل فقط:
+  خط الأنابيب يعرف المنافذ المجرّدة،
+  ولا يعرف شيئًا عن Gemini أو S3 أو PostgreSQL.
+end note
+@enduml

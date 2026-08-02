@@ -1,0 +1,65 @@
+' ERD — UserManagementService database.
+' Each service owns its own database; there are NO foreign keys across service
+' boundaries. Cross-service references (TeacherId, StudentId, …) are plain
+' identifiers, resolved over internal HTTP, never by a join.
+@startuml
+!include _style.puml
+hide circle
+skinparam linetype ortho
+
+entity "users" as users {
+  * id : uuid <<PK>>
+  --
+  * user_name : varchar
+  * email : varchar <<unique>>
+  * first_name : varchar
+  * last_name : varchar
+  * password_hash : varchar
+  * status : enum (Pending, Active, Rejected)
+  * two_factor_enabled : bool
+  * version : uuid <<concurrency>>
+  * created_at_utc : timestamptz
+  bio : text
+  * role_id : uuid <<FK>>
+}
+
+entity "roles" as roles {
+  * id : uuid <<PK>>
+  --
+  * name : enum (Student, Teacher, Admin)
+}
+
+entity "refresh_tokens" as refresh {
+  * id : uuid <<PK>>
+  --
+  * token : varchar
+  * expires_at_utc : timestamptz
+  * is_revoked : bool
+  * user_id : uuid <<FK>>
+}
+
+entity "reset_password_tokens" as reset {
+  * id : uuid <<PK>>
+  --
+  * token : varchar
+  * expires_at_utc : timestamptz
+  * request_count : int
+  last_requested_at_utc : timestamptz
+  * user_id : uuid <<FK>>
+}
+
+entity "two_factor_challenges" as twofa {
+  * id : uuid <<PK>>
+  --
+  * code_hash : varchar
+  * expires_at_utc : timestamptz
+  * attempt_count : int
+  * created_at_utc : timestamptz
+  * user_id : uuid <<FK>>
+}
+
+roles ||--o{ users
+users ||--o{ refresh
+users ||--o| reset
+users ||--o{ twofa
+@enduml

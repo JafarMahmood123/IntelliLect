@@ -1,0 +1,35 @@
+' Component diagram — EmailService.
+' Layout follows the pattern established in comp-01 (see the note there).
+'
+' The only service with no database and no inbound HTTP API: a pure consumer.
+' Everything enters from the bus and leaves through SMTP, which is exactly why
+' an SMTP outage can never block a login or a registration — the message
+' simply waits in the queue.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+queue "RabbitMQ" as MQ
+
+rectangle "المستهلكون (Consumers)\n\nSendTwoFactorCodeConsumer — رمز العامل الثاني\nSendResetCodeConsumer — رمز استعادة كلمة المرور\nUserStatusChangedConsumer — القبول والرفض والتعطيل\nClassroomMembershipChangedConsumer — الانضمام والإخراج\nClassroomTeacherChangedConsumer — تغيير معلّم الفصل" as L1
+
+rectangle "طبقة التطبيق (Application)\n\nIEmailBodyFactory — بناء نصّ الرسالة وعنوانها" as L2
+
+rectangle "طبقة البنية التحتية (Infrastructure)\n\nEmailBodyFactory\nSmtpEmailSender" as L3
+
+cloud "خادم SMTP" as SMTP
+
+MQ --> L1
+L1 --> L2
+L2 --> L3
+L3 --> SMTP
+
+note bottom of L3
+  الخدمة عديمة الحالة: لا قاعدة بيانات ولا واجهة HTTP واردة.
+  فإن تعذّر الإرسال بقيت الرسالة في الرتل وأُعيدت المحاولة،
+  ولا يتعطّل تسجيل الدخول أو الانضمام إلى فصل بسبب ذلك.
+end note
+@enduml

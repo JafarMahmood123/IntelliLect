@@ -1,0 +1,62 @@
+' ===========================================================================
+' Shared house style for every diagram in the report.
+' Included by each .puml via:  !include _style.puml
+'
+' Change anything here and EVERY diagram picks it up on the next build — that
+' is the whole point of moving the diagrams to text.
+'
+' Palette is deliberately restrained. The template bans colour in text and
+' headings and allows it inside figures only where it carries meaning
+' (STRUCTURE.md §7), so diagrams are greyscale and stay legible in black and
+' white print.
+' ===========================================================================
+
+' smetana is PlantUML's pure-Java layout engine. Without it, use case and
+' component diagrams need graphviz installed; with it, nothing is needed
+' beyond Java.
+!pragma layout smetana
+
+skinparam backgroundColor       white
+skinparam defaultFontName       "Traditional Arabic"
+skinparam defaultFontSize       22
+skinparam shadowing             false
+skinparam roundCorner           6
+skinparam nodesep               45
+skinparam ranksep               55
+skinparam ArrowColor            black
+skinparam ArrowFontSize         18
+skinparam NoteBackgroundColor   #F5F5F5
+skinparam NoteBorderColor       #777777
+skinparam NoteFontSize          17
+
+skinparam actor {
+  BorderColor      black
+  BackgroundColor  white
+}
+
+skinparam usecase {
+  BorderColor      black
+  BackgroundColor  #F2F2F2
+  FontSize         20
+}
+
+skinparam rectangle {
+  BorderColor      black
+  BackgroundColor  white
+  FontSize         22
+}
+
+skinparam sequence {
+  ArrowColor                  black
+  LifeLineBorderColor         #555555
+  LifeLineBackgroundColor     #EFEFEF
+  ParticipantBorderColor      black
+  ParticipantBackgroundColor  #F2F2F2
+  ParticipantFontSize         20
+  ActorBorderColor            black
+  ActorBackgroundColor        white
+  BoxBorderColor              #999999
+  GroupBorderColor            #555555
+  GroupBackgroundColor        #FAFAFA
+  DividerBackgroundColor      #EEEEEE
+}

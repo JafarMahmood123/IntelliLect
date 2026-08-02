@@ -1,0 +1,62 @@
+' Component diagram — KnowledgeService.
+' Layout follows the pattern established in comp-01 (see the note there).
+'
+' Grouped by the four jobs the service actually does rather than by Python
+' module, because the module tree does not tell the reader which parts run on
+' a request and which run on a timer.
+'
+' Every technology choice (Gemini, Tesseract, S3, pgvector) sits behind a port
+' in the application layer — the same ports drawn member-by-member in the
+' class diagram of the ingestion pipeline.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+rectangle "طبقة الواجهات (API Routers)\n\nsearch · answer — البحث الدلالي والإجابة\ninternal_documents — تشغيل الفهرسة والحذف\ninternal_summaries — ملخّصات الجلسات\ninternal_reembed — إعادة التضمين\nhealth · metrics" as L1
+
+rectangle "الاستيعاب\n\nIngestionService\nIngestionWorker — عامل محدود التزامن\nStaleRecoveryService — استعادة المعالجات المتوقّفة" as G1
+rectangle "الاسترجاع والإجابة\n\nRetrievalService\nAnswerService\nContextBuilder — بناء السياق ضمن حدّ الرموز" as G2
+rectangle "التلخيص\n\nSummaryPipeline · SummaryGenerator\nSummaryRunService\nSummaryRetrySweeper — إعادة المحاولة الدورية" as G3
+rectangle "الصيانة\n\nReembedService + Runner\nOutboxRelay — ترحيل الأحداث" as G4
+
+rectangle "المنافذ (Ports)\n\nExtractor · OcrProcessor · Chunker\nEmbeddingProvider · GenerationProvider\nDocumentRepository · ChunkRepository\nFileStorage · SummaryStorage · PdfRenderer\nTranscriptClient · SummaryPublisher · OutboxRepository" as P
+
+rectangle "المحوِّلات (Adapters)\n\nextraction — PDF, DOCX, PPTX\nocr — Tesseract\nchunking — SemanticChunker\npersistence — SQLAlchemy + pgvector\nstorage · rendering — S3 + PDF\nmessaging — MassTransit عبر RabbitMQ" as A
+rectangle "embeddings + generation\nGemini" as AG
+rectangle "live_assistant\nعميل النصوص" as AL
+
+database "PostgreSQL\n+ pgvector (halfvec)" as PG
+storage "MinIO / S3" as S3
+queue "RabbitMQ" as MQ
+cloud "Gemini" as GEM
+rectangle "LiveAssistantService" as LAS
+
+L1 --> G1
+L1 --> G2
+L1 --> G3
+L1 --> G4
+
+G1 --> P
+G2 --> P
+G3 --> P
+G4 --> P
+
+P --> A
+P --> AG
+P --> AL
+
+A  --> PG
+A  --> S3
+A  --> MQ
+AG --> GEM
+AL --> LAS : HTTP داخلي
+
+note bottom of A
+  أشعّة Gemini بطول 3072، وهو ما يتجاوز حدّ 2000
+  الذي يقبله فهرس HNSW لنوع vector، فاستُعمل
+  نوع halfvec لتخزينها وفهرستها.
+end note
+@enduml

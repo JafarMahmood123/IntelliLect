@@ -1,0 +1,73 @@
+' ERD — StreamingService database.
+' Holds only live-session state. Media itself never touches this database: it
+' flows through LiveKit, and recordings are written to S3 with the metadata
+' stored by ClassroomService.
+@startuml
+!include _style.puml
+hide circle
+skinparam linetype ortho
+
+entity "live_streams" as stream {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<external>>
+  * classroom_id : uuid <<external>>
+  * teacher_id : uuid <<external>>
+  * stream_key : varchar
+  * status : enum (Planned, Live)
+  egress_id : varchar
+  * recording_state : enum
+  * recording_ready_published : bool
+  started_at_utc : timestamptz
+  ended_at_utc : timestamptz
+  * participation_mode : enum
+  * students_can_publish_audio : bool
+  * students_can_publish_video : bool
+}
+
+entity "stream_participants" as participant {
+  * id : uuid <<PK>>
+  --
+  * stream_id : uuid <<FK>>
+  * user_id : uuid <<external>>
+  * is_hand_raised : bool
+  * joined_at_utc : timestamptz
+}
+
+entity "stream_chat_messages" as chat {
+  * id : uuid <<PK>>
+  --
+  * stream_id : uuid <<FK>>
+  * user_id : uuid <<external>>
+  * user_name : varchar
+  * message : text
+  * sent_at_utc : timestamptz
+}
+
+entity "stream_questions" as question {
+  * id : uuid <<PK>>
+  --
+  * stream_id : uuid <<FK>>
+  * user_id : uuid <<external>>
+  * user_name : varchar
+  * question_text : text
+  answer_text : text
+  * is_answered : bool
+  * asked_at_utc : timestamptz
+  answered_at_utc : timestamptz
+}
+
+entity "stream_reactions" as reaction {
+  * id : uuid <<PK>>
+  --
+  * stream_id : uuid <<FK>>
+  * user_id : uuid <<external>>
+  * emoji : varchar
+  * sent_at_utc : timestamptz
+}
+
+stream ||--o{ participant
+stream ||--o{ chat
+stream ||--o{ question
+stream ||--o{ reaction
+@enduml

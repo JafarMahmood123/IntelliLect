@@ -1,0 +1,30 @@
+' Flowchart — live assistant during the lecture (the repeating loop).
+' The assistant joins the LiveKit room as a hidden participant, so it hears the
+' lecture without appearing as a tile to the students.
+' Post-session work is a separate diagram: arch-03b-session-summary.
+@startuml
+!include _style.puml
+
+start
+:ينضم المساعد إلى غرفة البث كمشارك مخفي;
+
+repeat
+  :التقاط دفعة صوتية من مسار المعلم;
+  :تحويل الكلام إلى نص (Groq / Whisper);
+  :إلحاق المقطع بنص الجلسة مع طوابعه الزمنية;
+
+  if (اكتملت فكرة تعليمية؟) then (نعم)
+    :استرجاع المادة المرجعية المقابلة (RAG);
+    :مقارنة شرح المعلم بالمادة المرجعية;
+    if (رُصد اختلاف أو نقص؟) then (نعم)
+      :إرسال إشعار خاص للمعلم\n(لا يراه الطلاب);
+    else (لا)
+    endif
+    :اقتراح سؤال اختبار قصير;
+  else (لا)
+  endif
+repeat while (الجلسة مستمرة؟) is (نعم)
+->لا;
+
+stop
+@enduml

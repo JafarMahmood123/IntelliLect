@@ -14,6 +14,7 @@ LiveAssistant 302 · frontend 219.
 ## Contents
 
 - [What it does](#what-it-does)
+- [Repository layout](#repository-layout)
 - [Architecture](#architecture)
 - [Services](#services)
 - [Anatomy of a live session](#anatomy-of-a-live-session)
@@ -22,6 +23,37 @@ LiveAssistant 302 · frontend 219.
 - [Running it](#running-it)
 - [Tests](#tests)
 - [Further reading](#further-reading)
+
+---
+
+## Repository layout
+
+```text
+IntelliLect/
+├── backend/
+│   ├── UserManagementService/    .NET — identity, JWT + refresh, 2FA, roles, approval
+│   ├── ClassroomService/         .NET — classrooms, sessions, files, quizzes, summaries
+│   ├── StreamingService/         .NET — LiveKit rooms and tokens, SignalR hub, recording
+│   ├── EmailService/             .NET — event consumer only, no HTTP surface
+│   ├── KnowledgeService/         Python — ingestion, chunking, embeddings, RAG retrieval
+│   ├── LiveAssistantService/     Python — STT, idea detection, feedback, quiz generation
+│   ├── IntelliLect.Contracts/    shared message contracts for the event bus
+│   ├── LocalPackages/            locally built NuGet packages
+│   ├── tests/                    cross-service test helpers
+│   └── docs/                     troubleshooting and runbooks
+├── front-end-web/                React 19 + Vite SPA
+│   └── src/                      features: live room, whiteboard, quizzes, dashboards
+├── docs/
+│   ├── report/                   final report (LaTeX) + diagram sources + figures
+│   └── code-jury/                this submission's report
+├── scripts/                      helper scripts
+└── README.md
+```
+
+Each .NET service follows the same internal shape — `Domain`, `Application`,
+`Infrastructure`, `Api` under `src/`, with its tests under `tests/`. Each Python
+service mirrors that with `app/domain`, `app/application`, `app/infrastructure`,
+`app/api` and its own `alembic/` migrations.
 
 ---
 
@@ -298,5 +330,7 @@ an interface with a hand-written fake, which is why the whole suite runs in well
 | [backend/docs/complex-logic/live-session-media.md](backend/docs/complex-logic/live-session-media.md) | WebRTC, ICE and the Docker Desktop networking constraints |
 | [backend/docs/recordings-live-runbook.md](backend/docs/recordings-live-runbook.md) | Recording verification runbook |
 | [backend/docs/summaries-live-runbook.md](backend/docs/summaries-live-runbook.md) | Summary generation runbook |
+| [docs/report/README.md](docs/report/README.md) | Building the graduation report PDF |
+| [docs/report/STRUCTURE.md](docs/report/STRUCTURE.md) | The HIAST report template spec the report follows |
 
 Each service directory carries its own README with endpoints, configuration and design notes.

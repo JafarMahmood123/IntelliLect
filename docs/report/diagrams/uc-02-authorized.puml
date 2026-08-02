@@ -1,0 +1,28 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم مصرح له" as AuthUser
+actor "الطالب" as Student
+actor "المعلم" as Teacher
+actor "مدير النظام" as Admin
+actor "المدير الأعلى للنظام" as SuperAdmin
+
+rectangle "النظام" {
+  usecase "استعراض الملف الشخصي" as UC_ViewProfile
+  usecase "تحديث معلومات الملف الشخصي" as UC_UpdateProfile
+  usecase "تغيير كلمة المرور" as UC_ChangePassword
+  usecase "تسجيل الخروج" as UC_Logout
+}
+
+' Every concrete role inherits the shared authorised-user behaviour.
+Student   --|> AuthUser
+Teacher   --|> AuthUser
+Admin     --|> AuthUser
+SuperAdmin --|> AuthUser
+
+AuthUser --> UC_ViewProfile
+AuthUser --> UC_UpdateProfile
+AuthUser --> UC_ChangePassword
+AuthUser --> UC_Logout
+@enduml

@@ -1,0 +1,20 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "استعراض ملف المستخدم الحالي" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم مصرح له" as User
+participant ":النظام" as System
+
+User -> System : استعراض الملف الشخصي()
+activate System
+
+alt رمز الوصول غير صالح
+  System --> User : رفض الطلب لعدم التصريح
+else رمز صالح
+  System --> User : بيانات الملف الشخصي
+end
+
+deactivate System
+@enduml

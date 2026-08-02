@@ -1,0 +1,57 @@
+' Component diagram — UserManagementService.
+'
+' LAYOUT NOTE (applies to every comp-*.puml): PlantUML runs here on the
+' smetana engine, because requiring graphviz would add a system dependency to
+' the build. Smetana lays nested packages poorly: with a package per layer and
+' 5-6 components inside each, the boxes overlapped and the layering read
+' diagonally instead of top-to-bottom.
+'
+' The fix is to give each layer ONE box that lists its components, and to
+' break out a component into its own box only when an arrow to the outside
+' world actually lands on it. That keeps the layering unambiguous, keeps the
+' diagram near-square, and still names every component.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+rectangle "طبقة الواجهات (API)\n\nAuthController — التسجيل والدخول واستعادة كلمة المرور\nUsersController — الملف الشخصي\nAdminController — إدارة المستخدمين والفصول\nSuperAdminController — إدارة المدراء" as L1
+
+rectangle "طبقة التطبيق (Application)\n\nAuthService — المصادقة والعامل الثاني\nUserDirectoryService — دليل المستخدمين\nUserStatusService — القبول والرفض والتعطيل\nManagementService — عمليات المدير\nSuperAdminService — إنشاء المدراء وتعطيلهم" as L2
+
+rectangle "واجهات إدارية عابرة للخدمات\n\nClassroomAdminService\nClassroomMemberAdminService\nKnowledgeAdminService\nOutputAdminService\nSessionMonitorService" as L2b
+
+rectangle "طبقة البنية التحتية (Infrastructure)\n\nEF Core Repositories — User, Role,\nRefreshToken, TwoFactorChallenge\nPasswordHasher + TwoFactorCodeGenerator" as L3
+
+rectangle "JwtTokenGenerator\nإصدار الرموز" as Jwt
+rectangle "INotificationBus\nنشر مباشر عبر MassTransit" as Bus
+rectangle "Internal HTTP Clients\nClassroom, Streaming,\nKnowledge, LiveAssistant" as Clients
+
+database "PostgreSQL\nقاعدة المستخدمين" as PG
+queue "RabbitMQ" as MQ
+rectangle "الخدمات الأخرى" as Others
+
+L1  --> L2
+L1  --> L2b
+L2  --> L3
+L2  --> Jwt
+L2  --> Bus
+L2b --> Clients
+
+L3      --> PG
+Bus     --> MQ
+Clients --> Others : HTTP داخلي + سرّ مشترك
+
+note bottom of Jwt
+  هذه الخدمة وحدها تُصدر الرموز؛
+  وتُوسم رموز المدير الأعلى بـ amr:mfa
+  بعد اجتياز العامل الثاني.
+end note
+
+note bottom of Bus
+  الناقل المباشر لا يمرّ بصندوق الصادر،
+  لأنّ الكتابة المقابلة تجري في قاعدة خدمة أخرى.
+end note
+@enduml

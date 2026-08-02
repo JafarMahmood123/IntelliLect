@@ -1,0 +1,149 @@
+' ERD — ClassroomService database (the largest schema in the system).
+' teacher_id / student_id are identifiers owned by UserManagementService; they
+' are deliberately NOT foreign keys, because the two services own separate
+' databases.
+@startuml
+!include _style.puml
+hide circle
+skinparam linetype ortho
+
+entity "classrooms" as classroom {
+  * id : uuid <<PK>>
+  --
+  * name : varchar
+  * description : text
+  * teacher_id : uuid <<external>>
+  * status : enum
+  * created_at_utc : timestamptz
+}
+
+entity "classroom_files" as files {
+  * id : uuid <<PK>>
+  --
+  * file_name : varchar
+  * s3_key : varchar
+  * content_type : varchar
+  * size_bytes : bigint
+  * classroom_id : uuid <<FK>>
+}
+
+entity "classroom_memberships" as members {
+  * id : uuid <<PK>>
+  --
+  * classroom_id : uuid <<FK>>
+  * student_id : uuid <<external>>
+  * joined_at_utc : timestamptz
+}
+
+entity "sessions" as sessions {
+  * id : uuid <<PK>>
+  --
+  * classroom_id : uuid <<FK>>
+  * title : varchar
+  * description : text
+  * scheduled_at_utc : timestamptz
+  started_at_utc : timestamptz
+  ended_at_utc : timestamptz
+  * participation_mode : enum
+  * recording_enabled : bool
+  * status : enum (Scheduled, Live, Ended)
+  * created_at_utc : timestamptz
+}
+
+entity "session_recordings" as rec {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * classroom_id : uuid
+  * egress_id : varchar
+  s3_key : varchar
+  * status : enum
+  * duration_seconds : int
+  * size_bytes : bigint
+  error : text
+}
+
+entity "session_summaries" as summary {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * classroom_id : uuid
+  * status : enum
+  md_s3_key : varchar
+  pdf_s3_key : varchar
+  error : text
+}
+
+entity "quizzes" as quiz {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid
+  * classroom_id : uuid
+  * created_by_teacher_id : uuid <<external>>
+  * title : varchar
+  * status : enum
+  published_at_utc : timestamptz
+  closes_at_utc : timestamptz
+  closed_at_utc : timestamptz
+}
+
+entity "quiz_questions" as question {
+  * id : uuid <<PK>>
+  --
+  * quiz_id : uuid <<FK>>
+  * order : int
+  * text : text
+  * points : int
+  * time_limit_seconds : int
+}
+
+entity "quiz_answer_options" as option {
+  * id : uuid <<PK>>
+  --
+  * question_id : uuid <<FK>>
+  * order : int
+  * text : text
+  * is_correct : bool <<never sent to students>>
+}
+
+entity "quiz_answers" as answer {
+  * id : uuid <<PK>>
+  --
+  * quiz_id : uuid
+  * question_id : uuid <<FK>>
+  * student_id : uuid <<external>>
+  * selected_option_id : uuid
+  * is_correct : bool
+  * points_awarded : int
+  * answered_at_utc : timestamptz
+}
+
+entity "quiz_submissions" as submission {
+  * id : uuid <<PK>>
+  --
+  * quiz_id : uuid <<FK>>
+  * student_id : uuid <<external>>
+  * submitted_at_utc : timestamptz
+}
+
+entity "quiz_extensions" as extension {
+  * id : uuid <<PK>>
+  --
+  * quiz_id : uuid <<FK>>
+  * student_id : uuid <<external>>
+  * closes_at_utc : timestamptz
+  * granted_at_utc : timestamptz
+}
+
+classroom ||--o{ files
+classroom ||--o{ members
+classroom ||--o{ sessions
+sessions ||--o| rec
+sessions ||--o| summary
+sessions ||--o{ quiz
+quiz ||--o{ question
+question ||--o{ option
+question ||--o{ answer
+quiz ||--o{ submission
+quiz ||--o{ extension
+@enduml

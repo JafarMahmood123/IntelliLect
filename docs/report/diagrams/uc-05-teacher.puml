@@ -1,0 +1,25 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم مصرح له" as AuthUser
+actor "المعلم" as Teacher
+
+rectangle "النظام" {
+  usecase "إدارة ملفات ومعلومات الفصل" as UC_ManageMaterials
+  usecase "بدء جلسة تعلم مباشرة" as UC_StartSession
+  usecase "إنشاء اختبار تفاعلي داخل الجلسة" as UC_CreateQuiz
+  usecase "استخدام السبورة البيضاء للشرح" as UC_Whiteboard
+  usecase "تلقي إشعارات الدعم الذكي" as UC_AiHints
+  usecase "رؤية حالة مشاركة الطلاب" as UC_ViewEngagement
+}
+
+Teacher --|> AuthUser
+
+Teacher --> UC_ManageMaterials
+Teacher --> UC_StartSession
+Teacher --> UC_CreateQuiz
+Teacher --> UC_Whiteboard
+Teacher --> UC_AiHints
+Teacher --> UC_ViewEngagement
+@enduml

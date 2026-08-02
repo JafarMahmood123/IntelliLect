@@ -1,0 +1,35 @@
+' Flowchart — delivering a notification (EmailService).
+'
+' Short by design. The point the diagram makes is the decoupling: the
+' publishing service never waits for SMTP, so a mail-server outage delays
+' notifications but never blocks a login, a registration or a class enrolment.
+@startuml
+!include _style.puml
+
+start
+:خدمة أخرى تنشر حدثًا على الناقل;
+note right
+  UserManagementService: رمز العامل الثاني،
+  رمز الاستعادة، تغيّر حالة المستخدم.
+  ClassroomService: تغيّر العضوية أو المعلّم.
+end note
+
+:وصول الرسالة إلى الرتل;
+:توجيه الرسالة إلى المستهلك الموافق لنوعها;
+:بناء نصّ الرسالة وعنوانها
+بحسب نوع الحدث;
+:الإرسال عبر خادم SMTP;
+
+if (نجح الإرسال؟) then (نعم)
+  :تأكيد استهلاك الرسالة وحذفها من الرتل;
+  stop
+else (لا)
+  :إعادة الرسالة إلى الرتل وإعادة المحاولة;
+  note right
+    الخدمة الناشرة لا تنتظر نتيجة الإرسال،
+    فتعطّل خادم البريد يؤخّر الإشعار
+    ولا يمنع تسجيل الدخول أو الانضمام إلى فصل.
+  end note
+  stop
+endif
+@enduml

@@ -1,0 +1,22 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "طلب إعادة تعيين كلمة المرور" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم نسي كلمة مروره" as User
+participant ":النظام" as System
+
+User -> System : طلب رمز إعادة تعيين كلمة المرور(البريد الإلكتروني)
+activate System
+
+alt المستخدم غير موجود
+  ' A generic reply on purpose: revealing which addresses are registered
+  ' would leak account existence.
+  System --> User : رسالة عامة بإرسال الرمز إن كان البريد مسجَّلًا
+else المستخدم موجود
+  System --> User : تأكيد إرسال رمز إعادة التعيين إلى البريد
+end
+
+deactivate System
+@enduml

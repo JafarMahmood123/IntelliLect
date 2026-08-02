@@ -1,0 +1,30 @@
+' Flowchart — knowledge pipeline, phase 1: offline ingestion (indexing).
+' Split from the retrieval phase because a single linear chart came out roughly
+' 1:4 tall and had to shrink to ~5cm wide on the page to fit, i.e. unreadable.
+@startuml
+!include _style.puml
+
+start
+:يرفع المعلم ملفًا إلى الفصل;
+:تخزين الملف في S3 وتسجيل بياناته;
+:احتساب بصمة المحتوى (content hash);
+
+if (الملف مفهرس مسبقًا؟) then (نعم)
+  :تخطي المعالجة;
+  stop
+else (لا)
+endif
+
+:استخراج النص من الملف;
+
+if (الصفحة نصية؟) then (نعم)
+  :استخراج مباشر;
+else (صورة)
+  :تعرف ضوئي انتقائي (OCR);
+endif
+
+:تقسيم النص إلى مقاطع متداخلة;
+:توليد تضمين لكل مقطع (Gemini، 3072 بعدًا);
+:تخزين المقاطع وتضميناتها في pgvector\n(halfvec + فهرس HNSW);
+stop
+@enduml

@@ -102,3 +102,11 @@ docker-compose.override.yml
 .cursor
 .claude
 .vscode
+# Python bytecode and caches — the code-jury spec requires generated cache
+# files be excluded from the repository.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

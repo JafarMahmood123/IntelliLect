@@ -1,0 +1,23 @@
+@startuml
+!include _style.puml
+left to right direction
+
+actor "مستخدم مصرح له" as AuthUser
+actor "الطالب" as Student
+
+rectangle "النظام" {
+  usecase "الانضمام إلى جلسة التعلم" as UC_JoinSession
+  usecase "رؤية شرح المعلم على السبورة البيضاء" as UC_ViewWhiteboard
+  usecase "رفع اليد لطلب طرح سؤال" as UC_RaiseHand
+  usecase "طرح الأسئلة عبر النص أو الصوت" as UC_AskQuestion
+  usecase "حل الاختبارات التفاعلية" as UC_AnswerQuiz
+}
+
+Student --|> AuthUser
+
+Student --> UC_JoinSession
+Student --> UC_ViewWhiteboard
+Student --> UC_RaiseHand
+Student --> UC_AskQuestion
+Student --> UC_AnswerQuiz
+@enduml

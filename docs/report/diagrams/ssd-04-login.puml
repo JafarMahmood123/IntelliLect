@@ -1,0 +1,22 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "تسجيل الدخول" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم مجهول" as User
+participant ":النظام" as System
+
+User -> System : تسجيل الدخول(البريد الإلكتروني، كلمة المرور)
+activate System
+
+alt بيانات الاعتماد غير صحيحة
+  System --> User : رسالة خطأ
+else الحساب غير مفعَّل
+  System --> User : الحساب معطَّل أو بانتظار الموافقة
+else بيانات صحيحة
+  System --> User : رمز الوصول ودور المستخدم
+end
+
+deactivate System
+@enduml

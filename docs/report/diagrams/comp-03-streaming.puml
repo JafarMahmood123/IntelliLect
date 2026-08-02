@@ -1,0 +1,60 @@
+' Component diagram — StreamingService.
+' Layout follows the pattern established in comp-01 (see the note there).
+'
+' The application layer is deliberately thin — one service. Almost all of the
+' difficulty lives in infrastructure, because recording is driven by an
+' external system (LiveKit Egress) that answers asynchronously over a webhook
+' which may never arrive; hence the claim, the verifier and the reconciler.
+'
+' Note the dashed WebRTC edge: media never traverses this service. It mints a
+' token and the browser then talks to the SFU directly.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+actor "المتصفح" as Browser
+
+rectangle "طبقة الواجهات (API)\n\nStreamsController — الانضمام وسياسة النشر\nInternalStreamsController — إنشاء الغرفة وإنهاؤها\nStreamHubContext — SignalR للإشعارات اللحظية" as L1
+rectangle "LiveKitWebhookController\n+ LiveKitWebhookVerifier\nاستقبال إشعارات التسجيل والتحقّق من توقيعها" as WC
+
+rectangle "طبقة التطبيق (Application)\n\nStreamService — دورة حياة الغرفة والمشاركين" as L2
+
+rectangle "الوسائط\n\nLiveKitMediaProvider — توليد رموز الانضمام\nLiveKitRoomLifecycleService — إنشاء الغرف\nوضبط صلاحيات النشر" as I1
+rectangle "التسجيل\n\nRecordingStarter · EgressClaim\nLiveKitRecordingEgressService\nLiveKitRecordingWebhookHandler\nEgressReconciler + HostedService" as I2
+rectangle "SessionStartedConsumer\n+ LiveAssistantInternalClient" as Cons
+rectangle "EF Core Repository\nLiveStream, Participant" as Repo
+
+database "PostgreSQL\nقاعدة البث" as PG
+queue "RabbitMQ" as MQ
+node "LiveKit\nSFU + Egress" as LK
+storage "MinIO / S3" as S3
+
+Browser --> L1
+Browser ..> LK : WebRTC — الوسائط لا تمرّ بالخدمة
+LK --> WC : Webhook
+MQ --> Cons
+
+L1 --> L2
+WC --> I2
+Cons --> L2
+
+L2 --> I1
+L2 --> I2
+L2 --> Repo
+
+I1 --> LK
+I2 --> LK
+I2 --> MQ : SessionRecordingReady
+LK --> S3 : تسجيل MP4
+Repo --> PG
+L1 --> Browser : إشعارات لحظية
+
+note bottom of I2
+  يمنع الحجز (EgressClaim) بدء تسجيلين للجلسة نفسها،
+  ويتكفّل المُصالِح الدوري بالحالات التي يسقط فيها
+  إشعار LiveKit فلا يصل أبدًا.
+end note
+@enduml

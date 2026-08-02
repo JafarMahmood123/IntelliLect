@@ -1,0 +1,22 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "طلب تسجيل مستخدم جديد" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم جديد" as User
+participant ":النظام" as System
+
+User -> System : طلب التسجيل(الاسم، البريد الإلكتروني، كلمة المرور، الدور)
+activate System
+
+alt البيانات غير مكتملة أو غير صالحة
+  System --> User : رسالة خطأ في التحقق
+else البريد الإلكتروني مستخدم مسبقًا
+  System --> User : البريد الإلكتروني مسجَّل مسبقًا
+else بيانات صالحة
+  System --> User : تأكيد استلام الطلب (بانتظار موافقة مدير النظام)
+end
+
+deactivate System
+@enduml

@@ -1,0 +1,30 @@
+' ERD — LiveAssistantService database.
+' Deliberately minimal: the transcript is the only thing this service persists.
+' Recordings and summaries live in ClassroomService and S3.
+@startuml
+!include _style.puml
+hide circle
+skinparam linetype ortho
+
+entity "session_transcripts" as transcript {
+  * session_id : uuid <<PK>>
+  --
+  * classroom_id : uuid <<external>>
+  * status : enum
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "transcript_segments" as segment {
+  * id : bigint <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * order_index : int
+  * text : text
+  * start_ms : int
+  * end_ms : int
+  * created_at : timestamptz
+}
+
+transcript ||--o{ segment
+@enduml

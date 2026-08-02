@@ -1,0 +1,72 @@
+' Component diagram — LiveAssistantService.
+' Layout follows the pattern established in comp-01 (see the note there).
+'
+' The only service whose main path is a continuous loop rather than a
+' request/response cycle. The application layer therefore reads as a chain:
+' audio in at one end, a pedagogical intervention out at the other, with the
+' pacer as the gate that stops the assistant talking over the teacher.
+'
+' The domain layer is unusually rich for a Python service because the
+' decisions it encodes — is this a complete idea? is it time to speak? — are
+' pure logic, and so are unit-testable without a model, a socket or a database.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+rectangle "ClassroomService" as CS
+rectangle "KnowledgeService" as KS
+
+rectangle "طبقة الواجهات (API Routers)\n\ninternal_sessions — بدء الجلسة وإنهاؤها\ninternal_transcripts — تسليم النصّ الكامل\ninternal_quizzes — توليد اختبار\nhealth · metrics" as L1
+
+rectangle "إدارة الجلسة\n\nSessionManager — دورة حياة الجلسات الحيّة\nSessionPipeline — الحلقة الرئيسة\nTranscriptRecorder — تدوين النصّ" as G1
+rectangle "التحليل والتدخّل\n\nBoundaryDetector — كشف اكتمال الفكرة\nIdeaEvaluator — تقييم الفكرة مقابل المصادر\nFeedbackPacer — ضبط الإيقاع ومنع المقاطعة\nFeedbackDispatcher — إرسال التدخّل\nStreamPrefetch — جلب مسبق للسياق" as G2
+rectangle "التوليد\n\nQuizGenerator — توليد الاختبارات" as G3
+
+rectangle "طبقة النطاق (Domain)\n\naudio · transcript · idea\nevaluation · pacing · quiz" as D
+
+rectangle "المنافذ (Ports)\n\nAudioSource · SpeechToText\nBrainClient · EmbeddingProvider\nRetrievalClient · FeedbackSink\nAgentDataChannel · TranscriptRepository" as P
+
+rectangle "المحوِّلات (Adapters)\n\naudio — التقاط من LiveKit\nfeedback — قناة بيانات LiveKit\npersistence — SQLAlchemy" as A
+rectangle "stt\nGroq Whisper" as AS
+rectangle "brain + embeddings\nGemini" as AB
+rectangle "retrieval\nعميل KnowledgeService" as AR
+
+database "PostgreSQL\nقاعدة المساعد" as PG
+node "LiveKit" as LK
+cloud "Groq" as GRQ
+cloud "Gemini" as GEM
+
+CS --> L1 : HTTP داخلي
+KS --> L1 : طلب النصّ للتلخيص
+
+L1 --> G1
+L1 --> G3
+G1 --> G2
+G2 --> D
+G1 --> D
+G3 --> D
+
+G1 --> P
+G2 --> P
+G3 --> P
+
+P --> A
+P --> AS
+P --> AB
+P --> AR
+
+A  --> LK
+A  --> PG
+AS --> GRQ
+AB --> GEM
+AR --> KS
+
+note bottom of G2
+  لا يتحدّث المساعد لمجرّد امتلاكه ملاحظة:
+  فالمُوقِّع (Pacer) يفرض حدًّا أدنى بين التدخّلات
+  حتى لا يقاطع المعلّم أثناء شرحه.
+end note
+@enduml

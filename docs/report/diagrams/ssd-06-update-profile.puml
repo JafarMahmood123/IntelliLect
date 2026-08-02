@@ -1,0 +1,22 @@
+' System Sequence Diagram — the system is a single black box.
+' Derived from the use case narrative "تحديث ملف المستخدم" (chapter 4).
+@startuml
+!include _style.puml
+autonumber
+
+actor "مستخدم مصرح له" as User
+participant ":النظام" as System
+
+User -> System : تحديث الملف الشخصي(البيانات الجديدة)
+activate System
+
+alt رمز الوصول غير صالح
+  System --> User : رفض الطلب لعدم التصريح
+else البيانات غير صالحة
+  System --> User : رسالة خطأ في التحقق
+else البيانات صالحة
+  System --> User : تأكيد التحديث والبيانات بعد التعديل
+end
+
+deactivate System
+@enduml
