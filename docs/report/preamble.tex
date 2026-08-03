@@ -51,6 +51,13 @@
 \setlength{\parskip}{6pt}       % 120 twips "space after"
 \setstretch{1.15}
 
+% Justified Arabic prose carrying long unbreakable Latin identifiers
+% (\code{GeminiEmbeddingProvider}) cannot always be broken within the measure,
+% and TeX then lets the line run into the margin. emergencystretch authorises an
+% extra pass with looser spacing, used ONLY on lines that would otherwise be
+% overfull — ordinary paragraphs are unaffected.
+\setlength{\emergencystretch}{3em}
+
 % ===========================================================================
 % Arabic ordinals — the template writes "الفصل الأول", not "الفصل 1".
 % ===========================================================================
