@@ -101,6 +101,27 @@ public sealed class SuperAdminController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Applies one status action to many accounts.
+    ///
+    /// Always 200 when the request itself is well-formed, even if individual accounts failed —
+    /// partial success is the expected outcome, and a non-2xx would hide the accounts that DID
+    /// change. The body reports each one. 400 is reserved for a request that could not be
+    /// attempted at all: no ids, too many ids, or an unknown action.
+    /// </summary>
+    [HttpPut("users/status")]
+    [ProducesResponseType(typeof(BulkUserStatusResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangeUserStatusBulk(
+        [FromBody] BulkChangeUserStatusRequest request,
+        CancellationToken ct)
+    {
+        var result = await _userStatusService.ChangeStatusBulkAsync(
+            request.UserIds, request.Action, GetUserIdFromClaims(), ct);
+
+        return Ok(result);
+    }
+
     [HttpGet("classrooms")]
     [ProducesResponseType(typeof(PagedResult<ClassroomAdminItem>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetClassrooms([FromQuery] SearchClassroomsRequest request, CancellationToken ct)

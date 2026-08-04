@@ -47,18 +47,7 @@ public sealed class ManagementService : IManagementService
         await _userRepository.SaveChangesAsync(ct);
     }
 
-    public async Task DeactivateUserAsync(Guid userId, CancellationToken ct)
-    {
-        var user = await _userRepository.GetByIdAsync(userId, ct);
-        if (user == null) throw new ArgumentException("User not found.");
-
-        user.Deactivate();
-        await _userRepository.UpdateAsync(user, ct);
-        await _userRepository.SaveChangesAsync(ct);
-
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Deactivated.ToString()), ct);
-    }
-
+    
     public async Task<UserResponse> GetUserProfileAsync(Guid userId, CancellationToken ct)
     {
         var user = await _userRepository.GetByIdAsync(userId, ct);
@@ -85,30 +74,5 @@ public sealed class ManagementService : IManagementService
         return new PagedResult<UserResponse>(mappedItems, totalCount, page, pageSize);
     }
 
-    public async Task ChangeUserStatus(Guid userId, UserStatus newStatus, CancellationToken ct)
-    {
-        var user = await _userRepository.GetByIdAsync(userId, ct);
-        if (user == null) throw new ArgumentException("User not found.");
-
-        if (newStatus == UserStatus.Active) user.Approve();
-        else if (newStatus == UserStatus.Rejected) user.Reject();
-        else throw new ArgumentException("Invalid status update.");
-
-        await _userRepository.UpdateAsync(user, ct);
-
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, newStatus.ToString()), ct);
-
-        await _userRepository.SaveChangesAsync(ct);
+    
     }
-
-    public async Task ReactivateUserAsync(Guid userId, CancellationToken ct)
-    {
-        var user = await _userRepository.GetByIdAsync(userId, ct);
-        if (user == null) throw new ArgumentException("User not found.");
-
-        user.Reactivate();
-        await _userRepository.UpdateAsync(user, ct);
-        await _eventBus.PublishAsync(new UserStatusChangedMessage(user.Email, user.FirstName, UserStatus.Active.ToString()), ct);
-        await _userRepository.SaveChangesAsync(ct);
-    }
-}

@@ -237,15 +237,38 @@ public class UserStatusServiceTests
 internal sealed class FakeStatusUserRepository : IUserRepository
 {
     private readonly User? _user;
-    public FakeStatusUserRepository(User? user) => _user = user;
+    private readonly List<User> _users;
+
+    public FakeStatusUserRepository(User? user)
+    {
+        _user = user;
+        _users = user is null ? new List<User>() : new List<User> { user };
+    }
+
+    /// <summary>Many-account constructor, for the bulk path.</summary>
+    public FakeStatusUserRepository(params User[] users)
+    {
+        _users = users.ToList();
+        _user = _users.FirstOrDefault();
+    }
 
     public bool GetByIdWithRefreshTokensCalled { get; private set; }
     public int SaveChangesCallCount { get; private set; }
+
+    /// <summary>How many times the batch load ran — one query per batch, not per account.</summary>
+    public int BulkLoadCallCount { get; private set; }
 
     public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default)
     {
         GetByIdWithRefreshTokensCalled = true;
         return Task.FromResult(_user);
+    }
+
+    public Task<List<User>> GetByIdsWithRefreshTokensAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        BulkLoadCallCount++;
+        return Task.FromResult(_users.Where(u => ids.Contains(u.Id)).ToList());
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

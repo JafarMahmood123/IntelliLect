@@ -417,6 +417,7 @@ internal sealed class FakeSessionUserRepository : IUserRepository
 
     public Task<List<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
         => Task.FromResult(_users.Where(u => ids.Contains(u.Id)).ToList());
+    public Task<List<User>> GetByIdsWithRefreshTokensAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<User?> FindByEmail(string email, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();

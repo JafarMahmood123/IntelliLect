@@ -109,7 +109,46 @@ zero remaining references.
 - Also removed the stale tracked `knowledge_service.egg-info` while moving the directory,
   which closes the separate cleanup item.
 
-## 2. Bulk accept / reject users
+## 2. Bulk accept / reject users — **backend done, UI next**
+
+**Found while building it: there were TWO status-change implementations, and the admin
+dashboard used the weaker one.** `ManagementService.ChangeUserStatus` (Admin role,
+`/api/admin/requests/{id}/status`) carried three defects the super-admin path did not:
+
+1. **No refresh-token revocation on rejection.** A rejected user kept a valid refresh
+   token and could renew their session indefinitely. Security-relevant, and the reason
+   this was worth stopping for.
+2. **No transition validation.** `User.Approve()` sets the status unconditionally, so a
+   *rejected* or *deactivated* account could be silently re-approved.
+3. **No self-target guard** — an admin could act on their own account.
+
+And `DeactivateUserAsync` had a fourth: it called `SaveChangesAsync` **before**
+`PublishAsync`, so the outbox row was never persisted and **the deactivation email was
+never sent**. Exactly the outbox trap noted in the inter-service comms memory.
+
+**Resolved by unifying** (decision taken 2026-08-04): `AdminController` now calls
+`IUserStatusService` for all four transitions, and the three weak duplicates are deleted
+from `ManagementService`/`IManagementService`. The wire contract is unchanged
+("Active"/"Rejected"), so the existing client is unaffected — but rejection now revokes
+sessions, invalid transitions now error instead of silently succeeding, and the
+deactivation notification is actually published.
+
+**Bulk endpoint**, exposed on both routes (`PUT /api/admin/requests/status` for the
+dashboard, `PUT /api/super-admin/users/status`):
+- per-item results, never all-or-nothing — one unknown id cannot sink 199 approvals
+- the per-account rules are the SAME `Decide()` the single path runs, so bulk cannot
+  quietly accept what single refuses
+- authorization evaluated per account, not once for the batch
+- ids deduplicated; empty selection refused; cap of 200 (a guard, so a constant — §14.2)
+- a no-op counts as success, because that is what a retried request looks like
+- one query, one notification per genuinely-changed account, one transaction
+
+**12 new tests** (`UserStatusBulkServiceTests`), 132 UMS tests green — including the
+existing 120, which is what confirms the single-path refactor preserved behaviour.
+
+Remaining: the selection UI (C-13, C-14).
+
+<details><summary>Original plan</summary>
 
 - [ ] **2.1 Backend** — bulk endpoint on the admin surface alongside the existing
       single-user path (`AdminController`, `UserStatusService`, `UserStatusAction`,
@@ -143,6 +182,8 @@ it. Candidate areas to examine, to be confirmed against the code rather than ass
 - [ ] notifications — bulk mark-as-read once §5 exists
 
 For each: is the loop currently N HTTP calls from the browser? That is the real signal.
+
+</details>
 
 ---
 

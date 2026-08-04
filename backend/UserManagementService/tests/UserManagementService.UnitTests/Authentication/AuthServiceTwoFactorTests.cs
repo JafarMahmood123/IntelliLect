@@ -310,6 +310,7 @@ internal sealed class StubUserRepository : IUserRepository
 
     public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<List<User>> GetByIdsWithRefreshTokensAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<User?> FindByRefreshToken(string token, CancellationToken ct) => throw new NotImplementedException();
     public Task<User?> FindByResetToken(string token, CancellationToken ct) => throw new NotImplementedException();
     public Task<(List<User> Items, int TotalCount)> GetPaginatedPendingUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
