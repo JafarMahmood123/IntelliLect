@@ -89,5 +89,23 @@
     },
     "empty": "No user selected.",
     "noActions": "No actions available for this user."
+  },
+  "bulk": {
+    "selectAllOnPage": "Select all accounts on this page",
+    "selectOne": "Select {{name}}",
+    "selectedCount": "{{n}} selected on this page",
+    "clear": "Clear selection",
+    "approveSelected": "Approve selected",
+    "rejectSelected": "Reject selected",
+    "confirmApproveTitle": "Approve selected registrations",
+    "confirmApproveBody": "Approve {{n}} pending registration(s)? Each person will be emailed that their account is active.",
+    "confirmRejectTitle": "Reject selected registrations",
+    "confirmRejectBody": "Reject {{n}} pending registration(s)? Each person will be emailed, and any active sessions will be ended.",
+    "confirmButton": "Yes, apply to {{n}}",
+    "successTitle": "Done",
+    "successMessage": "{{succeeded}} account(s) updated.",
+    "partialTitle": "Partly applied",
+    "partialMessage": "{{succeeded}} updated, {{failed}} could not be.",
+    "failuresTitle": "{{n}} account(s) were not changed"
   }
 }

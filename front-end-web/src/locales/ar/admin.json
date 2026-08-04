@@ -89,5 +89,23 @@
     },
     "empty": "لم يتم تحديد مستخدم.",
     "noActions": "لا توجد إجراءات متاحة لهذا المستخدم."
+  },
+  "bulk": {
+    "selectAllOnPage": "تحديد كل الحسابات في هذه الصفحة",
+    "selectOne": "تحديد {{name}}",
+    "selectedCount": "{{n}} محدَّد في هذه الصفحة",
+    "clear": "إلغاء التحديد",
+    "approveSelected": "قبول المحدَّد",
+    "rejectSelected": "رفض المحدَّد",
+    "confirmApproveTitle": "قبول طلبات التسجيل المحدَّدة",
+    "confirmApproveBody": "هل تريد قبول {{n}} من طلبات التسجيل؟ سيصل كل شخص إشعار بأن حسابه أصبح نشطًا.",
+    "confirmRejectTitle": "رفض طلبات التسجيل المحدَّدة",
+    "confirmRejectBody": "هل تريد رفض {{n}} من طلبات التسجيل؟ سيصل كل شخص إشعار، وستُنهى أي جلسات نشطة.",
+    "confirmButton": "نعم، طبّق على {{n}}",
+    "successTitle": "تم",
+    "successMessage": "تم تحديث {{succeeded}} حساب.",
+    "partialTitle": "طُبّق جزئيًا",
+    "partialMessage": "تم تحديث {{succeeded}}، وتعذّر تحديث {{failed}}.",
+    "failuresTitle": "لم يتم تغيير {{n}} حساب"
   }
 }

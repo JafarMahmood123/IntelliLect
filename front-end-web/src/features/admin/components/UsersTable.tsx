@@ -9,6 +9,13 @@ interface UsersTableProps {
   isError: boolean;
   renderActions: (user: User) => React.ReactNode;
   onUserClick?: (user: User) => void;
+  /**
+   * Selection is opt-in: pass these three together to get a checkbox column, omit them for a
+   * plain table. The rows shown are the only ones selectable — see the header checkbox note.
+   */
+  selectedIds?: ReadonlySet<string>;
+  onToggleOne?: (userId: string) => void;
+  onToggleAllOnPage?: (selectAll: boolean) => void;
 }
 
 export const UsersTable = ({
@@ -17,10 +24,59 @@ export const UsersTable = ({
   isError,
   renderActions,
   onUserClick,
+  selectedIds,
+  onToggleOne,
+  onToggleAllOnPage,
 }: UsersTableProps) => {
   const { t } = useTranslation('admin');
 
+  const isSelectable = Boolean(selectedIds && onToggleOne && onToggleAllOnPage);
+  const selectedOnPage = users.filter((user) => selectedIds?.has(user.id)).length;
+  const allOnPageSelected = users.length > 0 && selectedOnPage === users.length;
+
+  const selectionColumn: TableColumn<User> = {
+    key: 'select',
+    headerClassName: 'w-[5%] text-center',
+    cellClassName: 'text-center',
+    // The header checkbox covers THIS PAGE only, never every account matching the filter —
+    // those are different features, and the one that acts on rows you cannot see is the
+    // dangerous one. The label says so explicitly.
+    header: (
+      <input
+        type="checkbox"
+        className="h-4 w-4 cursor-pointer accent-violet-600"
+        checked={allOnPageSelected}
+        // Some rows but not all: neither checked nor unchecked.
+        ref={(el) => {
+          if (el) el.indeterminate = selectedOnPage > 0 && !allOnPageSelected;
+        }}
+        disabled={users.length === 0}
+        onChange={(event) => onToggleAllOnPage?.(event.target.checked)}
+        aria-label={t('bulk.selectAllOnPage')}
+      />
+    ),
+    render: (user) => (
+      <div
+        className="flex justify-center"
+        // Selecting must not also open the details drawer.
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          className="h-4 w-4 cursor-pointer accent-violet-600"
+          checked={selectedIds?.has(user.id) ?? false}
+          onChange={() => onToggleOne?.(user.id)}
+          aria-label={t('bulk.selectOne', {
+            name: `${user.firstName} ${user.lastName}`.trim(),
+          })}
+        />
+      </div>
+    ),
+  };
+
   const columns: TableColumn<User>[] = [
+    ...(isSelectable ? [selectionColumn] : []),
     {
       key: 'name',
       header: t('table.name'),

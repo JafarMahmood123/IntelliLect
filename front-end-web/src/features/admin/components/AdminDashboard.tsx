@@ -24,9 +24,11 @@ import {
   useUpdateUserStatus,
   useDeactivateUser,
   useReactivateUser,
+  useBulkUpdateUserStatus,
 } from '../hooks/useAdminQueries';
 import { getApiErrorMessage } from '../../../utils/getApiErrorMessage';
 import type { User } from '../../../types';
+import type { BulkUserStatusItem } from '../types';
 
 type ActionType = 'approve' | 'reject' | 'deactivate' | 'reactivate' | null;
 type ConfirmableActionType = Exclude<ActionType, null>;
@@ -101,11 +103,77 @@ export const AdminDashboard = () => {
   const updateStatusMutation = useUpdateUserStatus();
   const deactivateMutation = useDeactivateUser();
   const reactivateMutation = useReactivateUser();
+  const bulkMutation = useBulkUpdateUserStatus();
 
   const isMutating =
     updateStatusMutation.isPending ||
     deactivateMutation.isPending ||
-    reactivateMutation.isPending;
+    reactivateMutation.isPending ||
+    bulkMutation.isPending;
+
+  const pendingUsers = pendingQuery.data?.items ?? [];
+
+  // Selection lives here rather than in the table so it survives a re-render of the rows, and so
+  // the action bar and the table cannot disagree about what is selected.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'Accept' | 'Reject' | null>(null);
+  const [failures, setFailures] = useState<BulkUserStatusItem[]>([]);
+
+  // Selection is per page: paging, filtering or switching tabs changes which rows are visible, and
+  // acting on rows the admin can no longer see is exactly the mistake to prevent.
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setFailures([]);
+  }, [pendingPage, selectedRoleId, activeTab]);
+
+  const toggleOne = (userId: string) =>
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(userId)) next.add(userId);
+      return next;
+    });
+
+  const toggleAllOnPage = (selectAll: boolean) =>
+    setSelectedIds(selectAll ? new Set(pendingUsers.map((user) => user.id)) : new Set());
+
+  const selectedCount = selectedIds.size;
+
+  const handleConfirmBulk = async () => {
+    if (!bulkAction || selectedCount === 0) return;
+
+    const action = bulkAction;
+    try {
+      const result = await bulkMutation.mutateAsync({
+        userIds: [...selectedIds],
+        action,
+      });
+
+      // A 200 does NOT mean everything worked. Report the split honestly rather than showing a
+      // success toast over three silent failures.
+      const failed = result.results.filter((item) => !item.succeeded);
+      setFailures(failed);
+
+      showToast({
+        type: failed.length === 0 ? 'success' : 'warning',
+        title: t(failed.length === 0 ? 'bulk.successTitle' : 'bulk.partialTitle'),
+        message: t(failed.length === 0 ? 'bulk.successMessage' : 'bulk.partialMessage', {
+          succeeded: result.succeeded,
+          failed: result.failed,
+        }),
+      });
+
+      // Only the accounts that actually changed leave the selection; the failures stay selected so
+      // they can be retried without hunting for them again.
+      setSelectedIds(new Set(failed.map((item) => item.userId)));
+      setBulkAction(null);
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: t('feedback.actionFailedTitle'),
+        message: getApiErrorMessage(error, t('feedback.fallbackError')),
+      });
+    }
+  };
 
   useEffect(() => {
     const totalPages = pendingQuery.data?.totalPages;
@@ -278,12 +346,76 @@ export const AdminDashboard = () => {
 
       {activeTab === 'pending' ? (
         <>
+          {selectedCount > 0 && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-900/50 dark:bg-violet-950/30">
+              <p className="text-sm font-medium text-violet-900 dark:text-violet-200">
+                {t('bulk.selectedCount', { n: selectedCount })}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="ghost"
+                  className="border border-slate-200 dark:border-slate-800"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  {t('bulk.clear')}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  className="border border-red-200 bg-red-50 !text-red-600 hover:!bg-red-100 dark:border-red-900/50 dark:bg-red-950/30 dark:!text-red-400"
+                  onClick={() => setBulkAction('Reject')}
+                  isLoading={bulkMutation.isPending && bulkAction === 'Reject'}
+                >
+                  <UserX size={16} />
+                  {t('bulk.rejectSelected')}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  className="border border-green-200 bg-green-50 !text-green-600 hover:!bg-green-100 dark:border-green-900/50 dark:bg-green-950/30 dark:!text-green-400"
+                  onClick={() => setBulkAction('Accept')}
+                  isLoading={bulkMutation.isPending && bulkAction === 'Accept'}
+                >
+                  <UserCheck size={16} />
+                  {t('bulk.approveSelected')}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {failures.length > 0 && (
+            // Per-row reasons, kept on screen rather than in a toast that vanishes — a partial
+            // failure is something the admin has to act on, not just be told about.
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-200">
+                {t('bulk.failuresTitle', { n: failures.length })}
+              </p>
+              <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-300">
+                {failures.map((failure) => {
+                  const user = pendingUsers.find((candidate) => candidate.id === failure.userId);
+                  const label = user
+                    ? `${user.firstName} ${user.lastName}`.trim()
+                    : failure.userId;
+                  return (
+                    <li key={failure.userId}>
+                      <span className="font-medium">{label}</span> — {failure.error}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
           <UsersTable
-            users={pendingQuery.data?.items ?? []}
+            users={pendingUsers}
             isLoading={pendingQuery.isLoading}
             isError={pendingQuery.isError}
             renderActions={renderPendingActions}
             onUserClick={openDetailsDrawer}
+            selectedIds={selectedIds}
+            onToggleOne={toggleOne}
+            onToggleAllOnPage={toggleAllOnPage}
           />
 
           {pendingQuery.data && (
@@ -343,6 +475,22 @@ export const AdminDashboard = () => {
         description={modalDescription}
         confirmText={modalConfirmText}
         variant={modal.type === 'approve' || modal.type === 'reactivate' ? 'success' : 'danger'}
+      />
+
+      {/* The count is in the description, so the admin confirms against the number they are
+          actually about to affect rather than a generic "are you sure". */}
+      <ConfirmationModal
+        isOpen={bulkAction !== null}
+        onClose={() => setBulkAction(null)}
+        onConfirm={handleConfirmBulk}
+        isLoading={bulkMutation.isPending}
+        title={t(bulkAction === 'Reject' ? 'bulk.confirmRejectTitle' : 'bulk.confirmApproveTitle')}
+        description={t(
+          bulkAction === 'Reject' ? 'bulk.confirmRejectBody' : 'bulk.confirmApproveBody',
+          { n: selectedCount },
+        )}
+        confirmText={t('bulk.confirmButton', { n: selectedCount })}
+        variant={bulkAction === 'Reject' ? 'danger' : 'success'}
       />
     </div>
   );

@@ -5,8 +5,9 @@ import {
   updateUserStatus,
   deactivateUser,
   reactivateUser,
+  bulkUpdateUserStatus,
 } from '../api/admin';
-import type { GetUsersParams, UserStatusPayload } from '../types';
+import type { GetUsersParams, UserStatusPayload, UserStatusAction } from '../types';
 
 export const usePendingUsers = (params: GetUsersParams) => {
   return useQuery({
@@ -32,6 +33,25 @@ export const useUpdateUserStatus = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey:['admin', 'pending-users'] });
       queryClient.invalidateQueries({ queryKey:['admin', 'all-users'] });
+    },
+  });
+};
+
+/**
+ * Applies one action to many accounts.
+ *
+ * Resolves rather than rejects when individual accounts failed — the request succeeded, some
+ * accounts did not. Callers must inspect the result. It rejects only when the request itself was
+ * refused (no ids, over the cap, unknown action).
+ */
+export const useBulkUpdateUserStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userIds, action }: { userIds: string[]; action: UserStatusAction }) =>
+      bulkUpdateUserStatus(userIds, action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'pending-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'all-users'] });
     },
   });
 };

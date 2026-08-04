@@ -109,7 +109,7 @@ zero remaining references.
 - Also removed the stale tracked `knowledge_service.egg-info` while moving the directory,
   which closes the separate cleanup item.
 
-## 2. Bulk accept / reject users — **backend done, UI next**
+## 2. Bulk accept / reject users — **DONE**
 
 **Found while building it: there were TWO status-change implementations, and the admin
 dashboard used the weaker one.** `ManagementService.ChangeUserStatus` (Admin role,
@@ -146,7 +146,25 @@ dashboard, `PUT /api/super-admin/users/status`):
 **12 new tests** (`UserStatusBulkServiceTests`), 132 UMS tests green — including the
 existing 120, which is what confirms the single-path refactor preserved behaviour.
 
-Remaining: the selection UI (C-13, C-14).
+**Selection UI (C-13, C-14) — done.** Checkbox column in `UsersTable` (opt-in: pass the
+three selection props or get a plain table), selection state owned by `AdminDashboard`,
+an action bar that appears only when something is selected, and a confirmation carrying
+the count rather than a generic "are you sure".
+
+Four decisions worth recording:
+- **Select-all covers the PAGE, not every account matching the filter.** Those are
+  different features, and the one that acts on rows you cannot see is the dangerous one.
+  The header checkbox is labelled "Select all accounts on this page" so it cannot be
+  misread, and goes indeterminate on a partial selection.
+- **Selection clears on page, filter or tab change** — otherwise an admin acts on rows
+  that scrolled out of view.
+- **Failures stay selected and stay on screen.** The successes drop out of the selection
+  and the failures remain, with their reasons in a panel rather than a toast, so a partial
+  failure can be retried without hunting for the rows again.
+- **Bulk is offered on the pending tab only**, and the checkbox column is absent
+  elsewhere.
+
+9 frontend tests; suite 235 green, `tsc` clean.
 
 <details><summary>Original plan</summary>
 
