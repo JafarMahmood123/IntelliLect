@@ -59,10 +59,32 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 # Coverage is available (run `pytest --cov=app --cov-report=term-missing`) but is
-# intentionally NOT wired into addopts and NOT gated on a threshold.
+# intentionally NOT wired into addopts and NOT gated on a threshold — a gate that fails
+# on the day it lands gets switched off. See docs/work-plan.md §0.3.
 [tool.coverage.run]
 source = ["app"]
 branch = true
+omit = [
+    # The entry point: wiring, not logic. Mirrors Program.cs in the .NET services and
+    # main.tsx on the frontend. Alembic migrations need no entry here — they live
+    # outside app/, so `source` already excludes them.
+    "app/api/main.py",
+    "*/__init__.py",
+]
 
 [tool.coverage.report]
 show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    # Port/ABC declarations. These are the Python equivalent of a C# interface, which
+    # coverlet does not count as coverable at all — the body is a declaration, and there
+    # is nothing to execute. Excluding the LINES rather than omitting the files keeps any
+    # real logic in those modules measured.
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+    "^\\s*\\.\\.\\.$",
+    "@(typing\\.)?overload",
+    # Type-only, erased at runtime.
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

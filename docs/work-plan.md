@@ -51,7 +51,21 @@ named. This is also a report artefact (chapter: Implementation & Testing).
       without it, an entirely untested feature silently *raises* the percentage.
       Deliberately **not** gated on a threshold yet: a gate that fails on day one gets
       switched off. Add thresholds once the baseline clears them.
-      Python `[tool.coverage]` sections still to review.
+
+      Python now matches, in both `pyproject.toml` files: `omit` covers `app/api/main.py`
+      (the entry point — the Program.cs/main.tsx analogue) and `__init__.py`; migrations
+      needed no entry because Alembic lives outside `app/`, so `source` already excluded
+      them. `exclude_lines` covers `raise NotImplementedError`, `@abstractmethod`,
+      ellipsis bodies, `@overload` and `if TYPE_CHECKING:` — the port/ABC declarations,
+      which are the Python equivalent of a C# interface and which coverlet does not count
+      as coverable at all. Excluding the *lines* rather than omitting the port files keeps
+      any real logic in those modules measured.
+
+      **The check that matters: both percentages were unchanged.** LiveAssistantService
+      stayed at 81% (2758 → 2658 statements), KnowledgeService at 77% (4161 → 3910). The
+      exclusions removed roughly as much covered code as uncovered, which is what an
+      honest exclusion set looks like — if the number had jumped, the rules would have
+      been gaming it rather than measuring the right thing.
 
 ---
 
