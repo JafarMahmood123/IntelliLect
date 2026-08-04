@@ -138,9 +138,16 @@
 \renewcommand{\cftafterlottitle}{\hfill}
 
 % The short summary paragraph that opens every chapter (STRUCTURE.md §4).
-% Style "ملخص الفصل": italic, justified, indented ~0.75in both sides, 36pt after.
+% Style "ملخص الفصل": italic, indented ~0.75in both sides, 36pt after.
+%
+% Centred rather than justified — a deliberate deviation from the template,
+% which specifies justified. Do NOT use \centering here: it would overwrite the
+% \leftskip/\rightskip margins set below. The infinitely stretchable glue added
+% to both skips is what centres each line inside the inset measure.
 \newenvironment{chaptersummary}
-  {\par\itshape\leftskip=0.75in \rightskip=0.75in \noindent\ignorespaces}
+  {\par\itshape\parindent=0pt \parfillskip=0pt
+   \leftskip=0.75in plus 1fil \rightskip=0.75in plus 1fil
+   \relax\ignorespaces}
   {\par\vspace{36pt}}
 
 % The transition sentence that must close every chapter (STRUCTURE.md §4).

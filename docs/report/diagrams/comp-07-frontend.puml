@@ -1,0 +1,60 @@
+' Component diagram — the web client (React 19 + Vite).
+' Layout follows the flat-box pattern established in comp-01 (see the note there).
+'
+' The client is sliced by feature, not by layer: every one of the thirteen
+' folders under src/features owns its own api/, hooks/, components/ and types/.
+' So the "layer" boxes here are the few things that are genuinely shared, and
+' the feature box is drawn as one unit that lists its slices.
+'
+' The three outward transports are drawn separately on purpose, because they
+' are the point of the diagram: REST through the gateway, SignalR through the
+' gateway, and WebRTC straight to LiveKit without touching the gateway at all.
+@startuml
+!include _style.puml
+skinparam componentStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+}
+
+rectangle "المسارات وحرّاس الوصول (routes)\n\nProtectedRoute — يشترط جلسة قائمة\nPublicRoute — يمنع دخول المصادَق إليه\nRoleProtectedRoute — يشترط دورًا بعينه" as RT
+
+rectangle "الصفحات (pages) والمخطّطات (layouts)" as PG
+
+rectangle "الشرائح الوظيفية (features) — ثلاث عشرة شريحة\n\nauth · classrooms · quizzes · qa · streaming · whiteboard\nrecordings · summaries · recorder · users · roles · admin · superAdmin\n\nتضمّ كل شريحة: api · hooks · components · types" as FE
+
+rectangle "مكوّنات مشتركة\ncomponents\ni18n — عربي وإنكليزي" as SH
+rectangle "حالة التطبيق (zustand)\nuseAuthStore · useThemeStore" as ST
+
+rectangle "apiClient\nعميل HTTP وحيد للتطبيق" as API
+rectangle "useStreamHub\nأحداث الجلسة عبر SignalR" as HUB
+rectangle "عميل LiveKit\nوسائط وقناة بيانات" as LKC
+
+node "بوابة nginx" as GW
+node "LiveKit SFU" as LK
+
+RT --> PG
+RT --> ST
+PG --> FE
+FE --> SH
+FE --> ST
+FE --> API
+FE --> HUB
+FE --> LKC
+
+API --> GW : HTTPS مع رمز الحامل
+HUB --> GW : WebSocket
+LKC --> LK : WebRTC — لا يمرّ بالبوّابة
+
+note bottom of API
+  تعترض الطبقة كل طلب فتُلحق به رمز الوصول،
+  وتعترض كل جواب 401 فتُجدّد الرمز وتعيد
+  إرسال الطلب مرّةً واحدة. وإذا فشل التجديد
+  مُحيت الجلسة المحلية وأُعيد التوجيه إلى الدخول.
+end note
+
+note bottom of LKC
+  تجري السبّورة التشاركية على قناة بيانات
+  LiveKit لا على الخادم، فلا تمرّ الخطوط
+  بالخلفية أصلًا.
+end note
+@enduml
