@@ -71,6 +71,11 @@ pnpm-debug.log*
 # Env files (keep local secrets out of git)
 .env
 .env.*
+# ...but the EXAMPLES are documentation and must be committed. Without these negations
+# `.env.*` above (and `*.env` further down) swallows them, and `git add .env.example`
+# silently does nothing — no error, no file.
+!.env.example
+!*.env.example
 .npmrc
 
 #############################################
@@ -90,6 +95,7 @@ build/
 #############################################
 docker-compose.override.yml
 *.env
+!*.env.example
 
 #############################################
 # General

@@ -554,16 +554,35 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
 - [ ] **14.4 Fail fast on startup** when a required setting is missing or malformed.
       A service that boots with a blank internal secret and only fails on the first
       request is far harder to diagnose than one that refuses to start.
-- [ ] **14.5 Write `.env.example` — one per service plus a root one**, mirroring the
-      three real `.env` files that exist today (`backend/.env`,
-      `backend/KnowledgeService/.env`, `backend/LiveAssistantService/.env`). Every key
-      present, every value a placeholder or safe default, each with a one-line comment
-      saying what it does and whether it is required. **Never a real secret** — these
-      are committed.
-- [ ] **14.6 GOTCHA: `.gitignore` will swallow it.** Lines 72–73 ignore `.env` **and
-      `.env.*`**, so `.env.example` is ignored today and `git add` will silently do
-      nothing. Add a negation (`!.env.example`) or name the files `example.env`.
-      This is the single step most likely to be missed.
+- [x] **14.5 `.env.example` — DONE.** Three files, matching the three `.env` files that
+      are actually consumed: `backend/.env.example` (compose interpolation),
+      `backend/KnowledgeService/.env.example` and
+      `backend/LiveAssistantService/.env.example` (both loaded via `env_file:`).
+
+      Both Python compose units **already said** "copy .env.example to .env" — the file
+      they pointed at had simply never been written.
+
+      **Deliberately NOT one per service.** The four .NET services have no `env_file:`
+      entry and read nothing from a `.env`; their configuration is written inline in each
+      `docker-compose.unit.yml`. A `.env.example` beside them would be a file that looks
+      authoritative and changes nothing — the worst kind of documentation. The root
+      example lists those values in a clearly-marked REFERENCE ONLY section saying where
+      to actually change them. Whether to move them into env files is §14.7's decision.
+
+      **Structure over completeness.** Each file leads with what is REQUIRED (no default
+      exists, or it is a secret), then what is commonly changed, then points at
+      `settings.py` for the rest. The Python settings files already document every field
+      and why it holds its default; a duplicated 60-key list would drift within a week
+      and be worse than a pointer.
+
+      Verified no real value leaked: no API key, password, secret, token or database URL
+      from any of the three real `.env` files appears in any example.
+- [x] **14.6 The `.gitignore` gotcha — DONE, and it was real.** `.env.*` (line 73) and
+      `*.env` (line 92) both matched `.env.example`, so `git add` would have silently
+      done nothing — no error, no file. Added `!.env.example` and `!*.env.example`
+      negations after each rule. Verified in both directions with `git check-ignore`:
+      all three examples are now trackable, and all three real `.env` files remain
+      ignored.
 - [ ] **14.7 Wire compose to it.** `backend/docker-compose.yml` currently has no
       `env_file:` entries and inlines `environment:` blocks. Decide deliberately:
       `env_file` per service, or keep inline with `${VAR}` interpolation from a root
