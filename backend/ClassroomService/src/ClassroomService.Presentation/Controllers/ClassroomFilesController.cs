@@ -1,4 +1,5 @@
 using ClassroomService.Application.Abstractions;
+using ClassroomService.Presentation.Filters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -16,8 +17,22 @@ public sealed class ClassroomFilesController : ApiBaseController
         _fileService = fileService;
     }
 
+    /// <summary>
+    /// The upload control's bounds, so it can never offer a file the server would reject. Readable
+    /// by any member — the limits are not a secret, and the control needs them before a teacher
+    /// picks a file.
+    /// </summary>
+    [HttpGet("upload-limits")]
+    public IActionResult GetUploadLimits() => Ok(_fileService.GetUploadLimits());
+
+    /// <summary>
+    /// Stores a classroom material file. The size ceiling is applied by
+    /// <see cref="UploadSizeLimitFilter"/> before the body is read; the exact per-file size and
+    /// format rules are enforced by the service.
+    /// </summary>
     [HttpPost]
     [Authorize(Roles = "Teacher")]
+    [ServiceFilter(typeof(UploadSizeLimitFilter))]
     public async Task<IActionResult> Upload(Guid classroomId, IFormFile file, CancellationToken ct)
     {
         if (file == null || file.Length == 0) return BadRequest("No file uploaded.");

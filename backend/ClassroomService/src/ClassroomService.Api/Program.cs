@@ -3,12 +3,18 @@ using ClassroomService.Application;
 using Microsoft.EntityFrameworkCore;
 using ClassroomService.Infrastructure.Persistence;
 using ClassroomService.Api.Middleware;
+using ClassroomService.Presentation.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddControllers();
+
+// Registered here rather than in Infrastructure because the filter lives in Presentation, and
+// Infrastructure does not reference it. [ServiceFilter] resolves it from the container so it can
+// take IUploadSettings — an attribute alone could not, the limit being configuration.
+builder.Services.AddScoped<UploadSizeLimitFilter>();
 builder.Services.AddOpenApi();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

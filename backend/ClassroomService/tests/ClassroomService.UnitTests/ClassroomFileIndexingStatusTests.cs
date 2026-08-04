@@ -17,6 +17,7 @@ public sealed class ClassroomFileIndexingStatusTests
             memberships,
             new FakeFileStorageService(),
             knowledge,
+            new FakeUploadSettings(),
             TestMapper.Create(),
             new RecordingLogger<ClassroomFileService>());
 

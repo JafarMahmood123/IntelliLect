@@ -239,8 +239,14 @@ public sealed class FakeClassroomRepository : IClassroomRepository
 /// <summary>No-op file storage that returns a deterministic key / accepts deletes.</summary>
 public sealed class FakeFileStorageService : IFileStorageService
 {
+    /// <summary>Keys written, so a test can assert a REJECTED upload stored nothing.</summary>
+    public List<string> UploadedKeys { get; } = new();
+
     public Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, CancellationToken ct = default)
-        => Task.FromResult(fileName);
+    {
+        UploadedKeys.Add(fileName);
+        return Task.FromResult(fileName);
+    }
 
     public Task DeleteFileAsync(string s3Key, CancellationToken ct = default) => Task.CompletedTask;
 
@@ -555,4 +561,21 @@ public static class TestMapper
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>
     public static IMapper Create()
         => new MapperConfiguration(cfg => cfg.AddProfile<ClassroomProfile>()).CreateMapper();
+}
+
+/// <summary>
+/// Upload limits with a small default size, so a test can exceed it with a few hundred bytes
+/// instead of allocating the real 50 MB.
+/// </summary>
+public sealed class FakeUploadSettings : IUploadSettings
+{
+    public long MaxFileSizeBytes { get; init; } = 1024;
+
+    public long MultipartOverheadBytes { get; init; } = 64;
+
+    public IReadOnlyCollection<string> AllowedContentTypes { get; init; } =
+        new[] { "application/pdf", "text/plain" };
+
+    public IReadOnlyCollection<string> AllowedExtensions { get; init; } =
+        new[] { "pdf", "txt", "md" };
 }

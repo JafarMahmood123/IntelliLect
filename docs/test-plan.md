@@ -126,7 +126,7 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-05 | A disallowed content type is refused even when under the size limit | Unit | P0 | new |
 | E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | partial |
 | E-07 | **nginx `client_max_body_size` is ≥ the app limit** — otherwise nginx rejects first with unparseable HTML | Integration | P0 | new |
-| E-08 | The RAG service's own ingest endpoint enforces the same limit | Unit | P0 | new |
+| E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | P2 | not built |
 | E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | new |
 | E-10 | Frontend pre-flight rejects an over-size file before the request starts | Frontend | P2 | new |
 | E-11 | `SizeBytes` is recorded correctly and rendered human-readably in the teacher's file list | Frontend | P1 | partial |

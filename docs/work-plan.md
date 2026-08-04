@@ -397,27 +397,38 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
         user-service. Harmless only if LiveKit calls streaming-service directly on the
         Docker network; confirm when containers are back up, because a gateway-routed
         webhook would silently break recording.
-- [ ] **13.2 One configured value, enforced at every layer.** A limit set in only one
-      place produces the wrong error at the wrong time. All four need it, derived from
-      the same setting:
-      - nginx `client_max_body_size` (must be ≥ the app limit, or nginx rejects first
-        with a raw HTML 413 the frontend cannot parse)
-      - Kestrel / `[RequestSizeLimit]` + `MultipartBodyLengthLimit` on the endpoint
-      - application-level validation in `ClassroomFileService`, returning a proper
-        typed error
-      - the RAG service's own ingest endpoint — it accepts uploads independently
-- [ ] **13.3 Make it configurable from the backend**, as you asked: an appsettings
-      section (e.g. `Uploads:MaxFileSizeBytes`, plus an allowed content-type list) bound
-      to an options class, overridable per environment. Expose the limit to the frontend
-      the same way §P1's `media` settings reach the browser, so the UI shows the real
-      configured number rather than a duplicated constant.
-- [ ] **13.4 Reject early, not after the upload completes.** Check
-      `Content-Length` before buffering the body — otherwise a 2 GB upload is fully
-      transferred and only then refused.
-- [ ] **13.5 Also add an allowed-type check while you are here.** The upload path
-      currently records `ContentType` but does not appear to validate it. A size limit
-      without a type allow-list still lets a teacher upload anything the extractor will
-      choke on.
+- [x] **13.2 One configured value, enforced at every layer — DONE.**
+      - [x] nginx `client_max_body_size 64m`, deliberately *above* the app's 50 MB so the
+            application produces the typed error and nginx only catches what the app
+            would refuse anyway. Commented in-place to say that raising the app limit
+            past it silently moves enforcement back to nginx.
+      - [x] Kestrel's per-request ceiling, raised to the configured value by
+            `UploadSizeLimitFilter`.
+      - [x] `ClassroomFileService.ValidateSize` / `ValidateType` — the exact per-file
+            rules, throwing `PayloadTooLargeException` (413) or `ValidationException`
+            (422).
+      - [x] **Correction: the RAG service has no upload endpoint to limit.**
+            `internal_documents.ingest_document` takes an **`s3_key`** in a JSON payload
+            and fetches the object itself — nothing is ever POSTed to it. Since
+            ClassroomService is now the only writer and caps at 50 MB, the equivalent
+            protection there would be a max-bytes guard on the S3 *fetch* before
+            extraction. Not implemented: the only way to exceed it is a direct write to
+            the bucket, which no code path does. Recorded rather than silently dropped.
+- [x] **13.3 Configurable from the backend — DONE.** `Uploads` section in appsettings →
+      `UploadOptions : IUploadSettings`, registered as a singleton exactly like
+      `QuizOptions`. Served to the browser from `GET /api/classrooms/{id}/upload-limits`,
+      following the `QuizLimitsDto` precedent so the control and the server cannot drift.
+- [x] **13.4 Reject early — DONE.** `UploadSizeLimitFilter` is an `IAsyncResourceFilter`,
+      which runs *before* model binding: the last point at which an oversized body can be
+      refused without buffering it. Uses `[ServiceFilter]` rather than
+      `[RequestSizeLimit]` because that attribute needs a compile-time constant and the
+      whole point is a configurable value. Two guards — the declared `Content-Length`
+      (typed ProblemDetails for an honest client) and Kestrel's ceiling (catches a lying
+      or absent one).
+- [x] **13.5 Allowed-type check — DONE.** Defaults mirror KnowledgeService's extractor
+      table exactly (`_support.py`), so nothing is accepted that could never be indexed.
+      Content type **or** extension is sufficient — not both — because browsers send a
+      generic type for Markdown and the RAG router itself dispatches on either.
 - [ ] **13.6 Show the size — mostly already there.** `ClassroomFile.SizeBytes` exists and
       is already returned in the file DTO, so this is largely a frontend render task:
       a human-readable byte formatter (there is `src/utils/format.ts` with tests —
@@ -426,9 +437,15 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
 - [ ] **13.7 Frontend pre-flight** — reject over-size files in the browser before the
       request starts, with the limit's real value in the message. This is UX, not
       enforcement; the server checks stay regardless.
-- [ ] **13.8 Tests** — at limit, one byte over, zero-byte file, missing
-      `Content-Length`, disallowed type, and an nginx-level 413 surfacing as a readable
-      error rather than an HTML page.
+- [x] **13.8 Tests — DONE for everything a unit test can reach.**
+      `ClassroomFileUploadLimitsTests`, 10 cases: exactly at the limit accepted, one byte
+      over refused, zero-byte refused, disallowed type refused, `; charset=` parameters
+      do not defeat the allow-list, generic type saved by extension, allowed type saved
+      by a missing extension, a rejected upload leaves no S3 object and no row, and
+      authorization precedes validation (so an outsider cannot probe the limits by
+      watching 413 vs 401). Full suite: **306 passed, 0 failed.**
+      Still needs containers: E-07 (nginx-level 413 surfacing readably) and E-03
+      (Content-Length rejection before buffering) — both are integration cases.
 
 ---
 

@@ -18,6 +18,7 @@ public sealed class ClassroomFileService : IClassroomFileService
     private readonly IMembershipRepository _membershipRepository;
     private readonly IFileStorageService _storageService;
     private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly IUploadSettings _uploadSettings;
     private readonly IMapper _mapper;
     private readonly ILogger<ClassroomFileService> _logger;
 
@@ -27,6 +28,7 @@ public sealed class ClassroomFileService : IClassroomFileService
         IMembershipRepository membershipRepository,
         IFileStorageService storageService,
         IKnowledgeInternalClient knowledgeClient,
+        IUploadSettings uploadSettings,
         IMapper mapper,
         ILogger<ClassroomFileService> logger)
     {
@@ -35,15 +37,28 @@ public sealed class ClassroomFileService : IClassroomFileService
         _membershipRepository = membershipRepository;
         _storageService = storageService;
         _knowledgeClient = knowledgeClient;
+        _uploadSettings = uploadSettings;
         _mapper = mapper;
         _logger = logger;
     }
+
+    public UploadLimitsDto GetUploadLimits() => new(
+        _uploadSettings.MaxFileSizeBytes,
+        _uploadSettings.AllowedContentTypes,
+        _uploadSettings.AllowedExtensions);
 
     public async Task<ClassroomFileResponse> UploadFileAsync(Guid classroomId, Guid uploaderId, Stream fileStream, string fileName, string contentType, CancellationToken ct)
     {
         var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct);
         if (classroom == null || classroom.TeacherId != uploaderId)
             throw new UnauthorizedAccessException("Only the teacher can upload files.");
+
+        // Validated AFTER authorization and BEFORE anything is written: an unauthorised caller
+        // should not learn the limits by probing, and a rejected file must leave no S3 object and
+        // no row behind. Both checks are the authority — the resource filter ahead of them is a
+        // coarse early guard on the whole request, not a per-file rule.
+        ValidateSize(fileStream);
+        ValidateType(fileName, contentType);
 
         var s3Key = $"classrooms/{classroomId}/{Guid.NewGuid()}-{fileName}";
         var url = await _storageService.UploadFileAsync(fileStream, s3Key, contentType, ct);
@@ -84,6 +99,62 @@ public sealed class ClassroomFileService : IClassroomFileService
         }
 
         return _mapper.Map<ClassroomFileResponse>(classroomFile);
+    }
+
+    /// <summary>
+    /// The exact per-file size rule. Compares the FILE's own length, not the request's, so a file
+    /// of exactly the maximum is accepted rather than being pushed over by multipart framing.
+    /// </summary>
+    private void ValidateSize(Stream fileStream)
+    {
+        if (fileStream.Length == 0)
+            throw new ValidationException("The file is empty.");
+
+        if (fileStream.Length > _uploadSettings.MaxFileSizeBytes)
+            throw new PayloadTooLargeException(
+                $"The file is {fileStream.Length} bytes, which exceeds the maximum upload size of " +
+                $"{_uploadSettings.MaxFileSizeBytes} bytes.");
+    }
+
+    /// <summary>
+    /// Accepts a file whose content type OR extension is allowed — either alone is enough.
+    ///
+    /// Not both, because the two signals disagree in ordinary use: browsers send an empty or
+    /// generic type for Markdown, and a correct type with a missing extension is still perfectly
+    /// indexable. KnowledgeService's extractor router dispatches on either signal too, so this
+    /// admits exactly the set that can actually be extracted.
+    /// </summary>
+    private void ValidateType(string fileName, string contentType)
+    {
+        var normalizedType = NormalizeContentType(contentType);
+        if (_uploadSettings.AllowedContentTypes.Contains(normalizedType))
+            return;
+
+        var extension = ExtensionOf(fileName);
+        if (extension.Length > 0 && _uploadSettings.AllowedExtensions.Contains(extension))
+            return;
+
+        throw new ValidationException(
+            $"Files of type '{contentType}' are not accepted. Allowed formats: " +
+            $"{string.Join(", ", _uploadSettings.AllowedExtensions)}.");
+    }
+
+    /// <summary>Lowercase and drop any parameters (e.g. "; charset=utf-8") from a MIME type.</summary>
+    private static string NormalizeContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+            return string.Empty;
+
+        var separatorIndex = contentType.IndexOf(';');
+        var bare = separatorIndex >= 0 ? contentType[..separatorIndex] : contentType;
+        return bare.Trim().ToLowerInvariant();
+    }
+
+    /// <summary>The lowercase extension without the dot, or "" if the name has none.</summary>
+    private static string ExtensionOf(string fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        return extension.Length > 1 ? extension[1..].ToLowerInvariant() : string.Empty;
     }
 
     public async Task DeleteFileAsync(Guid fileId, Guid uploaderId, CancellationToken ct)

@@ -4,6 +4,16 @@ namespace ClassroomService.Application.Abstractions;
 
 public interface IClassroomFileService
 {
+    /// <summary>
+    /// The upload control's bounds, so it cannot offer a file the server will reject. Advisory on
+    /// the client; <see cref="UploadFileAsync"/> enforces the same values regardless.
+    /// </summary>
+    UploadLimitsDto GetUploadLimits();
+
+    /// <summary>
+    /// Stores a classroom material file. Non-teacher -> 401; empty or oversized file -> 422/413;
+    /// a format no extractor handles -> 422. A rejected upload writes nothing: no S3 object, no row.
+    /// </summary>
     Task<ClassroomFileResponse> UploadFileAsync(Guid classroomId, Guid uploaderId, Stream fileStream, string fileName, string contentType, CancellationToken ct = default);
     Task DeleteFileAsync(Guid fileId, Guid uploaderId, CancellationToken ct = default);
     Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(Guid classroomId, CancellationToken ct = default);

@@ -158,6 +158,12 @@ public static class DependencyInjection
         services.Configure<QuizOptions>(configuration.GetSection(QuizOptions.SectionName));
         services.AddSingleton<IQuizSettings>(sp =>
             sp.GetRequiredService<IOptions<QuizOptions>>().Value);
+
+        // Material upload limits. Same singleton-settings shape, and also served to the browser
+        // (see ClassroomFilesController) so the upload control and the server agree on one value.
+        services.Configure<UploadOptions>(configuration.GetSection(UploadOptions.SectionName));
+        services.AddSingleton<IUploadSettings>(sp =>
+            sp.GetRequiredService<IOptions<UploadOptions>>().Value);
         services.AddScoped<IQuizRepository, QuizRepository>();
         services.AddScoped<IQuizService, QuizService>();
         // Pushes state changes to the live room via StreamingService; best-effort, id-only payload.

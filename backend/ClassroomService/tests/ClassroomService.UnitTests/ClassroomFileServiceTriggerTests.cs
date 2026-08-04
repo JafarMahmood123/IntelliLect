@@ -21,6 +21,7 @@ public sealed class ClassroomFileServiceTriggerTests
             new FakeMembershipRepository(),
             new FakeFileStorageService(),
             knowledge,
+            new FakeUploadSettings(),
             TestMapper.Create(),
             logger);
 
