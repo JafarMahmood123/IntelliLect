@@ -108,8 +108,11 @@ public static class DependencyInjection
                 {
                     cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
                     {
-                        h.Username("jafar.mahmood");
-                        h.Password("Jafar123!");
+                        // Read, never hardcoded: a broker credential in source is a credential in
+                        // the git history. Required rather than defaulted, so a missing value fails
+                        // at startup with the key name instead of obscurely on the first publish.
+                        h.Username(Required(configuration, "RabbitMq:Username"));
+                        h.Password(Required(configuration, "RabbitMq:Password"));
                     });
                     cfg.ConfigureEndpoints(context);
                 });
@@ -189,4 +192,16 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Reads a setting that has no safe default — a broker credential, a shared secret. Throws at
+    /// STARTUP naming the missing key, rather than letting the service boot and fail obscurely on
+    /// its first use. Treats empty as missing: a blank password is not a configured one.
+    /// </summary>
+    private static string Required(IConfiguration configuration, string key)
+        => !string.IsNullOrWhiteSpace(configuration[key])
+            ? configuration[key]!
+            : throw new InvalidOperationException(
+                $"Required configuration '{key}' is missing. Set it via the environment variable "
+                + $"{key.Replace(":", "__")} or in appsettings.");
 }

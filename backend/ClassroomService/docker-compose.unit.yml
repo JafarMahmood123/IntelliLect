@@ -27,6 +27,10 @@ services:
       - RabbitMq__Host=intellilect-mq
       - RabbitMq__Username=jafar.mahmood
       - RabbitMq__Password=Jafar123!
+      # Live-room control and quiz pushes. Previously hardcoded in the client itself, so this
+      # hop could not be pointed anywhere else.
+      - StreamingService__BaseUrl=http://streaming-service:8080
+      - StreamingService__TimeoutSeconds=10
       - S3Settings__BucketName=intellilect-files
       - S3Settings__ServiceUrl=http://intellilect-s3:9000
       # Browser-reachable MinIO endpoint used only to sign download URLs (host-published port).

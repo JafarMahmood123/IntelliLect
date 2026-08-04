@@ -8,6 +8,10 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - RabbitMq__Host=intellilect-mq
+      # Required: the service reads these rather than carrying a hardcoded credential, and
+      # refuses to start without them. Must match RABBITMQ_DEFAULT_USER/PASS on the broker.
+      - RabbitMq__Username=jafar.mahmood
+      - RabbitMq__Password=Jafar123!
       - EmailSettings__SenderName=IntelliLect
       - EmailSettings__SenderEmail=bolmangosy@gmail.com
       - EmailSettings__AppPassword=iqfjjwgmrqezbshi

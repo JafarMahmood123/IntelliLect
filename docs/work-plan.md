@@ -500,13 +500,47 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
 
 ## 14. Configuration hygiene + `.env.example`
 
-- [ ] **14.1 Inventory the hardcoded values** before moving anything — one pass per
-      service, recording value, where it lives, and whether it differs per environment.
-      Known or likely candidates to check: retrieval min-score, boundary drift
-      threshold, feedback pacing interval, embedding model + dimension, internal service
-      base URLs and ports, LiveKit `node_ip`, the public service URL used for presigned
-      downloads, timeouts and retry counts, batch sizes, and any fixed IDs left in
-      scripts.
+- [x] **14.1 Inventory — DONE.** Swept every service. The result is much better than
+      feared: nearly all the "hardcoded" values are prompts, MIME tables, sentinels,
+      claim names, header names and email subjects — genuine constants. **Two real
+      problems, both now fixed**, plus a set that deliberately stays put.
+
+      **FIXED — broker credentials committed to source.** All four .NET services carried
+      `h.Username("jafar.mahmood"); h.Password("Jafar123!")` literally in
+      `DependencyInjection.cs`. Both Python services already read theirs from settings, so
+      the .NET half was the outlier. Worse, the plumbing already existed: ClassroomService
+      and StreamingService compose units *already pass* `RabbitMq__Username/__Password` —
+      the code simply ignored them. Now read via a `Required()` helper that throws at
+      startup naming the missing key. EmailService and UserManagementService compose units
+      were missing the two vars entirely and have been given them, so behaviour in compose
+      is unchanged.
+      **The credential is still in git history** — rotating it is a separate decision.
+
+      **FIXED — the one unconfigurable internal hop.** `StreamingInternalClient` and
+      `StreamingQuizNotifier` wrote `http://streaming-service:8080/...` into the call
+      itself, while every other internal client bound a typed options object. Now a
+      `StreamingServiceOptions` + shared `ConfigureStreamingClient`, with the clients
+      using relative paths.
+
+      **Deliberately left alone** — these are the "leave as a constant" bucket, and moving
+      them would be a downgrade:
+      - `DefaultTtlSeconds`, `DefaultBatchSize`, `MinStalledAfterHours` — these are NOT
+        duplicated config. They are guards that apply only when the configured value is
+        `<= 0`, i.e. floors protecting against a mistyped setting. Externalising a floor
+        defeats its purpose.
+      - Prompts, MIME/extension tables, `X-Internal-Secret` header name, JWT claim names,
+        email subject lines, parser sentinels — domain invariants and protocol constants.
+      - Frontend poll intervals (5s indexing, 8s recordings, 10s sessions) and the 300ms
+        debounce. UI feel, not deployment configuration. The 300ms literal *is* repeated
+        across 8 superAdmin components — worth a shared constant, but as tidying rather
+        than configuration.
+
+      **Still open, noted not fixed:** `MaxAttempts = 3` retry counts in the Knowledge and
+      LiveAssistant clients are arguably tunable; and several tuning thresholds in the
+      Python services (`DEFAULT_SILENCE_RMS`, `_MIN_TRANSCRIPT_WORDS`,
+      `_GROUNDING_QUERY_MAX_CHARS`) sit as module constants rather than in `Settings`.
+      All are single-valued today with no evidence of needing per-environment variation —
+      left until something actually needs to vary.
 - [ ] **14.2 Classify each one — not everything belongs in env.** Three buckets:
       - **env var** — differs per environment or is a secret (URLs, credentials, keys)
       - **config file** (appsettings / settings.py defaults) — a tunable with a sane

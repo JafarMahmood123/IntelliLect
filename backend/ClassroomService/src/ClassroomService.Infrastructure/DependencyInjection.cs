@@ -64,7 +64,12 @@ public static class DependencyInjection
         services.AddScoped<IClassroomQaService, ClassroomQaService>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>();
+
+        // StreamingService internal client. Same shape as the two below — the base address belongs
+        // to configuration, not to the call site.
+        services.Configure<StreamingServiceOptions>(
+            configuration.GetSection(StreamingServiceOptions.SectionName));
+        services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>(ConfigureStreamingClient);
 
         // KnowledgeService internal client: typed HttpClient + options (mirrors the
         // streaming client). BaseAddress/timeout come from the "KnowledgeService" section;
@@ -167,7 +172,8 @@ public static class DependencyInjection
         services.AddScoped<IQuizRepository, QuizRepository>();
         services.AddScoped<IQuizService, QuizService>();
         // Pushes state changes to the live room via StreamingService; best-effort, id-only payload.
-        services.AddHttpClient<IQuizNotifier, StreamingQuizNotifier>();
+        // Shares the streaming base address configured above.
+        services.AddHttpClient<IQuizNotifier, StreamingQuizNotifier>(ConfigureStreamingClient);
         // Closes quizzes whose time has run out. Registered unconditionally, unlike the two sweeps
         // below: those are safety nets for states that should not arise, whereas a quiz reaching
         // its deadline is the NORMAL end of one, and Closed is what releases the class's marks.
@@ -269,8 +275,11 @@ public static class DependencyInjection
                 {
                     cfg.Host(configuration["RabbitMq:Host"] ?? "rabbitmq", h =>
                     {
-                        h.Username("jafar.mahmood");
-                        h.Password("Jafar123!");
+                        // Read, never hardcoded: a broker credential in source is a credential in
+                        // the git history. Required rather than defaulted, so a missing value fails
+                        // at startup with the key name instead of obscurely on the first publish.
+                        h.Username(Required(configuration, "RabbitMq:Username"));
+                        h.Password(Required(configuration, "RabbitMq:Password"));
                     });
                     cfg.ConfigureEndpoints(context);
                 });
@@ -283,4 +292,34 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Base address and timeout for the two clients that call StreamingService. Shared so the
+    /// internal client and the quiz notifier can never end up pointing at different hosts.
+    /// </summary>
+    private static void ConfigureStreamingClient(IServiceProvider sp, HttpClient client)
+    {
+        var options = sp.GetRequiredService<IOptions<StreamingServiceOptions>>().Value;
+        var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+            ? "http://streaming-service:8080"
+            : options.BaseUrl;
+        if (!baseUrl.EndsWith('/'))
+        {
+            baseUrl += "/";
+        }
+        client.BaseAddress = new Uri(baseUrl);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+    }
+
+    /// <summary>
+    /// Reads a setting that has no safe default — a broker credential, a shared secret. Throws at
+    /// STARTUP naming the missing key, rather than letting the service boot and fail obscurely on
+    /// its first use. Treats empty as missing: a blank password is not a configured one.
+    /// </summary>
+    private static string Required(IConfiguration configuration, string key)
+        => !string.IsNullOrWhiteSpace(configuration[key])
+            ? configuration[key]!
+            : throw new InvalidOperationException(
+                $"Required configuration '{key}' is missing. Set it via the environment variable "
+                + $"{key.Replace(":", "__")} or in appsettings.");
 }

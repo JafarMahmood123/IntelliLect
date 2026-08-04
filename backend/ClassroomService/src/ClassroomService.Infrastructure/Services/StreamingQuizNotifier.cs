@@ -22,7 +22,7 @@ public sealed class StreamingQuizNotifier : IQuizNotifier
         try
         {
             await _httpClient.PostAsJsonAsync(
-                $"http://streaming-service:8080/api/internal/streams/{sessionId}/quiz-event",
+                $"api/internal/streams/{sessionId}/quiz-event",
                 new { QuizId = quizId, State = state },
                 ct);
         }

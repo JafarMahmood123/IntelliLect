@@ -21,7 +21,7 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
         try
         {
             var request = new { SessionId = sessionId, ClassroomId = classroomId, TeacherId = teacherId, ParticipationMode = participationMode, RecordingEnabled = recordingEnabled };
-            var response = await _httpClient.PostAsJsonAsync("http://streaming-service:8080/api/internal/streams", request, ct);
+            var response = await _httpClient.PostAsJsonAsync("api/internal/streams", request, ct);
 
             return response.IsSuccessStatusCode;
         }
@@ -39,7 +39,7 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
             // Reuses StreamingService's existing end path (stop egress, notify assistant, close room).
             // A 404 means no live stream exists for this session (nothing to close) — treat as success.
             var response = await _httpClient.PostAsync(
-                $"http://streaming-service:8080/api/internal/streams/{sessionId}/end", content: null, ct);
+                $"api/internal/streams/{sessionId}/end", content: null, ct);
 
             return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound;
         }
