@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: knowledgedb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Jafar123!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in backend/.env}
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d knowledgedb" ]
       interval: 10s
@@ -31,7 +31,7 @@ services:
         required: false
     environment:
       # Overrides the .env host so the container reaches the compose DB service.
-      - DATABASE_URL=postgresql+asyncpg://postgres:Jafar123!@knowledge-db:5432/knowledgedb
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set it in backend/.env}@knowledge-db:5432/knowledgedb
       # Reach host Ollama (see extra_hosts below). Host must run Ollama on
       # 0.0.0.0:11434 with the qwen3-embedding model pulled.
       # Only used when EMBEDDING_PROVIDER=ollama; the generation/summary models still use it.

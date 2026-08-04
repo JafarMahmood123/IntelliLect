@@ -4,7 +4,7 @@ services:
     container_name: user-management-db
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set it in backend/.env}
       - POSTGRES_DB=users_db
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d users_db" ]
@@ -26,17 +26,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__Database=Host=user-management-db;Port=5432;Database=users_db;Username=postgres;Password=Jafar123!
+      - ConnectionStrings__Database=Host=user-management-db;Port=5432;Database=users_db;Username=postgres;Password=${POSTGRES_PASSWORD:?set it in backend/.env}
       - RabbitMq__Host=intellilect-mq
       # Required: the service reads these rather than carrying a hardcoded credential, and
       # refuses to start without them. Must match RABBITMQ_DEFAULT_USER/PASS on the broker.
-      - RabbitMq__Username=jafar.mahmood
-      - RabbitMq__Password=Jafar123!
-      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      - RabbitMq__Username=${RABBITMQ_USER:?set it in backend/.env}
+      - RabbitMq__Password=${RABBITMQ_PASS:?set it in backend/.env}
+      - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
       # Read a user's classroom memberships for the super admin user-detail view.
       # InternalApiSecret must match ClassroomService's Internal__ApiSecret.
       - ClassroomService__BaseUrl=http://classroom-service:8080
-      - ClassroomService__InternalApiSecret=changeme-internal-secret
+      - ClassroomService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - ClassroomService__TimeoutSeconds=10
     depends_on:
       user-db:

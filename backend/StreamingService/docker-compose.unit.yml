@@ -4,7 +4,7 @@ services:
     container_name: streaming-db
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=Jafar123!
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set it in backend/.env}
       - POSTGRES_DB=streaming_db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d streaming_db"]
@@ -73,8 +73,8 @@ services:
       - ./livekit.yaml:/livekit.yaml
     environment:
       - LIVEKIT_NODE_IP=${LIVEKIT_HOST_IP:-127.0.0.1}
-      - LiveKit__ApiKey=devkey
-      - LiveKit__ApiSecret=super_secret_livekit_key_for_development
+      - LiveKit__ApiKey=${LIVEKIT_API_KEY:?set it in backend/.env}
+      - LiveKit__ApiSecret=${LIVEKIT_API_SECRET:?set it in backend/.env}
       - LiveKit__Host=ws://${LIVEKIT_HOST_IP:-127.0.0.1}:7880
       - LOG_LEVEL=info,pion:warn,transport:warn
     # Same reason as livekit-redis: the egress worker restarts itself, so its two dependencies
@@ -124,15 +124,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__Database=Host=streaming-db;Port=5432;Database=streaming_db;Username=postgres;Password=Jafar123!
+      - ConnectionStrings__Database=Host=streaming-db;Port=5432;Database=streaming_db;Username=postgres;Password=${POSTGRES_PASSWORD:?set it in backend/.env}
       - RabbitMq__Host=intellilect-mq
-      - RabbitMq__Username=jafar.mahmood
-      - RabbitMq__Password=Jafar123!
-      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      - RabbitMq__Username=${RABBITMQ_USER:?set it in backend/.env}
+      - RabbitMq__Password=${RABBITMQ_PASS:?set it in backend/.env}
+      - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
-      - LiveKit__ApiKey=devkey
-      - LiveKit__ApiSecret=super_secret_livekit_key_for_development
+      - LiveKit__ApiKey=${LIVEKIT_API_KEY:?set it in backend/.env}
+      - LiveKit__ApiSecret=${LIVEKIT_API_SECRET:?set it in backend/.env}
       # The ws URL handed to BROWSERS. Same variable as livekit-server's --node-ip on purpose: if
       # these two ever diverge, the browser signals to one address and is offered media candidates
       # on another, ICE fails, and participants are dropped ~13s after joining (looks like a kick).
@@ -147,7 +147,7 @@ services:
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
       # (which is also what live-assistant presents to KnowledgeService). One value everywhere.
-      - LiveAssistant__InternalApiSecret=changeme-internal-secret
+      - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       # Session recording via LiveKit Room Composite Egress (R-0). This endpoint is used BY the
       # host-networked egress worker to upload the MP4 to MinIO, so it must be an address egress
       # can reach from the host namespace — MinIO's host-published port, NOT the intellilect-s3
@@ -231,8 +231,8 @@ services:
       - Egress__ReconcileIntervalSeconds=30
       - Egress__S3__Bucket=intellilect-files
       - Egress__S3__Region=us-east-1
-      - Egress__S3__AccessKey=testuser
-      - Egress__S3__Secret=testpassword123!
+      - Egress__S3__AccessKey=${MINIO_ROOT_USER:?set it in backend/.env}
+      - Egress__S3__Secret=${MINIO_ROOT_PASSWORD:?set it in backend/.env}
       - Egress__S3__Endpoint=http://127.0.0.1:9000
     # Recording depends on this service being up to receive room_started and to run the reconcile
     # loop, so it comes back with the host like the rest of the recording group.

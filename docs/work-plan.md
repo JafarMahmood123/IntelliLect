@@ -583,10 +583,32 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       negations after each rule. Verified in both directions with `git check-ignore`:
       all three examples are now trackable, and all three real `.env` files remain
       ignored.
-- [ ] **14.7 Wire compose to it.** `backend/docker-compose.yml` currently has no
-      `env_file:` entries and inlines `environment:` blocks. Decide deliberately:
-      `env_file` per service, or keep inline with `${VAR}` interpolation from a root
-      `.env`. Mixed styles are how a value ends up defined twice with different values.
+- [x] **14.7 Wire compose to it — DONE, via `${VAR}` interpolation rather than
+      `env_file`.** The risk named here turned out to be already real, not hypothetical:
+      the broker credentials were written out in **4** compose units, the JWT key in
+      **3**, the internal secret in **5**, the LiveKit credentials in **2** — with
+      nothing keeping the copies in step. A drifted JWT key presents as every request
+      being 401; a drifted internal secret stops indexing, transcripts and quiz
+      generation with nothing visible to the user.
+
+      **Why interpolation over `env_file`:** the values that were duplicated are exactly
+      the *shared* ones. Interpolation single-sources them in `backend/.env` while
+      leaving each compose unit readable — you can still see what a service gets, next to
+      the service. `env_file` per service would have re-scattered the shared secrets into
+      six files, which is the same problem with more indirection. Per-service *non-secret*
+      settings stay inline for the same reason.
+
+      Used the `${VAR:?message}` form throughout, so a missing variable stops compose with
+      the variable's name. That is the compose-layer counterpart of §14.4's `Required()`.
+
+      **Verified behaviour-preserving, twice.** First, all 11 values in the existing
+      `backend/.env` were compared against the compose literals before touching anything —
+      all 11 matched exactly, confirming the root `.env` had been written for this and
+      never wired up. Then `docker compose config` was diffed before and after:
+      **byte-for-byte identical**. Every container receives exactly the environment it did
+      before. No daemon needed, so this was verifiable with the stack down.
+
+      37 substitutions across 7 files; zero credential literals remain in any compose file.
 - [ ] **14.8 Document the required-vs-optional split** in the README, and note which
       keys must be changed before a real deployment.
 - [ ] **14.9 Tests** — settings binding, defaults applied when a key is absent, startup

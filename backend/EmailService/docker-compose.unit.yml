@@ -10,11 +10,11 @@ services:
       - RabbitMq__Host=intellilect-mq
       # Required: the service reads these rather than carrying a hardcoded credential, and
       # refuses to start without them. Must match RABBITMQ_DEFAULT_USER/PASS on the broker.
-      - RabbitMq__Username=jafar.mahmood
-      - RabbitMq__Password=Jafar123!
+      - RabbitMq__Username=${RABBITMQ_USER:?set it in backend/.env}
+      - RabbitMq__Password=${RABBITMQ_PASS:?set it in backend/.env}
       - EmailSettings__SenderName=IntelliLect
-      - EmailSettings__SenderEmail=bolmangosy@gmail.com
-      - EmailSettings__AppPassword=iqfjjwgmrqezbshi
+      - EmailSettings__SenderEmail=${SMTP_SENDER_EMAIL:?set it in backend/.env}
+      - EmailSettings__AppPassword=${SMTP_APP_PASSWORD:?set it in backend/.env}
       - EmailSettings__SmtpHost=smtp.gmail.com
       - EmailSettings__SmtpPort=587
     depends_on:

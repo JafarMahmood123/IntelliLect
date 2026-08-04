@@ -12,8 +12,10 @@ services:
   intellilect-mq:
     image: rabbitmq:3-management-alpine
     environment:
-      - RABBITMQ_DEFAULT_USER=jafar.mahmood
-      - RABBITMQ_DEFAULT_PASS=Jafar123!
+      # From backend/.env. The four .NET services read the SAME two values as
+      # RabbitMq__Username/__Password, so they can no longer drift apart.
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:?set RABBITMQ_USER in backend/.env}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:?set RABBITMQ_PASS in backend/.env}
     container_name: intellilect-mq
     ports:
       - "5672:5672"
@@ -30,8 +32,8 @@ services:
     image: minio/minio:latest
     container_name: intellilect-s3
     environment:
-      - MINIO_ROOT_USER=testuser
-      - MINIO_ROOT_PASSWORD=testpassword123!
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:?set MINIO_ROOT_USER in backend/.env}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in backend/.env}
     ports:
       - "9000:9000"
       - "9001:9001"

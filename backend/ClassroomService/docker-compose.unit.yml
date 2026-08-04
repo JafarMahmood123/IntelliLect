@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: classroomdb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Jafar123!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in backend/.env}
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d classroomdb" ]
       interval: 10s
@@ -23,10 +23,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__Database=Host=classroom-db;Port=5432;Database=classroomdb;Username=postgres;Password=Jafar123!
+      - ConnectionStrings__Database=Host=classroom-db;Port=5432;Database=classroomdb;Username=postgres;Password=${POSTGRES_PASSWORD:?set it in backend/.env}
       - RabbitMq__Host=intellilect-mq
-      - RabbitMq__Username=jafar.mahmood
-      - RabbitMq__Password=Jafar123!
+      - RabbitMq__Username=${RABBITMQ_USER:?set it in backend/.env}
+      - RabbitMq__Password=${RABBITMQ_PASS:?set it in backend/.env}
       # Live-room control and quiz pushes. Previously hardcoded in the client itself, so this
       # hop could not be pointed anywhere else.
       - StreamingService__BaseUrl=http://streaming-service:8080
@@ -36,13 +36,13 @@ services:
       # Browser-reachable MinIO endpoint used only to sign download URLs (host-published port).
       # The service still uploads/reads over the internal ServiceUrl above.
       - S3Settings__PublicServiceUrl=http://localhost:9000
-      - Jwt__SecretKey=MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY
+      - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
       # Trigger indexing in KnowledgeService (compose service DNS on the shared network).
       # InternalApiSecret must match KnowledgeService's INTERNAL_API_SECRET.
       - KnowledgeService__BaseUrl=http://knowledge-service:8080
-      - KnowledgeService__InternalApiSecret=changeme-internal-secret
+      - KnowledgeService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - KnowledgeService__TimeoutSeconds=10
       # LiveAssistantService: session transcripts, and quiz generation from what the teacher just
       # explained. InternalApiSecret must match its INTERNAL_API_SECRET — without it the client
@@ -50,12 +50,12 @@ services:
       # GenerationTimeoutSeconds is separate from TimeoutSeconds because generation runs a language
       # model and takes tens of seconds, while a transcript lookup should never hang that long.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
-      - LiveAssistant__InternalApiSecret=changeme-internal-secret
+      - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - LiveAssistant__TimeoutSeconds=10
       - LiveAssistant__GenerationTimeoutSeconds=120
       # Shared secret required on inbound internal calls (e.g. UserManagementService
       # fetching a user's classroom memberships). Must match the caller's value.
-      - Internal__ApiSecret=changeme-internal-secret
+      - Internal__ApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
     depends_on:
       classroom-db:
         condition: service_healthy

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: liveassistantdb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Jafar123!
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in backend/.env}
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d liveassistantdb" ]
       interval: 10s
@@ -34,8 +34,8 @@ services:
       # and cannot be reached by container name — reach it via the host gateway (this service
       # already maps host.docker.internal below). Key/secret match its --dev values.
       - LIVEKIT_URL=ws://host.docker.internal:7880
-      - LIVEKIT_API_KEY=devkey
-      - LIVEKIT_API_SECRET=super_secret_livekit_key_for_development
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:?set it in backend/.env}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:?set it in backend/.env}
       - AGENT_IDENTITY=ai-assistant
       - TARGET_SAMPLE_RATE=16000
       - TARGET_CHANNELS=1
@@ -107,11 +107,11 @@ services:
       # Shared internal secret across the internal mesh. Must match KnowledgeService's
       # INTERNAL_API_SECRET (used for /api/search) AND StreamingService's
       # LiveAssistant__InternalApiSecret (used for /api/internal/sessions). One value everywhere.
-      - INTERNAL_API_SECRET=changeme-internal-secret
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?set it in backend/.env}
       - MAX_CONCURRENT_SESSIONS=20
       # Transcript persistence (S-0): durable per-session transcript in the compose DB.
       # entrypoint.sh runs Alembic migrations on start because this is set.
-      - TRANSCRIPT_DB_URL=postgresql+asyncpg://postgres:Jafar123!@live-assistant-db:5432/liveassistantdb
+      - TRANSCRIPT_DB_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set it in backend/.env}@live-assistant-db:5432/liveassistantdb
       - TRANSCRIPT_PERSIST_BATCH=1
       # --- SMOKE TEST + RAM fit (temporary) ---
       # Small chat model imported into Ollama from a GGUF: fits RAM alongside everything and
