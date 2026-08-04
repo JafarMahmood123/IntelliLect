@@ -5,8 +5,9 @@ import { Table, type TableColumn } from '../../../components/ui/Table';
 import { Button } from '../../../components/ui/Button';
 import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
 import { useToast } from '../../../components/ui/ToastProvider';
-import { useClassroomFiles, useDeleteClassroomFile, useUploadClassroomFile } from '../hooks/useClassroomQueries';
+import { useClassroomFiles, useDeleteClassroomFile, useUploadClassroomFile, useUploadLimits } from '../hooks/useClassroomQueries';
 import { downloadClassroomFile } from '../api/classrooms';
+import { formatBytes } from '../../../utils/format';
 import { FileIndexingBadge } from './FileIndexingBadge';
 import type { ClassroomFile } from '../types';
 
@@ -50,28 +51,75 @@ interface ClassroomFileListProps {
   isTeacher: boolean;
 }
 
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+/** The lowercase extension without the dot, or '' if the name has none. */
+const extensionOf = (fileName: string) => {
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex > 0 ? fileName.slice(dotIndex + 1).toLowerCase() : '';
 };
+
+/** Lowercase and drop any parameters (e.g. '; charset=utf-8') from a MIME type. */
+const normalizeContentType = (contentType: string) =>
+  contentType.split(';', 1)[0]!.trim().toLowerCase();
 
 export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const { t } = useTranslation('common');
-  
+
   const [fileToDelete, setFileToDelete] = useState<ClassroomFile | null>(null);
 
   const { data: files = [], isLoading, isError } = useClassroomFiles(classroomId);
+  const { data: limits } = useUploadLimits(classroomId);
   const uploadMutation = useUploadClassroomFile(classroomId);
   const deleteMutation = useDeleteClassroomFile(classroomId);
 
+  // Mirrors the server's rule (content type OR extension is enough). Pre-flight only: the server
+  // applies the same checks and is the authority, so an unavailable limits response degrades to
+  // "let the server decide" rather than blocking a legitimate upload.
+  const rejectionFor = (file: File) => {
+    if (!limits) return null;
+
+    if (file.size > limits.maxFileSizeBytes) {
+      return {
+        title: t('upload.tooLargeTitle'),
+        message: t('upload.tooLarge', {
+          fileName: file.name,
+          fileSize: formatBytes(file.size),
+          maxSize: formatBytes(limits.maxFileSizeBytes),
+        }),
+      };
+    }
+
+    const typeAllowed = limits.allowedContentTypes.includes(normalizeContentType(file.type));
+    const extensionAllowed = limits.allowedExtensions.includes(extensionOf(file.name));
+    if (!typeAllowed && !extensionAllowed) {
+      return {
+        title: t('upload.wrongTypeTitle'),
+        message: t('upload.wrongType', {
+          fileName: file.name,
+          formats: limits.allowedExtensions.join(', '),
+        }),
+      };
+    }
+
+    return null;
+  };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    const resetInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     if (!file) return;
+
+    // Refused before the request starts, so an oversized file is never transferred at all.
+    const rejection = rejectionFor(file);
+    if (rejection) {
+      showToast({ type: 'error', ...rejection });
+      resetInput();
+      return;
+    }
 
     try {
       await uploadMutation.mutateAsync(file);
@@ -79,7 +127,7 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
     } catch (error) {
       showToast({ type: 'error', title: 'Upload Failed', message: 'Something went wrong while uploading the file.' });
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      resetInput();
     }
   };
 
@@ -151,15 +199,27 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
   return (
     <div className="space-y-4">
       {isTeacher && (
-        <div className="flex justify-end">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
+        <div className="flex items-center justify-end gap-3">
+          {/* The real configured values, never a duplicated constant. */}
+          {limits && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('upload.hint', {
+                maxSize: formatBytes(limits.maxFileSizeBytes),
+                formats: limits.allowedExtensions.join(', '),
+              })}
+            </p>
+          )}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            // Narrows the OS file picker to what the server accepts. A hint, not a guard —
+            // "All files" defeats it, which is why rejectionFor runs regardless.
+            accept={limits?.allowedExtensions.map((extension) => `.${extension}`).join(',')}
+            className="hidden"
           />
-          <Button 
-            onClick={() => fileInputRef.current?.click()} 
+          <Button
+            onClick={() => fileInputRef.current?.click()}
             isLoading={uploadMutation.isPending}
           >
             <UploadCloud size={18} />

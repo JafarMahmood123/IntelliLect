@@ -53,6 +53,13 @@
     "label": "حالة الفهرسة: {{status}}",
     "columnHeader": "الفهرسة"
   },
+  "upload": {
+    "hint": "حتى {{maxSize}} · {{formats}}",
+    "tooLargeTitle": "الملف كبير جدًا",
+    "tooLarge": "حجم {{fileName}} هو {{fileSize}}، والحد الأقصى هو {{maxSize}}.",
+    "wrongTypeTitle": "نوع ملف غير مدعوم",
+    "wrongType": "تعذّرت فهرسة {{fileName}}. الصيغ المقبولة: {{formats}}."
+  },
   "download": {
     "label": "تنزيل",
     "preparing": "جارٍ التحضير…",

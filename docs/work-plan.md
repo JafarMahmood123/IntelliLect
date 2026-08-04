@@ -429,14 +429,21 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       table exactly (`_support.py`), so nothing is accepted that could never be indexed.
       Content type **or** extension is sufficient — not both — because browsers send a
       generic type for Markdown and the RAG router itself dispatches on either.
-- [ ] **13.6 Show the size — mostly already there.** `ClassroomFile.SizeBytes` exists and
-      is already returned in the file DTO, so this is largely a frontend render task:
-      a human-readable byte formatter (there is `src/utils/format.ts` with tests —
-      extend it rather than adding a second one) shown in the teacher's file list,
-      plus the remaining quota/limit displayed near the upload control.
-- [ ] **13.7 Frontend pre-flight** — reject over-size files in the browser before the
-      request starts, with the limit's real value in the message. This is UX, not
-      enforcement; the server checks stay regardless.
+- [x] **13.6 Show the size — DONE, and it was already there.** The Size column already
+      rendered in `ClassroomFileList`. What it did NOT do was use the shared formatter:
+      there was a second, local `formatBytes` in the component shadowing the tested one
+      in `src/utils/format.ts` ("0 Bytes"/2-dp vs "0 KB"/1-dp — the same column formatted
+      two different ways depending on which file you read). Deduplicated onto the shared
+      one. The configured limit and accepted formats now show beside the upload button.
+- [x] **13.7 Frontend pre-flight — DONE.** `rejectionFor` mirrors the server rule
+      (content type OR extension) and runs before the request starts, so an oversized
+      file is never transferred. Two deliberate choices:
+      - the `accept` attribute narrows the OS picker, but is a convenience only — a user
+        switching the dialog to "All files" defeats it, which is why the JS guard runs
+        regardless. Both are tested, the guard via `applyAccept: false`.
+      - if the limits request FAILS, the picker degrades to letting the server decide
+        rather than blocking everything. A limits outage should not look like a broken
+        upload button.
 - [x] **13.8 Tests — DONE for everything a unit test can reach.**
       `ClassroomFileUploadLimitsTests`, 10 cases: exactly at the limit accepted, one byte
       over refused, zero-byte refused, disallowed type refused, `; charset=` parameters

@@ -127,9 +127,11 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | partial |
 | E-07 | **nginx `client_max_body_size` is ≥ the app limit** — otherwise nginx rejects first with unparseable HTML | Integration | P0 | new |
 | E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | P2 | not built |
-| E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | new |
-| E-10 | Frontend pre-flight rejects an over-size file before the request starts | Frontend | P2 | new |
-| E-11 | `SizeBytes` is recorded correctly and rendered human-readably in the teacher's file list | Frontend | P1 | partial |
+| E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | ✓ |
+| E-10 | Frontend pre-flight rejects an over-size file before the request starts | Frontend | P2 | ✓ |
+| E-11 | `SizeBytes` is recorded correctly and rendered human-readably in the teacher's file list | Frontend | P1 | ✓ |
+| E-15 | A failed limits fetch degrades to server-side enforcement, not a blocked upload button | Frontend | P1 | ✓ |
+| E-16 | The `accept` attribute narrows the picker, and the JS guard still refuses when it is bypassed | Frontend | P2 | ✓ |
 | E-12 | A rejected upload leaves no orphaned S3 object and no DB row | Integration | P0 | gap |
 | E-13 | Indexing status transitions are observable and terminal on failure (never stuck "in progress" forever) | Unit | P1 | ✓ |
 | E-14 | Upload succeeds but indexing fails → the file is still listed, flagged as unindexed | Integration | P1 | ✓ (unit) |

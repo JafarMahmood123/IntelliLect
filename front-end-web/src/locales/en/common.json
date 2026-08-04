@@ -53,6 +53,13 @@
     "label": "Indexing status: {{status}}",
     "columnHeader": "Indexing"
   },
+  "upload": {
+    "hint": "Up to {{maxSize}} · {{formats}}",
+    "tooLargeTitle": "File is too large",
+    "tooLarge": "{{fileName}} is {{fileSize}}. The maximum is {{maxSize}}.",
+    "wrongTypeTitle": "Unsupported file type",
+    "wrongType": "{{fileName}} cannot be indexed. Accepted formats: {{formats}}."
+  },
   "download": {
     "label": "Download",
     "preparing": "Preparing…",

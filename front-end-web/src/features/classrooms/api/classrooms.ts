@@ -1,5 +1,5 @@
 import { apiClient } from '../../../lib/axios';
-import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, FileIndexingStatusResponse, LearningSession, Session, SessionEndOutcome, PagedResult } from '../types';
+import type { Classroom, ClassroomFile, CreateClassroomRequest, CreateSessionRequest, EnrollmentResponse, FileIndexingStatusResponse, LearningSession, Session, SessionEndOutcome, PagedResult, UploadLimits } from '../types';
 
 export const getTeacherClassrooms = async (): Promise<Classroom[]> => {
   const response = await apiClient.get<Classroom[]>('/classrooms/teacher');
@@ -24,6 +24,16 @@ export const getClassroomById = async (id: string): Promise<Classroom> => {
 // Files
 export const getClassroomFiles = async (classroomId: string): Promise<ClassroomFile[]> => {
   const response = await apiClient.get<ClassroomFile[]>(`/classrooms/${classroomId}/files`);
+  return response.data;
+};
+
+/**
+ * The server's upload bounds, so the picker can refuse a file before spending the upload on it.
+ * Readable by any member — the limits are not a secret, and the control needs them before a
+ * teacher chooses a file.
+ */
+export const getUploadLimits = async (classroomId: string): Promise<UploadLimits> => {
+  const response = await apiClient.get<UploadLimits>(`/classrooms/${classroomId}/files/upload-limits`);
   return response.data;
 };
 

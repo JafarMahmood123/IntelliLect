@@ -26,6 +26,17 @@ export interface ClassroomFile {
   s3Key: string;
 }
 
+/**
+ * Server-owned upload bounds, fetched rather than duplicated in frontend config: Vite substitutes
+ * import.meta.env at build time, so a copy here would be baked into the bundle and drift from the
+ * API the first time either side changed. Advisory only — the server enforces all of it regardless.
+ */
+export interface UploadLimits {
+  maxFileSizeBytes: number;
+  allowedContentTypes: string[];
+  allowedExtensions: string[];
+}
+
 // RAG indexing lifecycle for an uploaded classroom file (read via a
 // member-authorized ClassroomService endpoint — no internal secret in the browser).
 export type FileIndexingStatus = 'Pending' | 'Processing' | 'Done' | 'Failed';

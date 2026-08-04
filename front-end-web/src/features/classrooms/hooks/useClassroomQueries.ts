@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTeacherClassrooms, createClassroom, startSession, endSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom, getFileIndexingStatus } from '../api/classrooms';
+import { getTeacherClassrooms, createClassroom, startSession, endSession, getClassroomFiles, getClassroomById, uploadFile, deleteFile, createSession, getClassroomSessions, getEnrolledClassrooms, getAllClassrooms, enrollInClassroom, getFileIndexingStatus, getUploadLimits } from '../api/classrooms';
 import type { CreateClassroomRequest, CreateSessionRequest, FileIndexingStatus } from '../types';
 
 export const classroomKeys = {
@@ -39,6 +39,20 @@ export const useClassroomFiles = (classroomId: string) => {
   return useQuery({
     queryKey: [...classroomKeys.detail(classroomId), 'files'],
     queryFn: () => getClassroomFiles(classroomId),
+  });
+};
+
+/**
+ * Upload bounds. Server configuration rather than user data, so it is cached for the session
+ * instead of refetched per mount — and its absence is never fatal: the picker falls back to
+ * accepting anything and lets the server refuse, which it does regardless.
+ */
+export const useUploadLimits = (classroomId: string) => {
+  return useQuery({
+    queryKey: [...classroomKeys.detail(classroomId), 'upload-limits'],
+    queryFn: () => getUploadLimits(classroomId),
+    staleTime: Infinity,
+    retry: false,
   });
 };
 
