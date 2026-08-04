@@ -18,12 +18,40 @@ named. This is also a report artefact (chapter: Implementation & Testing).
       13 areas (A–M), ~150 cases with IDs, priority by blast radius, level assignment,
       current-coverage marking, an explicit "not covered and why" section, and exit
       criteria. Traceability table maps every area back to a section here.
-- [ ] **0.2 Per-service coverage baseline** — record today's line/branch coverage per
-      service from the existing runsettings (`backend/coverlet.runsettings`) and the
-      frontend suite, so the 85% target has a starting number. Numbers get filled in
-      when containers are back up; the table lands now.
-- [ ] **0.3 Decide the coverage exclusions** — migrations, generated DTOs, `Program.cs`,
-      DI wiring. Without exclusions 85% is measuring the wrong thing.
+- [x] **0.2 Per-service coverage baseline — DONE, measured 2026-08-04.** All of it runs
+      locally; no containers were needed.
+
+      | Service | Line | Tests | Notes |
+      | --- | --- | --- | --- |
+      | LiveAssistantService | **81%** | 299 (+3 skip) | closest to target |
+      | KnowledgeService | **77%** | 235 (+9 skip) | |
+      | UserManagementService | **62.1%** | 120 | Application 63.3%, Domain 54%; **Infrastructure never loaded by any test** |
+      | ClassroomService | **57.4%** | 306 | Application **93.2%**, Infrastructure 30% |
+      | StreamingService | **28.2%** | 104 | Application 25%, Infra 29.4%, Presentation 22.9% |
+      | Frontend | **31.4%** | 226 | branch 77.4%, funcs 54.7% |
+      | EmailService | **none** | 0 | no test project exists |
+
+      **Read the shape, not the headline.** ClassroomService's *Application* layer is at
+      93.2% — the domain logic is genuinely well tested, and the 57.4% is Infrastructure
+      (30%) dragging it down. The deficit across every .NET service is concentrated in
+      Infrastructure and Presentation, i.e. adapters, DI wiring and **controllers** —
+      which is exactly the §11.2 authorization gap showing up as a number.
+
+      **This changes what "85% per service" should mean.** Chasing 85% *including*
+      Infrastructure and DI wiring buys tests for adapters that mostly prove a mapper
+      maps. Recommend instead: **≥85% on Application/Domain, plus explicit controller
+      authorization tests**, and let Infrastructure land where it lands. StreamingService
+      is the one genuine outlier — 25% Application is a real gap, not a measurement
+      artefact.
+- [x] **0.3 Coverage exclusions — DONE.** .NET already had them in
+      `backend/coverlet.runsettings` (Migrations, `obj/`, `Program.cs`, generated
+      attributes, auto-props). Frontend exclusions now set in `vitest.config.ts`:
+      types, `.d.ts`, the test harness, `main.tsx`, barrel `index.ts`. Used `all: true`
+      so untested files count against the number rather than being invisible to it —
+      without it, an entirely untested feature silently *raises* the percentage.
+      Deliberately **not** gated on a threshold yet: a gate that fails on day one gets
+      switched off. Add thresholds once the baseline clears them.
+      Python `[tool.coverage]` sections still to review.
 
 ---
 

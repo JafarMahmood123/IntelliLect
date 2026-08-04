@@ -19,5 +19,31 @@ export default defineConfig({
     // element — into a bare "Test timed out". Under full-suite load that is the difference between
     // a diagnosable failure and a mystery.
     testTimeout: 15_000,
+    coverage: {
+      provider: 'v8',
+      // text for the terminal, html to browse a file, lcov for any tool that wants to merge it.
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      // Report on every source file, not only the ones a test happened to import — otherwise an
+      // entirely untested feature raises the percentage by being invisible to it.
+      all: true,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        // Type-only: erased at build, so there is nothing to execute or cover.
+        'src/**/types/**',
+        'src/**/*.d.ts',
+        // The test harness itself.
+        'src/test/**',
+        'src/**/*.test.{ts,tsx}',
+        // Entry points and generated/config surface: wiring, not logic. Covering these measures
+        // that the app starts, which every other test already depends on.
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/**/index.ts',
+      ],
+      // Deliberately NOT gated on a threshold yet: the 85% target in docs/work-plan.md is a goal
+      // to climb to, and a failing gate on day one just gets switched off. Add thresholds here
+      // once the baseline is above them.
+    },
   },
 });
