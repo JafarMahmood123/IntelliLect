@@ -185,8 +185,66 @@ Four decisions worth recording:
       summary showing partial failures.
 - [ ] **2.4 Audit trail** — one audit record per user, not one per batch.
 - [ ] **2.5 Tests** — see §7.
+</details>
 
-### 2.6 Scan for other useful bulk operations
+### 2.6 Scan for other useful bulk operations — **DONE, ranked below**
+
+Swept every list screen and its per-row actions, plus the backend surfaces behind them.
+
+**First, the thing worth knowing: three operations are ALREADY bulk**, so the candidate
+list in the original plan was partly answered before it started.
+- **Quiz extension** — `ExtendQuizRequest(int Seconds, List<Guid>? StudentIds)` already
+  grants extra time to many named students in one call, and replaces rather than stacks
+  a repeat grant.
+- **RAG reindex** — `reindex_classroom` takes a file-id list (or a `failedOnly` sweep of a
+  whole classroom), capped at `reindex_bulk_max = 50`. Exposed all the way to
+  `useReindexClassroom` in the UI.
+- **User accept/reject** — built in §2.
+
+**Second, the signal I said to look for is not firing anywhere.** No screen currently
+issues N requests in a loop, because none of them offer multi-select at all. So the
+ranking below is by *how many rows a user would realistically act on at once*, not by
+existing pain in the code.
+
+#### Tier 1 — worth building
+
+1. **Wire the super-admin users directory to the bulk endpoint that already exists.**
+   `PUT /api/super-admin/users/status` is built and tested; `UsersDirectoryPage` still
+   changes status one row at a time via `useChangeUserStatus`. **Zero backend work** —
+   pure UI wiring, reusing the selection component pattern from `AdminDashboard`. Cheapest
+   item on this list by a wide margin.
+2. **Outputs (recordings + summaries) bulk delete.** `IOutputAdminService` exposes only
+   `DeleteRecordingAsync`/`DeleteSummaryAsync` per id. Recordings are the largest objects
+   in storage and a term's worth is dozens of rows, so "reclaim space" is inherently a
+   multi-select job. Note the wrinkle: the list mixes two entity types, so a batch has to
+   carry `(id, type)` pairs rather than bare ids.
+3. **Classroom members bulk add/remove.** `AddMemberAsync`/`RemoveMemberAsync` are
+   per-student on both the UMS and ClassroomService sides. Enrolling a cohort at the start
+   of term is the single most obviously repetitive action in the product — 30 students is
+   30 clicks and 30 requests today.
+
+#### Tier 2 — plausible, lower value
+
+4. **Knowledge-base file bulk delete** by arbitrary selection. Classroom-scoped
+   index deletion already exists, so this only covers "delete these five specific files".
+5. **Teacher classroom materials**: multi-file upload and multi-delete in
+   `ClassroomFileList`. Multi-upload is the better half — a teacher uploads a folder of
+   slides, not one file.
+
+#### Tier 3 — deliberately not worth it
+
+6. **Session deletion.** Each has an impact preview the admin is meant to read; batching
+   them makes the preview meaningless, which is the opposite of safe.
+7. **Force-end session.** You force-end one stuck session, not twenty.
+8. **Admin status toggle.** There are a handful of admins, and each change is deliberate.
+9. **Quiz publish/close.** A quiz is published to a live room one at a time by nature.
+
+**Recommendation: do item 1 only, for now.** It closes a gap where the backend is already
+paid for, and it makes the bulk feature reachable from both admin surfaces rather than
+one. Items 2 and 3 are real but are new features rather than finishing this one — worth
+scheduling deliberately rather than folding into §2.
+
+<details><summary>Original candidate list</summary>
 
 Scan and produce a ranked shortlist (value vs effort), then implement only what earns
 it. Candidate areas to examine, to be confirmed against the code rather than assumed:
