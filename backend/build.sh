@@ -22,7 +22,7 @@ SERVICES=(
   email-service
   classroom-service
   streaming-service
-  knowledge-service
+  rag-service
   live-assistant-service
 )
 

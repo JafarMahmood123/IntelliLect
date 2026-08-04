@@ -114,7 +114,7 @@ public sealed class ClassroomFileUploadLimitsTests
     public async Task Allowed_extension_carries_a_generic_content_type()
     {
         // Browsers routinely send an empty or generic type for Markdown. The extension is the
-        // signal KnowledgeService's router would use, so it is enough here too.
+        // signal RagService's router would use, so it is enough here too.
         var teacherId = Guid.NewGuid();
         var classroom = NewClassroom(teacherId);
         var (service, files, _) = Build(classroom);

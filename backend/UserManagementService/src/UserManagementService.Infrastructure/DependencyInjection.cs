@@ -108,10 +108,10 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
-        // KnowledgeService admin client (super-admin content/knowledge-base management).
-        var knowledgeBaseUrl = configuration["KnowledgeService:BaseUrl"] ?? "http://knowledge-service:8080";
-        var knowledgeTimeoutSeconds = int.TryParse(configuration["KnowledgeService:TimeoutSeconds"], out var kSeconds) ? kSeconds : 10;
-        services.AddHttpClient<IKnowledgeAdminClient, KnowledgeAdminClient>(client =>
+        // RagService admin client (super-admin content/knowledge-base management).
+        var knowledgeBaseUrl = configuration["RagService:BaseUrl"] ?? "http://rag-service:8080";
+        var knowledgeTimeoutSeconds = int.TryParse(configuration["RagService:TimeoutSeconds"], out var kSeconds) ? kSeconds : 10;
+        services.AddHttpClient<IRagAdminClient, RagAdminClient>(client =>
         {
             client.BaseAddress = new Uri(knowledgeBaseUrl);
             client.Timeout = TimeSpan.FromSeconds(knowledgeTimeoutSeconds);

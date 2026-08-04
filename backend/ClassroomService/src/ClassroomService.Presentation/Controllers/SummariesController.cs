@@ -50,7 +50,7 @@ public sealed class SummariesController : ApiBaseController
 
     /// <summary>
     /// The classroom's teacher re-requests a summary that ended up Failed. Returns the summary
-    /// back in <c>Generating</c>; the actual work happens asynchronously in KnowledgeService.
+    /// back in <c>Generating</c>; the actual work happens asynchronously in RagService.
     /// </summary>
     /// <remarks>
     /// Teacher-only, and ownership is checked inside the service — the read endpoints on this

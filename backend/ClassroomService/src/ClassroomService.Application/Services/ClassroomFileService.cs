@@ -9,7 +9,7 @@ namespace ClassroomService.Application.Services;
 
 public sealed class ClassroomFileService : IClassroomFileService
 {
-    // KnowledgeService registers a Pending document on upload; until it has a row (or if the
+    // RagService registers a Pending document on upload; until it has a row (or if the
     // ingest trigger failed) treat the file as still awaiting indexing.
     private const string PendingStatus = "Pending";
 
@@ -17,7 +17,7 @@ public sealed class ClassroomFileService : IClassroomFileService
     private readonly IClassroomRepository _classroomRepository;
     private readonly IMembershipRepository _membershipRepository;
     private readonly IFileStorageService _storageService;
-    private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly IRagInternalClient _knowledgeClient;
     private readonly IUploadSettings _uploadSettings;
     private readonly IMapper _mapper;
     private readonly ILogger<ClassroomFileService> _logger;
@@ -27,7 +27,7 @@ public sealed class ClassroomFileService : IClassroomFileService
         IClassroomRepository classroomRepository,
         IMembershipRepository membershipRepository,
         IFileStorageService storageService,
-        IKnowledgeInternalClient knowledgeClient,
+        IRagInternalClient knowledgeClient,
         IUploadSettings uploadSettings,
         IMapper mapper,
         ILogger<ClassroomFileService> logger)
@@ -76,8 +76,8 @@ public sealed class ClassroomFileService : IClassroomFileService
         await _fileRepository.AddAsync(classroomFile, ct);
         await _fileRepository.SaveChangesAsync(ct);
 
-        // Trigger indexing in KnowledgeService. Non-fatal: the upload must succeed even if
-        // KnowledgeService is unreachable. A failed trigger just means the file isn't indexed
+        // Trigger indexing in RagService. Non-fatal: the upload must succeed even if
+        // RagService is unreachable. A failed trigger just means the file isn't indexed
         // yet; reconciliation (an outbox or a manual reindex endpoint) is future hardening.
         try
         {
@@ -94,7 +94,7 @@ public sealed class ClassroomFileService : IClassroomFileService
         {
             _logger.LogWarning(
                 ex,
-                "Failed to notify KnowledgeService of uploaded file {FileId}; it will not be indexed until re-triggered.",
+                "Failed to notify RagService of uploaded file {FileId}; it will not be indexed until re-triggered.",
                 classroomFile.Id);
         }
 
@@ -121,7 +121,7 @@ public sealed class ClassroomFileService : IClassroomFileService
     ///
     /// Not both, because the two signals disagree in ordinary use: browsers send an empty or
     /// generic type for Markdown, and a correct type with a missing extension is still perfectly
-    /// indexable. KnowledgeService's extractor router dispatches on either signal too, so this
+    /// indexable. RagService's extractor router dispatches on either signal too, so this
     /// admits exactly the set that can actually be extracted.
     /// </summary>
     private void ValidateType(string fileName, string contentType)
@@ -170,7 +170,7 @@ public sealed class ClassroomFileService : IClassroomFileService
         await _fileRepository.DeleteAsync(fileId, ct);
         await _fileRepository.SaveChangesAsync(ct);
 
-        // Non-fatal (see UploadFileAsync): the delete must succeed even if KnowledgeService
+        // Non-fatal (see UploadFileAsync): the delete must succeed even if RagService
         // is unreachable. A failed trigger just means the index entry may linger until
         // re-triggered; reconciliation is future hardening.
         try
@@ -181,7 +181,7 @@ public sealed class ClassroomFileService : IClassroomFileService
         {
             _logger.LogWarning(
                 ex,
-                "Failed to notify KnowledgeService of deleted file {FileId}; its index entry may remain until re-triggered.",
+                "Failed to notify RagService of deleted file {FileId}; its index entry may remain until re-triggered.",
                 fileId);
         }
     }
@@ -205,8 +205,8 @@ public sealed class ClassroomFileService : IClassroomFileService
             throw new KeyNotFoundException("File not found.");
         }
 
-        // Fetch the status from KnowledgeService server-side (secret stays inside the client).
-        // A null result means KnowledgeService has no document row yet -> still Pending.
+        // Fetch the status from RagService server-side (secret stays inside the client).
+        // A null result means RagService has no document row yet -> still Pending.
         var status = await _knowledgeClient.GetIndexingStatusAsync(fileId, ct);
         return new FileIndexingStatusResponse(fileId, status ?? PendingStatus);
     }

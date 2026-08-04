@@ -1,0 +1,75 @@
+' ERD — RagService database (PostgreSQL + pgvector).
+' The embedding column is halfvec, not vector: pgvector's HNSW index refuses
+' vector columns wider than 2000 dimensions, and the Gemini embedding is 3072.
+@startuml
+!include _style.puml
+hide circle
+skinparam linetype ortho
+
+entity "documents" as doc {
+  * id : uuid <<PK>>
+  --
+  * classroom_id : uuid <<external>>
+  * file_id : uuid <<external>>
+  * s3_key : varchar(1024)
+  * file_name : varchar(512)
+  * content_type : varchar(255)
+  * size_bytes : bigint
+  * content_hash : varchar(128) <<dedup>>
+  * status : enum
+  * attempts : int
+  last_error : text
+  processing_started_at : timestamptz
+  * created_at_utc : timestamptz
+  * updated_at_utc : timestamptz
+}
+
+entity "chunks" as chunk {
+  * id : uuid <<PK>>
+  --
+  * document_id : uuid <<FK>>
+  * classroom_id : uuid
+  * chunk_index : int
+  * text : text
+  * token_count : int
+  chunk_metadata : jsonb
+  source : varchar
+  * embedding : halfvec(3072) <<HNSW, cosine>>
+  * created_at_utc : timestamptz
+}
+
+entity "summary_runs" as run {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<external>>
+  * classroom_id : uuid <<external>>
+  * status : enum
+  * attempts : int
+  last_error : text
+  next_attempt_at : timestamptz
+  started_at : timestamptz
+  completed_at : timestamptz
+}
+
+entity "outbox_messages" as outbox {
+  * id : bigint <<PK>>
+  --
+  * message_id : uuid
+  * exchange : varchar(512)
+  * message_type : varchar(512)
+  * payload : jsonb
+  correlation_id : uuid
+  * attempts : int
+  last_error : text
+  published_at_utc : timestamptz
+  * created_at_utc : timestamptz
+}
+
+doc ||--o{ chunk
+
+note bottom of outbox
+  نمط صندوق الصادر (Transactional Outbox):
+  تُكتب الرسالة وتغييرات البيانات في معاملة واحدة،
+  ثم يُنشَر لاحقًا، فلا تضيع الأحداث عند تعطّل الوسيط.
+end note
+@enduml

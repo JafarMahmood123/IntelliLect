@@ -28,7 +28,7 @@
     \en{UserManagementService} & \en{.NET 10} & الهوية، ورموز الوصول والتحديث، والمصادقة الثنائية، والأدوار، وسير الموافقة على الطلبات \\ \hline
     \en{ClassroomService} & \en{.NET 10} & الفصول والجلسات والملفّات والاختبارات والعلامات والأسئلة والملخّصات وبيانات التسجيلات \\ \hline
     \en{StreamingService} & \en{.NET 10} & غرف \en{LiveKit} ورموزها، ومركز \en{SignalR}، وتسجيل الجلسة، وسياسة الوسائط \\ \hline
-    \en{KnowledgeService} & \en{Python / FastAPI} & استيعاب المواد وتقطيعها وتضمينها واسترجاعها، وتوليد الملخّصات \\ \hline
+    \en{RagService} & \en{Python / FastAPI} & استيعاب المواد وتقطيعها وتضمينها واسترجاعها، وتوليد الملخّصات \\ \hline
     \en{LiveAssistantService} & \en{Python / FastAPI} & تحويل الكلام إلى نص، وكشف حدود الأفكار، والتقييم، والتدخّل، وتوليد الاختبارات \\ \hline
     \en{EmailService} & \en{.NET 10} & مستهلِك أحداث فقط، بلا واجهة \en{HTTP} واردة وبلا قاعدة بيانات \\ \hline
     \en{front-end-web} & \en{React 19 + Vite} & الواجهة الأمامية: غرفة البثّ، والسبورة، والاختبارات، ولوحات المتابعة \\ \hline
@@ -208,7 +208,7 @@ at end of stream:
 \begin{english}
 \begin{lstlisting}[caption={},captionpos=b]
 on each COMPLETED IDEA:
-    chunks   <- knowledge_service.retrieve(classroom_id, idea.text, TOP_K)
+    chunks   <- rag_service.retrieve(classroom_id, idea.text, TOP_K)
     relevant <- [c for c in chunks if c.score >= MIN_SCORE]
 
     if relevant is empty:
@@ -314,7 +314,7 @@ on SubmitAnswer(student, question_id, option_id):
     \en{UserManagementService} & \en{xUnit} & 120 & 0 & 0 & \en{0.5 s} \\ \hline
     \en{ClassroomService} & \en{xUnit} & 296 & 0 & 0 & \en{4 s} \\ \hline
     \en{StreamingService} & \en{xUnit} & 104 & 0 & 0 & \en{3 s} \\ \hline
-    \en{KnowledgeService} & \en{pytest} & 235 & 9 & 0 & \en{12.6 s} \\ \hline
+    \en{RagService} & \en{pytest} & 235 & 9 & 0 & \en{12.6 s} \\ \hline
     \en{LiveAssistantService} & \en{pytest} & 299 & 3 & 0 & \en{4.2 s} \\ \hline
     الواجهة الأمامية & \en{Vitest} & 219 & 0 & 0 & \en{32 s} \\ \hline
     \textbf{المجموع} & & \textbf{1273} & \textbf{12} & \textbf{0} & \\ \hline

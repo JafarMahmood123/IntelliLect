@@ -81,7 +81,7 @@ public sealed class ClassroomQaServiceTests
 
         await service.AnswerAsync(classroomId, teacherId, "Scope check", CancellationToken.None);
 
-        // The scope passed to KnowledgeService is the route classroom id — there is no way for a
+        // The scope passed to RagService is the route classroom id — there is no way for a
         // client to override it (the request body carries only the question).
         Assert.Equal(1, knowledge.AnswerCalls);
         Assert.Equal(classroomId, knowledge.LastAnswerClassroomId);

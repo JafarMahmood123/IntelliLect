@@ -13,7 +13,7 @@ with `docker compose`, then run pytest against it.
 UserManagementService   register → admin-approve → login (teacher + students)
 ClassroomService        create classroom → enroll → create session → START session
 StreamingService        mints LiveKit tokens; on start, spins the room + notifies the agent
-KnowledgeService        seeded PDF is ingested + embedded → retrievable material
+RagService        seeded PDF is ingested + embedded → retrievable material
 LiveAssistantService    agent joins room → STT → idea → retrieve → LLM eval → pace → feedback
 LiveKit                 the synthetic teacher publishes speech and RECEIVES the feedback
 ```

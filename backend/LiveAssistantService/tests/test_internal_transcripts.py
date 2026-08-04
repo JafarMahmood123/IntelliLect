@@ -27,7 +27,7 @@ _HEADERS = {"X-Internal-Secret": _SECRET}
 def _internal_secret_env(monkeypatch):
     monkeypatch.setenv("INTERNAL_API_SECRET", _SECRET)
     monkeypatch.setenv("OLLAMA_BASE_URL", "")
-    monkeypatch.setenv("KNOWLEDGE_BASE_URL", "")
+    monkeypatch.setenv("RAG_BASE_URL", "")
     monkeypatch.setenv("TRANSCRIPT_DB_URL", "")  # in-memory store
     get_settings.cache_clear()
     yield

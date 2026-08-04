@@ -100,11 +100,11 @@ services:
       # both models resident: set OLLAMA_MAX_LOADED_MODELS=2 + OLLAMA_KEEP_ALIVE=-1 on the host.
       - EMBEDDING_TIMEOUT_SECONDS=180
       - EVAL_TIMEOUT_SECONDS=180
-      # Material retrieval (LA-3): the evaluator calls KnowledgeService's POST /api/search to
+      # Material retrieval (LA-3): the evaluator calls RagService's POST /api/search to
       # fetch relevant chunks for each spoken idea. Without this the evaluator raises
       # RetrievalError and no suggestion is ever produced.
-      - KNOWLEDGE_BASE_URL=http://knowledge-service:8080
-      # Shared internal secret across the internal mesh. Must match KnowledgeService's
+      - RAG_BASE_URL=http://rag-service:8080
+      # Shared internal secret across the internal mesh. Must match RagService's
       # INTERNAL_API_SECRET (used for /api/search) AND StreamingService's
       # LiveAssistant__InternalApiSecret (used for /api/internal/sessions). One value everywhere.
       - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?set it in backend/.env}

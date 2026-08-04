@@ -6,9 +6,9 @@ from uuid import UUID
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """One piece of classroom material returned by KnowledgeService retrieval.
+    """One piece of classroom material returned by RagService retrieval.
 
-    Pure domain object: no library imports. Mirrors a KnowledgeService search result
+    Pure domain object: no library imports. Mirrors a RagService search result
     item; ``score`` is similarity (higher = more relevant). The location fields are
     mutually exclusive by source format (PDF -> page, PPTX -> slide, DOCX -> section)
     and come from the result's ``metadata``.

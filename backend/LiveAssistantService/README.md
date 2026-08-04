@@ -3,7 +3,7 @@
 A Python microservice for the IntelliLect platform. Its eventual purpose is to join
 a live class session as a **server-side agent**, transcribe the teacher's speech,
 detect when the teacher finishes an "idea", check that idea against the classroom's
-uploaded material via the existing **KnowledgeService** (RAG), and **privately**
+uploaded material via the existing **RagService** (RAG), and **privately**
 suggest corrections to the teacher only.
 
 **This build covers phases LA-0 → LA-8 and S-0.** It contains the clean-architecture
@@ -11,7 +11,7 @@ skeleton, a LiveKit agent that **captures the teacher's live audio** behind an
 `AudioSource` port, **streaming English speech-to-text** behind a `SpeechToText`
 port, **idea boundary detection** that segments the transcript into completed
 "ideas", **retrieval + evaluation on each idea** — pulling relevant course material
-from KnowledgeService and asking the brain whether the explanation has a real problem
+from RagService and asking the brain whether the explanation has a real problem
 — **private, teacher-only feedback delivery** of the resulting suggestion, the
 **full per-session loop assembled and started/stopped in sync with real sessions**
 (triggered by the streaming service), a **pacing/safety/suppression gate** that
@@ -85,15 +85,15 @@ signal), and a component-aware `/health`. This is the full assistant pipeline.
   remains, (3) asks `BrainClient` to evaluate the idea against the material. A
   retrieval or brain failure degrades to "no feedback" — a failed evaluation never
   breaks the loop. `IdeaEvaluationPipeline` pipes a `CompletedIdea` stream through it.
-- `KnowledgeRetrievalClient` — implements `RetrievalClient` via KnowledgeService
-  `POST /api/search` (sends the idea **text**; KnowledgeService owns the vector DB),
+- `RagRetrievalClient` — implements `RetrievalClient` via RagService
+  `POST /api/search` (sends the idea **text**; RagService owns the vector DB),
   authed with `INTERNAL_API_SECRET`, mapping results to `RetrievedChunk`.
 - `OllamaBrainClient` — implements `BrainClient` via host Ollama `POST /api/chat` with
   this service's own **grounded, silence-biased** evaluation prompt. Parses the reply
   as **strict JSON** (stripping code fences); malformed output degrades to "no
   feedback". Maps cited `[n]` back to source chunks.
 - `FakeRetrievalClient` / `FakeBrainClient` (test support) — deterministic spies for
-  the evaluator's paths, so LA-4 is tested with **no KnowledgeService and no Ollama**.
+  the evaluator's paths, so LA-4 is tested with **no RagService and no Ollama**.
 - `scripts/evaluate_check.py` — a CLI that evaluates a **scripted** idea against
   fixture chunks with **no models**; a deferred `--live` mode uses the real clients.
 - **Private feedback delivery (LA-5)** — `FeedbackDispatcher` (pure application
@@ -145,7 +145,7 @@ signal), and a component-aware `/health`. This is the full assistant pipeline.
   `Finalized` on session end. The ordered transcript is exposed for the (later)
   summary feature via `GET /api/internal/sessions/{id}/transcript` (auth by
   `INTERNAL_API_SECRET`; `404` if unknown). Storage is Postgres via async
-  SQLAlchemy + Alembic — the **same stack as KnowledgeService** — but **optional**:
+  SQLAlchemy + Alembic — the **same stack as RagService** — but **optional**:
   with `TRANSCRIPT_DB_URL` unset the service falls back to a non-durable in-memory
   store, so it still runs fully offline. See [Transcript persistence
   (S-0)](#transcript-persistence-s-0).
@@ -159,7 +159,7 @@ Defined under `app/application/ports/`:
 | `AudioSource` | **Implemented (LA-1).** Stream of the teacher's normalized audio. |
 | `SpeechToText` | **Implemented (LA-2).** Streaming English transcription → `TranscriptSegment`s. |
 | `EmbeddingProvider` | **Implemented (LA-3).** Embed a segment/idea (local Ollama) for drift & later retrieval. |
-| `RetrievalClient` | **Implemented (LA-4).** Classroom-scoped RAG search via KnowledgeService. |
+| `RetrievalClient` | **Implemented (LA-4).** Classroom-scoped RAG search via RagService. |
 | `BrainClient` | **Implemented (LA-4).** Judge an idea against retrieved material; propose a correction. |
 | `FeedbackSink` | **Implemented (LA-5).** Deliver a suggestion to the teacher **privately**. |
 | `AgentDataChannel` | **Implemented (LA-5).** Targeted (single-identity) data send over the agent's room. |
@@ -191,7 +191,7 @@ app/
     audio/           # LiveKitAudioSource (AudioSource + AgentDataChannel), FakeAudioSource, normalization
     stt/             # FasterWhisperSpeechToText, audio_analysis (energy/pause)
     embeddings/      # OllamaEmbeddingProvider
-    retrieval/       # KnowledgeRetrievalClient (POST /api/search)
+    retrieval/       # RagRetrievalClient (POST /api/search)
     brain/           # OllamaBrainClient, evaluation_prompt
     feedback/        # LiveKitFeedbackSink, feedback_payload (versioned wire contract)
   observability/     # logging_config (JSON), correlation (session_id/run_id), metrics
@@ -241,7 +241,7 @@ See `.env.example`.
 | `OLLAMA_AUTH_TOKEN` | _(empty)_ | Optional bearer token, sent only if set. |
 | `EMBEDDING_MODEL` | `qwen3-embedding` | Embedding model for drift (must be pulled in Ollama). |
 | `EMBEDDING_TIMEOUT_SECONDS` | `60` | Ollama request timeout (embeddings). |
-| `KNOWLEDGE_BASE_URL` | _(empty)_ | KnowledgeService base URL for retrieval (`POST /api/search`). |
+| `RAG_BASE_URL` | _(empty)_ | RagService base URL for retrieval (`POST /api/search`). |
 | `RETRIEVAL_TOP_K` | `6` | Chunks requested per idea. |
 | `RETRIEVAL_MIN_SCORE` | `0.25` | Below this = "no relevant material" (short-circuit, no brain). |
 | `EVAL_MODEL` | `qwen2.5:7b-instruct` | Brain (generation) model; must be pulled in Ollama. |
@@ -251,7 +251,7 @@ See `.env.example`.
 | `FEEDBACK_TRANSPORT` | `livekit` | Delivery transport (`livekit`; `signalr` is a future option). |
 | `FEEDBACK_MESSAGE_VERSION` | `1` | Version stamped into the feedback wire contract. |
 | `MAX_CONCURRENT_SESSIONS` | `20` | Cap on active session pipelines; start beyond it → 503. |
-| `INTERNAL_API_SECRET` | _(empty)_ | Shared secret guarding `/api/internal/sessions` (and KnowledgeService calls). |
+| `INTERNAL_API_SECRET` | _(empty)_ | Shared secret guarding `/api/internal/sessions` (and RagService calls). |
 | `FEEDBACK_MIN_INTERVAL_SEC` | `45` | Min seconds between delivered suggestions per session. |
 | `FEEDBACK_CONFIDENCE_MIN` | `0.5` | Drop suggestions below this confidence. |
 | `FEEDBACK_DEFAULT_CONFIDENCE` | `0.6` | Confidence used when the model omits it. |
@@ -349,7 +349,7 @@ it needs the STT model and a running Ollama with `EMBEDDING_MODEL` pulled.
 
 Evaluate a **scripted** idea against fixture chunks with `IdeaEvaluator`, using a fake
 retrieval client and a fake brain — proves retrieval → short-circuit → evaluate and
-citation→source mapping with **no KnowledgeService and no Ollama**:
+citation→source mapping with **no RagService and no Ollama**:
 
 ```bash
 python scripts/evaluate_check.py
@@ -366,8 +366,8 @@ sources:
 ```
 
 A deferred `--live --classroom <uuid> --idea "<text>"` mode uses the real
-KnowledgeService retrieval + Ollama brain; it needs KnowledgeService reachable at
-`KNOWLEDGE_BASE_URL` and Ollama running with `EVAL_MODEL` pulled.
+RagService retrieval + Ollama brain; it needs RagService reachable at
+`RAG_BASE_URL` and Ollama running with `EVAL_MODEL` pulled.
 
 ### Feedback check (offline — no LiveKit)
 
@@ -470,7 +470,7 @@ appends to the `TranscriptRepository`, assigning a sequential `order_index`. So:
 for ordered retrieval.
 
 **Storage choice.** Postgres via **async SQLAlchemy + Alembic**, matching
-KnowledgeService (`SqlAlchemyTranscriptRepository`). It is **optional**: when
+RagService (`SqlAlchemyTranscriptRepository`). It is **optional**: when
 `TRANSCRIPT_DB_URL` is unset the composition root wires an
 `InMemoryTranscriptRepository` (non-durable) instead, so the service — and the whole
 offline test suite — runs with no DB. `entrypoint.sh` runs `alembic upgrade head`
@@ -478,7 +478,7 @@ only when `TRANSCRIPT_DB_URL` is set. The compose file provisions a `live-assist
 Postgres and points the service at it.
 
 **Endpoint (for the summary feature, S-1).** The assembled transcript is served to
-KnowledgeService over the internal API:
+RagService over the internal API:
 
 ```bash
 SECRET=dev-live-assistant-secret
@@ -646,7 +646,7 @@ Covers:
 - **Brain parsing** (`OllamaBrainClient`, HTTP stubbed) — strict-JSON parse, code-fence
   stripping, malformed output → no feedback, silence bias (empty suggestion / `none`
   type), and citation `[n]` → source mapping with out-of-range/bogus citations dropped.
-- **Retrieval HTTP contract** (`KnowledgeRetrievalClient` via `httpx.MockTransport`) —
+- **Retrieval HTTP contract** (`RagRetrievalClient` via `httpx.MockTransport`) —
   asserts the `POST /api/search` URL, `X-Internal-Secret` header, JSON body
   (`classroomId`/`query`/`topK`), result → `RetrievedChunk` mapping (page/slide from
   metadata), and 401/500/transport errors → `RetrievalError`.

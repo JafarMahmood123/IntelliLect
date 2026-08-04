@@ -8,13 +8,13 @@ public sealed class FileAdminService : IFileAdminService
 {
     private readonly IFileAdminRepository _repository;
     private readonly IFileStorageService _storage;
-    private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly IRagInternalClient _knowledgeClient;
     private readonly ILogger<FileAdminService> _logger;
 
     public FileAdminService(
         IFileAdminRepository repository,
         IFileStorageService storage,
-        IKnowledgeInternalClient knowledgeClient,
+        IRagInternalClient knowledgeClient,
         ILogger<FileAdminService> logger)
     {
         _repository = repository;
@@ -38,7 +38,7 @@ public sealed class FileAdminService : IFileAdminService
         => await _repository.GetByIdsAsync(fileIds, ct);
 
     /// <summary>
-    /// Step 7 delete order: object store first, then the indexed chunks/vectors (KnowledgeService),
+    /// Step 7 delete order: object store first, then the indexed chunks/vectors (RagService),
     /// then the metadata row. De-index must succeed before the row is removed, so a de-index failure
     /// (7هـ) halts here with the row intact — re-running deletes the (idempotent) object again, retries
     /// the (idempotent) de-index, then removes the row, completing without repeating finished work.

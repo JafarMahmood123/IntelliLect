@@ -26,7 +26,7 @@ dependencies = [
     # --- Observability (LA-8): lightweight Prometheus metrics ---
     "prometheus-client>=0.20",
     # --- Transcript persistence (S-0): durable per-session transcript ---
-    # Async SQLAlchemy + asyncpg + Alembic, matching KnowledgeService's stack. The DB
+    # Async SQLAlchemy + asyncpg + Alembic, matching RagService's stack. The DB
     # is OPTIONAL: with TRANSCRIPT_DB_URL unset the service falls back to an in-memory
     # store and never touches these at runtime. No model weights — plain relational IO.
     "sqlalchemy[asyncio]>=2.0.36",

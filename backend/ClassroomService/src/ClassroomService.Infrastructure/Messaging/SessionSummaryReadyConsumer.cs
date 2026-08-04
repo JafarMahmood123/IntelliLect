@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace ClassroomService.Infrastructure.Messaging;
 
 /// <summary>
-/// Transitions a session summary when KnowledgeService reports the summary pipeline finished (S-4).
+/// Transitions a session summary when RagService reports the summary pipeline finished (S-4).
 /// Mirrors <see cref="SessionRecordingReadyConsumer"/>. Idempotent: upserts by session id, so a
 /// Generating row is updated in place and a duplicate delivery does not create a second row.
 /// </summary>

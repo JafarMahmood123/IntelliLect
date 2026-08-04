@@ -28,7 +28,7 @@ public interface IUploadSettings
     long MultipartOverheadBytes { get; }
 
     /// <summary>
-    /// Accepted MIME types. Defaults mirror exactly what KnowledgeService can extract — accepting
+    /// Accepted MIME types. Defaults mirror exactly what RagService can extract — accepting
     /// a file no extractor handles buys an upload that can never be indexed, which is worse than a
     /// clear refusal at the door.
     /// </summary>
@@ -37,7 +37,7 @@ public interface IUploadSettings
     /// <summary>
     /// Accepted file extensions, without the dot. Checked as an ALTERNATIVE to the content type,
     /// not in addition: browsers send an empty or generic type for some of these (notably .md),
-    /// and KnowledgeService's own extractor router dispatches on either signal.
+    /// and RagService's own extractor router dispatches on either signal.
     /// </summary>
     IReadOnlyCollection<string> AllowedExtensions { get; }
 }

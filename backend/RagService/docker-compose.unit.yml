@@ -1,0 +1,103 @@
+services:
+  rag-db:
+    image: pgvector/pgvector:pg16
+    container_name: rag-db
+    environment:
+      POSTGRES_DB: knowledgedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in backend/.env}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d knowledgedb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - knowledge_db_data:/var/lib/postgresql/data
+    networks:
+      - intellilect-net
+
+  rag-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-service
+    env_file:
+      # Optional: copy .env.example to .env to override embedding settings and
+      # supply INTERNAL_API_SECRET. The stack still starts without it (DATABASE_URL
+      # and OLLAMA_BASE_URL are set below), but the ingest endpoint needs
+      # INTERNAL_API_SECRET.
+      - path: .env
+        required: false
+    environment:
+      # Overrides the .env host so the container reaches the compose DB service.
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?set it in backend/.env}@rag-db:5432/knowledgedb
+      # Reach host Ollama (see extra_hosts below). Host must run Ollama on
+      # 0.0.0.0:11434 with the qwen3-embedding model pulled.
+      # Only used when EMBEDDING_PROVIDER=ollama; the generation/summary models still use it.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # --- Embeddings ---
+      # Hosted Gemini embeddings: no local model, no host-Ollama dependency for retrieval, and
+      # multilingual (the local qwen3-embedding path is English-leaning). Matches the embedder
+      # LiveAssistantService uses for drift, so both services reason in the same space.
+      # The API key is a SECRET and lives in .env (GEMINI_API_KEY), not here.
+      #
+      # ⚠ EMBEDDING_DIM IS SCHEMA. It sets the pgvector column width (models.py + the Alembic
+      # migration both read it), so changing provider/model/dim means a migration AND re-embedding
+      # every stored chunk — vectors from two models are not comparable, and mixing them returns
+      # confident nonsense rather than an error. Migration 0005 handles the column; the chunks
+      # themselves must be re-ingested.
+      #
+      # 3072 is gemini-embedding-001's native width. pgvector's HNSW index refuses >2000
+      # dimensions for `vector`, so the column is `halfvec` (indexable to 4000) — chosen
+      # automatically from this value. Set 768 or 1536 for a plain `vector` column instead.
+      - EMBEDDING_PROVIDER=gemini
+      - GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+      - EMBEDDING_DIM=3072
+      # --- Generation (answers + summaries) ---
+      # "gemini" (hosted) or "ollama" (local host model). Unlike EMBEDDING_PROVIDER this is a
+      # free switch — completions are plain text, so nothing persisted depends on which
+      # backend produced it and you can flip back without a migration.
+      #
+      # Gemini because a session summary is the largest generation this service performs (a
+      # whole lecture transcript, map-reduced) and the local path is qwen2.5:7b-instruct on
+      # the host CPU — the same 8 cores already shared by LiveKit egress and Whisper STT
+      # during a live session. Set GENERATION_PROVIDER=ollama to go fully offline; the host
+      # must then have `ollama pull qwen2.5:7b-instruct`.
+      - GENERATION_PROVIDER=gemini
+      - GEMINI_GENERATION_MODEL=gemini-flash-latest
+      - GEMINI_SUMMARY_MODEL=gemini-flash-latest
+      # Thinking tokens are charged against maxOutputTokens on 3.x models. Left unbounded a
+      # summary can spend its entire budget reasoning and return NOTHING with
+      # finishReason=MAX_TOKENS. Blank omits thinkingConfig, which pre-3.x models require.
+      - GEMINI_THINKING_LEVEL=low
+      # Raised from the code default of 1500, which was sized for Ollama where thinking does
+      # not consume the budget. ~1500 is a reasonable summary on its own, so sharing that cap
+      # with reasoning tokens risks truncating mid-summary.
+      - SUMMARY_MAX_TOKENS=2048
+      # --- Session summaries ---
+      # Where to fetch a finished session's transcript. The transcript lives ONLY in
+      # LiveAssistantService's Postgres, so with this unset every summary run dies at step 2
+      # with "LIVE_ASSISTANT_BASE_URL is not configured" — which is what happened on
+      # 2026-07-30. 8080 is the container-internal port (8084 is only the host mapping).
+      # Authenticated with the shared INTERNAL_API_SECRET from .env, which must match the
+      # value LiveAssistantService uses.
+      - LIVE_ASSISTANT_BASE_URL=http://live-assistant-service:8080
+      # The broker's container_name is intellilect-mq, NOT "rabbitmq". Every other service
+      # sets RabbitMq__Host=intellilect-mq explicitly; this one was relying on a default that
+      # did not match, so the summary-ready message failed to publish with a DNS error even
+      # after the summary itself had been generated and uploaded.
+      - RABBITMQ_HOST=intellilect-mq
+    # Linux does not provide host.docker.internal by default; map it to the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8083:8080"
+    depends_on:
+      rag-db:
+        condition: service_healthy
+    networks:
+      - intellilect-net
+
+volumes:
+  knowledge_db_data:

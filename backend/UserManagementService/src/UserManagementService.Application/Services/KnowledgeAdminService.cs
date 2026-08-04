@@ -6,11 +6,11 @@ namespace UserManagementService.Application.KnowledgeAdministration;
 public sealed class KnowledgeAdminService : IKnowledgeAdminService
 {
     private readonly IClassroomInternalClient _classroomClient;
-    private readonly IKnowledgeAdminClient _knowledgeClient;
+    private readonly IRagAdminClient _knowledgeClient;
 
     public KnowledgeAdminService(
         IClassroomInternalClient classroomClient,
-        IKnowledgeAdminClient knowledgeClient)
+        IRagAdminClient knowledgeClient)
     {
         _classroomClient = classroomClient;
         _knowledgeClient = knowledgeClient;
@@ -67,7 +67,7 @@ public sealed class KnowledgeAdminService : IKnowledgeAdminService
         return new FileListResult(items, filePage.TotalCount, page, pageSize, indexingUnavailable);
     }
 
-    // Status filter set: only KnowledgeService can page by indexing status, so it drives; the file
+    // Status filter set: only RagService can page by indexing status, so it drives; the file
     // registry (authoritative name/size) is enriched from ClassroomService, falling back to the
     // denormalized values when a row can't be resolved.
     private async Task<FileListResult> GetFilesKnowledgeDrivenAsync(

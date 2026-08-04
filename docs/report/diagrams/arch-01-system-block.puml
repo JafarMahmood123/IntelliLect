@@ -22,7 +22,7 @@ package "خدمات .NET" {
 }
 
 package "خدمات الذكاء (Python / FastAPI)" {
-  [KnowledgeService\nالفهرسة والاسترجاع RAG] as KS
+  [RagService\nالفهرسة والاسترجاع RAG] as KS
   [LiveAssistantService\nتحويل الكلام والتحليل] as LAS
 }
 

@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from clients.classroom import ClassroomClient
-from clients.knowledge import KnowledgeClient
+from clients.rag import RagClient
 from clients.liveassistant import LiveAssistantClient
 from clients.streaming import StreamingClient
 from clients.ums import Account, UmsClient
@@ -62,8 +62,8 @@ def liveassistant(config: Config) -> Iterator[LiveAssistantClient]:
 
 
 @pytest.fixture(scope="session")
-def knowledge(config: Config) -> Iterator[KnowledgeClient]:
-    client = KnowledgeClient(
+def knowledge(config: Config) -> Iterator[RagClient]:
+    client = RagClient(
         config.knowledge_url, config.internal_secret, config.http_timeout_s
     )
     yield client
@@ -78,7 +78,7 @@ def _http_ok(url: str) -> bool:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def platform_ready(config: Config, liveassistant: LiveAssistantClient, knowledge: KnowledgeClient) -> None:
+def platform_ready(config: Config, liveassistant: LiveAssistantClient, knowledge: RagClient) -> None:
     """Block until the HTTP services answer. LiveKit is NOT a hard gate here — it is
     only needed by the media test, which verifies it by actually connecting; its
     node-ip may be unreachable for a plain HTTP health probe (VPN/host routing)."""

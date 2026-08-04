@@ -60,7 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IClassroomSummaryService, ClassroomSummaryService>();
         services.AddScoped<ISummaryRepository, SummaryRepository>();
 
-        // User-facing classroom Q&A (F-5): membership-scoped wrapper over KnowledgeService answering.
+        // User-facing classroom Q&A (F-5): membership-scoped wrapper over RagService answering.
         services.AddScoped<IClassroomQaService, ClassroomQaService>();
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -71,16 +71,16 @@ public static class DependencyInjection
             configuration.GetSection(StreamingServiceOptions.SectionName));
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>(ConfigureStreamingClient);
 
-        // KnowledgeService internal client: typed HttpClient + options (mirrors the
-        // streaming client). BaseAddress/timeout come from the "KnowledgeService" section;
+        // RagService internal client: typed HttpClient + options (mirrors the
+        // streaming client). BaseAddress/timeout come from the "RagService" section;
         // the shared secret is attached per-request by the client itself.
-        services.Configure<KnowledgeServiceOptions>(
-            configuration.GetSection(KnowledgeServiceOptions.SectionName));
-        services.AddHttpClient<IKnowledgeInternalClient, KnowledgeInternalClient>((sp, client) =>
+        services.Configure<RagServiceOptions>(
+            configuration.GetSection(RagServiceOptions.SectionName));
+        services.AddHttpClient<IRagInternalClient, RagInternalClient>((sp, client) =>
         {
-            var options = sp.GetRequiredService<IOptions<KnowledgeServiceOptions>>().Value;
+            var options = sp.GetRequiredService<IOptions<RagServiceOptions>>().Value;
             var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
-                ? "http://knowledge-service:8080"
+                ? "http://rag-service:8080"
                 : options.BaseUrl;
             if (!baseUrl.EndsWith('/'))
             {
@@ -91,7 +91,7 @@ public static class DependencyInjection
         });
 
         // LiveAssistantService internal client: owns session transcripts, called when a session or
-        // classroom is deleted. Same shape as the KnowledgeService client.
+        // classroom is deleted. Same shape as the RagService client.
         services.Configure<LiveAssistantOptions>(
             configuration.GetSection(LiveAssistantOptions.SectionName));
         services.AddHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient>((sp, client) =>

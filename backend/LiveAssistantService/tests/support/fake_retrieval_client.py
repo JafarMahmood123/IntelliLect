@@ -1,4 +1,4 @@
-"""A deterministic ``RetrievalClient`` for testing LA-4 without KnowledgeService.
+"""A deterministic ``RetrievalClient`` for testing LA-4 without RagService.
 
 Returns a fixed list of ``RetrievedChunk``s (or raises a configured error) and records
 each call, so tests can assert the query/top_k passed and drive the evaluator's paths.

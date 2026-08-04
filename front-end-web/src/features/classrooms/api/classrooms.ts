@@ -76,7 +76,7 @@ export const deleteFile = async (classroomId: string, fileId: string): Promise<v
 };
 
 // Member-authorized RAG indexing status for a file. The browser never sees any
-// internal secret — ClassroomService reads KnowledgeService server-side.
+// internal secret — ClassroomService reads RagService server-side.
 export const getFileIndexingStatus = async (
   classroomId: string,
   fileId: string,

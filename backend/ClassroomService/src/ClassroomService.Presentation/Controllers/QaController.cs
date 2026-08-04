@@ -8,7 +8,7 @@ namespace ClassroomService.Presentation.Controllers;
 /// <summary>
 /// User-facing Q&amp;A over a classroom's material (F-5). Browser-callable and JWT-authenticated;
 /// membership is enforced server-side and the retrieval scope is the route classroom id — never a
-/// value from the client. Wraps KnowledgeService's grounded RAG answer without exposing its
+/// value from the client. Wraps RagService's grounded RAG answer without exposing its
 /// internal secret.
 /// </summary>
 [Authorize]

@@ -9,7 +9,7 @@ namespace ClassroomService.Presentation.Controllers;
 /// <summary>
 /// Service-to-service file administration for UserManagementService's super-admin knowledge-base
 /// view. ClassroomService owns the file registry (name/size/classroom), so it drives the list and
-/// the delete; indexing status is enriched by the caller from KnowledgeService. Secret-guarded,
+/// the delete; indexing status is enriched by the caller from RagService. Secret-guarded,
 /// off the nginx path.
 /// </summary>
 [ApiController]

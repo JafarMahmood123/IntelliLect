@@ -60,7 +60,7 @@ public interface IClassroomInternalClient
     Task<AdminFilePage> GetFilesAsync(
         int page, int pageSize, string? search, Guid? classroomId, CancellationToken ct = default);
 
-    /// <summary>File registry rows for a set of ids (enriches a KnowledgeService-driven filtered list).</summary>
+    /// <summary>File registry rows for a set of ids (enriches a RagService-driven filtered list).</summary>
     Task<IReadOnlyList<AdminFile>> GetFilesByIdsAsync(IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default);
 
     /// <summary>Batch classroom-name resolution for a set of classroom ids.</summary>

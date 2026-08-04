@@ -8,12 +8,12 @@ namespace ClassroomService.Infrastructure.Messaging;
 /// <remarks>
 /// <para>
 /// Covers the last hop only: the message has arrived, so the summary itself already succeeded or
-/// permanently failed in KnowledgeService. What can still go wrong here is local — a database
+/// permanently failed in RagService. What can still go wrong here is local — a database
 /// blip while writing the status. Without a retry that would dead-letter the message and leave
 /// the classroom showing Generating for a summary that is actually finished.
 /// </para>
 /// <para>
-/// Everything upstream of this point is protected differently and deliberately so: KnowledgeService
+/// Everything upstream of this point is protected differently and deliberately so: RagService
 /// owns generation retries (it has the attempt counter), and its outbox covers the publish. This
 /// is not a substitute for either.
 /// </para>

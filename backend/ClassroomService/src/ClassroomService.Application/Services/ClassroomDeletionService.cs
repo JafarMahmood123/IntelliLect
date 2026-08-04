@@ -26,7 +26,7 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
     private readonly IClassroomDeletionRepository _repository;
     private readonly IFileStorageService _fileStorage;
     private readonly IRecordingStorage _objectStorage;
-    private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly IRagInternalClient _knowledgeClient;
     private readonly ILiveAssistantInternalClient _liveAssistant;
     private readonly ILogger<ClassroomDeletionService> _logger;
 
@@ -34,7 +34,7 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
         IClassroomDeletionRepository repository,
         IFileStorageService fileStorage,
         IRecordingStorage objectStorage,
-        IKnowledgeInternalClient knowledgeClient,
+        IRagInternalClient knowledgeClient,
         ILiveAssistantInternalClient liveAssistant,
         ILogger<ClassroomDeletionService> logger)
     {
@@ -116,7 +116,7 @@ public sealed class ClassroomDeletionService : IClassroomDeletionService
         // throwing on a hard failure so the deletion halts with the classroom still PendingDeletion.
         await _liveAssistant.DeleteClassroomTranscriptsAsync(classroomId, ct);
 
-        // Phase 4 — files: object first, then the row; then de-index the classroom in KnowledgeService
+        // Phase 4 — files: object first, then the row; then de-index the classroom in RagService
         // (drops its documents, chunks and vector embeddings). De-index runs after the file rows are
         // gone and is idempotent + retried, throwing on a hard failure so the deletion halts here and
         // the classroom stays PendingDeletion for a resumable re-run.

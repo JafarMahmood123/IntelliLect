@@ -307,7 +307,7 @@ public class ClassroomDeletionServiceTests
             => Task.FromResult<Stream>(new MemoryStream());
     }
 
-    private sealed class FakeKnowledge : IKnowledgeInternalClient
+    private sealed class FakeKnowledge : IRagInternalClient
     {
         public int DeIndexCalls;
         public Guid LastDeIndexedClassroomId;

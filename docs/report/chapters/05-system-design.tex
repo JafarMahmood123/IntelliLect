@@ -15,7 +15,7 @@
   \item \textbf{خدمة الفصول الدراسية} (\en{ClassroomService}): تدير الفصول والعضوية والجلسات والاختبارات والملفّات المرجعية، إضافةً إلى مخرجات الجلسات من تسجيلات وملخّصات.
   \item \textbf{خدمة البث} (\en{StreamingService}): تدير غرف البث المباشر وصلاحيات النشر فيها، وتتولّى تسجيل الجلسات عبر \en{LiveKit Egress} وحفظها في مخزن الملفّات.
   \item \textbf{خدمة البريد} (\en{EmailService}): خدمة مستهلِكة صرفة، تتلقّى أحداث المجال من الناقل وترسل الإشعارات البريدية المقابلة لها.
-  \item \textbf{خدمة المعرفة} (\en{KnowledgeService}): تحوّل المواد المرجعية إلى قاعدة معرفية قابلة للبحث الدلالي، وتخدم الاسترجاع والإجابة المؤصَّلة في مادة الفصل، وتولّد ملخّصات الجلسات.
+  \item \textbf{خدمة المعرفة} (\en{RagService}): تحوّل المواد المرجعية إلى قاعدة معرفية قابلة للبحث الدلالي، وتخدم الاسترجاع والإجابة المؤصَّلة في مادة الفصل، وتولّد ملخّصات الجلسات.
   \item \textbf{خدمة المساعد الحيّ} (\en{LiveAssistantService}): تحوّل كلام الجلسة الجارية إلى نص، وتقيّم محتواه مقابل المصادر المفهرسة، وتقدّم تدخّلات تعليمية للمعلّم في أثناء الشرح.
 \end{enumerate}
 
@@ -266,7 +266,7 @@
 
 ويحقّق عزل هذه المسؤولية في خدمة مستهلِكة فكَّ الارتباط الزمني، إذ لا تنتظر الخدمة الناشرة نتيجة الإرسال. ويؤدّي تعطّل خادم البريد عندئذٍ إلى تأخير وصول الإشعارات دون تعطيل تسجيل الدخول أو التسجيل أو الانضمام إلى فصل.
 
-\section{خدمة المعرفة (\en{KnowledgeService})}
+\section{خدمة المعرفة (\en{RagService})}
 
 \subsection{دور الخدمة ونطاقها}
 
@@ -278,7 +278,7 @@
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-05-knowledge.png}
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-05-rag.png}
   \caption{مخطط المكوّنات التفصيلي لخدمة المعرفة.}
   \label{fig:comp-05}
 \end{figure}
@@ -300,7 +300,7 @@
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-04-knowledge.png}
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-04-rag.png}
   \caption{مخطط الكيانات والعلاقات لخدمة المعرفة.}
   \label{fig:erd-04}
 \end{figure}

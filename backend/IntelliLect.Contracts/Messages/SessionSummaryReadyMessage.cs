@@ -1,7 +1,7 @@
 namespace IntelliLect.Contracts.Messages;
 
 /// <summary>
-/// Published by KnowledgeService when a session's summary pipeline finishes (S-3): the Markdown
+/// Published by RagService when a session's summary pipeline finishes (S-3): the Markdown
 /// (S-1) and its PDF rendition (S-2) have been generated and uploaded to object storage. Carries
 /// the outcome so ClassroomService (S-4) can store the summary metadata and serve downloads
 /// (<c>Available</c> on success) or mark it <c>Failed</c>. Mirrors

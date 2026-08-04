@@ -237,17 +237,17 @@ class Settings(BaseSettings):
     # 0.35 default, SEMANTIC_SIMILARITY would never split anything.
     gemini_embedding_task_type: str = "SEMANTIC_SIMILARITY"
 
-    # --- Retrieval (LA-4): classroom material via the existing KnowledgeService ---
-    # Retrieval goes over HTTP to KnowledgeService (it owns the vector DB); the idea
-    # TEXT is sent as the query and KnowledgeService embeds + searches internally.
-    knowledge_base_url: str = ""  # e.g. http://knowledge-service:8080
+    # --- Retrieval (LA-4): classroom material via the existing RagService ---
+    # Retrieval goes over HTTP to RagService (it owns the vector DB); the idea
+    # TEXT is sent as the query and RagService embeds + searches internally.
+    knowledge_base_url: str = ""  # e.g. http://rag-service:8080
     internal_api_secret: str = ""  # shared secret, sent as X-Internal-Secret
     retrieval_top_k: int = 6  # chunks requested per idea
     retrieval_min_score: float = 0.25  # below this = "no relevant material" (short-circuit)
 
     # --- Evaluation / brain (LA-4): local generative model in host Ollama ---
     # Reuses OLLAMA_BASE_URL/OLLAMA_AUTH_TOKEN (above). This service has its own
-    # live-assistant-specific evaluation prompt; the model matches KnowledgeService's
+    # live-assistant-specific evaluation prompt; the model matches RagService's
     # generation model. No weights in the container — every call is HTTP to Ollama.
     eval_model: str = "qwen2.5:7b-instruct"
     eval_temperature: float = 0.2
@@ -323,7 +323,7 @@ class Settings(BaseSettings):
     # doesn't lose the transcript, and the ordered transcript can be assembled for the
     # (later) session-summary feature. When TRANSCRIPT_DB_URL is empty the service runs
     # fully offline against an in-memory store (non-durable) — mirroring how LiveKit /
-    # Ollama / KnowledgeService are optional here. Set it (Postgres, asyncpg driver) to
+    # Ollama / RagService are optional here. Set it (Postgres, asyncpg driver) to
     # persist for real; the Alembic migration provisions the schema.
     transcript_db_url: str = ""  # e.g. postgresql+asyncpg://user:pass@host:5432/db
     # Flush cadence for the background writer: persist after every N final segments.

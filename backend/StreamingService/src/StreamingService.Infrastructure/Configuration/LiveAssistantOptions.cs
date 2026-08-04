@@ -3,7 +3,7 @@ namespace StreamingService.Infrastructure.Configuration;
 /// <summary>
 /// Options for notifying the (Python) LiveAssistantService about session start/stop so
 /// it can run/tear down the teaching-assistant agent. Bound from the "LiveAssistant"
-/// configuration section. Mirrors ClassroomService's KnowledgeServiceOptions.
+/// configuration section. Mirrors ClassroomService's RagServiceOptions.
 /// The assistant is an enhancement, not a dependency — see LiveAssistantInternalClient.
 /// </summary>
 public class LiveAssistantOptions

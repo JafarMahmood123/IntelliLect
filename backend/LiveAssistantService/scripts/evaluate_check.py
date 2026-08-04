@@ -1,15 +1,15 @@
 """Evaluate a CompletedIdea against course material with IdeaEvaluator (LA-4) and
 print the EvaluationOutcome.
 
-Default mode is fully OFFLINE — NO KnowledgeService, NO Ollama. It runs a scripted
+Default mode is fully OFFLINE — NO RagService, NO Ollama. It runs a scripted
 idea through a fake retrieval client (fixture chunks) and a fake brain (deterministic
 outcome), proving the orchestration + citation→source mapping:
 
     python scripts/evaluate_check.py
 
-``--live`` runs the REAL clients — KnowledgeService retrieval + the Ollama brain —
-against a classroom and an idea string. DEFERRED: needs KnowledgeService reachable at
-KNOWLEDGE_BASE_URL and Ollama running with EVAL_MODEL pulled:
+``--live`` runs the REAL clients — RagService retrieval + the Ollama brain —
+against a classroom and an idea string. DEFERRED: needs RagService reachable at
+RAG_BASE_URL and Ollama running with EVAL_MODEL pulled:
 
     python scripts/evaluate_check.py --live --classroom <uuid> --idea "the teacher's explanation"
 """
@@ -111,7 +111,7 @@ async def _run_offline() -> int:
         settings, _FixtureRetrievalClient(_fixture_chunks()), _FixtureBrainClient()
     )
 
-    print("[offline] scripted idea -> IdeaEvaluator (NO KnowledgeService, NO Ollama)")
+    print("[offline] scripted idea -> IdeaEvaluator (NO RagService, NO Ollama)")
     print(f"[offline] top_k={settings.retrieval_top_k} min_score={settings.retrieval_min_score}")
     print(f"idea: {idea.text}")
     print("-" * 72)
@@ -130,7 +130,7 @@ async def _run_live(classroom_id: str, idea_text: str) -> int:
     evaluator = build_idea_evaluator(
         settings, build_retrieval_client(settings), build_brain_client(settings)
     )
-    print(f"[live] KnowledgeService({settings.knowledge_base_url}) + Ollama({settings.eval_model})")
+    print(f"[live] RagService({settings.knowledge_base_url}) + Ollama({settings.eval_model})")
     print(f"idea: {idea_text}")
     print("-" * 72)
     _print_outcome(await evaluator.evaluate(idea, session))

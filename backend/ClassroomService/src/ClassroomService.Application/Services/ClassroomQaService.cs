@@ -7,7 +7,7 @@ namespace ClassroomService.Application.Services;
 
 /// <summary>
 /// User-facing Q&amp;A over a classroom's material. Authenticates + authorizes membership, then
-/// runs KnowledgeService's grounded RAG answer server-side (the internal secret stays inside the
+/// runs RagService's grounded RAG answer server-side (the internal secret stays inside the
 /// internal client). The retrieval scope is always the route classroom id + verified membership,
 /// so a client can never ask about a classroom it is not in.
 /// </summary>
@@ -15,13 +15,13 @@ public sealed class ClassroomQaService : IClassroomQaService
 {
     private readonly IClassroomRepository _classroomRepository;
     private readonly IMembershipRepository _membershipRepository;
-    private readonly IKnowledgeInternalClient _knowledgeClient;
+    private readonly IRagInternalClient _knowledgeClient;
     private readonly ILogger<ClassroomQaService> _logger;
 
     public ClassroomQaService(
         IClassroomRepository classroomRepository,
         IMembershipRepository membershipRepository,
-        IKnowledgeInternalClient knowledgeClient,
+        IRagInternalClient knowledgeClient,
         ILogger<ClassroomQaService> logger)
     {
         _classroomRepository = classroomRepository;

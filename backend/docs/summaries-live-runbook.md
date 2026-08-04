@@ -12,7 +12,7 @@ Nothing here is automated by CI.
 > good.**
 
 ## Prerequisites
-- LiveAssistantService, KnowledgeService, ClassroomService, LiveKit, RabbitMQ, host Ollama, and the
+- LiveAssistantService, RagService, ClassroomService, LiveKit, RabbitMQ, host Ollama, and the
   S3/MinIO store all running and networked (see `backend/docker-compose.yml` and each service's
   `docker-compose.unit.yml`).
 - Ollama has the summary model pulled (`ollama pull qwen2.5:7b-instruct`) and the embedding model
@@ -23,7 +23,7 @@ Nothing here is automated by CI.
 - A teacher account, an enrolled student account, and a non-member account.
 
 ## Health check (before you start)
-- `GET /health` on **KnowledgeService** → `ollama` reachable + `generationModel` available;
+- `GET /health` on **RagService** → `ollama` reachable + `generationModel` available;
   `pdfRenderer` **available** (WeasyPrint system libs present); `summaryStorage` **reachable**;
   `transcriptEndpoint` **reachable**. Any of these degraded ⇒ fix config before proceeding.
 - `GET /health` on **ClassroomService** → `summaries-config` **Healthy** (shared S3 bucket
@@ -39,14 +39,14 @@ Nothing here is automated by CI.
 
 ## 2. On session end, a summary generates (S-1 → S-3)
 1. End the session. The session-end trigger calls
-   `POST {KnowledgeService}/api/internal/sessions/{sessionId}/summarize` (body `{ classroomId }`,
+   `POST {RagService}/api/internal/sessions/{sessionId}/summarize` (body `{ classroomId }`,
    `X-Internal-Secret`) → **202**. Session end must succeed regardless of the summary outcome.
-2. Confirm KnowledgeService logs the lifecycle at INFO (ids/model/duration/size/keys only — **never**
+2. Confirm RagService logs the lifecycle at INFO (ids/model/duration/size/keys only — **never**
    transcript or Markdown text, **never** a pre-signed URL): `summary_generation_started` →
    `summary_generation_finished` (model, duration, grounded y/n) → `summary_pdf_rendered` (size) →
    `summary_artifacts_uploaded` (md/pdf **keys**) → `summary_ready_published`.
 3. In S3, confirm **two** objects under `summaries/{classroomId}/{sessionId}.md` and `…/.pdf`.
-   - Metric check (KnowledgeService `/metrics`): `summaries_generated_total`,
+   - Metric check (RagService `/metrics`): `summaries_generated_total`,
      `summary_generation_seconds`, `summary_render_seconds`, `summary_transcript_tokens`, and
      `summaries_grounded_total` (if grounding retrieved anything) all moved.
 4. ClassroomService's consumer stores the `SessionSummary` as **Available** — confirm the
@@ -92,7 +92,7 @@ read it against what was actually taught:
    - Empty transcript is **not** a hard failure: it still produces a valid minimal "insufficient
      content" summary (Available). To force a real failure, make the model unreachable.
 2. Confirm session end still returned 202 and did not break.
-3. Confirm KnowledgeService publishes a **failure** `SessionSummaryReadyMessage` (logged; metric
+3. Confirm RagService publishes a **failure** `SessionSummaryReadyMessage` (logged; metric
    `summaries_failed_total` moved) and ClassroomService marks the `SessionSummary` **Failed** with
    an error.
 4. As a member, request the `download-url` → **409 Conflict** (not Available).

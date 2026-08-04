@@ -10,7 +10,7 @@ class EmbeddingProvider(ABC):
     semantic drift. Implemented by ``OllamaEmbeddingProvider`` (local Ollama over
     HTTP); tests use a deterministic ``FakeEmbeddingProvider`` instead, so no live
     model is ever required for the boundary logic. Kept symmetric with
-    KnowledgeService's ``EmbeddingProvider``.
+    RagService's ``EmbeddingProvider``.
     """
 
     @abstractmethod

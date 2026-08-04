@@ -5,7 +5,7 @@ include:
   - path: ./EmailService/docker-compose.unit.yml
   - path: ./ClassroomService/docker-compose.unit.yml
   - path: ./StreamingService/docker-compose.unit.yml
-  - path: ./KnowledgeService/docker-compose.unit.yml
+  - path: ./RagService/docker-compose.unit.yml
   - path: ./LiveAssistantService/docker-compose.unit.yml
 
 services:

@@ -9,10 +9,10 @@ from app.domain.evaluation.retrieved_chunk import RetrievedChunk
 class RetrievalClient(ABC):
     """Port for fetching classroom material relevant to a finished teacher "idea".
 
-    Implemented by ``KnowledgeRetrievalClient``, which calls the existing
-    KnowledgeService RAG search (``POST /api/search``, classroom-scoped) over
-    ``KNOWLEDGE_BASE_URL`` using the shared ``INTERNAL_API_SECRET``. The idea TEXT is
-    sent as the query — KnowledgeService owns the vector DB and embeds/searches
+    Implemented by ``RagRetrievalClient``, which calls the existing
+    RagService RAG search (``POST /api/search``, classroom-scoped) over
+    ``RAG_BASE_URL`` using the shared ``INTERNAL_API_SECRET``. The idea TEXT is
+    sent as the query — RagService owns the vector DB and embeds/searches
     internally; this service never touches another service's database.
     """
 

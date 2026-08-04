@@ -5,8 +5,8 @@ using UserManagementService.Application.KnowledgeAdministration;
 namespace UserManagementService.UnitTests.KnowledgeAdministration;
 
 // Unit tests for KnowledgeAdminService — the super-admin content/knowledge-base gateway.
-//   List: ClassroomService drives (no status filter) with KnowledgeService status enrichment that
-//         degrades to "unavailable" when it fails (3أ); KnowledgeService drives when a status filter
+//   List: ClassroomService drives (no status filter) with RagService status enrichment that
+//         degrades to "unavailable" when it fails (3أ); RagService drives when a status filter
 //         is set. Reindex/delete require a reason (6أ).
 public class KnowledgeAdminServiceTests
 {
@@ -173,7 +173,7 @@ public class KnowledgeAdminServiceTests
 
 // ----- fakes ------------------------------------------------------------------
 
-internal sealed class FakeKnowledgeClient : IKnowledgeAdminClient
+internal sealed class FakeKnowledgeClient : IRagAdminClient
 {
     public IReadOnlyList<KnowledgeDocumentItem> StatusBatch { get; set; } = Array.Empty<KnowledgeDocumentItem>();
     public bool ThrowOnStatusBatch { get; set; }
@@ -189,7 +189,7 @@ internal sealed class FakeKnowledgeClient : IKnowledgeAdminClient
 
     public Task<IReadOnlyList<KnowledgeDocumentItem>> GetStatusBatchAsync(IReadOnlyCollection<Guid> fileIds, CancellationToken ct = default)
     {
-        if (ThrowOnStatusBatch) throw new HttpRequestException("KnowledgeService unreachable");
+        if (ThrowOnStatusBatch) throw new HttpRequestException("RagService unreachable");
         return Task.FromResult(StatusBatch);
     }
 

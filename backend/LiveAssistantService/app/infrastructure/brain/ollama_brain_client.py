@@ -2,7 +2,7 @@
 
 Calls ``POST /api/chat`` (stream:false) with this service's own grounded,
 silence-biased evaluation prompt and parses the reply as STRICT JSON (via the shared
-``outcome_parser``). No model weights live in this container. Mirrors KnowledgeService's
+``outcome_parser``). No model weights live in this container. Mirrors RagService's
 generation provider (optional bearer auth, configurable timeout, clear errors).
 
 Degradation policy: a transport/HTTP failure raises ``OllamaBrainError`` (the caller

@@ -1,7 +1,7 @@
 """Internal quiz-generation endpoint: auth, and the status codes the caller acts on.
 
 Offline: the generator is overridden via FastAPI's dependency_overrides, so no brain and no
-KnowledgeService are involved. What matters here is that "the lecture has not said enough yet" and
+RagService are involved. What matters here is that "the lecture has not said enough yet" and
 "the assistant broke" stay DIFFERENT statuses — ClassroomService turns them into different
 messages, and the fix a teacher needs differs between them.
 """
@@ -27,7 +27,7 @@ _HEADERS = {"X-Internal-Secret": _SECRET}
 def _internal_secret_env(monkeypatch):
     monkeypatch.setenv("INTERNAL_API_SECRET", _SECRET)
     monkeypatch.setenv("OLLAMA_BASE_URL", "")
-    monkeypatch.setenv("KNOWLEDGE_BASE_URL", "")
+    monkeypatch.setenv("RAG_BASE_URL", "")
     monkeypatch.setenv("TRANSCRIPT_DB_URL", "")
     get_settings.cache_clear()
     yield

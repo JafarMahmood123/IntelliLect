@@ -1,7 +1,7 @@
 """Retrieval + evaluation on an idea boundary (LA-4).
 
 For each ``CompletedIdea`` (from LA-3): retrieve the classroom's most relevant
-material via ``RetrievalClient`` (KnowledgeService), then ask the ``BrainClient`` to
+material via ``RetrievalClient`` (RagService), then ask the ``BrainClient`` to
 evaluate the idea against it — yielding either "no feedback" (the common case) or a
 single grounded ``TeacherSuggestion``. This phase produces the OUTCOME only; it does
 not deliver feedback (LA-5), wire a live session (LA-6), or rate-limit (LA-7).

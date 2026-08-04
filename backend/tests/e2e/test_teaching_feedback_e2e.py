@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 import pytest
 
 from clients.classroom import ClassroomClient
-from clients.knowledge import KnowledgeClient
+from clients.rag import RagClient
 from clients.liveassistant import LiveAssistantClient
 from clients.streaming import StreamingClient
 from config import Config
@@ -164,7 +164,7 @@ async def test_teacher_teaches_and_gets_feedback(
     classroom: ClassroomClient,
     streaming: StreamingClient,
     liveassistant: LiveAssistantClient,
-    knowledge: KnowledgeClient,
+    knowledge: RagClient,
     config: Config,
 ) -> None:
     if config.fake_audio_mode:
@@ -210,7 +210,7 @@ async def test_teacher_teaches_and_gets_feedback(
     status = poll_until(
         _final_status,
         timeout_s=config.ingest_timeout_s,
-        description="KnowledgeService to index the seeded document",
+        description="RagService to index the seeded document",
     )
     assert status == "Done", f"document ingestion ended in status {status!r}"
     # Sanity: the seeded fact is now retrievable for this classroom (retry through
@@ -299,7 +299,7 @@ async def test_teacher_teaches_and_gets_feedback(
 # Test 3 — the AI feedback loop via fake audio (reliable; no WebRTC needed).
 #
 # Same real cross-service flow and the same REAL feedback intelligence (STT, idea
-# boundary, KnowledgeService retrieval, Ollama brain, pacing). The ONLY difference vs
+# boundary, RagService retrieval, Ollama brain, pacing). The ONLY difference vs
 # test 2 is how the teacher's audio reaches the agent and how feedback is observed:
 # the agent plays a mounted WAV of the teacher (AGENT_AUDIO_SOURCE=fake) and records
 # the delivered suggestion in-process, read back via the feedback endpoint. This is
@@ -311,7 +311,7 @@ def test_teacher_teaches_and_gets_feedback_fake_audio(
     classroom: ClassroomClient,
     streaming: StreamingClient,
     liveassistant: LiveAssistantClient,
-    knowledge: KnowledgeClient,
+    knowledge: RagClient,
     config: Config,
 ) -> None:
     if not config.fake_audio_mode:
@@ -345,7 +345,7 @@ def test_teacher_teaches_and_gets_feedback_fake_audio(
     status = poll_until(
         _final_status,
         timeout_s=config.ingest_timeout_s,
-        description="KnowledgeService to index the seeded document",
+        description="RagService to index the seeded document",
     )
     assert status == "Done", f"document ingestion ended in status {status!r}"
     results = poll_until(

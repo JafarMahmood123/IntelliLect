@@ -71,7 +71,7 @@ def create_app() -> FastAPI:
         description=(
             "Server-side live-session assistant. Joins a session as an agent, "
             "captures the teacher's audio, transcribes it, detects idea boundaries, "
-            "checks each idea against the classroom's material (KnowledgeService RAG), "
+            "checks each idea against the classroom's material (RagService RAG), "
             "and privately suggests corrections to the teacher. Sessions are started "
             "and stopped via internal endpoints triggered by the streaming service."
         ),

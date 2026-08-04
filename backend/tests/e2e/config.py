@@ -61,7 +61,7 @@ class Config:
     piper_model_path: str = _env("E2E_PIPER_MODEL", "")
 
     # --- Timeouts / polling --------------------------------------------------
-    # Generous per-call timeout: KnowledgeService embeds via host Ollama, which can
+    # Generous per-call timeout: RagService embeds via host Ollama, which can
     # be briefly busy serving the LLM/STT, so a single call may take tens of seconds.
     http_timeout_s: float = float(_env("E2E_HTTP_TIMEOUT_S", "60"))
     # The AI loop (STT model load on first use + boundary + retrieval + LLM eval)

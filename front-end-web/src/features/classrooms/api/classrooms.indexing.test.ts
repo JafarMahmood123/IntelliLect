@@ -20,7 +20,7 @@ describe('getFileIndexingStatus', () => {
     expect(mockGet).toHaveBeenCalledWith(
       '/classrooms/c1/files/f1/indexing-status',
     );
-    // The browser never targets KnowledgeService's internal API or sends a secret.
+    // The browser never targets RagService's internal API or sends a secret.
     const [url, config] = mockGet.mock.calls[0];
     expect(url).not.toContain('internal');
     expect(config).toBeUndefined();

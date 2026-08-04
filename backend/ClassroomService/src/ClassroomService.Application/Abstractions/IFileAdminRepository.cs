@@ -5,8 +5,8 @@ namespace ClassroomService.Application.Abstractions;
 
 /// <summary>
 /// Cross-classroom file access for the super-admin knowledge-base view. ClassroomService owns the
-/// file registry (name/size/classroom), so it drives the list; KnowledgeService enriches indexing
-/// status. Also backs the by-ids enrichment used when a status filter makes KnowledgeService the
+/// file registry (name/size/classroom), so it drives the list; RagService enriches indexing
+/// status. Also backs the by-ids enrichment used when a status filter makes RagService the
 /// list driver.
 /// </summary>
 public interface IFileAdminRepository

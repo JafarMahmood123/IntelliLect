@@ -92,6 +92,9 @@ Every chapter follows the same shape:
 
 - The **chapter number sits furthest right**: section 2 of chapter 1 appears as
   `-2.1`. Verified by rendering the `.dotx` itself to PDF and comparing.
+  **Deviation:** the leading dash is dropped in this report — headings render as
+  `2.1`, not `-2.1`. See the note above the `\titleformat` block in
+  `preamble.tex`; restoring it is a one-character change on three lines.
 - **In Word this is manual and written in reverse**, because Word's automatic
   multi-level numbering comes out backwards in Arabic — the template devotes a
   whole section to the problem and asks students to number by hand, last, after

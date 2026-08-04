@@ -25,7 +25,7 @@ Registur, Device". "Least recently used" is spelled out everywhere for the same 
 
 ## Before you start
 
-1. Rebuild `knowledge-service` and `live-assistant-service`.
+1. Rebuild `rag-service` and `live-assistant-service`.
 2. Upload `caching-course-notes.txt` to the classroom. **Wait for its indexing badge to
    reach Done** before starting the session.
 3. Confirm your VPN exit IP is not one Groq blocks (see `run-services.txt` §1). If Groq

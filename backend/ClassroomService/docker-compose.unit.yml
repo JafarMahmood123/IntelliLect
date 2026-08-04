@@ -39,11 +39,11 @@ services:
       - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect
-      # Trigger indexing in KnowledgeService (compose service DNS on the shared network).
-      # InternalApiSecret must match KnowledgeService's INTERNAL_API_SECRET.
-      - KnowledgeService__BaseUrl=http://knowledge-service:8080
-      - KnowledgeService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
-      - KnowledgeService__TimeoutSeconds=10
+      # Trigger indexing in RagService (compose service DNS on the shared network).
+      # InternalApiSecret must match RagService's INTERNAL_API_SECRET.
+      - RagService__BaseUrl=http://rag-service:8080
+      - RagService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      - RagService__TimeoutSeconds=10
       # LiveAssistantService: session transcripts, and quiz generation from what the teacher just
       # explained. InternalApiSecret must match its INTERNAL_API_SECRET — without it the client
       # sends no header at all and every call is refused, since that guard fails closed.

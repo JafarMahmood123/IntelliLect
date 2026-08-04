@@ -59,8 +59,8 @@ public sealed class RecordingLogger<T> : ILogger<T>
     }
 }
 
-/// <summary>Records notify calls; optionally throws to simulate KnowledgeService down.</summary>
-public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
+/// <summary>Records notify calls; optionally throws to simulate RagService down.</summary>
+public sealed class RecordingKnowledgeClient : IRagInternalClient
 {
     private readonly bool _throwOnCall;
     public int UploadCalls { get; private set; }
@@ -70,7 +70,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     public Guid LastStatusFileId { get; private set; }
 
     /// <summary>Status returned by <see cref="GetIndexingStatusAsync"/>; null simulates a
-    /// KnowledgeService 404 (no document row yet).</summary>
+    /// RagService 404 (no document row yet).</summary>
     public string? StatusToReturn { get; set; } = "Done";
 
     public RecordingKnowledgeClient(bool throwOnCall = false) => _throwOnCall = throwOnCall;
@@ -91,7 +91,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     {
         UploadCalls++;
         LastFileId = fileId;
-        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        if (_throwOnCall) throw new HttpRequestException("RagService is unreachable");
         return Task.CompletedTask;
     }
 
@@ -99,7 +99,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     {
         DeleteCalls++;
         LastFileId = fileId;
-        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        if (_throwOnCall) throw new HttpRequestException("RagService is unreachable");
         return Task.CompletedTask;
     }
 
@@ -110,7 +110,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     {
         DeIndexClassroomCalls++;
         LastDeIndexedClassroomId = classroomId;
-        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        if (_throwOnCall) throw new HttpRequestException("RagService is unreachable");
         return Task.CompletedTask;
     }
 
@@ -118,7 +118,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
     {
         StatusCalls++;
         LastStatusFileId = fileId;
-        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        if (_throwOnCall) throw new HttpRequestException("RagService is unreachable");
         return Task.FromResult(StatusToReturn);
     }
 
@@ -138,7 +138,7 @@ public sealed class RecordingKnowledgeClient : IKnowledgeInternalClient
         AnswerCalls++;
         LastAnswerClassroomId = classroomId;
         LastAnswerQuestion = question;
-        if (_throwOnCall) throw new HttpRequestException("KnowledgeService is unreachable");
+        if (_throwOnCall) throw new HttpRequestException("RagService is unreachable");
         return Task.FromResult(AnswerToReturn);
     }
 }

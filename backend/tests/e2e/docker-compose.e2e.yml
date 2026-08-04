@@ -5,7 +5,7 @@
 # CI / Docker Desktop / behind a VPN, WebRTC media often cannot be established, which
 # would make the core scenario untestable. Fake-audio mode plays a local WAV of the
 # teacher speaking through the REAL rest of the pipeline (STT -> idea boundary ->
-# KnowledgeService retrieval -> Ollama brain -> pacing), and records the delivered
+# RagService retrieval -> Ollama brain -> pacing), and records the delivered
 # feedback in-process so the test can read it via GET /api/internal/sessions/{id}/feedback.
 # The feedback INTELLIGENCE is exercised for real; only the WebRTC transport is bypassed.
 #

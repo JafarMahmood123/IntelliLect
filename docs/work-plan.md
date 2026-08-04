@@ -24,7 +24,7 @@ named. This is also a report artefact (chapter: Implementation & Testing).
       | Service | Line | Tests | Notes |
       | --- | --- | --- | --- |
       | LiveAssistantService | **81%** | 299 (+3 skip) | closest to target |
-      | KnowledgeService | **77%** | 235 (+9 skip) | |
+      | RagService | **77%** | 235 (+9 skip) | |
       | UserManagementService | **62.1%** | 120 | Application 63.3%, Domain 54%; **Infrastructure never loaded by any test** |
       | ClassroomService | **57.4%** | 306 | Application **93.2%**, Infrastructure 30% |
       | StreamingService | **28.2%** | 104 | Application 25%, Infra 29.4%, Presentation 22.9% |
@@ -62,38 +62,52 @@ named. This is also a report artefact (chapter: Implementation & Testing).
       any real logic in those modules measured.
 
       **The check that matters: both percentages were unchanged.** LiveAssistantService
-      stayed at 81% (2758 → 2658 statements), KnowledgeService at 77% (4161 → 3910). The
+      stayed at 81% (2758 → 2658 statements), RagService at 77% (4161 → 3910). The
       exclusions removed roughly as much covered code as uncovered, which is what an
       honest exclusion set looks like — if the number had jumped, the rules would have
       been gaming it rather than measuring the right thing.
 
 ---
 
-## 1. Rename KnowledgeService → RagService
+## 1. Rename KnowledgeService → RagService — **DONE**
 
-Doing this first: ~754 `knowledge` occurrences across backend, frontend, compose and
-docs. Every feature added before the rename is extra rename surface.
+**Decision (§1.2): internal only.** The service, its clients, config sections, env keys,
+compose service and hostnames, README, docs and report all say Rag now. The
+**"Knowledge Base" product wording stays** in both locales, and so does the frontend
+feature naming (`KnowledgeBasePage`, `useKnowledgeQueries`, the `knowledge` i18n key) —
+those name the *feature a user sees*, not the service. "RAG" is jargon a teacher has no
+reason to know.
 
-- [ ] **1.1 Inventory** — enumerate the occurrence classes: directory name, .NET
-      project/namespace (`IKnowledgeAdminService`, `KnowledgeAdminClient`,
-      `KnowledgeAdminDtos`), Python module paths (`knowledge_retrieval_client.py`),
-      compose service name + hostname, nginx routes, internal HTTP base URLs in
-      appsettings, frontend feature dir (`superAdmin/api/knowledge.ts`,
-      `KnowledgeBasePage.tsx`), i18n keys in `en/superAdmin.json` + `ar/superAdmin.json`,
-      env var prefixes, README/report text.
-- [ ] **1.2 Decide what is user-facing vs internal.** "Knowledge base" may be the right
-      *product* word even if the *service* is `rag-service`. Pin this before touching
-      i18n — renaming UI strings the user liked is a regression, not a rename.
-- [ ] **1.3 Rename in dependency order**: service dir + csproj/namespaces → internal
-      HTTP clients and their config keys → compose service name, hostname, nginx
-      upstream → frontend api module + hooks + components → i18n keys → docs/report.
-- [ ] **1.4 Compatibility sweep** — DB name, volume names, MinIO bucket names, and any
-      persisted config that a rename would orphan. Renaming a volume silently loses data.
-- [ ] **1.5 Update the tests that name it** (`test_knowledge_retrieval_client.py`,
-      `KnowledgeAdminServiceTests.cs`, `KnowledgeInternalClientTests.cs`,
-      `classrooms.indexing.test.ts`) and the memory notes that reference the old name.
+**The line drawn:** anything naming the service *identity*, or pointing at it, was
+renamed — `RagServiceOptions`, `IRagInternalClient`, `RagAdminClient`,
+`RagRetrievalClient`, `RAG_BASE_URL`, `rag-service`, `rag-db`. Anything naming the
+knowledge-base *feature* was kept — `KnowledgeAdminService`, `KnowledgeAdminDtos`,
+`KnowledgeAnswerResult`, and the whole frontend.
 
----
+**Two names deliberately NOT renamed, because they are stateful:** the
+`knowledge_db_data` Docker volume and the `knowledgedb` database name. Renaming either
+would have pointed the service at a fresh empty volume and silently orphaned the entire
+indexed corpus, with no way to migrate while the stack is down. The rename script carried
+a guard that aborted if either string changed; confirmed afterwards in the resolved
+compose output — the volume still resolves to
+`intellilect-platform_knowledge_db_data`, and the DSN still ends `@rag-db:5432/knowledgedb`.
+
+**Verified:** 306 + 120 + 104 (.NET) + 299 (LiveAssistant) + 235 (Rag) + 226 (frontend)
+tests green, four .NET services build, `docker compose config` valid, final sweep finds
+zero remaining references.
+
+**Gotchas hit, worth knowing:**
+- **The venv broke.** Console scripts embed an absolute-path shebang, so everything in
+  `RagService/.venv/bin` still pointed at `.../KnowledgeService/.venv/bin/python` and
+  failed with "No such file or directory" — *for a file that exists*. Fixed by deleting
+  and re-syncing. **Anyone pulling this must recreate that venv.**
+- **`run-services.txt` builds by service name**, so it would have failed on
+  `docker compose build knowledge-service`. Updated.
+- **Two report diagrams named the service in visible labels**, leaving the figures stale.
+  `diagrams/build.sh` re-rendered all six affected PNGs (Java was available; the script
+  fetches the PlantUML jar itself).
+- Also removed the stale tracked `knowledge_service.egg-info` while moving the directory,
+  which closes the separate cleanup item.
 
 ## 2. Bulk accept / reject users
 
@@ -229,7 +243,7 @@ Target applies per service, measured after the §0.3 exclusions.
       generator + parser, retrieval client, the new severity contract (§3), pacing rules.
 - [ ] **7.4 StreamingService** — token/role issuance, media config, session end &
       ejection, reconnection handling.
-- [ ] **7.5 KnowledgeService/RagService** — chunking, embedding, retrieval scoring and
+- [ ] **7.5 RagService/RagService** — chunking, embedding, retrieval scoring and
       the min-score cutoff, indexing state machine.
 - [ ] **7.6 EmailService** — templating, retry/failure paths.
 - [ ] **7.7 Frontend** — the 28 existing suites plus new ones for §2–§6.
@@ -292,7 +306,7 @@ Target applies per service, measured after the §0.3 exclusions.
 ## 11. Test double-check — gaps that add real value
 
 Reviewed the existing suite (~22 UMS/Classroom/Streaming .NET test classes, ~50
-LiveAssistant and ~45 KnowledgeService Python test modules, 28 frontend suites, one
+LiveAssistant and ~45 RagService Python test modules, 28 frontend suites, one
 backend e2e scenario). It is a lot more thorough than a coverage number would suggest —
 the drift detector, quiz parser, egress webhooks, outbox envelopes and chunkers are all
 genuinely covered. So the items below are **not** "write more of the same". They are the
@@ -467,7 +481,7 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       whole point is a configurable value. Two guards — the declared `Content-Length`
       (typed ProblemDetails for an honest client) and Kestrel's ceiling (catches a lying
       or absent one).
-- [x] **13.5 Allowed-type check — DONE.** Defaults mirror KnowledgeService's extractor
+- [x] **13.5 Allowed-type check — DONE.** Defaults mirror RagService's extractor
       table exactly (`_support.py`), so nothing is accepted that could never be indexed.
       Content type **or** extension is sufficient — not both — because browsers send a
       generic type for Markdown and the RAG router itself dispatches on either.
@@ -556,7 +570,7 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       request is far harder to diagnose than one that refuses to start.
 - [x] **14.5 `.env.example` — DONE.** Three files, matching the three `.env` files that
       are actually consumed: `backend/.env.example` (compose interpolation),
-      `backend/KnowledgeService/.env.example` and
+      `backend/RagService/.env.example` and
       `backend/LiveAssistantService/.env.example` (both loaded via `env_file:`).
 
       Both Python compose units **already said** "copy .env.example to .env" — the file

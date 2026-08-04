@@ -35,7 +35,7 @@ IntelliLect/
 │   ├── ClassroomService/         .NET — classrooms, sessions, files, quizzes, summaries
 │   ├── StreamingService/         .NET — LiveKit rooms and tokens, SignalR hub, recording
 │   ├── EmailService/             .NET — event consumer only, no HTTP surface
-│   ├── KnowledgeService/         Python — ingestion, chunking, embeddings, RAG retrieval
+│   ├── RagService/         Python — ingestion, chunking, embeddings, RAG retrieval
 │   ├── LiveAssistantService/     Python — STT, idea detection, feedback, quiz generation
 │   ├── IntelliLect.Contracts/    shared message contracts for the event bus
 │   ├── LocalPackages/            locally built NuGet packages
@@ -122,7 +122,7 @@ a queue for an answer is a distributed deadlock waiting to happen.
 | [UserManagementService](backend/UserManagementService/) | .NET 10 | 8080 | Identity, JWT + refresh, 2FA, roles, approval workflow |
 | [ClassroomService](backend/ClassroomService/) | .NET 10 | 8080 | Classrooms, sessions, files, **quizzes and marks**, Q&A, summaries, recording metadata |
 | [StreamingService](backend/StreamingService/) | .NET 10 | 8080 → 8085 | LiveKit rooms and tokens, SignalR hub, **recording egress**, media policy |
-| [KnowledgeService](backend/KnowledgeService/) | Python / FastAPI | 8083 | Course-material ingestion, chunking, embeddings, retrieval |
+| [RagService](backend/RagService/) | Python / FastAPI | 8083 | Course-material ingestion, chunking, embeddings, retrieval |
 | [LiveAssistantService](backend/LiveAssistantService/) | Python / FastAPI | 8084 | STT, idea-boundary detection, brain, feedback, quiz generation, transcripts |
 | [EmailService](backend/EmailService/) | .NET 10 | — | Event consumer only; no HTTP surface |
 | [front-end-web](front-end-web/) | React 19 + Vite | 5173 | SPA — live room, whiteboard, quizzes, dashboards |
@@ -154,7 +154,7 @@ The single most useful thing to understand about this codebase.
 
 4  Teacher generates a quiz
      ClassroomService ──▶ LiveAssistant    "quiz from the last N unexamined ideas"
-     LiveAssistant    ──▶ KnowledgeService  retrieve material for those ideas
+     LiveAssistant    ──▶ RagService  retrieve material for those ideas
      the brain answers with constrained JSON; ideas used are marked so they never repeat
 
 5  Students answer
@@ -277,7 +277,7 @@ starves, and the worst failure mode is a **0-byte file**. `videoBuffersDropped` 
 # 1. Build sequentially — parallel builds saturate the connection and produce
 #    NuGet "Connection reset by peer" failures
 cd backend
-for s in user-service classroom-service knowledge-service live-assistant-service streaming-service email-service; do
+for s in user-service classroom-service rag-service live-assistant-service streaming-service email-service; do
   echo ">>> Building $s"; docker compose build "$s" || break
 done
 
@@ -310,7 +310,7 @@ dotnet test StreamingService/tests/StreamingService.UnitTests/StreamingService.U
 dotnet test UserManagementService/tests/UserManagementService.UnitTests/UserManagementService.UnitTests.csproj
 
 # Python
-cd backend/KnowledgeService     && ./.venv/bin/python -m pytest
+cd backend/RagService     && ./.venv/bin/python -m pytest
 cd backend/LiveAssistantService && ./.venv/bin/python -m pytest
 
 # Frontend

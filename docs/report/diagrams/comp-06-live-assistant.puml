@@ -17,7 +17,7 @@ skinparam rectangle {
 }
 
 rectangle "ClassroomService" as CS
-rectangle "KnowledgeService" as KS
+rectangle "RagService" as KS
 
 rectangle "طبقة الواجهات (API Routers)\n\ninternal_sessions — بدء الجلسة وإنهاؤها\ninternal_transcripts — تسليم النصّ الكامل\ninternal_quizzes — توليد اختبار\nhealth · metrics" as L1
 
@@ -32,7 +32,7 @@ rectangle "المنافذ (Ports)\n\nAudioSource · SpeechToText\nBrainClient ·
 rectangle "المحوِّلات (Adapters)\n\naudio — التقاط من LiveKit\nfeedback — قناة بيانات LiveKit\npersistence — SQLAlchemy" as A
 rectangle "stt\nGroq Whisper" as AS
 rectangle "brain + embeddings\nGemini" as AB
-rectangle "retrieval\nعميل KnowledgeService" as AR
+rectangle "retrieval\nعميل RagService" as AR
 
 database "PostgreSQL\nقاعدة المساعد" as PG
 node "LiveKit" as LK

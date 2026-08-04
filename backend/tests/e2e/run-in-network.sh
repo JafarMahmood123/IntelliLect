@@ -3,7 +3,7 @@
 #
 # It puts the LiveAssistant agent in fake-audio mode (AGENT_AUDIO_SOURCE=fake): the
 # agent plays a WAV of the teacher through the REAL pipeline (STT -> idea boundary ->
-# KnowledgeService retrieval -> Ollama brain -> pacing) and records the delivered
+# RagService retrieval -> Ollama brain -> pacing) and records the delivered
 # feedback, which the test reads back. This exercises the real feedback intelligence
 # and the full cross-service flow without needing WebRTC media (which Docker Desktop /
 # a VPN often block). The test then runs INSIDE the compose network so it reaches
@@ -69,7 +69,7 @@ exec docker run --rm --network "$NET" --cap-add=NET_ADMIN \
   -e E2E_STREAMING_URL="http://streaming-service:8080" \
   -e E2E_HTTP_TIMEOUT_S="${E2E_HTTP_TIMEOUT_S:-120}" \
   -e E2E_LIVEASSISTANT_URL="http://live-assistant-service:8080" \
-  -e E2E_KNOWLEDGE_URL="http://knowledge-service:8080" \
+  -e E2E_KNOWLEDGE_URL="http://rag-service:8080" \
   -e E2E_LIVEKIT_WS_URL="ws://livekit-server:7880" \
   -e E2E_MINIO_ENDPOINT="intellilect-s3:9000" \
   -e E2E_INTERNAL_SECRET="${E2E_INTERNAL_SECRET:-changeme-internal-secret}" \

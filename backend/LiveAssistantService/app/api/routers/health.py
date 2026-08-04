@@ -23,8 +23,8 @@ async def _reachable(url: str) -> bool:
         return False
 
 
-async def _check_knowledge_service(settings: Settings) -> str:
-    """"reachable" / "unreachable" / "not-configured" for KnowledgeService."""
+async def _check_rag_service(settings: Settings) -> str:
+    """"reachable" / "unreachable" / "not-configured" for RagService."""
     base = settings.knowledge_base_url.rstrip("/")
     if not base:
         return "not-configured"
@@ -52,7 +52,7 @@ async def health(request: Request) -> JSONResponse:
     manager = getattr(request.app.state, "session_manager", None)
     active_sessions = manager.active_count() if manager is not None else 0
 
-    knowledge = await _check_knowledge_service(settings)
+    knowledge = await _check_rag_service(settings)
     ollama = await _check_ollama(settings)
 
     degraded = knowledge == "unreachable" or ollama == "unreachable"

@@ -4,7 +4,7 @@ namespace UserManagementService.Application.DTOs.Knowledge;
 public sealed class SearchFilesRequest
 {
     public string? Search { get; set; }
-    /// <summary>Indexing status filter (Pending/Processing/Done/Failed). When set, KnowledgeService drives.</summary>
+    /// <summary>Indexing status filter (Pending/Processing/Done/Failed). When set, RagService drives.</summary>
     public string? Status { get; set; }
     public Guid? ClassroomId { get; set; }
     public int Page { get; set; } = 1;
@@ -13,7 +13,7 @@ public sealed class SearchFilesRequest
 
 /// <summary>
 /// A file row for the super-admin knowledge-base view. Registry fields (name/size/classroom) come
-/// from ClassroomService; indexing fields (status/attempts/chunkCount) from KnowledgeService and are
+/// from ClassroomService; indexing fields (status/attempts/chunkCount) from RagService and are
 /// null when the indexing status could not be fetched (3أ).
 /// </summary>
 public sealed record AdminFileItem(

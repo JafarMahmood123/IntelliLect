@@ -1,0 +1,91 @@
+[project]
+name = "rag-service"
+version = "0.1.0"
+description = "IntelliLect RagService — ingests classroom files, embeds them, and serves retrieval."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pgvector>=0.3.6",
+    "httpx>=0.27",
+    # --- Extraction layer (Phase 2): parse file bytes into the normalized IR ---
+    "pymupdf>=1.24",       # PDF text + image extraction (fitz)
+    "python-docx>=1.1",    # Word (.docx)
+    "python-pptx>=1.0",    # PowerPoint (.pptx)
+    "Pillow>=10.4",        # image dimensions / format sniffing / OCR rasterization
+    # --- OCR layer (Phase 3): selective Tesseract cascade, English only ---
+    "pytesseract>=0.3.10", # thin wrapper over the tesseract binary (installed via apt)
+    # --- Ingestion (Phase 5): read file bytes from S3-compatible storage ---
+    "boto3>=1.34",         # S3 client (imported lazily; unused by the offline tests)
+    # --- Observability (Phase 9): lightweight Prometheus metrics ---
+    "prometheus-client>=0.20",
+    # --- Summary PDF rendering (S-2): Markdown -> HTML -> PDF ---
+    # `markdown` converts the S-1 Markdown to HTML; WeasyPrint renders HTML+CSS to PDF.
+    # WeasyPrint needs system libraries (pango/cairo/gdk-pixbuf) — see the Dockerfile.
+    # Still no model weights: this is pure document rendering.
+    "markdown>=3.6",
+    "weasyprint>=62",
+    # --- Summary ready event (S-3): publish to the MassTransit/RabbitMQ bus ---
+    # Used only by the live publisher (imported lazily); the offline tests use a fake.
+    "aio-pika>=9.4",
+]
+# NOTE: intentionally NO torch/transformers/sentence-transformers and no model
+# weights in the container. All embedding inference is HTTP calls to host Ollama.
+# OCR shells out to the tesseract binary (see Dockerfile) — still no model weights.
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "anyio>=4.6",
+    "pytest-cov>=5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# Coverage is available (run `pytest --cov=app --cov-report=term-missing`) but is
+# intentionally NOT wired into addopts and NOT gated on a threshold — a gate that fails
+# on the day it lands gets switched off. See docs/work-plan.md §0.3.
+[tool.coverage.run]
+source = ["app"]
+branch = true
+omit = [
+    # The entry point: wiring, not logic. Mirrors Program.cs in the .NET services and
+    # main.tsx on the frontend. Alembic migrations need no entry here — they live
+    # outside app/, so `source` already excludes them.
+    "app/api/main.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    # Port/ABC declarations. These are the Python equivalent of a C# interface, which
+    # coverlet does not count as coverable at all — the body is a declaration, and there
+    # is nothing to execute. Excluding the LINES rather than omitting the files keeps any
+    # real logic in those modules measured.
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+    "^\\s*\\.\\.\\.$",
+    "@(typing\\.)?overload",
+    # Type-only, erased at runtime.
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

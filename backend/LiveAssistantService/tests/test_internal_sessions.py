@@ -25,7 +25,7 @@ def _internal_secret_env(monkeypatch):
     monkeypatch.setenv("INTERNAL_API_SECRET", _SECRET)
     # Keep /health's component probes offline (no network) for the health test here.
     monkeypatch.setenv("OLLAMA_BASE_URL", "")
-    monkeypatch.setenv("KNOWLEDGE_BASE_URL", "")
+    monkeypatch.setenv("RAG_BASE_URL", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

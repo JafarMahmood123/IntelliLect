@@ -26,7 +26,7 @@ def _async_return(value):
 
 def _client(monkeypatch, *, knowledge="not-configured", ollama="not-configured"):
     # Component probes are mocked so /health makes no network calls.
-    monkeypatch.setattr(health_module, "_check_knowledge_service", _async_return(knowledge))
+    monkeypatch.setattr(health_module, "_check_rag_service", _async_return(knowledge))
     monkeypatch.setattr(health_module, "_check_ollama", _async_return(ollama))
     return TestClient(create_app())
 

@@ -5,7 +5,7 @@ Ollama (`POST /api/embed`). Used to embed transcript segments for LA-3 drift
 measurement. The offline boundary tests/CLI never touch this (they use a fake
 embedder); it powers only the deferred ``boundary_check.py --live`` path.
 
-Mirrors KnowledgeService's provider (same endpoint, same L2 normalization) so the
+Mirrors RagService's provider (same endpoint, same L2 normalization) so the
 two services agree on embedding conventions.
 """
 

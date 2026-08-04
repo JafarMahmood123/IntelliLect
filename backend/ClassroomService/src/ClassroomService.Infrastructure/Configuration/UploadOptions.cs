@@ -21,7 +21,7 @@ public sealed class UploadOptions : IUploadSettings
     public long MultipartOverheadBytes { get; init; } = 8L * 1024;
 
     /// <summary>
-    /// Mirrors KnowledgeService's extractor content types (`_support.py`). Keep the two in step:
+    /// Mirrors RagService's extractor content types (`_support.py`). Keep the two in step:
     /// a type accepted here but unknown there uploads fine and never indexes.
     /// </summary>
     public string[] AllowedContentTypes { get; init; } =
@@ -34,7 +34,7 @@ public sealed class UploadOptions : IUploadSettings
         "text/x-markdown",
     ];
 
-    /// <summary>Mirrors KnowledgeService's extractor extensions (`_support.py`).</summary>
+    /// <summary>Mirrors RagService's extractor extensions (`_support.py`).</summary>
     public string[] AllowedExtensions { get; init; } =
     [
         "pdf",

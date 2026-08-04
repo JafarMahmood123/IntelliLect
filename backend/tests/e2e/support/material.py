@@ -1,6 +1,6 @@
 """Seed classroom material: build a small PDF and upload it to MinIO.
 
-KnowledgeService ingests PDF/DOCX/PPTX pulled from S3 by key, so to give the
+RagService ingests PDF/DOCX/PPTX pulled from S3 by key, so to give the
 classroom something for retrieval to find we (1) render a PDF stating a clear fact,
 (2) upload it to the shared bucket, then the test ingests it by that key. The teacher
 later contradicts the fact, so retrieval returns this document and the brain raises a

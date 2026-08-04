@@ -1,4 +1,4 @@
-"""Deterministic, OFFLINE tests for quiz generation — no KnowledgeService, no brain.
+"""Deterministic, OFFLINE tests for quiz generation — no RagService, no brain.
 
 The behaviour worth protecting is where this deliberately DIVERGES from ``IdeaEvaluator``: a
 teacher asked for a quiz, so nothing here may quietly return nothing. Retrieval failing must

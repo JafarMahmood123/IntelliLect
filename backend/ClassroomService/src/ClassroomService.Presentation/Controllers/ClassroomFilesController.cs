@@ -67,7 +67,7 @@ public sealed class ClassroomFilesController : ApiBaseController
     /// <summary>
     /// Returns a classroom file's RAG indexing status (Pending/Processing/Done/Failed) for a
     /// member. 403 for non-members, 404 for unknown/cross-classroom files. The status is read
-    /// from KnowledgeService server-side — the internal secret never reaches the browser.
+    /// from RagService server-side — the internal secret never reaches the browser.
     /// </summary>
     [HttpGet("{fileId:guid}/indexing-status")]
     public async Task<IActionResult> GetIndexingStatus(Guid classroomId, Guid fileId, CancellationToken ct)

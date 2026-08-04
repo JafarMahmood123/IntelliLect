@@ -9,7 +9,7 @@ dependencies = [
     "httpx>=0.27",
     # Synthetic teacher participant: join a real LiveKit room, publish audio, receive feedback.
     "livekit>=1.0",
-    # Seed classroom material: upload a PDF to MinIO, then ingest it via KnowledgeService.
+    # Seed classroom material: upload a PDF to MinIO, then ingest it via RagService.
     "minio>=7.2",
     "reportlab>=4.0",
     # Teacher-voice TTS: tiny network request decoded to WAV via ffmpeg (needs ffmpeg

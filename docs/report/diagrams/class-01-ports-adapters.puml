@@ -1,5 +1,5 @@
 ' Class diagram — the ports-and-adapters (Clean Architecture) design of
-' KnowledgeService, shown for the ingestion pipeline.
+' RagService, shown for the ingestion pipeline.
 '
 ' The point of the diagram: the application layer depends only on the abstract
 ' ports. Every concrete technology (Gemini, S3, PostgreSQL, Tesseract) sits in

@@ -1,6 +1,6 @@
 """Deterministic, OFFLINE tests for the LA-4 IdeaEvaluator orchestration.
 
-Uses FakeRetrievalClient + FakeBrainClient (spies) — no KnowledgeService, no Ollama.
+Uses FakeRetrievalClient + FakeBrainClient (spies) — no RagService, no Ollama.
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ async def test_consistent_idea_yields_no_feedback_but_calls_brain():
 
 async def test_retrieval_error_degrades_to_no_feedback():
     brain = FakeBrainClient(EvaluationOutcome(True, TeacherSuggestion("x", FeedbackType.GAP)))
-    retrieval = FakeRetrievalClient(error=RuntimeError("KnowledgeService down"))
+    retrieval = FakeRetrievalClient(error=RuntimeError("RagService down"))
 
     outcome = await _evaluator(retrieval, brain).evaluate(_idea(), _session())
 

@@ -2,7 +2,7 @@ namespace ClassroomService.Infrastructure.Configuration;
 
 /// <summary>
 /// Options for calling LiveAssistantService's internal transcript endpoints. Bound from the
-/// "LiveAssistant" configuration section (mirrors <see cref="KnowledgeServiceOptions"/>).
+/// "LiveAssistant" configuration section (mirrors <see cref="RagServiceOptions"/>).
 /// </summary>
 public class LiveAssistantOptions
 {

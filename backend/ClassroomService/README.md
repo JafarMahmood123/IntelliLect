@@ -29,7 +29,7 @@ recording metadata.
 | --- | --- |
 | **Classrooms** | Creation, teacher ownership, enrolment, discovery, membership roles |
 | **Sessions** | Scheduling, start/end lifecycle, stalled-session recovery |
-| **Files** | Course material upload to S3, forwarded to KnowledgeService for indexing |
+| **Files** | Course material upload to S3, forwarded to RagService for indexing |
 | **Quizzes** | Composition, AI generation, publish/close/cancel, per-student extensions, **server-side grading** |
 | **Marks** | Per-session summaries and classroom-wide cumulative tracking |
 | **Q&A** | Student questions raised during a session |
@@ -37,7 +37,7 @@ recording metadata.
 | **Recordings** | Metadata and presigned download; the bytes live in S3 and never pass through here |
 
 What it deliberately does **not** own: identity (UserManagementService), the live room
-(StreamingService), embeddings (KnowledgeService), or transcription (LiveAssistantService).
+(StreamingService), embeddings (RagService), or transcription (LiveAssistantService).
 
 ---
 
@@ -275,7 +275,7 @@ Bound from `appsettings.json`, overridden by `Classroom__*` environment variable
 | `LiveAssistant:BaseUrl` / `InternalApiSecret` | Quiz generation and summaries |
 | `LiveAssistant:TimeoutSeconds` | 10 |
 | `LiveAssistant:GenerationTimeoutSeconds` | **120** — generation runs a language model against a transcript and does not fit in the normal budget |
-| `KnowledgeService:BaseUrl` / `InternalApiSecret` | Course-file indexing |
+| `RagService:BaseUrl` / `InternalApiSecret` | Course-file indexing |
 | `S3:*` | Bucket, region, credentials, endpoint |
 
 > Presigned download URLs are generated against a **browser-reachable** host, which is not

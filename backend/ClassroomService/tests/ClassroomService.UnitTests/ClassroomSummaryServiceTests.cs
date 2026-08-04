@@ -305,7 +305,7 @@ public sealed class ClassroomSummaryServiceTests
         var requested = Assert.Single(_eventBus.PublishedOf<SessionSummaryRequestedMessage>());
         Assert.Equal(summary.SessionId, requested.SessionId);
         Assert.Equal(_teacherId, requested.RequestedByUserId);
-        // The reason is what makes KnowledgeService REOPEN a terminal run instead of deduping the
+        // The reason is what makes RagService REOPEN a terminal run instead of deduping the
         // request away as a duplicate.
         Assert.Equal(SummaryRequestReasons.ManualTeacher, requested.Reason);
     }

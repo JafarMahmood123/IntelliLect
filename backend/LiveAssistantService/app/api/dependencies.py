@@ -52,8 +52,8 @@ from app.infrastructure.persistence.in_memory_transcript_repository import (
 from app.infrastructure.persistence.sqlalchemy_transcript_repository import (
     SqlAlchemyTranscriptRepository,
 )
-from app.infrastructure.retrieval.knowledge_retrieval_client import (
-    KnowledgeRetrievalClient,
+from app.infrastructure.retrieval.rag_retrieval_client import (
+    RagRetrievalClient,
 )
 from app.infrastructure.stt.faster_whisper_speech_to_text import (
     FasterWhisperSpeechToText,
@@ -153,8 +153,8 @@ def build_boundary_detector(
 
 
 def build_retrieval_client(settings: Settings) -> RetrievalClient:
-    """KnowledgeService-backed retrieval (POST /api/search). No live call at build."""
-    return KnowledgeRetrievalClient(settings)
+    """RagService-backed retrieval (POST /api/search). No live call at build."""
+    return RagRetrievalClient(settings)
 
 
 def build_brain_client(settings: Settings) -> BrainClient:
@@ -310,7 +310,7 @@ def build_quiz_generator(
     nothing and keeps a provider/config change effective without a restart of anything else.
     """
     return QuizGenerator(
-        KnowledgeRetrievalClient(settings),
+        RagRetrievalClient(settings),
         build_brain_client(settings),
         ideas,
         transcripts,
@@ -393,7 +393,7 @@ def build_session_pipeline_factory(
         boundary = build_boundary_detector(settings, embedder)
         brain = build_brain_client(settings)
         evaluator = build_idea_evaluator(
-            settings, KnowledgeRetrievalClient(settings), brain
+            settings, RagRetrievalClient(settings), brain
         )
         dispatcher = build_feedback_dispatcher(sink)
         recorder = TranscriptRecorder(

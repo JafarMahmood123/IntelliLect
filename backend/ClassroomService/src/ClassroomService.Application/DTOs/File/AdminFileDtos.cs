@@ -3,7 +3,7 @@ namespace ClassroomService.Application.DTOs.File;
 /// <summary>
 /// A file as seen by the super-admin knowledge-base view: the authoritative registry fields owned by
 /// ClassroomService (name, size, classroom). Indexing status / chunk count are enriched by the caller
-/// from KnowledgeService — they are not part of this row.
+/// from RagService — they are not part of this row.
 /// </summary>
 public sealed record AdminFileRow(
     Guid FileId,

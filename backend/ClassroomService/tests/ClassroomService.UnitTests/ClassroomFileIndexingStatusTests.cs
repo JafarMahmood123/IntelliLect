@@ -130,7 +130,7 @@ public sealed class ClassroomFileIndexingStatusTests
         var classroomId = Guid.NewGuid();
         var fileId = Guid.NewGuid();
         var (classrooms, files, memberships, _) = Seed(teacherId, classroomId, fileId);
-        // null simulates KnowledgeService's 404 (no document row yet).
+        // null simulates RagService's 404 (no document row yet).
         var knowledge = new RecordingKnowledgeClient { StatusToReturn = null };
         var service = BuildService(classrooms, files, memberships, knowledge);
 

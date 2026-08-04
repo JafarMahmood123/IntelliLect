@@ -1,4 +1,4 @@
-' Flowchart — generating a session summary (KnowledgeService).
+' Flowchart — generating a session summary (RagService).
 '
 ' Replaces the earlier five-box sketch, which showed the happy path only and
 ' hid the one decision that actually matters here.

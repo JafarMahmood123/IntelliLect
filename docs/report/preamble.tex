@@ -109,13 +109,17 @@
   {\fontsize{25.6}{31}\selectfont}
 \titlespacing*{\chapter}{0pt}{6pt}{18pt}
 
-\titleformat{\section}{\bfseries\fontsize{17.6}{22}\selectfont}{-\thesection}{0.5em}{}
+% DEVIATION FROM THE TEMPLATE, DELIBERATE. The template writes the section
+% number with a leading dash ("-2.1", STRUCTURE.md §5); the dash is dropped here
+% because it reads as a stray hyphen before the heading text. Restoring it means
+% putting `-` back in front of \thesection below. Raise with the supervisor.
+\titleformat{\section}{\bfseries\fontsize{17.6}{22}\selectfont}{\thesection}{0.5em}{}
 \titlespacing*{\section}{0pt}{18pt}{6pt}
 
-\titleformat{\subsection}{\bfseries\fontsize{13.6}{17}\selectfont}{-\thesubsection}{0.5em}{}
+\titleformat{\subsection}{\bfseries\fontsize{13.6}{17}\selectfont}{\thesubsection}{0.5em}{}
 \titlespacing*{\subsection}{0pt}{12pt}{6pt}
 
-\titleformat{\subsubsection}{\bfseries\fontsize{12.8}{16}\selectfont}{-\thesubsubsection}{0.5em}{}
+\titleformat{\subsubsection}{\bfseries\fontsize{12.8}{16}\selectfont}{\thesubsubsection}{0.5em}{}
 \titlespacing*{\subsubsection}{0pt}{12pt}{6pt}
 
 % An unnumbered centred title at 24pt Arabic — used for الخلاصة, المحتويات,

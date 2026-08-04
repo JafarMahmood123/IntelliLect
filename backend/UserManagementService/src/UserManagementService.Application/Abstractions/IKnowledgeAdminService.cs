@@ -4,9 +4,9 @@ namespace UserManagementService.Application.Abstractions;
 
 /// <summary>
 /// Super-admin content &amp; knowledge-base management (use-case "إدارة المحتوى وقاعدة المعرفة").
-/// Aggregates ClassroomService (the authoritative file registry) and KnowledgeService (indexing
+/// Aggregates ClassroomService (the authoritative file registry) and RagService (indexing
 /// status, statistics, reindex). The file list is driven by ClassroomService so it still renders
-/// when indexing status can't be fetched (3أ); a status filter makes KnowledgeService the driver.
+/// when indexing status can't be fetched (3أ); a status filter makes RagService the driver.
 /// </summary>
 public interface IKnowledgeAdminService
 {

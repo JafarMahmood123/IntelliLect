@@ -156,7 +156,7 @@ public class FileAdminServiceTests
             => Task.FromResult<Stream>(new MemoryStream());
     }
 
-    private sealed class FakeKnowledge : IKnowledgeInternalClient
+    private sealed class FakeKnowledge : IRagInternalClient
     {
         public bool ThrowOnDelete;
         public Guid LastDeletedFileId;
@@ -164,7 +164,7 @@ public class FileAdminServiceTests
 
         public Task NotifyFileDeletedAsync(Guid fileId, CancellationToken ct = default)
         {
-            if (ThrowOnDelete) throw new HttpRequestException("KnowledgeService is unreachable");
+            if (ThrowOnDelete) throw new HttpRequestException("RagService is unreachable");
             LastDeletedFileId = fileId;
             Repo?.RecordDeindex();
             return Task.CompletedTask;

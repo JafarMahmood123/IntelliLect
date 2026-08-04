@@ -189,7 +189,7 @@ public static class SessionTerminationTestFactory
     public static SessionTerminationService Create(
         ISessionRepository sessions,
         IStreamingInternalClient streaming,
-        IKnowledgeInternalClient knowledge,
+        IRagInternalClient knowledge,
         IClock? clock = null,
         ISummaryRepository? summaries = null,
         IEventBus? eventBus = null,

@@ -21,7 +21,7 @@ namespace ClassroomService.Application.Services;
 /// <remarks>
 /// <para>
 /// WHY THE SUMMARY REQUEST IS OUTBOXED RATHER THAN POSTED. It used to be a synchronous HTTP call
-/// to KnowledgeService whose failure was logged and forgotten — so if that service was
+/// to RagService whose failure was logged and forgotten — so if that service was
 /// unreachable at session end, the summary was simply never built and nothing anywhere recorded
 /// that one was owed. The call was never a query (the caller only read the 202), so it belongs on
 /// the bus.

@@ -146,7 +146,7 @@ services:
       # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
-      # (which is also what live-assistant presents to KnowledgeService). One value everywhere.
+      # (which is also what live-assistant presents to RagService). One value everywhere.
       - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       # Session recording via LiveKit Room Composite Egress (R-0). This endpoint is used BY the
       # host-networked egress worker to upload the MP4 to MinIO, so it must be an address egress

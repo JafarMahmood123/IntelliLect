@@ -1,7 +1,7 @@
 """Internal transcript endpoint (S-0).
 
 Exposes a session's assembled, ordered transcript so the summary feature
-(KnowledgeService, S-1) can pull it once the session ends. Read-only and secured by
+(RagService, S-1) can pull it once the session ends. Read-only and secured by
 ``INTERNAL_API_SECRET`` (``X-Internal-Secret``) — the SAME guard as the other
 ``/api/internal`` routes. This phase only EXPOSES the transcript; it builds no summary.
 """
@@ -39,7 +39,7 @@ class DeleteClassroomTranscriptsResponse(BaseModel):
 
 
 class TranscriptResponse(BaseModel):
-    """Assembled transcript payload (camelCase for the .NET / KnowledgeService caller)."""
+    """Assembled transcript payload (camelCase for the .NET / RagService caller)."""
 
     sessionId: UUID
     classroomId: UUID

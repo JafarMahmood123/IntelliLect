@@ -1,14 +1,14 @@
 namespace IntelliLect.Contracts.Messages;
 
 /// <summary>
-/// Published by ClassroomService to ask KnowledgeService to build a session's summary. Consumed by
-/// KnowledgeService's AMQP consumer, which claims the run and drives the pipeline.
+/// Published by ClassroomService to ask RagService to build a session's summary. Consumed by
+/// RagService's AMQP consumer, which claims the run and drives the pipeline.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This replaces a direct HTTP POST to KnowledgeService at session end. The call was always a
+/// This replaces a direct HTTP POST to RagService at session end. The call was always a
 /// NOTIFICATION rather than a query — the caller only ever read the 202 and logged it — and as a
-/// synchronous hop it coupled session teardown to KnowledgeService being reachable: if the POST
+/// synchronous hop it coupled session teardown to RagService being reachable: if the POST
 /// failed, nothing recorded that a summary was owed and it was simply never built.
 /// </para>
 /// <para>
@@ -17,7 +17,7 @@ namespace IntelliLect.Contracts.Messages;
 /// Generating row. Session-ended and summary-requested therefore commit together or not at all.
 /// </para>
 /// <para>
-/// Delivery is at-least-once, and KnowledgeService retries internally, so the same session can
+/// Delivery is at-least-once, and RagService retries internally, so the same session can
 /// legitimately arrive more than once. The consumer deduplicates on an atomic claim keyed by
 /// <see cref="SessionId"/> — without it a redelivery would pay for a second LLM run over the whole
 /// lecture.

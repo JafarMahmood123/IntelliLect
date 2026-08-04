@@ -2,7 +2,7 @@ namespace ClassroomService.Infrastructure.Configuration;
 
 /// <summary>
 /// Options for calling StreamingService's internal endpoints. Bound from the "StreamingService"
-/// configuration section (mirrors <see cref="KnowledgeServiceOptions"/> and
+/// configuration section (mirrors <see cref="RagServiceOptions"/> and
 /// <see cref="LiveAssistantOptions"/>).
 ///
 /// Added late: both streaming clients previously wrote
