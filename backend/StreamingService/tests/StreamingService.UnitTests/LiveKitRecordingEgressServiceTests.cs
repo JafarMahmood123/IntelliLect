@@ -221,10 +221,11 @@ public sealed class LiveKitRecordingEgressServiceTests
         Assert.Equal(0d, encoding.KeyFrameInterval);
         Assert.False(client.LastStartRequest.AudioOnly);
 
-        // The always-set trio is still applied.
-        Assert.Equal(1280, encoding.Width);
-        Assert.Equal(720, encoding.Height);
-        Assert.Equal(15, encoding.Framerate);
+        // The always-set trio is still applied — at the 960x540@10 defaults, the only composite
+        // encode measured at zero dropped buffers on the dev host.
+        Assert.Equal(960, encoding.Width);
+        Assert.Equal(540, encoding.Height);
+        Assert.Equal(10, encoding.Framerate);
     }
 
     [Fact]

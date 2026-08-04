@@ -52,15 +52,21 @@ public sealed class EgressOptions
 
     /// <summary>
     /// Output video dimensions and frame rate for the room-composite encode. Deliberately modest
-    /// by default (720p @ 15fps): room-composite runs headless Chrome + a GStreamer H.264 encode,
+    /// by default (540p @ 10fps): room-composite runs headless Chrome + a GStreamer H.264 encode,
     /// and on a constrained/virtualized host (e.g. Docker Desktop) a heavier encode starves the
     /// pipeline — the audio branch drops samples and the muxer FREEZES at finalization ("pipeline
     /// frozen"), producing a 0-byte failed recording. Lower settings keep enough headroom to flush
     /// the MP4 cleanly on stop. Raise on a beefier host if you want a sharper capture.
+    ///
+    /// 960x540@10 is not a guess — it is the only combination measured at ZERO dropped buffers on
+    /// the dev host (1280x720@15 dropped 809 in 83 seconds, freezing the video 54% of the time).
+    /// Note the recording is the half of the system that can afford to be modest: it is watched
+    /// afterwards from a file, whereas <c>MediaOptions</c> governs the LIVE stream, which is
+    /// judged in real time and is where the resolution budget belongs.
     /// </summary>
-    public int Width { get; init; } = 1280;
-    public int Height { get; init; } = 720;
-    public int Framerate { get; init; } = 15;
+    public int Width { get; init; } = 960;
+    public int Height { get; init; } = 540;
+    public int Framerate { get; init; } = 10;
 
     /// <summary>
     /// Drops the video branch entirely and records audio only. The cheapest way to guarantee a
@@ -75,11 +81,16 @@ public sealed class EgressOptions
     /// KeyFrameInterval is in seconds.
     ///
     /// These carry explicit defaults rather than null because LiveKit's unset default (4500 kbps)
-    /// is tuned for 1080p30 and is wildly loose for the modest lecture capture below: it produced
-    /// ~2.3 Mbps / ~1 GB per hour of mostly-static slide content. 1200 kbps at 720p15 is
+    /// is tuned for 1080p30 and is wildly loose for the modest lecture capture above: it produced
+    /// ~2.3 Mbps / ~1 GB per hour of mostly-static slide content. 1200 kbps at 540p10 is
     /// comfortable for slides plus a talking head, and 96 kbps is ample for speech (128 is
     /// music-grade). A lower target also means less encoder work, which reduces the pipeline
     /// starvation described above.
+    ///
+    /// Keep this in step with Width/Height. Bitrate and resolution are one setting in two fields:
+    /// raising the resolution without the bitrate spreads the same bits over more area and looks
+    /// WORSE than before, and leaving the bitrate high after lowering the resolution spends
+    /// encoder work — the exact pressure that freezes the muxer — on bits the picture cannot use.
     ///
     /// Still nullable so an explicit null means "leave LiveKit's default alone". Unset values must
     /// never be forwarded: protobuf scalars are non-nullable, so a 0 on the wire is

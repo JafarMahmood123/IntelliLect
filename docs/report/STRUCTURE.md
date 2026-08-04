@@ -140,17 +140,29 @@ Every chapter follows the same shape:
 
 ## 8. Current draft status
 
-`Report.docx` (in `~/Downloads`) is the existing draft: **6,237 words**, 13 embedded
-images, 11 references.
+The Word draft has been migrated into `main.tex` and its `chapters/`. Latest clean
+build: **160 pages, 72 figures, 37 tables, 0 errors, 0 missing glyphs**.
 
 | Chapter | State |
 | --- | --- |
 | 1 — الإطار العام للمشروع | written |
 | 2 — الدراسة النظرية | written |
 | 3 — الأعمال المشابهة | written |
-| 4 — تحليل المتطلبات | written (largest — use cases, narratives, sequence diagrams) |
-| 5 — تصميم النظام | **heading only** |
-| 6 — بيئة التطوير والتقنيات المستخدمة | **heading only** |
+| 4 — تحليل المتطلبات | written (largest — use cases, narratives, SSDs) |
+| 5 — تصميم النظام | written — overview, then one section per service |
+| 6 — التنفيذ والاختبار | written |
 
-Gaps against this spec: numbering uses `1.1.` instead of the template form, numerals
-are Arabic-Indic rather than Western, and all front matter (§3 items 1–12) is absent.
+The formatting gaps the Word draft had against this spec are closed: numbering now
+uses the template form, numerals are Western (`numerals=maghrib`), and the front
+matter skeleton (§3 items 1–12) exists.
+
+Remaining work, all content rather than formatting:
+
+- Front matter prose is still placeholder text — abstract (both languages),
+  dedication, acknowledgements, and the general introduction.
+- The cover page needs department, academic year, degree wording and supervisor
+  confirmed; `main.tex` carries a `TODO(jafar)` marking the spot.
+- SSDs 09–31 from the chapter 4 narratives are not yet drawn.
+- 35 design-level sequence diagrams inherited from the draft are still referenced
+  in chapter 4; whether they stay there, move to chapter 5, or go is a question for
+  the supervisor.

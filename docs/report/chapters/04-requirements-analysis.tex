@@ -1,7 +1,7 @@
 \chapter{تحليل المتطلبات}
 
 \begin{chaptersummary}
-نبين في هذا الفصل مخططات حالات الاستخدام و السرد النصي لها إضافة إلى تبيين مخططات تسلسل النظام لها
+نبين في هذا الفصل مخططات حالات الاستخدام والسرد النصي لها إضافة إلى تبيين مخططات تسلسل النظام لها
 \end{chaptersummary}
 
 \section{مخططات حالات الاستخدام \en{Use Case Diagrams}}
@@ -11,7 +11,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-01-unregistered.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام للمستخدم غير المسجّل: تبيّن ما يستطيع الزائر القيام به قبل امتلاك حساب، وهو محصور في التسجيل وتسجيل الدخول واستعادة كلمة المرور.}
   \label{fig:uc-01-unregistered}
 \end{figure}
 
@@ -20,7 +20,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-02-authorized.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام المشتركة بين المستخدمين المسجّلين: العمليات المتاحة لكل صاحب حساب مهما كان دوره، وتتعلّق كلّها بإدارة ملفه الشخصي وجلسته.}
   \label{fig:uc-02-authorized}
 \end{figure}
 
@@ -29,7 +29,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-03-super-admin.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام لمدير النظام الأعلى: يتفرّد هذا الدور بإدارة حسابات المدراء وبالعمليات الهدّامة كحذف الفصول والجلسات ومخرجاتها.}
   \label{fig:uc-03-super-admin}
 \end{figure}
 
@@ -38,7 +38,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-04-system-admin.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام لمدير النظام: تتمحور حول معالجة طلبات التسجيل وإدارة حالات حسابات المستخدمين، دون صلاحية على حسابات المدراء أنفسهم.}
   \label{fig:uc-04-system-admin}
 \end{figure}
 
@@ -47,7 +47,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-05-teacher.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام للمعلم: تشمل إدارة فصوله وموادّه المرجعية، وإدارة دورة حياة الجلسة المباشرة من بدئها حتى إنهائها والاطّلاع على مخرجاتها.}
   \label{fig:uc-05-teacher}
 \end{figure}
 
@@ -56,7 +56,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/uc-06-student.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{حالات الاستخدام للطالب: الانضمام إلى الجلسات المباشرة والتفاعل داخلها وطرح الأسئلة على النظام والاطّلاع على مخرجات الجلسة بعد انتهائها.}
   \label{fig:uc-06-student}
 \end{figure}
 
@@ -84,7 +84,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «طلب تسجيل مستخدم جديد»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -128,7 +128,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «طلب إعادة تعيين كلمة المرور»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -174,7 +174,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إعادة تعيين كلمة المرور»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -221,7 +221,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تسجيل الدخول»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -230,10 +230,10 @@
     2. يجلب النظام سجل المستخدم مع الدور الخاص به. &  \\ \hline
     3. يقوم النظام بالتحقق من تطابق كلمة المرور مع كلمة المرور المشفرة المخزنة. &  \\ \hline
     4. يتأكد النظام من أن حالة الحساب هي نشط (\en{Active}). &  \\ \hline
-    5. يولد النظام رمز وصول يحتوي على معرف المستخدم و دوره. &  \\ \hline
+    5. يولد النظام رمز وصول يحتوي على معرف المستخدم ودوره. &  \\ \hline
     6. يولد النظام رمز تحديث عشوائيا ومؤمنا. &  \\ \hline
     7. يقوم النظام بحفظ سجل رمز التحديث الجديد. &  \\ \hline
-    .8. يعرض النظام نجاح العملية و يدخل المستخدم إلى النظام. &  \\ \hline
+    .8. يعرض النظام نجاح العملية ويدخل المستخدم إلى النظام. &  \\ \hline
   \end{tabular}
 \end{table}
 
@@ -270,7 +270,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «استعراض ملف المستخدم الحالي»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -311,7 +311,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تحديث ملف المستخدم»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -356,7 +356,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تغيير كلمة المرور»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -378,7 +378,7 @@
   \item المسارات البديلة (الاستثناءات)
   \begin{enumerate}
     \item 4: المستخدم غير موجود: إذا لم يتم العثور على السجل المرتبط بالمستخدم، يظهر النظام خطأ.
-    \item 5: كلمة المرور القديمة خاطئة: إذا لم تتطابق كلمة المرور القديمة مع القيمة المخزنة لدى النظام، يرفض النظام العملية و يظهر رسالة خطأ.
+    \item 5: كلمة المرور القديمة خاطئة: إذا لم تتطابق كلمة المرور القديمة مع القيمة المخزنة لدى النظام، يرفض النظام العملية ويظهر رسالة خطأ.
   \end{enumerate}
 \end{enumerate}
 
@@ -401,7 +401,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تسجيل الخروج»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -445,7 +445,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تسجيل الدخول بالمصادقة الثنائية»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -494,7 +494,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إدارة حسابات مدراء النظام»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -538,7 +538,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «البحث في المستخدمين وعرض تفاصيلهم»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -582,7 +582,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إدارة حالة حساب مستخدم»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -629,7 +629,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «استعراض الفصول الدراسية وإدارتها»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -675,7 +675,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «مراقبة الجلسات والإنهاء القسري»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -723,7 +723,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «حذف فصل دراسي مع معاينة الأثر»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -770,7 +770,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «حذف جلسة ومخرجاتها»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -817,7 +817,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إدارة المحتوى وقاعدة المعرفة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -866,7 +866,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إدارة التسجيلات والملخصات»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -917,7 +917,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إسناد معلم الفصل الدراسي أو تغييره»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -965,7 +965,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إدارة أعضاء الفصل الدراسي»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1015,7 +1015,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «استعراض طلبات التسجيل المعلقة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1054,7 +1054,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «معالجة طلبات التسجيل»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1064,7 +1064,7 @@
     3. يجلب النظام سجل المستخدم المعني. &  \\ \hline
     4. يتأكد النظام من وجود المستخدم وأن حالته الحالية هي معلق. &  \\ \hline
     5. يقوم النظام بتحديث حالة المستخدم بناء على قرار مدير النظام إما بالقبول أو الرفض. &  \\ \hline
-    6. يتم حفظ التغييرات النهائية لدى النظام و يقوم النظام بتحديث رقم إصدار السجل لضمان سلامة البيانات. &  \\ \hline
+    6. يتم حفظ التغييرات النهائية لدى النظام ويقوم النظام بتحديث رقم إصدار السجل لضمان سلامة البيانات. &  \\ \hline
     7. يقوم النظام بإرسال البريد الإلكتروني المناسب للمستخدم. &  \\ \hline
     8. يعرض النظام حالة نجاح. &  \\ \hline
   \end{tabular}
@@ -1098,7 +1098,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «استعراض كافة المستخدمين»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1137,7 +1137,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «تعطيل حساب مستخدم»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1147,7 +1147,7 @@
      & 3. يتأكد النظام من وجود المستخدم. \\ \hline
      & 4. يجلب النظام سجل المستخدم المعني. \\ \hline
      & 5. يقوم النظام بتعطيل حساب المستخدم. \\ \hline
-     & 6. يتم حفظ التغييرات النهائية لدى النظام و تحديث قيمة الإصدار لضمان تتبع التغيير. \\ \hline
+     & 6. يتم حفظ التغييرات النهائية لدى النظام وتحديث قيمة الإصدار لضمان تتبع التغيير. \\ \hline
      & 7. يقوم النظام بإرسال بريد إلكتروني للمستخدم لإبلاغه بتعطيل الحساب. \\ \hline
      & 8. يعرض النظام نجاح العملية. \\ \hline
   \end{tabular}
@@ -1182,7 +1182,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إعادة تنشيط حساب مستخدم»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1193,7 +1193,7 @@
     4. يجلب النظام سجل المستخدم. &  \\ \hline
     5. يتحقق النظام من أن الحساب غير محذوف . &  \\ \hline
     6. يقوم النظام بإعادة التنشيط. &  \\ \hline
-    7. يتم حفظ التغييرات النهائية لدى النظام و تحديث قيمة الإصدار لضمان تتبع التغيير. &  \\ \hline
+    7. يتم حفظ التغييرات النهائية لدى النظام وتحديث قيمة الإصدار لضمان تتبع التغيير. &  \\ \hline
     8. يقوم النظام بإرسال بريد إلكتروني للمستخدم لإبلاغه بإعادة تفعيل حسابه. &  \\ \hline
     9. يعرض النظام نجاح العملية. &  \\ \hline
   \end{tabular}
@@ -1230,7 +1230,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «بدء المعلم لجلسة تعلم مباشرة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1280,7 +1280,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «إنهاء المعلم لجلسة تعلم مباشرة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1329,7 +1329,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «انضمام الطالب إلى جلسة تعلم مباشرة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1378,7 +1378,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «التفاعل داخل جلسة التعلم المباشرة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1436,7 +1436,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «الإجابة عن سؤال الطالب اعتمادًا على مواد الفصل»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1481,7 +1481,7 @@
 \end{enumerate}
 
 \begin{table}[htbp]
-  \caption{TODO: عنوان الجدول.}
+  \caption{السرد النصي لحالة الاستخدام «توليد ملخّص الجلسة»: يعرض خطوات المسار الرئيسي مقابلةً بين ما يقوم به الفاعل وما يستجيب به النظام في كل خطوة.}
   \centering
   \begin{tabular}{|p{6cm}|p{6cm}|}
     \hline
@@ -1516,7 +1516,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-01-register-request.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «طلب تسجيل مستخدم جديد»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-01-register-request}
 \end{figure}
 
@@ -1525,7 +1525,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-02-request-reset-code.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «طلب إعادة تعيين كلمة المرور»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-02-request-reset-code}
 \end{figure}
 
@@ -1534,7 +1534,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-03-reset-password.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إعادة تعيين كلمة المرور»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-03-reset-password}
 \end{figure}
 
@@ -1543,7 +1543,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-04-login.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تسجيل الدخول»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-04-login}
 \end{figure}
 
@@ -1554,7 +1554,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-05-view-profile.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض الملف الشخصي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-05-view-profile}
 \end{figure}
 
@@ -1563,7 +1563,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-06-update-profile.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تعديل الملف الشخصي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-06-update-profile}
 \end{figure}
 
@@ -1572,7 +1572,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-07-change-password.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تغيير كلمة المرور»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-07-change-password}
 \end{figure}
 
@@ -1581,7 +1581,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/ssd-08-logout.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تسجيل الخروج»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:ssd-08-logout}
 \end{figure}
 
@@ -1592,7 +1592,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image15.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تسجيل دخول المدير الأعلى بالمصادقة الثنائية»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image15}
 \end{figure}
 
@@ -1601,7 +1601,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image16.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض مدراء النظام»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image16}
 \end{figure}
 
@@ -1610,7 +1610,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image17.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إنشاء حساب مدير نظام»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image17}
 \end{figure}
 
@@ -1619,7 +1619,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image18.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إلغاء تفعيل حساب مدير نظام أو إعادة تفعيله»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image18}
 \end{figure}
 
@@ -1628,7 +1628,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image19.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «البحث في المستخدمين وتصفيتهم»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image19}
 \end{figure}
 
@@ -1637,7 +1637,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image20.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «عرض تفاصيل مستخدم وعضوياته»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image20}
 \end{figure}
 
@@ -1646,7 +1646,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image21.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إدارة حالة حساب مستخدم»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image21}
 \end{figure}
 
@@ -1655,7 +1655,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image22.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض الفصول الدراسية والبحث فيها»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image22}
 \end{figure}
 
@@ -1664,7 +1664,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image23.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إنشاء فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image23}
 \end{figure}
 
@@ -1673,7 +1673,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image24.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تعديل بيانات فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image24}
 \end{figure}
 
@@ -1682,7 +1682,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image25.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض الجلسات والبحث فيها»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image25}
 \end{figure}
 
@@ -1691,7 +1691,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image26.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «عرض الجلسات الحية النشطة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image26}
 \end{figure}
 
@@ -1700,7 +1700,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image27.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «الإنهاء القسري لجلسة حية»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image27}
 \end{figure}
 
@@ -1709,7 +1709,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image28.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «معاينة أثر حذف فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image28}
 \end{figure}
 
@@ -1718,7 +1718,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image29.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «حذف فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image29}
 \end{figure}
 
@@ -1735,7 +1735,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image30.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «بدء المعلم لجلسة تعلم مباشرة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image30}
 \end{figure}
 
@@ -1744,7 +1744,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image31.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إنهاء المعلم لجلسة تعلم مباشرة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image31}
 \end{figure}
 
@@ -1753,7 +1753,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image32.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «انضمام الطالب إلى جلسة تعلم مباشرة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image32}
 \end{figure}
 
@@ -1762,7 +1762,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image33.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «التفاعل داخل جلسة التعلم المباشرة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image33}
 \end{figure}
 
@@ -1771,7 +1771,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image34.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «الإجابة عن سؤال الطالب اعتمادًا على مواد الفصل»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image34}
 \end{figure}
 
@@ -1780,7 +1780,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image35.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «توليد ملخّص الجلسة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image35}
 \end{figure}
 
@@ -1789,7 +1789,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image36.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «معاينة أثر حذف جلسة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image36}
 \end{figure}
 
@@ -1798,7 +1798,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image37.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «حذف جلسة ومخرجاتها»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image37}
 \end{figure}
 
@@ -1807,7 +1807,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image38.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض الملفات وحالة فهرستها»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image38}
 \end{figure}
 
@@ -1816,7 +1816,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image39.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض إحصائيات قاعدة المعرفة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image39}
 \end{figure}
 
@@ -1825,7 +1825,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image40.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إعادة فهرسة ملف أو ملفات فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image40}
 \end{figure}
 
@@ -1834,7 +1834,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image41.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «حذف ملف مع مقاطعه المفهرسة»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image41}
 \end{figure}
 
@@ -1843,7 +1843,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image42.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض التسجيلات والملخصات وحالاتها»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image42}
 \end{figure}
 
@@ -1852,7 +1852,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image43.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «حذف تسجيل أو ملخص»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image43}
 \end{figure}
 
@@ -1861,7 +1861,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image44.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إسناد معلم الفصل الدراسي أو تغييره»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image44}
 \end{figure}
 
@@ -1870,7 +1870,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image45.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «استعراض أعضاء الفصل الدراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image45}
 \end{figure}
 
@@ -1879,7 +1879,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image46.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إضافة طالب إلى فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image46}
 \end{figure}
 
@@ -1888,7 +1888,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image47.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «إزالة عضو من فصل دراسي»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image47}
 \end{figure}
 
@@ -1901,7 +1901,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image48.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «فهرسة ملفات الفصل»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image48}
 \end{figure}
 
@@ -1910,6 +1910,6 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/image49.png}
-  \caption{TODO: تعليق الشكل.}
+  \caption{مخطط تسلسل النظام لحالة «تحليل شرح المعلم مقابل المادة المرجعية»: يوضّح الرسائل المتبادلة بين الفاعل والنظام بوصفه صندوقًا أسود، أي دون إظهار الخدمات الداخلية التي تنفّذها.}
   \label{fig:image49}
 \end{figure}

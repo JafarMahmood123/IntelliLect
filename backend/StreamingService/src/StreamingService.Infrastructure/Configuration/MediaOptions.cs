@@ -104,10 +104,24 @@ public sealed class MediaOptions : IMediaSettings
     // Capture / screen share geometry.
     // ---------------------------------------------------------------------------------------
 
-    /// <summary>Camera capture, matching the library's h720 default. Lower to 960x540 for more CPU headroom.</summary>
-    public int VideoWidth { get; init; } = 1280;
+    /// <summary>
+    /// Camera capture at 1080p, one step above the library's h720 default.
+    ///
+    /// This is where the resolution budget goes, and the counterpart to <c>EgressOptions</c> being
+    /// held DOWN at 960x540: the live stream is what the room sees in real time, the recording is
+    /// watched afterwards from a file. Only one of the two can be sharp on a host running the
+    /// browsers, the SFU and a headless-Chrome composite at once.
+    ///
+    /// Cost lands on the PUBLISHER, not on subscribers — <see cref="Simulcast"/> means each viewer
+    /// still pulls the layer nearest its tile, and the recorder page pulls a ~540p one. The
+    /// teacher's machine encodes more, everyone else is unaffected.
+    ///
+    /// Drop back to 1280x720 (framerate first, then this) if the teacher's browser shows CPU
+    /// pressure — livekit-client reports it as a quality-limitation warning.
+    /// </summary>
+    public int VideoWidth { get; init; } = 1920;
 
-    public int VideoHeight { get; init; } = 720;
+    public int VideoHeight { get; init; } = 1080;
     public int VideoFramerate { get; init; } = 30;
 
     /// <summary>Screen-share resolution stays at 1080p so slide text remains legible.</summary>
@@ -117,8 +131,14 @@ public sealed class MediaOptions : IMediaSettings
 
     /// <summary>
     /// bps. The h1080fps15 preset used 2_500_000; at 5fps far less is needed for static slides.
+    ///
+    /// 3 Mbps, not the 1_200_000 this used to hold, and this is the cheapest sharpness available:
+    /// the share is ALREADY 1080p, so its legibility is gated by the bitrate cap, not by the
+    /// resolution. It is a CEILING, not a target — static slides sit far below it and only spend
+    /// the extra bits on the frames right after a slide change, which is exactly where the old cap
+    /// showed as a second of mush. Costs bandwidth on a burst, not steady CPU.
     /// </summary>
-    public int ScreenShareMaxBitrate { get; init; } = 1_200_000;
+    public int ScreenShareMaxBitrate { get; init; } = 3_000_000;
 
     // ---------------------------------------------------------------------------------------
     // Reconnection timeouts (library defaults; exposed so a slow link can be accommodated).

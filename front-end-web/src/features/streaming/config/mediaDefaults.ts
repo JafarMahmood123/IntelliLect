@@ -69,8 +69,8 @@ export const MEDIA_FALLBACK: ResolvedMediaSettings = {
   red: true,
   stopMicTrackOnMute: false,
 
-  videoWidth: 1280,
-  videoHeight: 720,
+  videoWidth: 1920,
+  videoHeight: 1080,
   videoFramerate: 30,
 
   screenShareWidth: 1920,
@@ -78,7 +78,9 @@ export const MEDIA_FALLBACK: ResolvedMediaSettings = {
   // 5, not the library's 15: framerate is what costs the publisher CPU, resolution is what keeps
   // slide text readable.
   screenShareFramerate: 5,
-  screenShareMaxBitrate: 1_200_000,
+  // The share is already 1080p, so this cap — not the resolution — is what gates how legible it
+  // looks. A ceiling, not a target: static slides sit far below it.
+  screenShareMaxBitrate: 3_000_000,
 
   // 5, not the library's 1. At 1, a single failed reconnect dropped the participant out entirely.
   maxRetries: 5,
