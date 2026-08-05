@@ -487,8 +487,29 @@ later cancelled drops out of the table for the same reason.
 
 Target applies per service, measured after the §0.3 exclusions.
 
-- [ ] **7.1 UserManagementService** — auth, 2FA/super-admin staged login, user status
-      transitions, the new bulk path (§2), role assignment, internal-secret guarding.
+- [x] **7.1 UserManagementService — auth core DONE.** 2FA/staged login, status transitions
+      and the bulk path (§2) already had tests; registration, login, refresh and password
+      reset had none, which left the least-covered part of the system as the one every
+      other authorization check assumes has already happened. 21 new cases, 132 → **153**.
+
+      Covers A-01..A-06, A-09, A-11 plus six cases the plan had not listed (A-18..A-22):
+      expired refresh tokens, the super admin's rotated `amr:mfa` marking, privileged-role
+      self-registration, and that the registration outbox row is published *before* the
+      account commits.
+
+      **One gap found and closed:** `RefreshAsync` never re-read the account's status, so
+      session renewal depended entirely on rejection and deactivation having remembered to
+      revoke every token. They do — but renewing a session is the one operation that can
+      outlive the decision to end it, and it should not rest on another method's diligence.
+      Now checked in both places. Mutation-verified: removing the check fails two tests.
+
+      **One subtlety worth writing down rather than "fixing":** login's status messages are
+      deliberately specific ("pending approval", "rejected") while A-02 asks for a message
+      that reveals nothing. Both are satisfied because the status check sits BEHIND the
+      credential check — without the password every outcome is the same generic failure, so
+      the specific message is only ever shown to someone who already proved they own the
+      account. There is now a test pinning that ordering, because it is the ordering that
+      makes the friendly message safe.
 - [ ] **7.2 ClassroomService** — quiz lifecycle & scoring (§4), deadline sweeper,
       extensions, submissions, classroom/session deletion cascades, file indexing status.
 - [ ] **7.3 LiveAssistantService** — idea evaluator, boundary/drift detection, quiz

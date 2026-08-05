@@ -240,6 +240,14 @@ public sealed class AuthService : IAuthService
         if (user == null || tokenRecord == null || !tokenRecord.IsActive)
             throw new UnauthorizedAccessException("Invalid or expired refresh token.");
 
+        // The account must still be usable. Rejection and deactivation already revoke every active
+        // token, so this is the second lock rather than the first — but renewing a session is the
+        // one operation that can outlive the decision to end it, and it should not depend on a
+        // different method having remembered to revoke. A future status, or a transition that
+        // forgets, must not silently keep a session alive forever.
+        if (user.Status != UserStatus.Active)
+            throw new UnauthorizedAccessException("This account can no longer sign in.");
+
         // Revoke the old token (Token Rotation)
         tokenRecord.Revoke();
 

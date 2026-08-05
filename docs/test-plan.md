@@ -48,23 +48,28 @@ test classes today.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| A-01 | Registration creates the account in `Pending`, never `Active` | Unit | P0 | gap |
-| A-02 | Login is refused while `Pending` — and the message does not reveal whether the account exists | Unit | P0 | gap |
-| A-03 | Login is refused when `Rejected` or `Deactivated` | Unit | P0 | gap |
-| A-04 | Correct credentials on an `Active` account issue a token carrying the right role claims | Unit | P0 | gap |
-| A-05 | Wrong password is rejected; the response is indistinguishable from an unknown email (no user enumeration) | Unit | P0 | gap |
-| A-06 | Passwords are stored hashed and salted; the hash is never returned by any endpoint or log line | Unit | P0 | gap |
+| A-01 | Registration creates the account in `Pending`, never `Active` | Unit | P0 | ✓ |
+| A-02 | Login is refused while `Pending`; the status message sits BEHIND the credential check, so it is not an enumeration oracle | Unit | P0 | ✓ |
+| A-03 | Login is refused when `Rejected` or `Deactivated` | Unit | P0 | ✓ |
+| A-04 | Correct credentials on an `Active` account issue a token carrying the right role claims | Unit | P0 | ✓ |
+| A-05 | Wrong password is rejected; the response is indistinguishable from an unknown email (no user enumeration) | Unit | P0 | ✓ |
+| A-06 | Passwords are stored hashed; the plaintext never reaches the entity | Unit | P0 | ✓ (hashing verified; "never returned by any endpoint" still needs the response-shape sweep) |
 | A-07 | Repeated failures trigger lockout; lockout expires | Unit | P1 | gap |
 | A-08 | Password reset token is single-use, expires, and is invalidated by a successful reset | Unit | P0 | gap |
-| A-09 | Reset for a non-existent email returns the same response as a real one | Unit | P1 | gap |
+| A-09 | Reset for a non-existent email returns the same response as a real one | Unit | P1 | ✓ |
 | A-10 | Email verification token is single-use and expiring | Unit | P1 | gap |
-| A-11 | Refresh token rotates on use; a replayed old token is rejected | Unit | P0 | gap |
+| A-11 | Refresh token rotates on use; a replayed old token is rejected | Unit | P0 | ✓ |
 | A-12 | Logout invalidates the refresh token | Unit | P0 | ✓ |
 | A-13 | Super admin stage 1 issues no usable session — only a 2FA challenge | Unit | P0 | ✓ |
 | A-14 | Stage 2 with a correct code issues a token bearing `amr:mfa` | Unit | P0 | ✓ |
 | A-15 | A token without `amr:mfa` fails the `SuperAdminTwoFactor` policy | Integration | P0 | gap |
 | A-16 | 2FA code is single-use, expiring, and rate-limited against brute force | Unit | P0 | partial |
 | A-17 | Expired access token is rejected; clock-skew tolerance is bounded | Integration | P1 | gap |
+| A-18 | An expired refresh token is refused | Unit | P0 | ✓ |
+| A-19 | A rejected or deactivated account cannot RENEW a session, independently of revocation having run | Unit | P0 | ✓ |
+| A-20 | A super admin's rotated token keeps its `amr:mfa` marking | Unit | P0 | ✓ |
+| A-21 | Self-registration cannot select a privileged role | Unit | P0 | ✓ |
+| A-22 | The registration outbox row is published before the account commits | Unit | P0 | ✓ |
 
 ## 4. Area B — Authorization (cross-cutting)
 

@@ -396,8 +396,11 @@ internal sealed class RecordingEventBus : IEventBus
 // Deterministic hasher: Hash(x) = "H:x"; Verify(plain, hash) = hash equals "H:plain".
 internal sealed class FakeHasher : IHasher
 {
-    public string Hash(string code) => $"H:{code}";
-    public bool Verify(string oldCode, string codeHash) => codeHash == $"H:{oldCode}";
+    /// <summary>The hash this fake would produce — so a test can seed one without guessing.</summary>
+    public static string Hashed(string code) => $"H:{code}";
+
+    public string Hash(string code) => Hashed(code);
+    public bool Verify(string oldCode, string codeHash) => codeHash == Hashed(oldCode);
 }
 
 internal sealed class StubTwoFactorCodeGenerator : ITwoFactorCodeGenerator
@@ -410,12 +413,17 @@ internal sealed class StubTwoFactorCodeGenerator : ITwoFactorCodeGenerator
 internal sealed class RecordingJwtProvider : IJwtProvider
 {
     public bool LastTwoFactorCompleted { get; private set; }
+    public Guid? LastUserId { get; private set; }
+    public string? LastRoleName { get; private set; }
 
     public string GenerateAccessToken(Guid userId, string roleName, string userName, bool twoFactorCompleted = false)
     {
         LastTwoFactorCompleted = twoFactorCompleted;
-        return "access-token";
+        LastUserId = userId;
+        LastRoleName = roleName;
+        // Distinct values so a rotation test can tell a fresh token from the one it replaced.
+        return $"access-token-{Guid.NewGuid():N}";
     }
 
-    public string GenerateRefreshToken() => "refresh-token";
+    public string GenerateRefreshToken() => $"refresh-token-{Guid.NewGuid():N}";
 }
