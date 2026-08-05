@@ -94,6 +94,14 @@ public static class DependencyInjection
 
         services.AddAuthorization();
 
+        // Read EAGERLY, before MassTransit is configured. The Required() calls used to sit inside
+        // the UsingRabbitMq callback, which MassTransit defers until the bus starts — so a missing
+        // credential surfaced after the container was built, wrapped in bus-startup noise, instead
+        // of at the point the comment below claims. Reading them here makes "fails at startup
+        // naming the key" literally true, and testable.
+        var brokerUser = Required(configuration, "RabbitMq:Username");
+        var brokerPassword = Required(configuration, "RabbitMq:Password");
+
         services.AddMassTransit(x =>
         {
             x.AddConsumer<SessionStartedConsumer>();
@@ -112,8 +120,8 @@ public static class DependencyInjection
                         // Read, never hardcoded: a broker credential in source is a credential in
                         // the git history. Required rather than defaulted, so a missing value fails
                         // at startup with the key name instead of obscurely on the first publish.
-                        h.Username(Required(configuration, "RabbitMq:Username"));
-                        h.Password(Required(configuration, "RabbitMq:Password"));
+                        h.Username(brokerUser);
+                        h.Password(brokerPassword);
                     });
                     cfg.ConfigureEndpoints(context);
                 });

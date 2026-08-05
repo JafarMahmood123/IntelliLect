@@ -276,14 +276,14 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | M-01 | Settings bind correctly; documented defaults apply when a key is absent | Unit | P0 | new |
-| M-02 | A missing **required** setting fails at startup, not on first request | Integration | P0 | new |
-| M-03 | Drift test: every key the code reads appears in `.env.example` | Unit | P1 | new |
-| M-04 | `.env.example` contains no real secret | Unit | P0 | new |
+| M-02 | A missing **required** setting fails at startup, not on first request | Unit | P0 | ✓ (and the broker credentials genuinely do now — see work-plan §7.9) |
+| M-03 | Drift test: every variable compose requires appears in `.env.example`, and nothing in it is unread | Unit | P1 | ✓ |
+| M-04 | `.env.example` contains no real secret | Unit | P0 | ✓ |
 | M-05 | EF migrations apply cleanly to an empty database | Integration | P0 | gap |
 | M-06 | Alembic upgrades **and downgrades** without loss | Integration | P0 | gap |
 | M-07 | An embedding-dimension change migrates the pgvector column and forces re-embedding rather than silently mismatching | Integration | P0 | gap |
 | M-08 | Health endpoints report unhealthy when a dependency is down (not a blind 200) | Integration | P1 | partial |
-| M-09 | en and ar locale files have identical key sets | Frontend | P1 | new |
+| M-09 | en and ar locale files have identical key sets **and matching placeholders**, allowing for Arabic's six plural categories | Frontend | P1 | ✓ |
 | M-10 | RTL layout renders without overflow on the main pages | Frontend | P2 | partial |
 
 ## 16. Area N — Email delivery (work-plan §7.6)

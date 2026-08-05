@@ -639,6 +639,40 @@ integration suite (§8).
 
 ---
 
+## 7.9 Configuration & localisation conformance — **DONE**
+
+Three rules that watch the things this session has been quietly relying on.
+
+- [x] **M-02 — required settings fail at startup**, tested against the real composition root
+      so a reintroduced `?? "default"` fails the test rather than only a changed helper.
+      **Writing it found that the claim was not true.** The broker credentials were read
+      inside MassTransit's `UsingRabbitMq` callback, which is deferred until the bus starts —
+      so a missing one surfaced after the container was built, wrapped in bus-startup noise,
+      rather than "at startup naming the key" as the comment beside it promised. Both reads
+      are now hoisted above `AddMassTransit` in all four services, which makes the promise
+      literally true and the test meaningful.
+- [x] **M-03/M-04 — `.env.example` drift**, both directions: every variable a compose file
+      *requires* is documented, and nothing documented goes unread. `${VAR:-default}` is
+      deliberately exempt — it carries its own fallback, and the e2e harness uses that form
+      for an audio fixture nobody else needs to configure. Plus a blunt heuristic for a
+      pasted credential, since the template is committed.
+- [x] **M-09 — locale parity**, per namespace so a failure names the file. Keys *and*
+      interpolation placeholders, because `{{count}}` written as `{{n}}` in one language
+      renders literal braces to the user.
+
+      The first run failed, and the failure was **Arabic being right**: `groupCount_few`,
+      `_many` and `_two` exist only there, because the plural categories are a property of
+      the language — English needs two, Arabic six. The dual form "مسؤولان" also carries no
+      numeral, which is correct Arabic and would have failed a naive placeholder check. Both
+      comparisons are now plural-aware, over base keys.
+
+- [x] **The empty `UserManagementService.IntegrationTests` project is deleted.** It held one
+      `.csproj` and no tests. Integration coverage needs containers (§8), and an empty
+      project sitting in the solution listing reads as "integration tests exist" to anyone
+      scanning it. Recreating it is a minute's work on the day §8 starts.
+
+---
+
 ## 8. Integration testing — core logic only
 
 - [ ] **8.1 Choose the harness** — Testcontainers vs the existing compose file, and

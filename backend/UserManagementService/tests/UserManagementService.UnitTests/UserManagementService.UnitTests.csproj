@@ -21,6 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\UserManagementService.Application\UserManagementService.Application.csproj" />
     <ProjectReference Include="..\..\src\UserManagementService.Domain\UserManagementService.Domain.csproj" />
+    <!-- The composition root: a fallback reintroduced there is what these tests catch. -->
+    <ProjectReference Include="..\..\src\UserManagementService.Infrastructure\UserManagementService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
