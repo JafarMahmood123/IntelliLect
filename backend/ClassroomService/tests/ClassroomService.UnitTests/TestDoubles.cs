@@ -364,16 +364,36 @@ public sealed class FakeRecordingLifecycleSettings : IRecordingLifecycleSettings
     public int RetentionDays { get; init; }
 }
 
-/// <summary>In-memory IMembershipRepository: only the enrollment check the recording service uses
-/// is meaningful; the rest are unused here.</summary>
+/// <summary>
+/// In-memory IMembershipRepository. It began as an enrollment check for the recording service, with
+/// everything else throwing; MembershipService writes through the same port, so add, delete and
+/// save are now real. A double that threw on Delete would have made "the removal was persisted"
+/// untestable, and one that returned null from GetMembershipAsync regardless would have let a
+/// removal that never found its row look identical to one that worked.
+/// </summary>
 public sealed class FakeMembershipRepository : IMembershipRepository
 {
-    private readonly HashSet<(Guid ClassroomId, Guid StudentId)> _enrollments = new();
+    private readonly List<ClassroomMembership> _enrollments = new();
 
-    public void Enroll(Guid classroomId, Guid studentId) => _enrollments.Add((classroomId, studentId));
+    /// <summary>Writes that have not been saved yet — proof that persistence was actually asked for.</summary>
+    public int SaveChangesCount { get; private set; }
+
+    public IReadOnlyList<ClassroomMembership> All => _enrollments;
+
+    public void Enroll(Guid classroomId, Guid studentId)
+    {
+        if (_enrollments.Any(e => e.ClassroomId == classroomId && e.StudentId == studentId)) return;
+        _enrollments.Add(new ClassroomMembership
+        {
+            Id = Guid.NewGuid(),
+            ClassroomId = classroomId,
+            StudentId = studentId,
+            JoinedAtUtc = DateTime.UtcNow,
+        });
+    }
 
     public Task<bool> IsEnrolledAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
-        => Task.FromResult(_enrollments.Contains((classroomId, studentId)));
+        => Task.FromResult(_enrollments.Any(e => e.ClassroomId == classroomId && e.StudentId == studentId));
 
     /// <summary>
     /// The enrolled list, built from what was seeded. It used to return empty regardless, which was
@@ -381,22 +401,38 @@ public sealed class FakeMembershipRepository : IMembershipRepository
     /// "n students enrolled", and a fake that always says none would pass a broken implementation.
     /// </summary>
     public Task<List<ClassroomMembership>> GetMembersWithDetailsAsync(Guid classroomId, CancellationToken ct = default)
-        => Task.FromResult(_enrollments
-            .Where(e => e.ClassroomId == classroomId)
-            .Select(e => new ClassroomMembership { ClassroomId = e.ClassroomId, StudentId = e.StudentId })
-            .ToList());
+        => Task.FromResult(_enrollments.Where(e => e.ClassroomId == classroomId).ToList());
 
     public Task<ClassroomMembership?> GetMembershipAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
-        => Task.FromResult<ClassroomMembership?>(null);
+        => Task.FromResult(_enrollments
+            .FirstOrDefault(e => e.ClassroomId == classroomId && e.StudentId == studentId));
+
+    public Task AddAsync(ClassroomMembership entity, CancellationToken ct = default)
+    {
+        if (entity.Id == Guid.Empty) entity.Id = Guid.NewGuid();
+        _enrollments.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        _enrollments.RemoveAll(e => e.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveChangesCount++;
+        return Task.FromResult(1);
+    }
+
+    public Task<ClassroomMembership?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(_enrollments.FirstOrDefault(e => e.Id == id));
 
     // IRepository<ClassroomMembership> surface — unused by these tests.
     public Task<(IEnumerable<ClassroomMembership> Items, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct = default)
         => throw new NotSupportedException();
-    public Task<ClassroomMembership?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task AddAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
     public Task UpdateAsync(ClassroomMembership entity, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<int> SaveChangesAsync(CancellationToken ct = default) => throw new NotSupportedException();
 }
 
 /// <summary>In-memory IUnitOfWork that counts SaveChanges so tests can await consume completion.</summary>

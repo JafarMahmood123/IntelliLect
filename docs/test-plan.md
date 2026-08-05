@@ -123,6 +123,12 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | D-04 | Deleting a classroom cascades: files, sessions, quizzes, recordings, summaries, and the RAG index | Integration | P0 | ✓ (unit) |
 | D-05 | A partially-failed cascade leaves no orphan (deleted index but surviving rows, or vice versa) | Integration | P0 | gap |
 | D-06 | A removed student immediately loses read access to classroom content | Integration | P0 | gap |
+| D-07 | Only the classroom's own teacher may remove a student; ownership is checked *before* the membership lookup, so the two failures stay indistinguishable | Unit | P0 | ✓ |
+| D-08 | Enrolment is scoped to the (classroom, student) pair — being in one classroom does not block joining another | Unit | P1 | ✓ |
+| D-09 | Enrolment and removal are persisted, not merely tracked | Unit | P0 | ✓ |
+| D-10 | The roster maps successfully for a classroom that has members (positional-record constructor mapping) | Unit | P0 | ✓ |
+| D-11 | The AutoMapper profile validates as a whole, so a broken map fails a test rather than an endpoint | Unit | P0 | ✓ |
+| D-12 | `TeacherId` is never mapped from the create request body — ownership comes from the authenticated caller | Unit | P0 | ✓ |
 
 ## 7. Area E — File upload, size limits & indexing (work-plan §13)
 
@@ -257,6 +263,13 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | I-21 | Generated draft goes through the identical validation and publish path as a hand-written one | Unit | P0 | ✓ |
 | I-22 | Generation is authorized *before* the model is called | Unit | P1 | ✓ |
 | I-23 | A malformed model response fails generation without persisting a broken draft | Unit | P0 | ✓ |
+| I-24 | Publishing refuses an empty quiz, a question with no text, and a question worth zero or negative marks | Unit | P0 | ✓ |
+| I-25 | The answer-count range is enforced at **both** ends, and the duration ceiling at its exact boundary (`>`, not `>=`) | Unit | P0 | ✓ |
+| I-26 | `GetLimits()` returns the same limits publishing enforces, so the composer cannot offer a quiz the server would refuse | Unit | P1 | ✓ |
+| I-27 | Quiz and answer generation are **never retried** — a retry re-runs the model while a teacher waits — while transcript calls retry 3× | Unit | P0 | ✓ |
+| I-28 | A generation 409 is a conflict carrying the assistant's own wording, and survives an unreadable body | Unit | P1 | ✓ |
+| I-29 | A generated quiz with no questions, or answers with no options, is a failure rather than an empty composer | Unit | P0 | ✓ |
+| I-30 | An incomplete AI correction is dropped rather than shown as half a sentence; a complete one is trimmed | Unit | P1 | ✓ |
 
 ## 12. Area J — Ranking (work-plan §6)
 

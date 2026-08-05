@@ -215,6 +215,128 @@ public sealed class QuizServiceTests
             () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
     }
 
+    [Fact]
+    public async Task Publishing_rejects_a_question_with_too_many_options()
+    {
+        // The other half of the same range check. Only the lower bound was tested, so an edit
+        // that dropped the upper comparison would have gone unnoticed — and the ceiling is not
+        // cosmetic: the student's answer grid is laid out for it.
+        var h = Build(new FakeQuizSettings { MaxAnswersPerQuestion = 3 });
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(optionsPerQuestion: 5), default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    [Fact]
+    public async Task Publishing_an_empty_quiz_is_refused()
+    {
+        // A teacher who clears the composer and presses publish. The quiz would open, every
+        // student would see nothing to answer, and it would close on its deadline with a total
+        // of zero — which is indistinguishable from everyone having failed it.
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(questions: 0), default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Publishing_rejects_a_question_with_no_text(string text)
+    {
+        // Whitespace as well as empty: a question that renders blank is unanswerable, and the
+        // student has no way to report it beyond losing the marks.
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId,
+            new QuizDraftRequest("Check", [
+                new QuestionDraftRequest(text, 5, 60, [
+                    new OptionDraftRequest("Right", true),
+                    new OptionDraftRequest("Wrong", false),
+                ]),
+            ]),
+            default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task Publishing_rejects_a_question_worth_no_marks(int points)
+    {
+        // §4 arithmetic. A zero-mark question is unmarkable; a negative one is worse, because it
+        // makes a perfect paper score less than the quiz's own total — so the percentage the
+        // student and the ranking both read from is wrong rather than merely odd.
+        var h = Build();
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(points: points), default);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+    }
+
+    [Fact]
+    public async Task Publishing_refuses_a_quiz_longer_than_the_configured_maximum()
+    {
+        // The per-question times sum into the deadline, so an unbounded quiz is one that never
+        // closes on its own and has to be closed by hand — after the session it belonged to.
+        var h = Build(new FakeQuizSettings { MaxQuizDurationSeconds = 120 });
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(questions: 3, seconds: 60), default);
+
+        var error = await Assert.ThrowsAsync<ConflictException>(
+            () => h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default));
+
+        // The teacher has to be told the ceiling, in the unit they set it in, or the only way
+        // to find it is to keep trimming and re-publishing.
+        Assert.Contains("2-minute", error.Message);
+    }
+
+    [Fact]
+    public async Task A_quiz_exactly_at_the_maximum_duration_still_publishes()
+    {
+        // The boundary belongs to the teacher: `>` rather than `>=`. Off by one here rejects a
+        // quiz that fits.
+        var h = Build(new FakeQuizSettings { MaxQuizDurationSeconds = 180 });
+        var draft = await h.Service.CreateDraftAsync(
+            ClassroomId, SessionId, TeacherId, Draft(questions: 3, seconds: 60), default);
+
+        var published = await h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default);
+
+        Assert.Equal(nameof(QuizStatus.Open), published.Status);
+        Assert.Equal(180, published.TotalSeconds);
+    }
+
+    [Fact]
+    public void The_limits_handed_to_the_composer_are_the_ones_publishing_enforces()
+    {
+        // The client builds its composer from this — how many questions it will let you add, how
+        // many answer boxes it offers. If it disagreed with the server, the composer would offer
+        // a quiz that cannot be published, and the teacher would find out only at publish time.
+        var settings = new FakeQuizSettings
+        {
+            MaxQuestionsPerQuiz = 11,
+            MinAnswersPerQuestion = 3,
+            MaxAnswersPerQuestion = 5,
+            DefaultSecondsPerQuestion = 45,
+            MaxQuizDurationSeconds = 900,
+        };
+
+        var limits = Build(settings).Service.GetLimits();
+
+        Assert.Equal(settings.MaxQuestionsPerQuiz, limits.MaxQuestionsPerQuiz);
+        Assert.Equal(settings.MinAnswersPerQuestion, limits.MinAnswersPerQuestion);
+        Assert.Equal(settings.MaxAnswersPerQuestion, limits.MaxAnswersPerQuestion);
+        Assert.Equal(settings.DefaultSecondsPerQuestion, limits.DefaultSecondsPerQuestion);
+        Assert.Equal(settings.MaxQuizDurationSeconds, limits.MaxQuizDurationSeconds);
+    }
+
     // --- AI generation -------------------------------------------------------------
 
     [Fact]

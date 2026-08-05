@@ -510,8 +510,75 @@ Target applies per service, measured after the §0.3 exclusions.
       the specific message is only ever shown to someone who already proved they own the
       account. There is now a test pinning that ordering, because it is the ordering that
       makes the friendly message safe.
-- [ ] **7.2 ClassroomService** — quiz lifecycle & scoring (§4), deadline sweeper,
-      extensions, submissions, classroom/session deletion cascades, file indexing status.
+- [x] **7.2 ClassroomService — DONE.** 330 → **376** tests, coverage **53.8% → 61.2%**
+      (branch 44.1% → 58.5%). The item's named areas — quiz lifecycle and scoring, the
+      deadline sweeper, extensions, submissions, the deletion cascades and file indexing
+      status — were **already at or near 100%** from the §4 and §6 work; measuring first is
+      what showed that, and what showed where the real holes were instead.
+
+      **Two defects found, both fixed.**
+
+      - **`GET /api/classrooms/{id}/members` threw for every classroom that had students.**
+        `MemberResponse` is a positional record, and the profile carried
+        `.ForMember(dest => dest.FullName, opt => opt.Ignore())` on one of its constructor
+        parameters. `Ignore()` cannot express "leave this parameter out" — it makes
+        AutoMapper look for a parameterless constructor, find none, and throw at *map* time.
+        So the roster 500'd, while an **empty** classroom returned 200, because mapping an
+        empty list never constructs anything. That is why it survived: the one case that
+        works is the one a new classroom is in. Now mapped through `ForCtorParam`.
+      - **A second dead token minter, exactly like StreamingService's.** `JwtProvider` (124
+        lines) plus its `IJwtProvider` interface: mints access *and* refresh tokens with role
+        claims off the shared JWT secret, registered in no container and injected nowhere.
+        This service only validates UMS's tokens. Deleted rather than tested — an unused
+        second minter sharing the signing key is a hazard, not a feature. It was also the
+        largest 0%-covered file in the service.
+
+      **A rule over the whole mapping profile**, so the roster defect's *class* cannot
+      return: `AssertConfigurationIsValid()` runs as a test. AutoMapper resolves everything
+      at map time, so a broken configuration is not a compile error and not a startup error
+      — it is a 500 on whichever endpoint happens to use that map, found by whoever opened
+      the page. Making it pass surfaced a second, quieter thing worth writing down:
+      `CreateClassroomRequest → Classroom` left `TeacherId` unmapped. Harmless today
+      (`CreateAsync` sets it from the authenticated caller *after* the map) but it is now an
+      explicit `.Ignore()` with the reason, because adding a `TeacherId` to the request DTO
+      would otherwise quietly let a teacher create a classroom owned by somebody else.
+
+      **`MembershipService` 0% → 100%** (15 tests). It had no tests at all, and membership is
+      the input to nearly everything else: who may join the session, who is counted in the
+      tracking summary, who is ranked, whose answers are graded. The rule worth protecting is
+      on removal — only the classroom's own teacher may unenrol a student, and there is a
+      test pinning that ownership is checked **before** the membership lookup, so the two
+      failures stay indistinguishable and a classroom id (which is in every URL a student
+      uses) cannot be used to probe who is enrolled.
+
+      **`LiveAssistantInternalClient` 0% → 100%** (21 tests). Two things live here and
+      nowhere else. The internal secret is the *whole* of the authorization on those routes —
+      no user token is involved — and a blank one now provably sends no header rather than an
+      empty one. And the retry policy is deliberately **not** uniform: transcript calls retry
+      3× because a lost delete orphans the one copy of what was said in a session, in another
+      service's database (6ب); **quiz generation is never retried**, because a retry re-runs
+      the model — another minute of a teacher standing in front of a class, and another call's
+      cost, to repeat work that just failed. That asymmetry is precisely what a well-meaning
+      "make it retry like the others" edit would undo, so both halves are pinned.
+
+      **QuizService 93.9% → 99.3%.** The uncovered branches were all in `ValidateForPublish`,
+      and they are §4 arithmetic: an empty quiz, a question with no text, a question worth
+      zero or negative marks (a negative one makes a perfect paper score *less* than the
+      quiz's own total, so the percentage the student and the ranking both read is wrong
+      rather than merely odd), the total-duration ceiling and its exact boundary, and the
+      upper half of the answer-count range — only the lower bound had a test, so an edit
+      dropping the `||`'s second comparison would have gone unnoticed. Plus `GetLimits()`,
+      which is the contract the composer builds itself from; if it disagreed with the server
+      the composer would offer a quiz that cannot be published.
+
+      **Mutation-checked (§7.8), 8 mutations, all caught:** a zero-mark question allowed
+      through, an empty quiz allowed through, the duration ceiling off by one, generation
+      retrying like the transcript calls, the internal secret never attached, any teacher
+      allowed to remove any student, an enrolment never saved, and the roster map reverted to
+      its broken form.
+
+      **Still infrastructure-only and container-blocked here:** the EF repositories, the
+      hosted-service wrappers (their sweepers are already at 100%), and the controllers.
 - [ ] **7.3 LiveAssistantService** — idea evaluator, boundary/drift detection, quiz
       generator + parser, retrieval client, the new severity contract (§3), pacing rules.
 - [~] **7.4 StreamingService — token/role issuance DONE; the rest still open.** Coverage
