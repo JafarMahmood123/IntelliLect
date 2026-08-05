@@ -88,6 +88,10 @@ public sealed class QuizTrackingTests
         return await h.Service.PublishAsync(ClassroomId, draft.Id, TeacherId, default);
     }
 
+    /// <summary>Closes a quiz, which is what makes its marks visible to a student.</summary>
+    private static Task CloseAsync(Harness h, QuizTeacherDto quiz)
+        => h.Service.CloseAsync(ClassroomId, quiz.Id, TeacherId, default);
+
     private static async Task AnswerAsync(
         Harness h, QuizTeacherDto quiz, Guid studentId, string name, bool correctly)
     {
@@ -260,6 +264,8 @@ public sealed class QuizTrackingTests
         var second = await PublishAsync(h, h.Sessions[1].Id);
         await AnswerAsync(h, first, StudentId, "Amina", correctly: true);
         await AnswerAsync(h, second, StudentId, "Amina", correctly: false);
+        await CloseAsync(h, first);
+        await CloseAsync(h, second);
 
         var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
 
@@ -272,6 +278,75 @@ public sealed class QuizTrackingTests
     }
 
     [Fact]
+    public async Task An_open_quiz_does_not_move_a_students_own_total()
+    {
+        // The leak this guards against is arithmetic, not a field. PointsAwarded is written when
+        // the answer is written, so a total that includes an open quiz jumps by the question's
+        // marks when the student answers correctly and stays put when they do not — telling them
+        // which it was while their answer is still changeable. That is exactly what GetMyResult
+        // and the submit acknowledgement withhold on purpose.
+        var h = Build();
+        var open = await PublishAsync(h, h.Sessions[0].Id);
+
+        var before = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+        await AnswerAsync(h, open, StudentId, "Amina", correctly: true);
+        var after = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Equal(before.Score, after.Score);
+        Assert.Equal(before.Percentage, after.Percentage);
+        // Not merely zeroed: an open quiz is not part of the student's graded record at all, so
+        // its marks are not on offer yet either.
+        Assert.Equal(0, after.TotalPointsAvailable);
+        Assert.Empty(after.Sessions);
+    }
+
+    [Fact]
+    public async Task Closing_the_quiz_is_what_releases_it_into_the_students_record()
+    {
+        var h = Build();
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
+
+        await CloseAsync(h, quiz);
+        var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Equal(5, mine.Score);
+        Assert.Equal(5, mine.TotalPointsAvailable);
+        Assert.Equal(100, mine.Percentage);
+        Assert.Single(mine.Sessions);
+    }
+
+    [Fact]
+    public async Task The_class_average_a_student_is_shown_also_excludes_open_quizzes()
+    {
+        // Otherwise the same inference works through the average: in a quiz only this student has
+        // answered so far, the class average IS their score.
+        var h = Build();
+        var open = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, open, StudentId, "Amina", correctly: true);
+
+        var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Equal(0, mine.ClassAveragePercentage);
+    }
+
+    [Fact]
+    public async Task The_teacher_still_sees_an_open_quiz_filling_in()
+    {
+        // The narrowing is student-facing only. Watching a live quiz is the teacher's whole job,
+        // so the two views disagree while a quiz is open — deliberately, because they answer
+        // different questions.
+        var h = Build();
+        var open = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, open, StudentId, "Amina", correctly: true);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.Equal(5, tracking.TotalPointsAvailable);
+        Assert.Equal(5, tracking.Students.Single(s => s.StudentName == "Amina").Score);
+    }
+
+    [Fact]
     public async Task A_students_view_names_nobody_else()
     {
         // The class average is the only thing said about anyone else, and it is one number.
@@ -279,6 +354,7 @@ public sealed class QuizTrackingTests
         var quiz = await PublishAsync(h, h.Sessions[0].Id);
         await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
         await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: false);
+        await CloseAsync(h, quiz);
 
         var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
 
@@ -293,8 +369,10 @@ public sealed class QuizTrackingTests
         // Hiding it would leave them wondering why their percentage is lower than their rows say.
         var h = Build();
         var first = await PublishAsync(h, h.Sessions[0].Id);
-        await PublishAsync(h, h.Sessions[1].Id);
+        var second = await PublishAsync(h, h.Sessions[1].Id);
         await AnswerAsync(h, first, StudentId, "Amina", correctly: true);
+        await CloseAsync(h, first);
+        await CloseAsync(h, second);
 
         var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
 

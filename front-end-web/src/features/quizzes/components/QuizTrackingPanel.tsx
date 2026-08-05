@@ -242,7 +242,9 @@ const NothingYet = ({ isTeacher }: { isTeacher: boolean }) => (
     <p className="mt-1 text-xs text-slate-500">
       {isTeacher
         ? 'Progress appears here once you have run a quiz in a session.'
-        : 'Your progress appears here once your teacher has run a quiz.'}
+        : // Not "once your teacher has run a quiz": a quiz that is still open is deliberately
+          // absent from these totals, so this has to be true while one is in progress too.
+          'Your marks appear here once a quiz has been closed.'}
     </p>
   </div>
 );

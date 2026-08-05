@@ -332,7 +332,7 @@ judgement made where the information actually is.
 
 ---
 
-## 4. Quiz total mark — ~~build~~ **ALREADY IMPLEMENTED, verify only**
+## 4. Quiz total mark — ~~build~~ **VERIFIED — and one real leak fixed. DONE**
 
 Checked the code before planning this: **it is already built end to end.** Revised from
 a feature to a verification.
@@ -348,16 +348,36 @@ a feature to a verification.
   per-student `score/totalPointsAvailable` plus "N marks available" for the session.
   Both have test suites.
 
-Remaining, and small:
+Remaining, and small — **all three now done, and 4.1 found a real leak.**
 
-- [ ] **4.1 Verify the pre-close leak case** — `MyAnswerDto.IsCorrect` is `bool?`.
-      Confirm it is actually null before the quiz closes, rather than nullable-in-shape
-      but always populated. This is test-plan case I-19 and the one real risk left here.
-- [ ] **4.2 Confirm cancelled-quiz exclusion is applied in exactly one place** across
-      the teacher, student and session views (test-plan I-14). The domain comment says
-      it is; verify rather than trust.
-- [ ] **4.3 Decide whether anything is actually missing** from your point of view — if
-      the totals are already visible where you wanted them, close this item.
+- [x] **4.1 Pre-close leak (I-19)** — `MyAnswerDto.IsCorrect` is genuinely null before
+      the quiz closes: `GetMyResultAsync` gates it on `quiz.Status is Closed or
+      Cancelled`, and gates `PointsAwarded` the same way. The FIELD was fine.
+      **The same information was reachable by arithmetic through a different endpoint.**
+      `GET /classrooms/{id}/my-quiz-tracking` summed `PointsAwarded` over every *counted*
+      quiz — which includes the OPEN ones — and `PointsAwarded` is written when the
+      answer is written, not when the quiz closes. So a student could answer, refresh
+      their tracking, and read correctness off whether their total moved, while their
+      answer was still changeable. Fixed by narrowing the student's own view to
+      `GradedQuizzes` (Closed only), including the class average, which is the same
+      inference in a classroom where only one student has answered so far. The teacher's
+      view is untouched — watching a live quiz fill in is the job — so the two disagree
+      while a quiz is open, deliberately. Four tests, one of which asserts the totals do
+      not move across an answer.
+- [x] **4.2 Cancelled-quiz exclusion (I-14)** — true, with one wrinkle now removed. The
+      *predicate* was in one place (`CountsTowardsMarks`), but "counted" was expressed
+      twice: `CountedQuizzes(...)` and an inline copy of the same `Where` in the session
+      summary. Unified onto the helper.
+- [x] **4.3 Nothing missing on totals.** `TotalPoints` is on every quiz DTO, the session
+      summary carries `TotalPointsAvailable`, and both the teacher and student views
+      already render `score/total`. The gap in this section was never the number — it was
+      who could infer it and when.
+
+**Noted, not changed:** the session summary (`GetMySessionSummaryAsync`) still counts an
+open quiz's marks in its DENOMINATOR while contributing 0 to the numerator, so a
+student's in-progress session percentage reads pessimistically. It leaks nothing — an
+open quiz contributes a constant 0 regardless of correctness — and listing the quiz a
+student just sat is worth more than a tidier percentage, so it stays.
 
 ---
 

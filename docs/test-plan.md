@@ -210,12 +210,13 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | I-11 | Score = sum of snapshotted `PointsAwarded`; editing a question afterwards does not change a recorded mark | Unit | P0 | ✓ |
 | I-12 | Unanswered questions score zero and do not reduce `TotalPoints` | Unit | P0 | ✓ |
 | I-13 | A `Cancelled` quiz preserves every answer row but is excluded from all totals | Unit | P0 | ✓ |
-| I-14 | Exclusion of cancelled quizzes happens in exactly one place — no half-applied variant across teacher, student and session views | Unit | P0 | partial |
+| I-14 | Exclusion of cancelled quizzes happens in exactly one place — no half-applied variant across teacher, student and session views | Unit | P0 | ✓ |
 | I-15 | An extension is absolute, never earlier than the class deadline; granting twice replaces rather than compounds | Unit | P0 | ✓ |
 | I-16 | An extended student may answer after the class deadline; a non-extended student may not | Unit | P0 | ✓ |
 | I-17 | Deadline sweeper closes an expired quiz exactly once, and is safe to run concurrently with a submission | Integration | P0 | partial |
 | I-18 | Extension granted while the sweeper is closing the quiz — pin the winner | Integration | P1 | gap |
-| I-19 | A student cannot see correct answers before the quiz closes (`IsCorrect` nullable in `MyAnswerDto` — verify it is actually null pre-close) | Integration | P0 | gap |
+| I-19 | A student cannot see correct answers before the quiz closes (`IsCorrect` nullable in `MyAnswerDto` — verify it is actually null pre-close) | Integration | P0 | ✓ |
+| I-20 | A student cannot INFER correctness from their own totals while a quiz is open — tracking score, available marks and class average all exclude open quizzes | Unit | P0 | ✓ |
 | I-20 | `RespondentCount`/`SubmittedCount` are accurate under concurrent answering | Integration | P1 | partial |
 | I-21 | Generated draft goes through the identical validation and publish path as a hand-written one | Unit | P0 | ✓ |
 | I-22 | Generation is authorized *before* the model is called | Unit | P1 | ✓ |

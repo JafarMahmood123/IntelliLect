@@ -696,7 +696,7 @@ public sealed class QuizService : IQuizService
         // Drafts were never shown to anyone, and cancelled quizzes are withdrawn from marks. Both
         // are excluded from what is AVAILABLE, so a percentage cannot be dragged down by a quiz
         // nobody sat or one the teacher pulled.
-        var counted = quizzes.Where(q => q.Status is not QuizStatus.Draft && CountsTowardsMarks(q)).ToList();
+        var counted = CountedQuizzes(quizzes);
         var countedIds = counted.Select(q => q.Id).ToHashSet();
         var totalAvailable = counted.Sum(q => q.Questions.Sum(x => x.Points));
 
@@ -895,22 +895,25 @@ public sealed class QuizService : IQuizService
         await EnsureMemberAsync(classroomId, studentId, ct);
 
         var (quizzes, answers, submissions, sessions) = await LoadClassroomAsync(classroomId, ct);
-        var counted = CountedQuizzes(quizzes);
-        var countedIds = counted.Select(q => q.Id).ToHashSet();
-        var totalAvailable = counted.Sum(q => q.Questions.Sum(x => x.Points));
+
+        // GRADED, not merely counted — see GradedQuizzes. A student's own totals must never move
+        // while a quiz is still open.
+        var graded = GradedQuizzes(quizzes);
+        var gradedIds = graded.Select(q => q.Id).ToHashSet();
+        var totalAvailable = graded.Sum(q => q.Questions.Sum(x => x.Points));
 
         var mine = answers
-            .Where(a => a.StudentId == studentId && countedIds.Contains(a.QuizId))
+            .Where(a => a.StudentId == studentId && gradedIds.Contains(a.QuizId))
             .ToList();
         var mySubmissions = submissions
-            .Where(s => s.StudentId == studentId && countedIds.Contains(s.QuizId))
+            .Where(s => s.StudentId == studentId && gradedIds.Contains(s.QuizId))
             .ToList();
         var myQuizIds = mine.Select(a => a.QuizId)
             .Concat(mySubmissions.Select(s => s.QuizId))
             .ToHashSet();
         var score = mine.Sum(a => a.PointsAwarded);
 
-        var quizzesBySession = counted.GroupBy(q => q.SessionId)
+        var quizzesBySession = graded.GroupBy(q => q.SessionId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var rows = sessions
@@ -940,7 +943,7 @@ public sealed class QuizService : IQuizService
 
         // The class average, computed the same way the teacher's view computes it, so the two
         // never disagree about the number a student is being compared against.
-        var classAverage = ClassAverage(answers, submissions, countedIds, totalAvailable);
+        var classAverage = ClassAverage(answers, submissions, gradedIds, totalAvailable);
 
         return new MyClassroomQuizTrackingDto(
             classroomId,
@@ -948,7 +951,7 @@ public sealed class QuizService : IQuizService
             totalAvailable,
             Percentage(score, totalAvailable),
             myQuizIds.Count,
-            counted.Count,
+            graded.Count,
             rows.Count(r => r.QuizzesTaken > 0),
             rows.Count,
             classAverage,
@@ -969,6 +972,24 @@ public sealed class QuizService : IQuizService
     /// </summary>
     private static List<Quiz> CountedQuizzes(List<Quiz> quizzes)
         => quizzes.Where(q => q.Status is not QuizStatus.Draft && CountsTowardsMarks(q)).ToList();
+
+    /// <summary>
+    /// Quizzes a STUDENT may see their own marks for: counted, and finished.
+    ///
+    /// Narrower than <see cref="CountedQuizzes"/> by exactly the open ones, and that gap is the
+    /// point. <c>PointsAwarded</c> is written when the answer is written, not when the quiz closes,
+    /// so any student-facing total that includes an open quiz moves the moment they answer it —
+    /// and a total that moves by the question's points, or doesn't, tells them whether they were
+    /// right while their answer is still changeable. That is the same disclosure
+    /// <see cref="GetMyResultAsync"/> and <c>SubmitAnswerResultDto</c> deliberately withhold, so
+    /// leaving it reachable by arithmetic here would make their withholding decorative.
+    ///
+    /// A teacher's view keeps the open quizzes: watching a live quiz fill in is the whole job. The
+    /// two views therefore disagree while a quiz is open, which is correct — they answer different
+    /// questions ("what has been graded" vs "what is happening now").
+    /// </summary>
+    private static List<Quiz> GradedQuizzes(List<Quiz> quizzes)
+        => quizzes.Where(q => q.Status == QuizStatus.Closed).ToList();
 
     private static int Percentage(int score, int available)
         => available > 0 ? (int)Math.Round(score * 100.0 / available) : 0;
