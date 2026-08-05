@@ -156,13 +156,33 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 | F-03 | Structural and semantic chunkers produce non-empty, bounded, non-overlapping-beyond-config chunks | Unit | P0 | ✓ |
 | F-04 | Embedding dimension guard rejects a vector of the wrong size | Unit | P0 | ✓ |
 | F-05 | pgvector search returns results ordered by score | Unit | P0 | ✓ |
-| F-06 | Retrieval below the min-score cutoff returns nothing rather than a weak match | Unit | P0 | ✓ |
+| F-06 | Retrieval below the min-score cutoff returns nothing rather than a weak match | Unit | P0 | **n/a — no cutoff exists** |
 | F-07 | Search is scoped to one classroom — never returns another classroom's chunks | Integration | P0 | gap |
 | F-08 | Deleting a classroom's index removes every vector; a later search returns nothing | Integration | P0 | ✓ (unit) |
 | F-09 | Re-ingesting the same document replaces rather than duplicates its chunks | Integration | P1 | gap |
 | F-10 | Ingestion worker resumes/retries after a crash mid-document without half-indexing | Integration | P1 | partial |
 | F-11 | **Arabic**: an Arabic query against Arabic material retrieves above the cutoff (work-plan P3 — the open unknown) | Integration | P0 | gap |
 | F-12 | Outbox: a message is published exactly once per committed transaction, and survives a broker outage | Unit | P0 | ✓ |
+| F-13 | Documents embed as `RETRIEVAL_DOCUMENT` and queries as `RETRIEVAL_QUERY`; the qwen instruction never reaches Gemini | Unit | P0 | ✓ |
+| F-14 | A batch's vectors come back in the order of the texts they came from, even when completion order differs | Unit | P0 | ✓ |
+| F-15 | A truncated (Matryoshka) vector is L2-normalised before it is stored | Unit | P0 | ✓ |
+| F-16 | The embedding fan-out is bounded by the configured concurrency | Unit | P1 | ✓ |
+| F-17 | An embedding failure fails the whole batch rather than returning a short, misaligned list | Unit | P0 | ✓ |
+| F-18 | Embedder errors name the cause an operator can act on (rejected key, rate limit, unpulled model, unreachable host) | Unit | P1 | ✓ |
+| F-19 | Re-embed refuses a mismatched embedder on a probe vector *before* embedding anything | Unit | P0 | ✓ |
+| F-20 | Re-embed is resumable from `embedding IS NULL`: a re-run picks up only what is missing and never re-embeds | Unit | P0 | ✓ |
+| F-21 | A second concurrent re-embed sweep is refused (409), never queued; a failed sweep leaves a readable reason | Unit | P0 | ✓ |
+| F-22 | The character wrap for an unsplittable token loses and duplicates nothing | Unit | P0 | ✓ |
+| F-23 | The overlap seed shrinks so the incoming atom still fits — the token cap outranks the overlap | Unit | P0 | ✓ |
+| F-24 | A merged trailing runt does not duplicate the overlap atoms it shares with its predecessor | Unit | P1 | ✓ |
+| F-25 | An unrecognised `CHUNKING_STRATEGY` falls back to the offline chunker rather than one needing a live model | Unit | P1 | ✓ |
+| F-26 | An empty page produces no chunk and no embedding call; a one-sentence slide skips the model entirely | Unit | P1 | ✓ |
+
+**Note on F-06.** There is no min-score cutoff in the code, and the ✓ this row carried was
+wrong. Grounding is done at the prompt instead: `AnswerService` does not call the model at all
+when retrieval is empty, and the system prompt instructs a refusal when the context does not
+contain the answer. A numeric threshold needs calibrating against a real corpus and a live
+embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same calibration.
 
 ## 9. Area G — Live session, media & recording (StreamingService)
 

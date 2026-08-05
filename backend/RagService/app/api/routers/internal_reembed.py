@@ -11,7 +11,7 @@ migration leaves behind. A cancelled or crashed sweep is recovered by POSTing ag
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.api.dependencies import ReembedRunnerDep, require_internal_secret
 
@@ -23,14 +23,19 @@ router = APIRouter(
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
-async def start_reembed(runner: ReembedRunnerDep) -> dict:
+async def start_reembed(runner: ReembedRunnerDep, response: Response) -> dict:
     """Start a sweep. 202 if launched, 409 if one is already running.
 
     Never queues a second run: two concurrent sweeps would race for the same NULL rows and
     embed chunks twice, paying for every duplicate.
+
+    The refusal has to be visible in the STATUS, not only in the body. This is a curl-and-script
+    endpoint; the obvious way to drive it is `-f` or a `resp.ok` check, and a 202 for a run that
+    did not start reads as a second sweep having been launched.
     """
     started = runner.start()
     if not started:
+        response.status_code = status.HTTP_409_CONFLICT
         return {"status": "already-running", **runner.progress().as_dict()}
     return {"status": "accepted", **runner.progress().as_dict()}
 

@@ -546,8 +546,82 @@ Target applies per service, measured after the §0.3 exclusions.
       Still open here: media config beyond the token, session end and ejection, and
       reconnection handling — `LiveKitRoomLifecycleService` (40 lines) and
       `LiveKitEgressClient` (24) are the next targets, and both need a LiveKit fake.
-- [ ] **7.5 RagService/RagService** — chunking, embedding, retrieval scoring and
-      the min-score cutoff, indexing state machine.
+- [x] **7.5 RagService — DONE.** 235 → **335** tests, coverage **77% → 81%**. Four new
+      suites, taking the three named areas from partial or absent to complete.
+
+      **Embedding, which was the real gap.** `embedding_provider` defaults to `gemini` and
+      every compose file keeps it there, yet `GeminiEmbeddingProvider` sat at **33%** — the
+      embedder that actually deploys, barely tested. That matters more than the percentage
+      because almost nothing in it fails loudly: a vector built from the wrong task type,
+      left unnormalised, or paired with the wrong chunk produces no error anywhere. It
+      produces retrieval that returns the wrong passage and an assistant that answers
+      confidently from it. Now **100%**, 22 tests, all against a recording fake HTTP client
+      so the assertions are about the request that gets *sent*:
+
+      - Documents go as `RETRIEVAL_DOCUMENT` and queries as `RETRIEVAL_QUERY` — the whole
+        reason this provider replaced the Ollama one, and sending both the same way costs
+        retrieval quality with no other symptom.
+      - **Order is preserved across the concurrent fan-out.** `embed_documents` issues one
+        request per text and the caller zips the result straight onto the chunk list; if the
+        order followed *completion* rather than input, chunk 3's text would be stored with
+        chunk 7's vector. Same count, same widths, so the repository's `strict=True` zip
+        passes and the database accepts it. The test makes the first text the slowest so
+        completion order really is reversed.
+      - The Matryoshka-truncated vector is L2-normalised (a 768-dim reply measures ~0.59),
+        the qwen `retrieval_instruction` never reaches Gemini, the API key travels in a
+        header and not the URL, an empty batch costs nothing, and one failed text fails the
+        whole batch rather than returning a short — and therefore misaligned — list.
+      - Error mapping, because the operator only ever sees the message: rejected key, rate
+        limit, generic 5xx, unreachable endpoint, and a 200 carrying no vector.
+
+      `OllamaEmbeddingProvider` (the offline fallback, and the one with the multilingual
+      story) went **76% → 100%**: the instruction asymmetry, batching and its ordering, the
+      optional bearer token, and the "is Ollama down or is the model not pulled?" messages.
+
+      **The indexing state machine had no tests at all** — service, runner and both
+      endpoints. It is the only recovery path from an embedder change, because changing the
+      model means an Alembic migration that DROPS every stored vector. Now 100% / 98% / 100%
+      across 26 tests: the dimension probe refuses a mismatched embedder *before* anything is
+      embedded and billed; each chunk keeps its own vector (keyed by id, so a mis-zip writes
+      real vectors against the wrong rows rather than raising); resumability really does come
+      from `embedding IS NULL`, so a re-run picks up only what is missing and never
+      re-embeds; a second sweep is refused rather than queued; and a failed sweep leaves a
+      readable reason behind, since the POST returned long before the failure happened.
+
+      **One defect found and fixed.** `POST /api/internal/reembed` answered **202 for a run
+      it had refused** — the status code said accepted while the body said already-running.
+      Its own docstring promised 409. This is a curl-and-script endpoint with no UI, the
+      obvious way to drive it is `-f` or a `resp.ok` check, and "accepted but nothing is
+      happening" invites POSTing again. Now 409, as documented.
+
+      **Chunking** — `_text_splitter.py` **78% → 97%**, the factory to 100%, the semantic
+      chunker to 96%, over 30 new tests. The untested paths were the awkward ones, which is
+      where a real lecture PDF ends up: the hard character wrap for a single unsplittable
+      token (a base64 blob, a URL, a flattened table), which is now checked to lose and
+      duplicate nothing; the overlap seed being shrunk so the incoming atom still fits, since
+      the budget is the hard constraint and the overlap only a preference; the identity-based
+      overlap contract the callers dedupe on; and the trailing-runt merge not bringing its
+      shared atoms along twice. Plus the degenerate documents that are common rather than
+      exotic — an image-only page, a one-sentence title slide (which must not cost an
+      embedding call), and a format with no grouping rule.
+
+      **On the "min-score cutoff" this item named: there isn't one, and that is deliberate
+      rather than missing.** Retrieval returns `top_k` regardless of similarity. The
+      grounding is done at the prompt instead — `AnswerService` never calls the model when
+      retrieval is empty, and `SYSTEM_PROMPT` instructs a refusal when the context does not
+      contain the answer. Adding a numeric threshold would need it calibrated against a real
+      corpus and a live embedder, which is container work; noted in §8 rather than guessed
+      at here. `RetrievalService` is already at 100%; the pgvector scoring itself
+      (`1 - cosine_distance`, ordering, classroom scoping) has a test that skips cleanly
+      until `TEST_DATABASE_URL` points at a real Postgres.
+
+      **Mutation-checked (§7.8), 18 mutations across the four suites**, every one caught and
+      named: completion-order results, dropped normalisation, a shared task type, an
+      unbounded fan-out, a removed width guard, a dropped query instruction, a missing auth
+      header, a swallowed 404, a character-skipping wrap, an unshrunk overlap seed, sentence-
+      before-paragraph splitting, a duplicated runt merge, an unchecked vector count, a
+      permissive dimension probe, a second concurrent sweep, the 409 reverted to 202, an
+      un-normalised strategy name, and an oversized span emitted whole.
 - [x] **7.6 EmailService — DONE.** The service that had **zero** tests now has 28, in a
       new `EmailService.UnitTests` project. Consumers are driven through MassTransit's
       in-memory harness (a real publish and consume, no broker, no SMTP), templates are
