@@ -2,7 +2,7 @@ using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.File;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using ClassroomService.Presentation.Filters;
 
 namespace ClassroomService.Presentation.Controllers;
 
@@ -14,17 +14,14 @@ namespace ClassroomService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/internal/files")]
+[InternalSecret]
 public sealed class InternalFilesController : ControllerBase
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
-
     private readonly IFileAdminService _files;
-    private readonly IConfiguration _configuration;
 
-    public InternalFilesController(IFileAdminService files, IConfiguration configuration)
+    public InternalFilesController(IFileAdminService files)
     {
         _files = files;
-        _configuration = configuration;
     }
 
     [HttpGet]
@@ -36,8 +33,6 @@ public sealed class InternalFilesController : ControllerBase
         [FromQuery] Guid? classroomId,
         CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var result = await _files.GetFilesAsync(search, classroomId, page, pageSize, ct);
         return Ok(result);
     }
@@ -46,8 +41,6 @@ public sealed class InternalFilesController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<AdminFileRow>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByIds([FromBody] FileIdsRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var result = await _files.GetFilesByIdsAsync(request?.FileIds ?? Array.Empty<Guid>(), ct);
         return Ok(result);
     }
@@ -58,8 +51,6 @@ public sealed class InternalFilesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, [FromBody] DeleteFileRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await _files.DeleteFileAsync(id, request?.Reason ?? string.Empty, ct);
@@ -75,18 +66,6 @@ public sealed class InternalFilesController : ControllerBase
             // 7أ: file does not exist.
             return NotFound();
         }
-    }
-
-    private bool IsInternalSecretValid()
-    {
-        var expected = _configuration["Internal:ApiSecret"];
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        return Request.Headers.TryGetValue(InternalSecretHeader, out var provided)
-            && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
     }
 }
 

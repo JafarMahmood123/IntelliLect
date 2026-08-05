@@ -95,10 +95,16 @@ public static class DependencyInjection
         // Real-time inputs for the super-admin session monitor. Both are best-effort at the
         // call site: a failure degrades the live view instead of blocking it (4أ).
         var streamingBaseUrl = configuration["StreamingService:BaseUrl"] ?? "http://streaming-service:8080";
+        var streamingSecret = configuration["StreamingService:InternalApiSecret"];
         services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>(client =>
         {
             client.BaseAddress = new Uri(streamingBaseUrl);
             client.Timeout = TimeSpan.FromSeconds(5);
+            // StreamingService's internal routes are secret-guarded and fail closed.
+            if (!string.IsNullOrWhiteSpace(streamingSecret))
+            {
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Secret", streamingSecret);
+            }
         });
 
         var liveAssistantBaseUrl = configuration["LiveAssistant:BaseUrl"] ?? "http://live-assistant-service:8080";

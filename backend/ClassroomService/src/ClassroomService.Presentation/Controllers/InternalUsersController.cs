@@ -2,7 +2,7 @@ using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.DTOs.Classroom;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using ClassroomService.Presentation.Filters;
 
 namespace ClassroomService.Presentation.Controllers;
 
@@ -15,19 +15,15 @@ namespace ClassroomService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/internal/users")]
+[InternalSecret]
 public sealed class InternalUsersController : ControllerBase
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
-
     private readonly IClassroomManagementService _classroomManagementService;
-    private readonly IConfiguration _configuration;
 
     public InternalUsersController(
-        IClassroomManagementService classroomManagementService,
-        IConfiguration configuration)
+        IClassroomManagementService classroomManagementService)
     {
         _classroomManagementService = classroomManagementService;
-        _configuration = configuration;
     }
 
     /// <summary>
@@ -38,30 +34,10 @@ public sealed class InternalUsersController : ControllerBase
     [ProducesResponseType(typeof(UserClassroomsResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUserClassrooms(Guid userId, CancellationToken ct)
     {
-        if (!IsInternalSecretValid())
-        {
-            return Unauthorized();
-        }
-
         var teaching = await _classroomManagementService.GetByTeacherIdAsync(userId, ct);
         var enrolled = await _classroomManagementService.GetEnrolledClassroomsAsync(userId, ct);
 
         return Ok(new UserClassroomsResponse(teaching, enrolled));
-    }
-
-    // The endpoint is protected by network isolation. If an internal secret is also
-    // configured, require callers to present it; when it is unset (e.g. local dev), the
-    // header check is skipped so nothing breaks.
-    private bool IsInternalSecretValid()
-    {
-        var expected = _configuration["Internal:ApiSecret"];
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        return Request.Headers.TryGetValue(InternalSecretHeader, out var provided)
-            && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
     }
 }
 

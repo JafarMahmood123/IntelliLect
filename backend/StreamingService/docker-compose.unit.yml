@@ -148,6 +148,11 @@ services:
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
       # (which is also what live-assistant presents to RagService). One value everywhere.
       - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      # INBOUND guard for this service's own /api/internal routes. The two above are what this
+      # service PRESENTS to others; this is what it REQUIRES of callers. Same value, opposite
+      # direction — and the guard fails closed, so leaving it unset refuses every internal call
+      # rather than accepting all of them.
+      - Internal__ApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       # Session recording via LiveKit Room Composite Egress (R-0). This endpoint is used BY the
       # host-networked egress worker to upload the MP4 to MinIO, so it must be an address egress
       # can reach from the host namespace — MinIO's host-published port, NOT the intellilect-s3

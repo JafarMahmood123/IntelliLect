@@ -4,7 +4,7 @@ using ClassroomService.Application.DTOs.Membership;
 using ClassroomService.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using ClassroomService.Presentation.Filters;
 
 namespace ClassroomService.Presentation.Controllers;
 
@@ -17,28 +17,24 @@ namespace ClassroomService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/internal/classrooms")]
+[InternalSecret]
 public sealed class InternalClassroomsController : ControllerBase
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
-
     private readonly IClassroomManagementService _classrooms;
     private readonly IClassroomDeletionService _deletion;
     private readonly IClassroomMemberAdminService _members;
     private readonly IClassroomRepository _classroomRepository;
-    private readonly IConfiguration _configuration;
 
     public InternalClassroomsController(
         IClassroomManagementService classrooms,
         IClassroomDeletionService deletion,
         IClassroomMemberAdminService members,
-        IClassroomRepository classroomRepository,
-        IConfiguration configuration)
+        IClassroomRepository classroomRepository)
     {
         _classrooms = classrooms;
         _deletion = deletion;
         _members = members;
         _classroomRepository = classroomRepository;
-        _configuration = configuration;
     }
 
     [HttpGet]
@@ -50,8 +46,6 @@ public sealed class InternalClassroomsController : ControllerBase
         [FromQuery] Guid? teacherId,
         CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var normalizedPage = page < 1 ? 1 : page;
         var normalizedPageSize = Math.Clamp(pageSize < 1 ? 20 : pageSize, 1, 100);
 
@@ -64,8 +58,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var classroom = await _classrooms.GetAdminByIdAsync(id, ct);
         return classroom is null ? NotFound() : Ok(classroom);
     }
@@ -74,8 +66,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<IActionResult> Create([FromBody] InternalCreateClassroomRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var id = await _classrooms.CreateAsync(
             request.TeacherId,
             new CreateClassroomRequest(request.Name, request.Description),
@@ -90,8 +80,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] InternalUpdateClassroomRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             await _classrooms.AdminUpdateAsync(
@@ -123,8 +111,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ChangeTeacher(Guid id, [FromBody] InternalChangeTeacherRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await _classrooms.ChangeTeacherAsync(id, request.NewTeacherId, request.Version, ct);
@@ -150,8 +136,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDeletionImpact(Guid id, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var impact = await _deletion.GetImpactAsync(id, ct);
         return impact is null ? NotFound() : Ok(impact);
     }
@@ -167,8 +151,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, [FromBody] InternalDeleteClassroomRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await _deletion.DeleteAsync(id, request?.Reason ?? string.Empty, ct);
@@ -200,8 +182,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMembers(Guid id, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             return Ok(await _members.GetMembersAsync(id, ct));
@@ -218,8 +198,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddMember(Guid id, [FromBody] InternalAddMemberRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             return Ok(await _members.AddMemberAsync(id, request.StudentId, ct));
@@ -237,8 +215,6 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RemoveMember(Guid id, Guid studentId, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             return Ok(await _members.RemoveMemberAsync(id, studentId, ct));
@@ -258,22 +234,8 @@ public sealed class InternalClassroomsController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<ClassroomNameDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetNames([FromBody] ClassroomIdsRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var names = await _classroomRepository.GetNamesByIdsAsync(request?.Ids ?? Array.Empty<Guid>(), ct);
         return Ok(names.Select(n => new ClassroomNameDto(n.Id, n.Name)).ToList());
-    }
-
-    private bool IsInternalSecretValid()
-    {
-        var expected = _configuration["Internal:ApiSecret"];
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        return Request.Headers.TryGetValue(InternalSecretHeader, out var provided)
-            && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
     }
 }
 

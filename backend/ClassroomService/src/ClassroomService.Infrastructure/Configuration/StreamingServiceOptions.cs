@@ -19,4 +19,11 @@ public class StreamingServiceOptions
 
     /// <summary>Per-request HTTP timeout in seconds.</summary>
     public int TimeoutSeconds { get; init; } = 10;
+
+    /// <summary>
+    /// Shared secret presented as <c>X-Internal-Secret</c> on every call to StreamingService's
+    /// internal routes. Must match that service's <c>Internal:ApiSecret</c>; its guard fails
+    /// closed, so an unset value here means every call is refused rather than silently allowed.
+    /// </summary>
+    public string InternalApiSecret { get; init; } = string.Empty;
 }

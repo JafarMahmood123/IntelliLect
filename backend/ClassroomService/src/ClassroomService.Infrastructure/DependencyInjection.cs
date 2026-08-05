@@ -309,6 +309,16 @@ public static class DependencyInjection
         }
         client.BaseAddress = new Uri(baseUrl);
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 10);
+
+        // Attached here rather than in each client, for the same reason the base address is: two
+        // clients call this service, and one of them remembering the header is not a state worth
+        // having. StreamingService's guard fails closed, so a blank secret fails loudly at the
+        // first call instead of quietly working until someone turns the guard on.
+        if (!string.IsNullOrWhiteSpace(options.InternalApiSecret))
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation(
+                "X-Internal-Secret", options.InternalApiSecret);
+        }
     }
 
     /// <summary>

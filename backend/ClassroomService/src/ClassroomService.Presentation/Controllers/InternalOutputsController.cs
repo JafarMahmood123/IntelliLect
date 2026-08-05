@@ -3,7 +3,7 @@ using ClassroomService.Application.DTOs.Output;
 using ClassroomService.Application.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using ClassroomService.Presentation.Filters;
 
 namespace ClassroomService.Presentation.Controllers;
 
@@ -14,17 +14,14 @@ namespace ClassroomService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/internal/outputs")]
+[InternalSecret]
 public sealed class InternalOutputsController : ControllerBase
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
-
     private readonly IOutputAdminService _outputs;
-    private readonly IConfiguration _configuration;
 
-    public InternalOutputsController(IOutputAdminService outputs, IConfiguration configuration)
+    public InternalOutputsController(IOutputAdminService outputs)
     {
         _outputs = outputs;
-        _configuration = configuration;
     }
 
     [HttpGet]
@@ -38,8 +35,6 @@ public sealed class InternalOutputsController : ControllerBase
         [FromQuery] Guid? classroomId,
         CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var result = await _outputs.GetOutputsAsync(search, type, status, classroomId, page, pageSize, ct);
         return Ok(result);
     }
@@ -63,8 +58,6 @@ public sealed class InternalOutputsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> RegenerateSummary(Guid id, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try { return Ok(await _outputs.RegenerateSummaryAsync(id, ct)); }
         catch (KeyNotFoundException) { return NotFound(); }
         catch (ConflictException) { return Conflict(); }
@@ -80,8 +73,6 @@ public sealed class InternalOutputsController : ControllerBase
 
     private async Task<IActionResult> DeleteAsync(Func<Task<OutputDeletionResult>> action)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await action();
@@ -102,18 +93,6 @@ public sealed class InternalOutputsController : ControllerBase
             // 5ب: the output's session is live.
             return Conflict();
         }
-    }
-
-    private bool IsInternalSecretValid()
-    {
-        var expected = _configuration["Internal:ApiSecret"];
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        return Request.Headers.TryGetValue(InternalSecretHeader, out var provided)
-            && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
     }
 }
 

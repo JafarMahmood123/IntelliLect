@@ -3,11 +3,13 @@ using Microsoft.Extensions.Logging;
 using StreamingService.Application.Abstractions;
 using StreamingService.Domain.Entities;
 using StreamingService.Domain.Enums;
+using StreamingService.Presentation.Filters;
 
 namespace StreamingService.Presentation.Controllers;
 
 [ApiController]
 [Route("api/internal/streams")]
+[InternalSecret]
 public sealed class InternalStreamsController : ControllerBase
 {
     private readonly IStreamRepository _streamRepository;

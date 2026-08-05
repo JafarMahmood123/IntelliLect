@@ -537,6 +537,57 @@ Target applies per service, measured after the §0.3 exclusions.
 
 ---
 
+## 7b. Authorization on service-to-service routes (Area B, B-08/B-09) — **DONE**
+
+Started as "write authorization tests" and turned into a fix, because the first thing the
+tests found was that the guard did not guard.
+
+`WebApplicationFactory` is not usable here — `Program.cs` migrates the database at startup
+and throws after five retries, so an HTTP-level suite needs containers. The declarations
+themselves do not: authorization is *declared* in the presentation layer, and that is where
+our bugs are, so the tests target the filter and the declarations rather than ASP.NET's
+enforcement of them.
+
+**Two defects, both fixed:**
+
+- **The guard failed open.** `IsInternalSecretValid()` returned *true* when
+  `Internal:ApiSecret` was unset. A missing or misspelled environment variable silently
+  exposed every internal endpoint — file deletion, classroom administration, session
+  control — to anything that could reach the port. The comment above it shows this was
+  deliberate ("when it is unset, e.g. local dev, the header check is skipped so nothing
+  breaks"), which is exactly how a convenience becomes a production hole. The Python side
+  of the same secret already says "fails closed if the server has no secret configured";
+  the .NET side now agrees.
+- **StreamingService had no check at all** on its four internal routes, while every other
+  service required the header. Being off the nginx path is a fact about today's topology,
+  not a property of the code.
+
+**And the shape changed.** The check was hand-written inside every action — 23 copies across
+five controllers. Nothing would have noticed the 24th action that forgot it. It is now one
+`[InternalSecret]` filter declared on the controller, running at the authorization stage so
+a rejected caller never gets a request body deserialized on their behalf, and comparing in
+constant time because the secret is long-lived and shared by every service.
+
+**The whole loop had to move together**, or fixing StreamingService would have broken the
+system: none of its three callers sent the header. The secret is now attached where the
+base address already is (one place per caller, not one per client), and the three compose
+files carry the matching values — `Internal__ApiSecret` inbound on StreamingService,
+`StreamingService__InternalApiSecret` outbound from ClassroomService and UMS.
+
+- [x] Filter tests: match, missing header, wrong secret, exact comparison, and the
+      unconfigured case that used to admit everyone (B-08, B-09, **B-12**).
+- [x] Conformance rule per service: every controller routed under `api/internal` carries the
+      guard (**B-13**). Mutation-checked — removing the attribute fails the test and names
+      the controller.
+- [x] 327 ClassroomService and 111 StreamingService tests green.
+
+**Still open, and it needs containers:** B-01..B-07 and B-11 — that anonymous and
+wrong-role callers are actually refused at runtime — plus B-10, that nginx does not expose
+the internal paths. Those are enforcement rather than declaration, and they belong in the
+integration suite (§8).
+
+---
+
 ## 8. Integration testing — core logic only
 
 - [ ] **8.1 Choose the harness** — Testcontainers vs the existing compose file, and

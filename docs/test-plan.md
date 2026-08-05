@@ -80,10 +80,12 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | B-05 | Teacher of classroom X cannot act on classroom Y | Integration | P0 | gap |
 | B-06 | Student cannot read another student's answers, marks or submission state | Integration | P0 | gap |
 | B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration | P0 | gap |
-| B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Integration | P0 | gap |
-| B-09 | `/api/internal/*` with a wrong secret → 401 | Integration | P0 | gap |
-| B-10 | Internal routes are not reachable through nginx from outside | Integration | P0 | gap |
+| B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
+| B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |
+| B-10 | Internal routes are not reachable through nginx from outside | Integration | P0 | gap (still needs a running gateway — but the routes no longer depend on nginx alone, see B-12) |
 | B-11 | Role change takes effect on the next token, and an in-flight old token cannot exceed its new rights on sensitive routes | Integration | P1 | gap |
+| B-12 | The internal guard **fails closed**: an unconfigured secret refuses every call rather than admitting all of them | Unit | P0 | ✓ |
+| B-13 | Every controller serving `api/internal` carries the guard — a rule over the assembly, so a new one cannot ship without it | Unit | P0 | ✓ |
 
 ## 5. Area C — User administration & bulk accept/reject (work-plan §2)
 

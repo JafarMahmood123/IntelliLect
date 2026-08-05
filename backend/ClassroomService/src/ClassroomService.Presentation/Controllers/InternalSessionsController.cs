@@ -3,7 +3,7 @@ using ClassroomService.Application.DTOs.Session;
 using ClassroomService.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using ClassroomService.Presentation.Filters;
 
 namespace ClassroomService.Presentation.Controllers;
 
@@ -15,22 +15,18 @@ namespace ClassroomService.Presentation.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/internal/sessions")]
+[InternalSecret]
 public sealed class InternalSessionsController : ControllerBase
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
-
     private readonly ISessionAdminService _sessions;
     private readonly ISessionDeletionService _deletion;
-    private readonly IConfiguration _configuration;
 
     public InternalSessionsController(
         ISessionAdminService sessions,
-        ISessionDeletionService deletion,
-        IConfiguration configuration)
+        ISessionDeletionService deletion)
     {
         _sessions = sessions;
         _deletion = deletion;
-        _configuration = configuration;
     }
 
     [HttpGet]
@@ -42,8 +38,6 @@ public sealed class InternalSessionsController : ControllerBase
         [FromQuery] Guid? classroomId,
         CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         SessionStatus? parsedStatus = null;
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -66,8 +60,6 @@ public sealed class InternalSessionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ForceEnd(Guid id, [FromBody] ForceEndRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await _sessions.ForceEndAsync(id, request.Reason, ct);
@@ -86,8 +78,6 @@ public sealed class InternalSessionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDeletionImpact(Guid id, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         var impact = await _deletion.GetImpactAsync(id, ct);
         return impact is null ? NotFound() : Ok(impact);
     }
@@ -103,8 +93,6 @@ public sealed class InternalSessionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(Guid id, [FromBody] DeleteSessionRequest request, CancellationToken ct)
     {
-        if (!IsInternalSecretValid()) return Unauthorized();
-
         try
         {
             var result = await _deletion.DeleteAsync(id, request?.Reason ?? string.Empty, ct);
@@ -125,18 +113,6 @@ public sealed class InternalSessionsController : ControllerBase
             // 5ب: the session is live.
             return Conflict();
         }
-    }
-
-    private bool IsInternalSecretValid()
-    {
-        var expected = _configuration["Internal:ApiSecret"];
-        if (string.IsNullOrWhiteSpace(expected))
-        {
-            return true;
-        }
-
-        return Request.Headers.TryGetValue(InternalSecretHeader, out var provided)
-            && string.Equals(provided.ToString(), expected, StringComparison.Ordinal);
     }
 }
 

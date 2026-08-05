@@ -31,6 +31,9 @@ services:
       # hop could not be pointed anywhere else.
       - StreamingService__BaseUrl=http://streaming-service:8080
       - StreamingService__TimeoutSeconds=10
+      # Presented on every call to StreamingService's internal routes; must match its
+      # Internal__ApiSecret, whose guard fails closed.
+      - StreamingService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - S3Settings__BucketName=intellilect-files
       - S3Settings__ServiceUrl=http://intellilect-s3:9000
       # Browser-reachable MinIO endpoint used only to sign download URLs (host-published port).

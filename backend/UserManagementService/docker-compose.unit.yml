@@ -38,6 +38,9 @@ services:
       - ClassroomService__BaseUrl=http://classroom-service:8080
       - ClassroomService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - ClassroomService__TimeoutSeconds=10
+      # Live-session monitor reads StreamingService's internal routes, which are secret-guarded
+      # and fail closed. Same shared value as above.
+      - StreamingService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
     depends_on:
       user-db:
         condition: service_healthy

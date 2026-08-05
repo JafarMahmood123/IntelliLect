@@ -19,6 +19,8 @@
     <ProjectReference Include="..\..\src\ClassroomService.Application\ClassroomService.Application.csproj" />
     <ProjectReference Include="..\..\src\ClassroomService.Infrastructure\ClassroomService.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\ClassroomService.Domain\ClassroomService.Domain.csproj" />
+    <!-- Controllers and filters: authorization is declared there, so it is tested there. -->
+    <ProjectReference Include="..\..\src\ClassroomService.Presentation\ClassroomService.Presentation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
