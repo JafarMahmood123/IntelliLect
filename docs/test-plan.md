@@ -253,7 +253,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | L-01 | Every consumer is idempotent: the same message twice produces one effect (at-least-once delivery makes this inevitable, not hypothetical) | Unit | P0 | gap |
 | L-02 | MassTransit envelope round-trips between the .NET and Python services | Unit | P0 | ✓ |
 | L-03 | Outbox message survives a service restart between commit and publish | Integration | P0 | partial |
-| L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Integration | P0 | gap |
+| L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Unit | P0 | ✓ (EmailService; other services still gap) |
 | L-05 | Recording-ready and summary-ready consumers tolerate arriving out of order | Unit | P1 | ✓ |
 | L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | partial |
 
@@ -272,7 +272,26 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | M-09 | en and ar locale files have identical key sets | Frontend | P1 | new |
 | M-10 | RTL layout renders without overflow on the main pages | Frontend | P2 | partial |
 
-## 16. Deliberately not covered — and why
+## 16. Area N — Email delivery (work-plan §7.6)
+
+The service that had no tests at all. It does one thing — turn a message into an email — so
+every case here is about routing and content, plus the one failure mode that loses mail
+silently.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| N-01 | Each account status maps to its own subject **and** its own wording | Unit | P0 | ✓ |
+| N-02 | Status matching is case-insensitive — the producer sends an enum name, not lowercase | Unit | P0 | ✓ |
+| N-03 | An unrecognised status still sends a neutral email rather than failing or congratulating | Unit | P1 | ✓ |
+| N-04 | Reset and 2FA codes carry the right code, the right expiry, and distinguishable copy | Unit | P0 | ✓ |
+| N-05 | Teacher assigned/reassigned and member added/removed each pick the matching subject and body | Unit | P0 | ✓ |
+| N-06 | **A name or classroom name containing markup is HTML-encoded, not rendered** | Unit | P0 | ✓ |
+| N-07 | A null name produces an email rather than an exception | Unit | P1 | ✓ |
+| N-08 | A failed send faults the message (publishes `Fault<T>`) instead of being swallowed | Unit | P0 | ✓ |
+| N-09 | **Every** consumer in the assembly has a retry policy — a rule, not a list, so a new consumer cannot ship without one | Unit | P0 | ✓ |
+| N-10 | SMTP transport itself (connect, STARTTLS, auth) | Integration | P1 | not covered — needs a real or fake SMTP server, see §17 |
+
+## 17. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -295,7 +314,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 17. Entry / exit criteria
+## 18. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -310,7 +329,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 4. No P0 case is marked "not implemented" without a written reason here.
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume.
 
-## 18. Traceability
+## 19. Traceability
 
 | Area | Work-plan section |
 | --- | --- |

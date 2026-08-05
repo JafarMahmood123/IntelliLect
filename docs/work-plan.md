@@ -497,7 +497,39 @@ Target applies per service, measured after the §0.3 exclusions.
       ejection, reconnection handling.
 - [ ] **7.5 RagService/RagService** — chunking, embedding, retrieval scoring and
       the min-score cutoff, indexing state machine.
-- [ ] **7.6 EmailService** — templating, retry/failure paths.
+- [x] **7.6 EmailService — DONE.** The service that had **zero** tests now has 28, in a
+      new `EmailService.UnitTests` project. Consumers are driven through MassTransit's
+      in-memory harness (a real publish and consume, no broker, no SMTP), templates are
+      tested directly. **72.9%** line coverage measured with the shared
+      `backend/coverlet.runsettings`; everything with logic in it — the body factory and
+      all five consumers — is at 100%. The remainder is `SmtpEmailSender` (needs a real
+      SMTP server), the composition root, and the consumer definitions, which only execute
+      against a live bus.
+
+      Writing them turned up two defects, both fixed here:
+
+      - **HTML injection into outgoing email.** `firstName` and `classroomName` were
+        interpolated raw into the templates. Both are user-supplied — a registration form
+        and a classroom title — so a name containing markup landed as live HTML inside an
+        email carrying our name and branding. Mail clients mostly refuse to run script but
+        render links and images perfectly well, which is all a convincing phishing line
+        needs. Every interpolation is now HTML-encoded, including the codes: a rule with an
+        exception is a rule someone eventually forgets to apply.
+      - **Three of five consumers had no retry policy.** Reset-code and 2FA had
+        definitions; status-changed, teacher-changed and membership-changed did not — not
+        by decision, just omission. One SMTP hiccup sent an approval or enrolment email
+        straight to the error queue, and nobody watches an error queue for the mail that
+        told a student they were accepted. All five now share the same three-attempt
+        policy, and the test that enforces it is a **rule over the assembly** rather than a
+        list of today's five, so the sixth consumer cannot ship without one.
+
+      Also fixed: `EmailService.slnx` referenced a `EmailService.Contracts` project that
+      does not exist, so `dotnet build`/`dotnet test` on the solution failed outright. Stale
+      entry removed, test project added — the solution now builds and runs its tests.
+
+      **Mutation-checked (§7.8).** Adding an undefended consumer makes the retry rule fail
+      and name it; the rule is not passing by vacuum, and a second test asserts the
+      reflection finds five consumers so a broken query cannot make it green.
 - [ ] **7.7 Frontend** — the 28 existing suites plus new ones for §2–§6.
 - [ ] **7.8 Mutation-check the weak spots** — 85% line coverage with assertion-free
       tests is worse than 60% honest coverage. Spot-check the critical services by
