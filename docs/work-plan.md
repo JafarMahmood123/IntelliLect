@@ -848,8 +848,8 @@ Target applies per service, measured after the §0.3 exclusions.
       **Mutation-checked (§7.8).** Adding an undefended consumer makes the retry rule fail
       and name it; the rule is not passing by vacuum, and a second test asserts the
       reflection finds five consumers so a broken query cannot make it green.
-- [~] **7.7 Frontend** — 28 suites at the start of this work, **36** now, 318 tests. Coverage
-      **31.4% → 40.9%**. New suites for §2 (bulk selection), §3 (feedback severity and the
+- [x] **7.7 Frontend — DONE.** 28 suites at the start of this work, **38** now, 346 tests. Coverage
+      **31.4% → 41.4%**. New suites for §2 (bulk selection), §3 (feedback severity and the
       correction span), §5 (notifications), §6 (ranking), plus the locale-parity rule (§7.9).
 
       This pass took the **client-side authorization gates from 0% to 100%** — `src/routes`
@@ -869,8 +869,55 @@ Target applies per service, measured after the §0.3 exclusions.
       local session is cleared even when that request fails, and the **persisted** copy does
       not keep the departing user's profile.
 
-      Still at 0% and worth a later pass: `src/pages`, the profile forms, `axios.ts`'s
-      refresh-and-logout interceptor, and `getApiErrorMessage`.
+      **A later pass covered the two that mattered, and found a defect.** 318 → **346**
+      tests, coverage 40.9% → **41.4%**. `axios.ts` **31% → 100%**, `getApiErrorMessage`
+      **11% → 95%**. The headline barely moves because both files are small; what they decide
+      is not.
+
+      **DEFECT FOUND AND FIXED: several requests expiring together signed the user out.**
+      The response interceptor refreshed **per request**. A page fires several requests at
+      once, so when the access token expires they all 401 together — and each one
+      independently read the *same* refresh token from `localStorage` and posted it. The
+      backend **rotates**: `AuthService.RefreshAsync` revokes the presented token and issues a
+      new one. So the first call succeeded and the second and third arrived with a token that
+      was already dead, failed, and took the sign-out branch — clearing storage and
+      redirecting to `/login`.
+
+      The user was signed out *even though the refresh had succeeded*, and because it depends
+      on how many requests happened to be in flight, it looks random and is nearly
+      unreportable. Fixed with a single shared in-flight refresh promise that every concurrent
+      401 awaits, cleared when it settles so a later expiry still does real work. The test
+      that found it fails against the old code and passes against the new.
+
+      Also pinned: the token is attached to every request and no header is invented when
+      nobody is signed in; a non-401 never triggers a refresh (refreshing on a 500 would hide
+      the real error and, on failure, sign the user out over a server fault); a failed
+      **login** is exempt, or a wrong password would redirect the user away from the form they
+      are standing at; the `_retry` guard stops an infinite refresh loop; and sign-out clears
+      `auth-storage` too, so the next person at that browser does not see the previous user's
+      name and role.
+
+      `getApiErrorMessage` is the sentence a user reads when anything fails, and at 11% almost
+      none of its fallback chain had ever executed. 13 tests fix the precedence that decides
+      which of several candidate messages wins: the problem `detail` beats a validation error
+      beats ASP.NET's generic `title` ("One or more validation errors occurred", which tells
+      the user nothing) — and whitespace counts as blank, because a message of `"   "` renders
+      as an empty error box, which is worse than the generic sentence.
+
+      **Mutation-checked (§7.8), 10 mutations.** Two needed work rather than being clean
+      passes, and both are recorded because the fix is the interesting part:
+
+      - Removing the `_retry` guard made the test **hang** rather than fail — the infinite loop
+        the guard prevents. A test that hangs reports nothing, so the refresh endpoint now
+        succeeds only once in that case: the loop terminates on the second refresh and the
+        count assertion says what happened.
+      - Removing the explicit `Authorization` header on the retry changed nothing, because
+        replaying through `apiClient` re-runs the REQUEST interceptor, which re-reads the
+        freshly stored token. The line is genuinely redundant; it is kept as belt and braces
+        with a comment saying so, rather than left looking load-bearing.
+
+      Still at 0% and genuinely lower value: `src/pages` and `AuthLayout` (thin wrappers), the
+      profile forms, `useThemeStore`, and `download.ts`.
 - [ ] **7.8 Mutation-check the weak spots** — 85% line coverage with assertion-free
       tests is worse than 60% honest coverage. Spot-check the critical services by
       breaking a line and confirming a test fails.

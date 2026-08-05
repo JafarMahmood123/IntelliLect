@@ -53,6 +53,110 @@
 
 ومن القرارات المقصودة في هذا الباب أنّ الإشعار \code{QuizChanged} يحمل المعرّفات والحالة فقط، ولا يحمل المحتوى إطلاقًا؛ فيُعيد العميل طلب ما يستحقّه من الخادم بدل أن يثق بما وصله على السلك. وهذا يُبقي التحقّق من الصلاحية في موضعٍ واحد هو الخادم.
 
+\section{تجسيد أنماط التصميم في الشيفرة}
+
+عُرضت في القسم~\ref{sec:design-patterns} أنماط التصميم المعتمدة والمشكلة التي يعالجها كلٌّ منها. ونتناول هنا الوجه الآخر منها، أي موضعها الفعلي في الشيفرة وهيئتها فيها، ويلخّص الجدول~\ref{tab:pattern-implementation} هذا التقابل.
+
+\begin{table}[htbp]
+  \caption{تقابل أنماط التصميم مع الوحدات البرمجية التي تجسّدها في الشيفرة.}
+  \label{tab:pattern-implementation}
+  \centering
+  \small
+  % Ragged rather than justified: the cells carry long unbreakable identifiers,
+  % and justifying them stretches the inter-word gaps badly.
+  \begin{tabular}{|>{\raggedleft\arraybackslash}p{3.2cm}|>{\raggedleft\arraybackslash}p{11.1cm}|}
+    \hline
+    \textbf{النمط} & \textbf{ما يجسّده في الشيفرة} \\ \hline
+    المنافذ والمحوِّلات & \code{app/application/ports/} مقابل \code{app/infrastructure/} في خدمتَي \en{Python}، ومجلّد \code{Application/Abstractions} مقابل \code{Infrastructure} في خدمات \en{.NET} الأربع \\ \hline
+    حقن التبعيات & \code{DependencyInjection.cs}: 48 تسجيلًا في خدمة الفصول الدراسية وحدها \\ \hline
+    الاستراتيجية & \code{GeminiEmbeddingProvider} و\code{OllamaEmbeddingProvider}، و\code{SemanticChunker} و\code{StructuralChunker}، وثلاثة محقّقات للمنفذ \code{SpeechToText} \\ \hline
+    المصنع & \code{create\_chunker} و\code{ExtractorRouter.default} و\code{SessionPipelineFactory} \\ \hline
+    المستودع & \code{IRepository<T>} و\code{GenericRepository<T>} وعشرة مستودعات متخصّصة ترثه \\ \hline
+    وحدة العمل & \code{IUnitOfWork} و\code{SessionTerminationService} \\ \hline
+    المواصفة & \code{UserQuerySpecification.Create} و\code{AdminQuerySpecification} \\ \hline
+    صندوق الصادر & جدول \code{outbox\_messages}، و\code{outbox\_relay} في خدمة المعرفة \\ \hline
+    النشر والاشتراك & \code{MassTransitEventBus}، ومستهلكات خدمتَي الفصول والبريد \\ \hline
+    المستهلِك خامل التكرار & \code{SessionRecordingReadyConsumer} و\code{SessionSummaryReadyConsumer} \\ \hline
+    المصالحة الدورية & \code{RecordingReconcileHostedService} و\code{EgressReconcileHostedService} و\code{StalledSessionSweepHostedService} و\code{QuizDeadlineHostedService} \\ \hline
+    المعترِض & معترِضا الطلب والجواب في \code{lib/axios.ts}، والمرشِّحان \code{InternalSecretAttribute} و\code{UploadSizeLimitFilter} \\ \hline
+    خط الأنابيب & \code{SessionPipeline} في خدمة المساعد الحيّ \\ \hline
+  \end{tabular}
+\end{table}
+
+ونفصّل فيما يأتي ثلاثة منها، اختيرت لأنّ لكلٍّ منها هيئةً في الشيفرة تختلف عن هيئته في المخطّط.
+
+\subsection{الاستراتيجية والمصنع: منفذٌ واحد وتحقيقان}
+
+يُعرَّف المنفذ صفًّا مجرّدًا لا يذكر مزوّدًا بعينه، فلا تعرف طبقة التطبيق سوى العمليتين اللتين يعلنهما:
+
+\begin{english}
+\begin{lstlisting}[language=Python]
+class EmbeddingProvider(ABC):
+    @abstractmethod
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a batch of document/passage texts for indexing."""
+
+    @abstractmethod
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single query text for retrieval."""
+\end{lstlisting}
+\end{english}
+
+ويقابل هذا المنفذ محوِّلان هما \code{GeminiEmbeddingProvider} و\code{OllamaEmbeddingProvider}، ويجري الاختيار بينهما في جذر التركيب دون أن يعلم به مستهلك المنفذ. ويظهر النمطان معًا في اختيار مقسِّم النص، إذ يقرأ المصنع الإعداد ويُرجِع التحقيق الموافق:
+
+\begin{english}
+\begin{lstlisting}[language=Python]
+def create_chunker(settings, embedding_provider, token_counter=None) -> Chunker:
+    counter = token_counter or HeuristicTokenCounter()
+    strategy = (settings.chunking_strategy or STRUCTURAL).strip().lower()
+    if strategy == SEMANTIC:
+        return SemanticChunker(settings, embedding_provider, counter)
+    return StructuralChunker(settings, counter)
+\end{lstlisting}
+\end{english}
+
+ويُلاحَظ أنّ المصنع وحده يعرف أسماء التحقيقات، وأنّ نوع ما يُرجِعه هو المنفذ \code{Chunker} لا أحدَ تحقيقيه. فإضافة استراتيجية تقطيع ثالثة تمسّ هذه الدالّة وحدها، ولا تمسّ خط الاستيعاب الذي يستهلكها.
+
+\subsection{المستودع: قاعدةٌ عامّة ترثها المستودعات المتخصّصة}
+
+يُعرَّف المستودع العامّ بمعامل نوعٍ مقيَّد، ويحمل العمليات التي تتكرّر في كل كيان:
+
+\begin{english}
+\begin{lstlisting}[language={[Sharp]C}]
+public interface IRepository<T> where T : class
+{
+    Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
+        int page, int pageSize, CancellationToken ct = default);
+    Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task AddAsync(T entity, CancellationToken ct = default);
+    Task UpdateAsync(T entity, CancellationToken ct = default);
+    Task DeleteAsync(Guid id, CancellationToken ct = default);
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}
+\end{lstlisting}
+\end{english}
+
+ويحقّقه \code{GenericRepository<T>} مرّةً واحدة فوق \en{Entity Framework}، ثمّ ترثه عشرة مستودعات متخصّصة تضيف استعلامات كياناتها وحدها. ولولا ذلك لتكرّرت العمليات الستّ في كل مستودع منها. ويبقى \code{DbContext} محجوبًا داخل طبقة البنية التحتية، فلا يصل منه شيء إلى طبقة التطبيق.
+
+\subsection{المعترِض: منطقٌ عابر في موضع واحد}
+
+تحتاج كل نداءات الواجهة الأمامية إلى إلحاق رمز الوصول، وإلى معالجة انتهاء صلاحيته. وقد نُفِّذ الأمران في معترِضَين على عميل \en{HTTP} واحد، فلا تحمل أيّ شريحة وظيفية شيئًا من هذا المنطق:
+
+\begin{english}
+% listings has no JavaScript definition; left unhighlighted, as the pseudocode is.
+\begin{lstlisting}
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+\end{lstlisting}
+\end{english}
+
+ويتولّى معترِض الجواب الحالةَ \en{401}: فيجدّد الرمز ويعيد إرسال الطلب مرّةً واحدة، ويمحو الجلسة المحلّية ويعيد التوجيه إلى صفحة الدخول إن فشل التجديد. ويحرس هذا الموضعُ الوحيد شرطَ ألّا يُعاد الطلب أكثر من مرّة، وهو شرطٌ يصعب ضمانه لو تكرّر المنطق في ثلاث عشرة شريحة.
+
 \section{بيئة التطوير والتقنيات المستخدمة}
 
 \subsection{التقنيات الأساسية}

@@ -91,6 +91,12 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | B-11 | Role change takes effect on the next token, and an in-flight old token cannot exceed its new rights on sensitive routes | Integration | P1 | gap |
 | B-14 | Client route guards: a disallowed role is redirected, not shown the page; matching is exact (no substring, no case-insensitive) and an empty allow-list admits nobody | Frontend | P1 | ✓ |
 | B-15 | Logout clears both tokens AND the persisted store copy, even when the server-side revocation fails | Frontend | P0 | ✓ |
+| B-16 | **Several requests expiring together share ONE refresh** — the backend rotates refresh tokens, so a refresh per request signs the user out despite the refresh succeeding | Frontend | P0 | ✓ (defect found & fixed) |
+| B-17 | A 401 refresh retries the original request with the new token; a non-401 never triggers a refresh | Frontend | P0 | ✓ |
+| B-18 | A failed **login** is exempt from refresh — a wrong password must not redirect the user away from the form | Frontend | P0 | ✓ |
+| B-19 | The `_retry` guard prevents an infinite refresh loop when the retried request also 401s | Frontend | P0 | ✓ |
+| B-20 | A rejected refresh clears both tokens *and* `auth-storage`, then redirects to `/login` | Frontend | P0 | ✓ |
+| B-21 | Error messages prefer the server's `detail`, then a validation message, then the generic title; whitespace counts as blank | Frontend | P1 | ✓ |
 | B-12 | The internal guard **fails closed**: an unconfigured secret refuses every call rather than admitting all of them | Unit | P0 | ✓ |
 | B-13 | Every controller serving `api/internal` carries the guard — a rule over the assembly, so a new one cannot ship without it | Unit | P0 | ✓ |
 
