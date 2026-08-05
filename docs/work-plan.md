@@ -381,22 +381,52 @@ student just sat is worth more than a tidier percentage, so it stays.
 
 ---
 
-## 5. Real-time notifications for in-session chat & quizzes
+## 5. Real-time notifications for in-session chat & quizzes — **DONE**
 
 So users don't have to sit on the tab to see a message or a new quiz.
 
-- [ ] **5.1 Pick the mechanism** — three different things, decide which are in scope:
-      (a) in-app badge/toast when on another route,
-      (b) browser Notification API when the tab is backgrounded (needs permission flow),
-      (c) title-bar/favicon unread count. Recommend (a)+(c) first; (b) needs a
-      permission prompt and is easy to make annoying.
-- [ ] **5.2 Transport** — reuse the existing live-session channel rather than adding a
-      second socket. Confirm what chat and quiz-published already emit.
-- [ ] **5.3 Unread state** — where it lives, when it clears, and per-session vs global.
-- [ ] **5.4 Do-not-disturb** — mute per session; never notify for your own message;
-      suppress when the relevant panel is already open and focused.
-- [ ] **5.5 Tests** — visibility-change handling, permission-denied path, no
-      self-notification, unread counter arithmetic.
+- [x] **5.1 Mechanism — all three, in order of ambition** (`useSessionNotifications`):
+      (a) an in-app unread badge on the drawer's Chat section, for the person on the
+      session page with the drawer closed; (c) a `(3)` count in the **document title**,
+      which is the only carrier that reaches a backgrounded tab without asking anyone's
+      permission; (b) a desktop notification for the person who has switched applications
+      entirely. **No favicon badge** — it needs canvas drawing to add nothing the title
+      count does not already say from the same place in the tab strip.
+- [x] **5.2 Transport — nothing new was needed.** `ReceiveChatMessage` and `QuizChanged`
+      already existed on the SignalR `StreamHub`; this is a second reader of the same
+      events, not a second socket.
+- [x] **5.3 Unread state** lives in the drawer, which is the only component mounted for
+      the whole session — a panel that is not the open section is unmounted and cannot
+      notice what it missed, which is the entire case this feature exists for. It is
+      per-session by construction (it dies with the page). Clearing is by a `seenCount`
+      ref rather than derived state, so a count cleared by opening the panel cannot be
+      resurrected by a later re-render.
+- [x] **5.4 Do-not-disturb** — a mute toggle in the drawer; your own message never
+      notifies you; nothing fires while the relevant panel is open **and the tab is
+      visible** (an open panel in a backgrounded tab has shown nobody anything, so it
+      still counts, and clears when they come back to it).
+- [x] **5.5 Tests** — 15 cases covering K-01..K-08: self-messages, the open-and-visible
+      suppression, the open-but-hidden case, clear-and-do-not-resurrect, title arithmetic
+      and restoration on unmount, one alert per batch, announce-once per quiz, the
+      no-`Notification`-API browser, the refusal path, and mute.
+
+**Permission is offered, never taken.** `requestDesktop` only runs from a click on
+"Alert me outside the tab", and the offer disappears once the answer is in either way. An
+unprompted permission dialog on entering a class is how a site gets blocked for good —
+and a blocked site cannot alert anyone about anything.
+
+**Known limit, stated rather than hidden:** notifications work while the session page is
+mounted, including when its tab is backgrounded or its window is behind another
+application — which is what was asked for. They do **not** survive navigating to another
+route in the app: the hub connection is torn down with the page. Reaching a user who has
+left the session for another part of the site means hoisting a session-scoped socket
+above the router, which is a larger change and its own decision.
+
+**Noticed while working here, not fixed:** `useStreamHub` is called by both `LiveRoomPage`
+and `InteractionSidebar`, so every participant opens **two** SignalR connections and keeps
+two copies of the chat log. Harmless today and unrelated to notifications (which read only
+the drawer's instance), but it is the thing to fix first if the connection is ever
+hoisted for the limit above.
 
 ---
 

@@ -108,21 +108,7 @@
 
 \subsection{تدفّق تسجيل دخول المدير الأعلى}
 
-يجري تسجيل دخول المدير الأعلى على مرحلتين منفصلتين بطلبين مستقلّين، بينهما تحدٍّ قصير العمر وحيد الاستعمال. وهو أكثر منطق هذه الخدمة تركيبًا. ويعرض الشكل~\ref{fig:flow-01a} المرحلة الأولى، والشكل~\ref{fig:flow-01b} المرحلة الثانية.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/flow-01a-two-factor-challenge.png}
-  \caption{تدفّق المرحلة الأولى من تسجيل دخول المدير الأعلى: التحقّق من الاعتماد وإصدار التحدّي.}
-  \label{fig:flow-01a}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/flow-01b-two-factor-verify.png}
-  \caption{تدفّق المرحلة الثانية من تسجيل دخول المدير الأعلى: التحقّق من الرمز وإصدار الجلسة.}
-  \label{fig:flow-01b}
-\end{figure}
+يجري تسجيل دخول المدير الأعلى على مرحلتين منفصلتين بطلبين مستقلّين، بينهما تحدٍّ قصير العمر وحيد الاستعمال. وهو أكثر منطق هذه الخدمة تركيبًا. وقد بُيّنت مرحلتاه في الشكلين~\ref{fig:flow-01a} و\ref{fig:flow-01b}.
 
 ويقوم هذا التدفّق على ثلاثة ضوابط أمنية:
 
@@ -181,14 +167,7 @@
 
 \subsection{تدفّق إنهاء الجلسة}
 
-تجتمع في إجرائية إنهاء الجلسة الحيّة ثلاث مشكلات صحّة منفصلة، وهي أعقد منطق في الخدمة. ويعرض الشكل~\ref{fig:flow-02} هذا التدفّق.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/flow-02-session-lifecycle.png}
-  \caption{تدفّق إنهاء الجلسة الحيّة في خدمة الفصول الدراسية.}
-  \label{fig:flow-02}
-\end{figure}
+تجتمع في إجرائية إنهاء الجلسة الحيّة ثلاث مشكلات صحّة منفصلة، وهي أعقد منطق في الخدمة. وقد بُيّن هذا التدفّق في الشكل~\ref{fig:flow-02}.
 
 \begin{enumerate}
   \item \textbf{السباق} (\en{Race Condition}): يمكن أن تُنهى الجلسة من المعلّم أو المدير الأعلى أو الكانس الدوري في اللحظة نفسها. واستُعمل تحديثٌ ذرّيٌّ مشروط يُسنِد الفصل في التزامن إلى قاعدة البيانات: يتولّى التفكيك من ينجح في الحجز، ويتوقّف من يفشل فيه، فلا يُنفَّذ التفكيك مرّتين.
@@ -224,14 +203,7 @@
 
 \subsection{تدفّق تسجيل الجلسة}
 
-يعتمد تدفّق التسجيل على نظام خارجي، ولا تستطيع الخدمة إتمامه وحدها. ويعرض الشكل~\ref{fig:flow-03} معالجة هذه التبعية.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/flow-03-recording-egress.png}
-  \caption{تدفّق تسجيل الجلسة وحفظها في مخزن الملفّات.}
-  \label{fig:flow-03}
-\end{figure}
+يعتمد تدفّق التسجيل على نظام خارجي، ولا تستطيع الخدمة إتمامه وحدها. وقد بُيّنت معالجة هذه التبعية في الشكل~\ref{fig:flow-03}.
 
 واعتُمدت آليتان متكاملتان لمعالجة هذه التبعية:
 
@@ -255,14 +227,7 @@
 
 \subsection{تدفّق إرسال الإشعارات}
 
-يعرض الشكل~\ref{fig:flow-04} مسار الإشعار من لحظة نشره إلى لحظة تسليمه.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/flow-04-email-dispatch.png}
-  \caption{تدفّق إرسال الإشعارات البريدية.}
-  \label{fig:flow-04}
-\end{figure}
+وقد بُيّن مسار الإشعار من لحظة نشره إلى لحظة تسليمه في الشكل~\ref{fig:flow-04}.
 
 ويحقّق عزل هذه المسؤولية في خدمة مستهلِكة فكَّ الارتباط الزمني، إذ لا تنتظر الخدمة الناشرة نتيجة الإرسال. ويؤدّي تعطّل خادم البريد عندئذٍ إلى تأخير وصول الإشعارات دون تعطيل تسجيل الدخول أو التسجيل أو الانضمام إلى فصل.
 

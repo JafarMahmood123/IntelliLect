@@ -237,14 +237,14 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| K-01 | A chat message while the sidebar is closed increments the unread badge | Frontend | P1 | new |
-| K-02 | Your own message never notifies you | Frontend | P0 | new |
-| K-03 | No notification when the relevant panel is already open and focused | Frontend | P1 | new |
-| K-04 | A published quiz notifies every student in the session, once | Frontend | P0 | new |
-| K-05 | Unread count clears on open and does not resurrect on re-render | Frontend | P1 | new |
-| K-06 | Backgrounded tab: title/favicon reflects unread (visibilitychange handling) | Browser E2E | P1 | new |
-| K-07 | Denied browser-notification permission degrades to in-app only, no crash, no repeated prompting | Frontend | P0 | new |
-| K-08 | Mute suppresses notifications without suppressing the messages themselves | Frontend | P2 | new |
+| K-01 | A chat message while the sidebar is closed increments the unread badge | Frontend | P1 | ✓ |
+| K-02 | Your own message never notifies you | Frontend | P0 | ✓ |
+| K-03 | No notification when the relevant panel is already open and focused | Frontend | P1 | ✓ |
+| K-04 | A published quiz notifies every student in the session, once | Frontend | P0 | ✓ |
+| K-05 | Unread count clears on open and does not resurrect on re-render | Frontend | P1 | ✓ |
+| K-06 | Backgrounded tab: **title** reflects unread (visibilitychange handling) | Frontend | P1 | ✓ (title only — no favicon badge, see work-plan §5) |
+| K-07 | Denied browser-notification permission degrades to in-app only, no crash, no repeated prompting | Frontend | P0 | ✓ |
+| K-08 | Mute suppresses notifications without suppressing the messages themselves | Frontend | P2 | ✓ |
 
 ## 14. Area L — Cross-service messaging & consistency
 

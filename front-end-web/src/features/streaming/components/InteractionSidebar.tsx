@@ -8,8 +8,11 @@ import {
   MessageSquare,
   Send,
   SlidersHorizontal,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { useStreamHub } from '../hooks/useStreamHub';
+import { useSessionNotifications } from '../hooks/useSessionNotifications';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { SessionSettingsPanel } from './SessionSettingsPanel';
@@ -54,21 +57,40 @@ export const InteractionSidebar = () => {
     queryClient.invalidateQueries({ queryKey: quizKeys.openForSession(sessionId) });
   }, [quizEvent, queryClient, sessionId]);
 
+  // Unread counts, the tab title and desktop alerts. Owned here rather than inside the panels: a
+  // panel that is not the open section is not mounted, so it cannot notice what it missed — which
+  // is precisely the case this feature exists for.
+  const notifications = useSessionNotifications({
+    messages,
+    currentUserId: user?.id,
+    isChatOpen: openSection === 'chat',
+    // A teacher publishes the quiz; being told it started would be telling them their own news.
+    openQuiz: !isTeacher && openQuiz ? { id: openQuiz.id, title: openQuiz.title } : null,
+    isQuizOpen: openSection === 'quiz',
+  });
+
   // Announced once per quiz. A student on the chat panel would otherwise find out only by opening
-  // the drawer's quiz section on a hunch.
+  // the drawer's quiz section on a hunch. The toast is the in-app half; the hook raises the
+  // desktop half for whoever is not looking at the tab at all.
   const announcedQuizId = useRef<string | null>(null);
   useEffect(() => {
     if (isTeacher || !openQuiz || announcedQuizId.current === openQuiz.id) return;
     announcedQuizId.current = openQuiz.id;
+    if (notifications.muted) return;
     showToast({
       type: 'info',
       title: 'Quiz started',
       message: `${openQuiz.title || 'A quiz'} is open. Open the Quiz panel to answer it.`,
     });
-  }, [openQuiz, isTeacher, showToast]);
+  }, [openQuiz, isTeacher, showToast, notifications.muted]);
 
   // Cleared as soon as they open it — a badge that outstays what it announced is noise.
   const quizWaiting = Boolean(openQuiz) && !isTeacher && openSection !== 'quiz';
+
+  const openPanel = (id: string) => {
+    if (id === 'chat') notifications.markChatRead();
+    setOpenSection(id);
+  };
 
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -95,6 +117,7 @@ export const InteractionSidebar = () => {
       label: 'Chat',
       description: 'Message everyone in the session',
       icon: <MessageSquare size={17} />,
+      badge: notifications.unreadChat > 0 ? `${notifications.unreadChat}` : undefined,
     },
     {
       id: 'qa',
@@ -241,7 +264,32 @@ export const InteractionSidebar = () => {
         </>
       ) : (
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
-          <SidebarMenu sections={sections} onOpen={setOpenSection} />
+          <SidebarMenu sections={sections} onOpen={openPanel} />
+
+          <div className="flex items-center justify-between gap-2 border-t border-white/5 px-3 py-2">
+            <button
+              type="button"
+              onClick={notifications.toggleMuted}
+              aria-pressed={notifications.muted}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-slate-400 transition-colors hover:bg-white/10 hover:text-slate-200"
+            >
+              {notifications.muted ? <BellOff size={14} /> : <Bell size={14} />}
+              {notifications.muted ? 'Alerts muted' : 'Alerts on'}
+            </button>
+
+            {/* Offered, never taken. A permission dialog nobody asked for on entering a class is
+                how a site gets blocked for good — and a blocked site cannot alert anyone about
+                anything. Once the answer is in, granted or refused, the offer goes away. */}
+            {notifications.permission === 'default' && (
+              <button
+                type="button"
+                onClick={notifications.requestDesktop}
+                className="rounded-lg px-2 py-1.5 text-[11px] font-semibold text-violet-300 transition-colors hover:bg-violet-500/15"
+              >
+                Alert me outside the tab
+              </button>
+            )}
+          </div>
         </div>
       )}
     </aside>
