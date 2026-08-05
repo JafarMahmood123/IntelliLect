@@ -10,6 +10,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Domain.Entities;
 using UserManagementService.Infrastructure.Authentication;
+using UserManagementService.Infrastructure.Configuration;
 using UserManagementService.Infrastructure.Hashing;
 using UserManagementService.Infrastructure.Messaging;
 using UserManagementService.Infrastructure.Persistence;
@@ -88,45 +89,31 @@ public static class DependencyInjection
         services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
         services.AddSingleton<ITwoFactorCodeGenerator, TwoFactorCodeGenerator>();
 
+        // --- Downstream /api/internal clients -------------------------------------------------
+        // Bound and VALIDATED AT STARTUP rather than read by string index at first use (§14.3/4).
+        // These four settings blocks used to be inline defaults spread between here and each
+        // client, so a missing secret produced a super-admin page of empty panels and a series of
+        // 401s that read as the other service being down.
+        services.AddInternalServiceOptions<ClassroomServiceOptions>(
+            configuration, ClassroomServiceOptions.SectionName);
+        services.AddInternalServiceOptions<StreamingServiceOptions>(
+            configuration, StreamingServiceOptions.SectionName);
+        services.AddInternalServiceOptions<LiveAssistantOptions>(
+            configuration, LiveAssistantOptions.SectionName);
+        services.AddInternalServiceOptions<RagServiceOptions>(
+            configuration, RagServiceOptions.SectionName);
+
         // Typed HttpClient to ClassroomService's internal endpoint (super admin user-detail view).
-        var classroomBaseUrl = configuration["ClassroomService:BaseUrl"] ?? "http://classroom-service:8080";
-        var classroomTimeoutSeconds = int.TryParse(configuration["ClassroomService:TimeoutSeconds"], out var seconds) ? seconds : 10;
-        services.AddHttpClient<IClassroomInternalClient, ClassroomInternalClient>(client =>
-        {
-            client.BaseAddress = new Uri(classroomBaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(classroomTimeoutSeconds);
-        });
+        services.AddInternalHttpClient<IClassroomInternalClient, ClassroomInternalClient, ClassroomServiceOptions>();
 
         // Real-time inputs for the super-admin session monitor. Both are best-effort at the
-        // call site: a failure degrades the live view instead of blocking it (4أ).
-        var streamingBaseUrl = configuration["StreamingService:BaseUrl"] ?? "http://streaming-service:8080";
-        var streamingSecret = configuration["StreamingService:InternalApiSecret"];
-        services.AddHttpClient<IStreamingInternalClient, StreamingInternalClient>(client =>
-        {
-            client.BaseAddress = new Uri(streamingBaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
-            // StreamingService's internal routes are secret-guarded and fail closed.
-            if (!string.IsNullOrWhiteSpace(streamingSecret))
-            {
-                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Internal-Secret", streamingSecret);
-            }
-        });
-
-        var liveAssistantBaseUrl = configuration["LiveAssistant:BaseUrl"] ?? "http://live-assistant-service:8080";
-        services.AddHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient>(client =>
-        {
-            client.BaseAddress = new Uri(liveAssistantBaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
-        });
+        // call site: a failure degrades the live view instead of blocking it (4أ), which is why
+        // their configured timeouts are the shortest.
+        services.AddInternalHttpClient<IStreamingInternalClient, StreamingInternalClient, StreamingServiceOptions>();
+        services.AddInternalHttpClient<ILiveAssistantInternalClient, LiveAssistantInternalClient, LiveAssistantOptions>();
 
         // RagService admin client (super-admin content/knowledge-base management).
-        var knowledgeBaseUrl = configuration["RagService:BaseUrl"] ?? "http://rag-service:8080";
-        var knowledgeTimeoutSeconds = int.TryParse(configuration["RagService:TimeoutSeconds"], out var kSeconds) ? kSeconds : 10;
-        services.AddHttpClient<IRagAdminClient, RagAdminClient>(client =>
-        {
-            client.BaseAddress = new Uri(knowledgeBaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(knowledgeTimeoutSeconds);
-        });
+        services.AddInternalHttpClient<IRagAdminClient, RagAdminClient, RagServiceOptions>();
 
         // Read EAGERLY, before MassTransit is configured. The Required() calls used to sit inside
         // the UsingRabbitMq callback, which MassTransit defers until the bus starts — so a missing

@@ -338,7 +338,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| M-01 | Settings bind correctly; documented defaults apply when a key is absent | Unit | P0 | new |
+| M-01 | Settings bind correctly; documented defaults apply when a key is absent | Unit | P0 | ✓ |
 | M-02 | A missing **required** setting fails at startup, not on first request | Unit | P0 | ✓ (and the broker credentials genuinely do now — see work-plan §7.9) |
 | M-03 | Drift test: every variable compose requires appears in `.env.example`, and nothing in it is unread | Unit | P1 | ✓ |
 | M-04 | `.env.example` contains no real secret | Unit | P0 | ✓ |
@@ -348,6 +348,10 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | M-08 | Health endpoints report unhealthy when a dependency is down (not a blind 200) | Integration | P1 | partial |
 | M-09 | en and ar locale files have identical key sets **and matching placeholders**, allowing for Arabic's six plural categories | Frontend | P1 | ✓ |
 | M-10 | RTL layout renders without overflow on the main pages | Frontend | P2 | partial |
+| M-11 | Every downstream `/api/internal` client binds its OWN section — a client wired to the wrong one is caught | Unit | P0 | ✓ |
+| M-12 | A missing internal secret or base URL refuses startup with a message naming the key to set and the env var it must match | Unit | P0 | ✓ (defect found: LiveAssistant & RagService secrets were never configured in UMS) |
+| M-13 | A timeout `HttpClient` would reject (zero or negative) is refused at startup rather than crashing the host | Unit | P1 | ✓ |
+| M-14 | Each internal client is built with its configured base address, timeout, and the `X-Internal-Secret` header | Unit | P0 | ✓ |
 
 ## 16. Area N — Email delivery (work-plan §7.6)
 

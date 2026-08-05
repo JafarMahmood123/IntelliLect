@@ -33,14 +33,35 @@ services:
       - RabbitMq__Username=${RABBITMQ_USER:?set it in backend/.env}
       - RabbitMq__Password=${RABBITMQ_PASS:?set it in backend/.env}
       - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
+      # --- Downstream /api/internal clients -------------------------------------------------
+      # All four are validated at startup: a missing BaseUrl or InternalApiSecret refuses the
+      # boot naming the key, rather than producing a super-admin page of empty panels and a
+      # series of 401s that read as the other service being down.
+      #
+      # LiveAssistant__* and RagService__* were MISSING here. Their clients defaulted the secret
+      # to "" and then omitted the header, so every call UMS made to those two services was
+      # refused — the far side fails closed by design. The knowledge-base admin view and the
+      # live-session monitor's assistant half were 401ing in this configuration.
+      #
       # Read a user's classroom memberships for the super admin user-detail view.
       # InternalApiSecret must match ClassroomService's Internal__ApiSecret.
       - ClassroomService__BaseUrl=http://classroom-service:8080
       - ClassroomService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       - ClassroomService__TimeoutSeconds=10
       # Live-session monitor reads StreamingService's internal routes, which are secret-guarded
-      # and fail closed. Same shared value as above.
+      # and fail closed. Same shared value as above. The 5s timeouts are deliberate: this feeds a
+      # live view that must degrade rather than block (4أ). They were hard-coded in C# while
+      # nothing read the configured value — now they live here, visible and adjustable.
+      - StreamingService__BaseUrl=http://streaming-service:8080
       - StreamingService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      - StreamingService__TimeoutSeconds=5
+      - LiveAssistant__BaseUrl=http://live-assistant-service:8080
+      - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      - LiveAssistant__TimeoutSeconds=5
+      # Super-admin knowledge-base management (list/reindex/delete documents).
+      - RagService__BaseUrl=http://rag-service:8080
+      - RagService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      - RagService__TimeoutSeconds=10
     depends_on:
       user-db:
         condition: service_healthy

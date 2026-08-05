@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 
@@ -13,16 +12,13 @@ namespace UserManagementService.Infrastructure.Services;
 /// </summary>
 public sealed class RagAdminClient : IRagAdminClient
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
     private const int MaxAttempts = 3;
 
     private readonly HttpClient _httpClient;
-    private readonly string _internalSecret;
 
-    public RagAdminClient(HttpClient httpClient, IConfiguration configuration)
+    public RagAdminClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _internalSecret = configuration["RagService:InternalApiSecret"] ?? string.Empty;
     }
 
     public async Task<KnowledgeDocumentPage> ListDocumentsAsync(
@@ -146,10 +142,6 @@ public sealed class RagAdminClient : IRagAdminClient
             try
             {
                 var request = requestFactory();
-                if (!string.IsNullOrWhiteSpace(_internalSecret))
-                {
-                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _internalSecret);
-                }
 
                 var response = await _httpClient.SendAsync(request, ct);
 

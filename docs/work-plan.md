@@ -918,9 +918,36 @@ Target applies per service, measured after the §0.3 exclusions.
 
       Still at 0% and genuinely lower value: `src/pages` and `AuthLayout` (thin wrappers), the
       profile forms, `useThemeStore`, and `download.ts`.
-- [ ] **7.8 Mutation-check the weak spots** — 85% line coverage with assertion-free
-      tests is worse than 60% honest coverage. Spot-check the critical services by
-      breaking a line and confirming a test fails.
+- [x] **7.8 Mutation-check the weak spots — DONE, and done continuously rather than as a
+      pass at the end.** Every §7 item above was mutation-checked as part of finishing it, by
+      breaking a line in the source and confirming a named test fails: EmailService (the retry
+      rule), UMS (the status re-check), StreamingService (the publish master switch, then 9
+      more), ClassroomService (8), RagService (18), LiveAssistantService (18), the frontend
+      (10), and the settings work below (6). **Roughly 70 mutations in total, across every
+      service.**
+
+      The value was not the ones that passed. **Four survived and each exposed a test that was
+      passing for the wrong reason**, which is precisely what this item exists to catch:
+
+      - *A crash releases the retained ideas* (LiveAssistantService) asserted an empty store —
+        which is empty anyway in a crash, because no idea ever completes. Rewritten to seed the
+        store first, and split so the pacer reset is asserted rather than implied by a name.
+      - *Every request that waited on a shared refresh gets the new token* (frontend) read the
+        recorded request headers, but the retry mutates the original config object, so the
+        mock's history showed the final header on the original entry too. Rewritten to make the
+        server DEMAND the new token.
+      - *Removing the `_retry` guard* made a frontend test **hang** rather than fail. A test
+        that hangs reports nothing; the refresh endpoint now succeeds only once there, so the
+        loop terminates and the count assertion says what happened.
+      - *A missing internal secret names its section* (UMS) passed with no custom message at
+        all, because the default DataAnnotations text contains the section name by accident of
+        the options type being called `RagServiceOptions`. Now asserted on the actionable half
+        of the message instead.
+
+      Two mutations were also *informative rather than failing*: removing the explicit
+      `Authorization` header on the frontend retry changed nothing (the request interceptor
+      re-reads the token), so that line is documented as belt-and-braces rather than left
+      looking load-bearing.
 
 ---
 
@@ -1343,12 +1370,45 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       - **leave as a constant** — a genuine domain invariant. Moving these to config is
         a downgrade: it turns a compile-time guarantee into a runtime failure. Resist
         the urge to externalise everything.
-- [ ] **14.3 Bind through typed options,** not scattered `IConfiguration["Key"]` /
-      `os.getenv` reads. .NET: an options class per section. Python: extend the existing
-      `Settings` objects — both Python services already have one, so follow that shape.
-- [ ] **14.4 Fail fast on startup** when a required setting is missing or malformed.
-      A service that boots with a blank internal secret and only fails on the first
-      request is far harder to diagnose than one that refuses to start.
+- [x] **14.3 Bind through typed options — DONE.** Both Python services already had a single
+      `Settings` object, and ClassroomService and StreamingService already bound their sections
+      (`RagServiceOptions`, `LiveAssistantOptions`, `LiveKitSettings`, `MediaOptions`,
+      `UploadOptions`). **UserManagementService was the last one that did not**: it reached four
+      downstream services and read all three of their settings by string index, with an inline
+      default per read, spread between the composition root and each client — so the effective
+      value of any of them was not discoverable from one place.
+
+      Now one `InternalServiceOptions` shape with four bound sections, and a single
+      `AddInternalHttpClient` that applies the base address, the timeout **and** the
+      `X-Internal-Secret` header once at registration instead of in three separate constructors.
+      A client that forgets the header produces a 401 from a service that is running perfectly,
+      which is among the least obvious failures in this system to diagnose.
+- [x] **14.4 Fail fast on startup — DONE, and it immediately found a live misconfiguration.**
+      The four sections are `ValidateOnStart`, so a missing URL or secret refuses the boot
+      naming the key rather than surfacing later as someone else's 401.
+
+      **DEFECT FOUND: UMS never had the LiveAssistant or RagService secrets configured at all.**
+      Its compose file set `ClassroomService__*` and `StreamingService__InternalApiSecret`, and
+      nothing else. Both clients defaulted the secret to `""` and then omitted the header — and
+      those routes fail closed on the far side by design (§7b). So **every call UMS made to
+      RagService and LiveAssistantService was being refused**: the super-admin knowledge-base
+      view and the assistant half of the live-session monitor were 401ing in the deployed
+      configuration, presenting as empty panels rather than as an error. The missing variables
+      are now in the compose file with the same `${INTERNAL_API_SECRET:?}` shape as the rest.
+
+      Two smaller things fell out of the same work. `TimeoutSeconds` for StreamingService and
+      LiveAssistant was **hard-coded to 5s in C# while compose supplied a value nothing read** —
+      a setting that is provided and ignored is worse than either value, because the next person
+      to change it will believe they have; the 5s now lives in the compose file where it is
+      visible. And the timeout is range-checked, because `HttpClient.Timeout` throws on zero or
+      negative, so a typo'd `0` used to take the service down with an `ArgumentOutOfRangeException`
+      naming neither the setting nor the service it belonged to.
+
+      **Mutation-checked (§7.8), 6 mutations.** One survived twice before the test was right:
+      "a missing secret names its section" passed with no custom message at all, because the
+      default DataAnnotations text contains the section name by accident of the options type
+      being called `RagServiceOptions`. It now asserts the actionable half of the message —
+      the key to set and the env var it must match.
 - [x] **14.5 `.env.example` — DONE.** Three files, matching the three `.env` files that
       are actually consumed: `backend/.env.example` (compose interpolation),
       `backend/RagService/.env.example` and

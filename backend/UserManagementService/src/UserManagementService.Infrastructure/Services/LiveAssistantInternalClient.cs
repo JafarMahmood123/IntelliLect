@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
 using UserManagementService.Application.Abstractions;
 
 namespace UserManagementService.Infrastructure.Services;
@@ -12,24 +11,17 @@ namespace UserManagementService.Infrastructure.Services;
 /// </summary>
 public sealed class LiveAssistantInternalClient : ILiveAssistantInternalClient
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
 
     private readonly HttpClient _httpClient;
-    private readonly string _internalSecret;
 
-    public LiveAssistantInternalClient(HttpClient httpClient, IConfiguration configuration)
+    public LiveAssistantInternalClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _internalSecret = configuration["LiveAssistant:InternalApiSecret"] ?? string.Empty;
     }
 
     public async Task<IReadOnlyCollection<Guid>> GetActiveSessionIdsAsync(CancellationToken ct = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "api/internal/sessions");
-        if (!string.IsNullOrWhiteSpace(_internalSecret))
-        {
-            request.Headers.TryAddWithoutValidation(InternalSecretHeader, _internalSecret);
-        }
 
         using var response = await _httpClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();

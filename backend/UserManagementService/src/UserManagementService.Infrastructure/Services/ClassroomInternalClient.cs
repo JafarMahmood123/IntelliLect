@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Configuration;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 
@@ -16,16 +15,13 @@ namespace UserManagementService.Infrastructure.Services;
 /// </summary>
 public sealed class ClassroomInternalClient : IClassroomInternalClient
 {
-    private const string InternalSecretHeader = "X-Internal-Secret";
     private const int MaxAttempts = 3;
 
     private readonly HttpClient _httpClient;
-    private readonly string _internalSecret;
 
-    public ClassroomInternalClient(HttpClient httpClient, IConfiguration configuration)
+    public ClassroomInternalClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _internalSecret = configuration["ClassroomService:InternalApiSecret"] ?? string.Empty;
     }
 
     public async Task<UserClassrooms> GetUserClassroomsAsync(Guid userId, CancellationToken ct = default)
@@ -37,10 +33,6 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
                 using var request = new HttpRequestMessage(
                     HttpMethod.Get, $"api/internal/users/{userId}/classrooms");
 
-                if (!string.IsNullOrWhiteSpace(_internalSecret))
-                {
-                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _internalSecret);
-                }
 
                 using var response = await _httpClient.SendAsync(request, ct);
 
@@ -474,10 +466,6 @@ public sealed class ClassroomInternalClient : IClassroomInternalClient
             try
             {
                 var request = requestFactory();
-                if (!string.IsNullOrWhiteSpace(_internalSecret))
-                {
-                    request.Headers.TryAddWithoutValidation(InternalSecretHeader, _internalSecret);
-                }
 
                 var response = await _httpClient.SendAsync(request, ct);
 
