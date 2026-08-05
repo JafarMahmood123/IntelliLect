@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using StreamingService.Application.Abstractions;
-using StreamingService.Infrastructure.Authentication;
 using StreamingService.Infrastructure.Configuration;
 using StreamingService.Infrastructure.Consumers;
 using StreamingService.Infrastructure.Persistence;
@@ -26,7 +25,12 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         var jwtSettings = configuration.GetSection("Jwt");
-        var secretKey = jwtSettings["SecretKey"] ?? "MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY";
+        // Required, never defaulted. This used to fall back to a literal secret written in this
+        // file — which meant a missing Jwt__SecretKey did not break anything, it just made the
+        // service validate tokens signed with a key that is public in the git history. Anyone
+        // could then mint a token for any role and it would verify. A signing key with a default
+        // is not a signing key.
+        var secretKey = Required(configuration, "Jwt:SecretKey");
         var issuer = jwtSettings["Issuer"] ?? "IntelliLect";
         var audience = jwtSettings["Audience"] ?? "IntelliLect";
 
@@ -87,9 +91,6 @@ public static class DependencyInjection
                 }
             };
         });
-
-        services.AddSingleton<IJwtProvider>(_ =>
-            new JwtProvider(secretKey, issuer, audience));
 
         services.AddAuthorization();
 

@@ -166,7 +166,7 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| G-01 | Token issuance encodes the correct role in metadata; a student token cannot publish as teacher | Unit | P0 | partial |
+| G-01 | Token issuance encodes the correct role in metadata; a student token cannot publish as teacher | Unit | P0 | ✓ |
 | G-02 | A non-member cannot obtain a token for a session | Integration | P0 | gap |
 | G-03 | LiveKit webhook signature is verified; a forged webhook is rejected | Unit | P0 | ✓ |
 | G-04 | Recording start/stop toggles produce exactly one egress; a double-start does not | Unit | P0 | ✓ |
@@ -176,6 +176,13 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 | G-08 | Brief disconnect → reconnect keeps the user in the session (does not bounce to the classroom page) | Browser E2E | P0 | ✓ (unit) |
 | G-09 | Ending the session properly still ejects everyone — the same change touches both paths | Browser E2E | P0 | ✓ (unit) |
 | G-10 | Session end triggers transcript persistence and summary generation | Integration | P0 | ✓ (unit) |
+
+| G-20 | A view-only student's join token has `canPublish` false AND an empty source list | Unit | P0 | ✓ |
+| G-21 | Publish sources match exactly the permissions granted; one permission never implies the other | Unit | P0 | ✓ |
+| G-22 | A student never receives screen-share; a teacher keeps it with camera and mic off | Unit | P0 | ✓ |
+| G-23 | Role matching is case-insensitive, and an unknown role gets a student's rights | Unit | P0 | ✓ |
+| G-24 | The token binds room to session and identity to user; the role travels in metadata | Unit | P0 | ✓ |
+| G-25 | Subscribe and data-channel rights never depend on publish rights | Unit | P1 | ✓ |
 
 ## 10. Area H — Live assistant & feedback colours (work-plan §3)
 

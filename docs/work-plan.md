@@ -514,8 +514,38 @@ Target applies per service, measured after the §0.3 exclusions.
       extensions, submissions, classroom/session deletion cascades, file indexing status.
 - [ ] **7.3 LiveAssistantService** — idea evaluator, boundary/drift detection, quiz
       generator + parser, retrieval client, the new severity contract (§3), pacing rules.
-- [ ] **7.4 StreamingService** — token/role issuance, media config, session end &
-      ejection, reconnection handling.
+- [~] **7.4 StreamingService — token/role issuance DONE; the rest still open.** Coverage
+      **30.1% → 39.0%**, and the two biggest movers were not more tests.
+
+      **Deleted a dead token issuer.** `JwtProvider` (78 lines, 0% covered — the largest
+      untested file in the service) minted access and refresh tokens with role claims.
+      Nothing injected `IJwtProvider` anywhere: this service only *validates* UMS's tokens,
+      it never issues any. A second, unused token minter sharing the JWT secret is a hazard
+      rather than a feature, so it is gone rather than tested.
+
+      **Then the JWT signing key turned out to fail open.** ClassroomService and
+      StreamingService both read
+      `jwtSettings["SecretKey"] ?? "MY_SUPER_DUPER_STRONG_UNEXPECTED_SECRET_KEY"` — so a
+      missing `Jwt__SecretKey` did not break them, it made them validate tokens signed with
+      a key that is public in this repository's history. Anyone could mint a SuperAdmin
+      token and both services would accept it. Same fail-open shape as the internal secret,
+      on the front door. All three services now use the `Required(...)` helper from §14, and
+      the literal is deleted from the three `appsettings.Development.json` files that also
+      carried it. Every compose file already sets `Jwt__SecretKey` with `:?`, so nothing
+      that runs today changes — a bare `dotnet run` without it now fails fast naming the key.
+
+      **13 tests on the LiveKit join token**, which is the actual "token/role issuance" this
+      item names: it IS the authorization for the media room, and once LiveKit holds it our
+      code is never consulted again. Covers the view-only student (master switch off AND an
+      empty source list, because either alone would leave a way in), one-permission grants,
+      that a student never gets screen-share, that a teacher keeps it with camera and mic
+      off, case-insensitive role matching, an unknown role failing toward fewer rights, room
+      and identity binding, the role in participant metadata, and that subscribe and data
+      never depend on publish rights. Mutation-checked on the master switch.
+
+      Still open here: media config beyond the token, session end and ejection, and
+      reconnection handling — `LiveKitRoomLifecycleService` (40 lines) and
+      `LiveKitEgressClient` (24) are the next targets, and both need a LiveKit fake.
 - [ ] **7.5 RagService/RagService** — chunking, embedding, retrieval scoring and
       the min-score cutoff, indexing state machine.
 - [x] **7.6 EmailService — DONE.** The service that had **zero** tests now has 28, in a
