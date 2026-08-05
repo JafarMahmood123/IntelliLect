@@ -652,7 +652,7 @@ Target applies per service, measured after the §0.3 exclusions.
 
       **Still container- or model-blocked here:** `livekit_audio_source` (26%),
       `sqlalchemy_transcript_repository` (38%) and `faster_whisper_speech_to_text` (40%).
-- [~] **7.4 StreamingService — token/role issuance DONE; the rest still open.** Coverage
+- [x] **7.4 StreamingService — DONE.** Coverage
       **30.1% → 39.0%**, and the two biggest movers were not more tests.
 
       **Deleted a dead token issuer.** `JwtProvider` (78 lines, 0% covered — the largest
@@ -681,9 +681,64 @@ Target applies per service, measured after the §0.3 exclusions.
       and identity binding, the role in participant metadata, and that subscribe and data
       never depend on publish rights. Mutation-checked on the master switch.
 
-      Still open here: media config beyond the token, session end and ejection, and
-      reconnection handling — `LiveKitRoomLifecycleService` (40 lines) and
-      `LiveKitEgressClient` (24) are the next targets, and both need a LiveKit fake.
+      **The rest is now DONE too.** 130 → **158** tests, coverage **39.6% → 44.8%**
+      (branch 31.2% → 34.4%). The three things this bullet still listed — media config
+      beyond the token, session end and ejection, and reconnection handling — are covered,
+      and `StreamService` went **38.7% → 100%** with `LiveKitRoomLifecycleService` **0% →
+      100%**.
+
+      **A seam, not a mock.** `LiveKitRoomLifecycleService` was untestable because it built
+      the SDK's `RoomServiceClient` in its own constructor, and the SDK's methods are
+      non-virtual. Rather than invent a mocking approach, it now takes `ILiveKitRoomClient` —
+      the same pattern, and the same reasoning, as the `ILiveKitEgressClient` this service
+      has used all along. The transport (and its 5s fail-fast timeout) moved to a thin
+      `LiveKitRoomClient` adapter; every decision stayed on the testable side.
+
+      **Session end and ejection, 19 tests.** Closing the room is what actually removes
+      people: the "session ended" broadcast is a courtesy that a sleeping tab or a flaky
+      connection never receives, and if the room is not deleted that student stays connected
+      to live audio and video of a classroom everyone else considers closed. A failure to
+      close is deliberately *not* swallowed — the caller is the only one positioned to retry
+      — while the publish-policy path deliberately is, because a room that does not exist yet
+      is the normal case when a teacher sets the policy before anyone joins.
+
+      The publish policy is the mute switch, applied by role read from participant metadata,
+      and the tests are mostly about who is *not* touched: revoking a source
+      force-unpublishes it immediately, so mistaking the teacher for a student cuts off the
+      person giving the lecture, mid-sentence, in front of the class. Covered: only students
+      are updated, the role match is case-insensitive, an unreadable role (absent, malformed,
+      or valid JSON with no role) is left alone rather than guessed at, muting sets **both**
+      the master switch off and an empty source list, a muted student keeps subscribe and
+      data (muting is not ejection — dropping either turns "you may not speak" into "you may
+      not attend"), each granted source is the only one granted, and one participant that
+      disconnects mid-sweep does not stop the rest.
+
+      **Media config beyond the token, 9 tests.** `MediaOptionsTests` already pinned how the
+      "Media" section binds; what had no coverage was whether what was bound actually reaches
+      the browser. That is a separate failure with no symptom — a value dropped in the
+      mapping does not error, it silently leaves livekit-client on its own default, which by
+      those same tests' reasoning means a thumbnail-sized tile pulling a full-resolution
+      stream or a single failed reconnect ejecting a student. Written as a **rule over
+      `IMediaSettings`** in both directions, so a nineteenth setting that is never mapped
+      fails and names itself, and a response field with no source cannot appear either. Every
+      value in the fixture is distinct, so a crossed pair (width/height) cannot pass by
+      coincidence. The reconnection settings get their own case: they are frozen when the
+      browser constructs its Room, so a value that does not arrive with the token has no
+      second chance.
+
+      **`LiveKitEgressClient` and `LiveKitRoomClient` stay at 0%, deliberately.** Both are
+      pure delegation to the SDK behind an interface whose consumers *are* tested; there is
+      no branch in either to get wrong. Testing them would be testing the LiveKit SDK. Noted
+      here rather than papered over with a hollow test.
+
+      **Mutation-checked (§7.8), 9 mutations, all caught:** the role check removed, the role
+      match made case-sensitive, the master publish switch left on with an empty source list,
+      one failed participant aborting the sweep, a missing room made fatal, a blank room name
+      still issuing a delete, a media setting dropped from the join response, two media
+      fields crossed, and an ended session still issuing a join token.
+
+      **Still open in this service, and container-bound:** `StreamHub` (the SignalR hub, 96
+      lines at 0%), the EF repositories, and the composition root.
 - [x] **7.5 RagService — DONE.** 235 → **335** tests, coverage **77% → 81%**. Four new
       suites, taking the three named areas from partial or absent to complete.
 

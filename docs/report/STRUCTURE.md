@@ -169,3 +169,17 @@ Remaining work, all content rather than formatting:
 - 35 design-level sequence diagrams inherited from the draft are still referenced
   in chapter 4; whether they stay there, move to chapter 5, or go is a question for
   the supervisor.
+
+**Decided: the five `flow-*` diagrams live in chapter 4, with their explanations.**
+Their figures were already in chapter 4 while the prose explaining them sat in
+chapter 5, so the two halves were split across chapters. The prose was moved down
+to join the figures, and each of the four service sections in chapter 5 now carries
+a one-line `\ref` pointer to it instead.
+
+Worth knowing this cuts against the usual split: these are white-box flowcharts
+(they name the outbox table, `EgressClaim`, the bus, LiveKit teardown ordering),
+and they now sit among chapter 4's black-box SSDs, whose captions promise
+«النظام بوصفه صندوقًا أسود». The alternative — moving the five figures up into
+chapter 5 — keeps design content in the design chapter and is the more conventional
+arrangement. Raise it with the supervisor; reversing it is a move of five figure
+blocks plus four `\ref` pointers.

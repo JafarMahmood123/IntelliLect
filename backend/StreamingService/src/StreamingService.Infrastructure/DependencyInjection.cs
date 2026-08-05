@@ -145,6 +145,7 @@ public static class DependencyInjection
 
         // Server-side room control: closing a room on session end disconnects every remaining
         // participant. Stateless wrapper over the SDK's RoomServiceClient -> singleton.
+        services.AddSingleton<ILiveKitRoomClient, LiveKitRoomClient>();
         services.AddSingleton<IRoomLifecycleService, LiveKitRoomLifecycleService>();
 
         // Session recording via LiveKit Room Composite Egress (R-0). The typed egress options

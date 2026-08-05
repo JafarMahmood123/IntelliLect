@@ -211,6 +211,16 @@ embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same
 | G-23 | Role matching is case-insensitive, and an unknown role gets a student's rights | Unit | P0 | ✓ |
 | G-24 | The token binds room to session and identity to user; the role travels in metadata | Unit | P0 | ✓ |
 | G-25 | Subscribe and data-channel rights never depend on publish rights | Unit | P1 | ✓ |
+| G-26 | Ending a session deletes the LiveKit room, so a client that never saw the broadcast is still cut off | Unit | P0 | ✓ |
+| G-27 | A failure to close the room is reported to the caller, never swallowed | Unit | P0 | ✓ |
+| G-28 | The live publish policy touches students only — never the teacher or the AI assistant | Unit | P0 | ✓ |
+| G-29 | A participant whose role cannot be read (absent, malformed, or role-less JSON) is left alone | Unit | P0 | ✓ |
+| G-30 | Muting sets `canPublish` false **and** an empty source list; the student keeps subscribe and data | Unit | P0 | ✓ |
+| G-31 | One participant that cannot be updated does not stop the sweep; a room that does not exist yet is not an error | Unit | P1 | ✓ |
+| G-32 | Every `IMediaSettings` value reaches the join response, and the response carries nothing the settings do not define (rule over the interface, both directions) | Unit | P0 | ✓ |
+| G-33 | The reconnection settings (retries, peer-connection and websocket timeouts) arrive intact — they are frozen at connect time | Unit | P0 | ✓ |
+| G-34 | Teacher and student receive identical media configuration | Unit | P1 | ✓ |
+| G-35 | No join token is issued once the session has ended — not even to the teacher | Unit | P0 | ✓ |
 
 ## 10. Area H — Live assistant & feedback colours (work-plan §3)
 

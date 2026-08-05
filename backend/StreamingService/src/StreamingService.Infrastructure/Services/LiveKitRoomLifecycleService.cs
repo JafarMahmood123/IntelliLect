@@ -1,9 +1,7 @@
 using System.Text.Json;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using StreamingService.Application.Abstractions;
-using StreamingService.Infrastructure.Configuration;
 
 namespace StreamingService.Infrastructure.Services;
 
@@ -16,25 +14,17 @@ namespace StreamingService.Infrastructure.Services;
 /// </summary>
 public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
 {
-    // The Room (twirp) API is reached over HTTP(S) at the server-side API endpoint
-    // (internal, LAN-IP-independent) — never the browser-facing ws Host.
-    private readonly RoomServiceClient _client;
+    // Behind ILiveKitRoomClient rather than the SDK type directly, so the decisions below —
+    // which participants are touched, and what happens when a call fails — are testable without
+    // a live LiveKit. The transport, and its 5s fail-fast timeout, live in LiveKitRoomClient.
+    private readonly ILiveKitRoomClient _client;
     private readonly ILogger<LiveKitRoomLifecycleService> _logger;
 
-    // Closing a room is on the session-end path, so an unreachable LiveKit must fail fast
-    // rather than blocking on the HttpClient's 100s default.
-    private static readonly TimeSpan ApiTimeout = TimeSpan.FromSeconds(5);
-
     public LiveKitRoomLifecycleService(
-        IOptions<LiveKitSettings> livekit,
+        ILiveKitRoomClient client,
         ILogger<LiveKitRoomLifecycleService> logger)
     {
-        var settings = livekit.Value;
-        _client = new RoomServiceClient(
-            settings.ApiHttpUrl,
-            settings.ApiKey,
-            settings.ApiSecret,
-            new HttpClient { Timeout = ApiTimeout });
+        _client = client;
         _logger = logger;
     }
 
@@ -42,7 +32,7 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
     {
         if (string.IsNullOrWhiteSpace(roomName)) return;
 
-        await _client.DeleteRoom(new DeleteRoomRequest { Room = roomName });
+        await _client.DeleteRoomAsync(new DeleteRoomRequest { Room = roomName });
 
         _logger.LogInformation("Closed LiveKit room {RoomName}; all participants disconnected.", roomName);
     }
@@ -58,7 +48,7 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
         ListParticipantsResponse participants;
         try
         {
-            participants = await _client.ListParticipants(new ListParticipantsRequest { Room = roomName });
+            participants = await _client.ListParticipantsAsync(new ListParticipantsRequest { Room = roomName });
         }
         catch (Exception ex)
         {
@@ -89,7 +79,7 @@ public sealed class LiveKitRoomLifecycleService : IRoomLifecycleService
 
             try
             {
-                await _client.UpdateParticipant(new UpdateParticipantRequest
+                await _client.UpdateParticipantAsync(new UpdateParticipantRequest
                 {
                     Room = roomName,
                     Identity = participant.Identity,
