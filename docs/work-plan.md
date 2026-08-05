@@ -579,8 +579,79 @@ Target applies per service, measured after the §0.3 exclusions.
 
       **Still infrastructure-only and container-blocked here:** the EF repositories, the
       hosted-service wrappers (their sweepers are already at 100%), and the controllers.
-- [ ] **7.3 LiveAssistantService** — idea evaluator, boundary/drift detection, quiz
-      generator + parser, retrieval client, the new severity contract (§3), pacing rules.
+- [x] **7.3 LiveAssistantService — DONE.** 315 → **375** tests, coverage **82% → 85%**.
+      As in §7.2, measuring first is what mattered: every area this item names was already
+      at or near 100% — idea evaluator 100%, pacing 100%, retrieval client 100%,
+      boundary/drift 96%, quiz generator 95%, quiz parser 93%, and the §3 severity contract
+      (`feedback_severity`, `feedback_payload`) 100% with `outcome_parser` at 97%.
+
+      **The gap was the brains, and it was the same shape as RagService's.** Both compose and
+      `.env.example` set `BRAIN_PROVIDER=gemini`, so `GeminiBrainClient` is the model that
+      actually decides whether a teacher said something wrong — and it sat at **39%**. The
+      existing brain tests stub `_complete` and cover parsing, so everything between the
+      prompt and the parser was untested: the request that gets built, the caps that apply to
+      it, and what happens when the model refuses, is blocked, or is unreachable. That half
+      fails *during a live lecture*, beside a teacher mid-sentence in front of a class, where
+      the symptom is not a stack trace but the assistant going quiet for the rest of the
+      session. Both brains are now at **100%** (Ollama 54% → 100% on the same lines — it is
+      the documented way back to a local model and the only brain that works with no key and
+      no internet, which is exactly when nobody wants to find an untested path).
+
+      What the 49 new tests pin, beyond the happy path:
+
+      - **`_to_gemini_schema` uppercases `type` all the way down.** Gemini's `responseSchema`
+        is an OpenAPI-derived proto whose `type` is an ENUM, so proto JSON wants the enum
+        NAME — `"OBJECT"`, not `"object"` — while the canonical schema stays lowercase
+        because that is what Ollama's `format` takes. Convert only the top level and every
+        quiz generation fails, reported as nothing that mentions a schema.
+      - **Quiz generation gets its own cap, temperature and timeout, not the evaluation
+        ones.** The configured model *thinks*, and thinking tokens are charged against the
+        same cap, so a quiz generated under the 512-token evaluation cap truncates mid-JSON.
+        That does not raise — the parser gets a partial object, returns nothing, and the
+        teacher sees the button do nothing at all.
+      - **A blocked prompt degrades to silence rather than raising.** Lecture material trips
+        safety filters more often than it sounds (medicine, history, chemistry); the
+        assistant has to fall silent for that idea and carry on.
+      - **A reply split across parts is joined, not truncated** — half a correction is worse
+        than none, because the teacher is told they were wrong without being told about what.
+      - **A malformed `GEMINI_GENERATION_CONFIG_JSON` is ignored, never fatal.** It is read
+        once at startup; raising takes the service down over a stray comma in an optional
+        tuning knob.
+      - **The API key travels in a header, not the URL**, and a 400 whose body mentions
+        `API_KEY` is reported as a key problem rather than as a malformed request — Google
+        answers 400 for some bad-key cases, and the generic bucket sends the operator looking
+        at a payload that is fine.
+      - Ollama-specific: the **core budget** (`num_thread`) that stops generation starving
+        STT on the same 8-core host, with `0` meaning "Ollama's default" rather than "no
+        threads"; `stream: False`, without which the reply arrives as newline-delimited JSON
+        and fails to parse; and the unpulled-model 404, which reads like a wrong URL.
+
+      **Session teardown, 86% and 11 new tests.** Every session ends; the well-covered path
+      is the one where the audio simply ran out. These are the other endings — a crash, a
+      cancellation, a source that never connects — and the cleanup they skip is invisible at
+      the time and surfaces later, in another service: a transcript left un-finalized never
+      becomes readable, so ClassroomService's summary comes back empty with nothing to
+      explain it. Also pinned: the run loop never propagates a fault, the crash log carries
+      the exception **type** and never the message (the transcript is course content and logs
+      outlive the session), a failing disconnect does not abort the finalize and state
+      release after it, and both the retained ideas and the pacer state are released — left
+      behind, they make a *later* run of the same session id start already rate-limited and
+      silently drop its first real feedback.
+
+      **Mutation-checked (§7.8), 18 mutations.** One survived on the first pass and the test
+      was wrong, not the code: "a crash releases the retained ideas" asserted an empty store,
+      which is empty anyway in a crash because no idea ever completes. Rewritten to seed the
+      store first, and split so the pacer reset is asserted separately rather than implied by
+      a test name. Both now fail when their line is removed, along with: a crash escaping the
+      loop, the crash log carrying the message, finalize only on a clean end, a failing
+      disconnect aborting cleanup, no disconnect at all, top-level-only schema conversion,
+      first-part-only reply reading, a blocked prompt raising, a fatal config parse, the
+      evaluation cap on quiz generation, env extras merged under rather than over the
+      defaults, the key moved into the URL, `num_thread` always sent, streaming left on, and
+      the 404 falling through to the generic message.
+
+      **Still container- or model-blocked here:** `livekit_audio_source` (26%),
+      `sqlalchemy_transcript_repository` (38%) and `faster_whisper_speech_to_text` (40%).
 - [~] **7.4 StreamingService — token/role issuance DONE; the rest still open.** Coverage
       **30.1% → 39.0%**, and the two biggest movers were not more tests.
 

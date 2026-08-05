@@ -150,7 +150,7 @@ build: **160 pages, 72 figures, 37 tables, 0 errors, 0 missing glyphs**.
 | --- | --- |
 | 1 — الإطار العام للمشروع | written |
 | 2 — الدراسة النظرية | written |
-| 3 — الأعمال المشابهة | written |
+| 3 — الدراسة المرجعية | written |
 | 4 — تحليل المتطلبات | written (largest — use cases, narratives, SSDs) |
 | 5 — تصميم النظام | written — overview, then one section per service |
 | 6 — التنفيذ والاختبار | written |

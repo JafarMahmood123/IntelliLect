@@ -227,8 +227,20 @@ embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same
 | H-09 | Each severity renders its colour, *and* a non-colour cue (icon/label) | Frontend | P0 | ✓ |
 | H-10 | Contrast passes in both light and dark themes | Frontend | P1 | new |
 | H-11 | "Likely to be" replaces "unclear" in the enum, prompt vocabulary and both locales | Unit + Frontend | P1 | ✓ |
-| H-12 | STT failure or model timeout degrades to silence, never to a crashed session | Unit | P0 | partial |
+| H-12 | STT failure or model timeout degrades to silence, never to a crashed session | Unit | P0 | ✓ |
 | H-13 | A quoted span the teacher never said is discarded, and the suggestion survives without it | Unit | P0 | ✓ |
+| H-14 | A prompt blocked by safety filters yields no feedback rather than an exception | Unit | P0 | ✓ |
+| H-15 | A reply split across response parts is joined, not truncated to the first part | Unit | P0 | ✓ |
+| H-16 | The brain's API key travels in a header, never in the URL | Unit | P0 | ✓ |
+| H-17 | A bad key reported as HTTP 400 is still named as a key problem; an ordinary 400 is not | Unit | P1 | ✓ |
+| H-18 | A malformed `GEMINI_GENERATION_CONFIG_JSON` is ignored rather than fatal at startup | Unit | P1 | ✓ |
+| H-19 | Quiz generation uses its own token cap, temperature and timeout — not the evaluation ones | Unit | P0 | ✓ |
+| H-20 | The response schema's `type` is uppercased at every nesting level for Gemini's proto dialect | Unit | P0 | ✓ |
+| H-21 | Ollama: generation is bounded to a core budget, and `0` means the provider default rather than zero threads | Unit | P1 | ✓ |
+| H-22 | Ollama: streaming is off, so the reply parses as one object | Unit | P0 | ✓ |
+| H-23 | A crash or cancellation mid-session still finalizes the transcript, disconnects, and releases the pacer and retained ideas | Unit | P0 | ✓ |
+| H-24 | The crash log carries the exception **type** only — never lecture content | Unit | P0 | ✓ |
+| H-25 | A failing disconnect does not abort the finalize and state release after it | Unit | P1 | ✓ |
 
 ## 11. Area I — Quizzes (work-plan §4)
 
