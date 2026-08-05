@@ -581,7 +581,29 @@ Target applies per service, measured after the §0.3 exclusions.
       **Mutation-checked (§7.8).** Adding an undefended consumer makes the retry rule fail
       and name it; the rule is not passing by vacuum, and a second test asserts the
       reflection finds five consumers so a broken query cannot make it green.
-- [ ] **7.7 Frontend** — the 28 existing suites plus new ones for §2–§6.
+- [~] **7.7 Frontend** — 28 suites at the start of this work, **36** now, 318 tests. Coverage
+      **31.4% → 40.9%**. New suites for §2 (bulk selection), §3 (feedback severity and the
+      correction span), §5 (notifications), §6 (ranking), plus the locale-parity rule (§7.9).
+
+      This pass took the **client-side authorization gates from 0% to 100%** — `src/routes`
+      had no tests at all. They are not the security boundary (the server is, and it refuses
+      on its own terms); what they decide is whether someone is *shown* a page they cannot
+      use, which is the difference between a clean redirect and a dashboard that renders and
+      then fills with failed requests. 15 cases, including the two that matter most: a role
+      is not admitted by a **substring** match (`SuperAdmin` contains `Admin`) or by a
+      **case-insensitive** one, and an empty allow-list admits nobody.
+
+      Also `getDefaultRoute` (7 cases — status outranks role, and an unknown role falls back
+      to a real path rather than `undefined`) and the auth store's logout (6 cases). The
+      logout ones are about a failure that is invisible by construction: a logout leaving a
+      token behind looks entirely correct — the user is returned to the login screen — while
+      the credential is still on the machine, which is precisely what someone on a shared
+      computer pressed the button to avoid. Covered: the server-side revocation happens, the
+      local session is cleared even when that request fails, and the **persisted** copy does
+      not keep the departing user's profile.
+
+      Still at 0% and worth a later pass: `src/pages`, the profile forms, `axios.ts`'s
+      refresh-and-logout interceptor, and `getApiErrorMessage`.
 - [ ] **7.8 Mutation-check the weak spots** — 85% line coverage with assertion-free
       tests is worse than 60% honest coverage. Spot-check the critical services by
       breaking a line and confirming a test fails.
