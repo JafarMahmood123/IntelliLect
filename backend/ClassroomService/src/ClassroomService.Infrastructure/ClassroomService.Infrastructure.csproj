@@ -11,6 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Pinned directly: AWSSDK.S3 drags in a vulnerable version (GHSA-37gx-xxp4-5rgx,
+         GHSA-w3x6-4m5h-cxqf). -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.18" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.400" />
     <PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.1.3" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.1.3" />

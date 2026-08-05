@@ -1,5 +1,6 @@
 using System.Net;
 using AutoMapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Application.Common.Mappings;
 using ClassroomService.Application.Models;
@@ -596,7 +597,10 @@ public static class TestMapper
 {
     /// <summary>Real AutoMapper built from the production profile (no mocking).</summary>
     public static IMapper Create()
-        => new MapperConfiguration(cfg => cfg.AddProfile<ClassroomProfile>()).CreateMapper();
+        // AutoMapper 14 added a required ILoggerFactory to this constructor. Null-logging here:
+        // the tests assert on mappings, not on AutoMapper's diagnostics.
+        => new MapperConfiguration(
+            cfg => cfg.AddProfile<ClassroomProfile>(), NullLoggerFactory.Instance).CreateMapper();
 }
 
 /// <summary>

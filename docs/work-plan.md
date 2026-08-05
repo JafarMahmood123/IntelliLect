@@ -1167,9 +1167,51 @@ Ranked by value:
       directly, which is the right layer for the assistant loop but never exercises the
       React app. One Playwright journey (login → join session → submit quiz → see mark)
       would cover the seams between §4, §5 and §6.
-- [ ] **11.13 Dependency vulnerability scan** — `npm audit`, `dotnet list package
-      --vulnerable`, `pip-audit`. No install needed for the first two. Fast, and a good
-      line in the report.
+- [x] **11.13 Dependency vulnerability scan — DONE. 22 advisories found, 20 fixed.**
+      `dotnet list package --vulnerable --include-transitive` across all four .NET services,
+      `npm audit` on the frontend, `pip-audit` on both Python services. Every suite re-run
+      after every bump; **1,451 tests still green** (179 + 376 + 158 + 28 + 335 + 375) plus a
+      clean `tsc` and production build.
+
+      **.NET — 10 advisories, now clean in all four services.**
+
+      - **AutoMapper 13.0.1 → 15.1.3** (High, GHSA-rvv3-g6hj-g44x, DoS via uncontrolled
+        recursion). This one was not a version bump: AutoMapper 14 moved the assembly list
+        onto the configuration expression, so `AddAutoMapper(Assembly)` no longer compiles,
+        and it added a required `ILoggerFactory` to `MapperConfiguration`. Both composition
+        roots and six test call sites were updated; UMS's five identical constructions became
+        one `TestMapper.Create()` helper, matching ClassroomService's, so the next API change
+        is a one-line fix rather than five.
+      - **MailKit 4.15.1 → 4.17.0** (Moderate, STARTTLS response injection via an unflushed
+        stream buffer). This one is not academic for us: EmailService talks to Gmail over
+        STARTTLS on every message it sends.
+      - **Microsoft.OpenApi 2.0.0 → 2.7.5** and **System.Security.Cryptography.Xml 9.0.0 →
+        9.0.18**, both *transitive* (via `Microsoft.AspNetCore.OpenApi` and `AWSSDK.S3`) and
+        so pinned directly with a comment saying why — otherwise the next person to read the
+        csproj finds a package reference nothing appears to use and deletes it. Fixing the Xml
+        one surfaced a *second* advisory against the version that fixed the first
+        (9.0.15 → GHSA-cvvh-rhrc-wg4q), which is exactly why this is worth re-running rather
+        than doing once.
+      - **SQLitePCLRaw.lib.e_sqlite3 2.1.11 → 2.1.12** (High, vulnerable bundled SQLite).
+        Test-only — that database never ships — but the advisory reports "no patched version"
+        while 2.1.12 exists, so it needed a pin rather than a wait.
+
+      **Frontend — 12 advisories, 10 fixed by `npm audit fix` with no `package.json` change**
+      (axios, vite, postcss, form-data, js-yaml, undici, ws, brace-expansion and two low).
+
+      **The two that remain are a deliberate decision, and npm's suggested fix is wrong.**
+      `react-router` 7.18.2 is flagged by GHSA-qwww-vcr4-c8h2 — *RSC Mode CSRF bypass* —
+      fixed only in **8.3.0**, a major upgrade. This app is a Vite SPA: it imports nothing but
+      `react-router-dom`, uses no RSC entry points, and has no server actions for the bypass
+      to reach. Meanwhile `npm audit fix --force` proposes **downgrading to 7.11.0**, which
+      would reintroduce two advisories that 7.18.0 fixed (GHSA-chx6-hx7r-mcp5, unauthenticated
+      DoS via inefficient route matching, and GHSA-wrjc-x8rr-h8h6, open redirect via a
+      backslash in `<Link>`). Taking the suggested remedy would leave the app *less* secure
+      against issues it is actually exposed to, in exchange for one it is not. Left at 7.18.2
+      deliberately; revisit when React Router 8 is worth the migration on its own merits.
+
+      **Python — both services clean**, no advisories. `pip-audit` was not installed and is
+      now available in both venvs.
 
 **Explicitly not recommended:** adding a mocking library. Both .NET services hand-roll
 `TestDoubles.cs` and the Python services use `tests/support/fake_*.py`. That is a

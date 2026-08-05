@@ -259,11 +259,7 @@ public class AuthServiceTwoFactorTests
             mapper: BuildMapper(),
             eventBus: eventBus);
 
-    private static IMapper BuildMapper()
-    {
-        var config = new MapperConfiguration(cfg => cfg.AddProfile<UserProfile>());
-        return config.CreateMapper();
-    }
+    private static IMapper BuildMapper() => TestMapper.Create();
 
     private static User ActiveSuperAdmin(string email = "superadmin@intellilect.io")
         => ActiveUser(RoleName.SuperAdmin, email);

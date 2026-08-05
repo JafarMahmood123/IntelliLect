@@ -365,7 +365,7 @@ public sealed class AuthServiceCoreTests
                 new FixedResetTokenGenerator(),
                 TwoFactor,
                 new StubTwoFactorCodeGenerator("123456"),
-                new MapperConfiguration(cfg => cfg.AddProfile<UserProfile>()).CreateMapper(),
+                TestMapper.Create(),
                 Bus);
         }
     }

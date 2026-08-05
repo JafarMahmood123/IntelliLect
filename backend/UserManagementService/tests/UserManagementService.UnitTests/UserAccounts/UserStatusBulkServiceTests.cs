@@ -230,7 +230,7 @@ public class UserStatusBulkServiceTests
     // ----- helpers -------------------------------------------------------------
 
     private static UserStatusService CreateSut(FakeStatusUserRepository repo, RecordingStatusEventBus bus)
-        => new(repo, bus, new MapperConfiguration(cfg => cfg.AddProfile<UserProfile>()).CreateMapper());
+        => new(repo, bus, TestMapper.Create());
 
     private static UserManagementService.Application.DTOs.User.BulkUserStatusItem Item(
         UserManagementService.Application.DTOs.User.BulkUserStatusResult result, Guid userId)

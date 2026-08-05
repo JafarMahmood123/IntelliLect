@@ -116,7 +116,7 @@ public class UserDirectoryServiceTests
         => new(repo, client, BuildMapper());
 
     private static IMapper BuildMapper()
-        => new MapperConfiguration(cfg => cfg.AddProfile<UserProfile>()).CreateMapper();
+        => TestMapper.Create();
 
     private static User ActiveUser(RoleName role)
     {

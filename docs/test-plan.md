@@ -352,6 +352,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | M-12 | A missing internal secret or base URL refuses startup with a message naming the key to set and the env var it must match | Unit | P0 | ✓ (defect found: LiveAssistant & RagService secrets were never configured in UMS) |
 | M-13 | A timeout `HttpClient` would reject (zero or negative) is refused at startup rather than crashing the host | Unit | P1 | ✓ |
 | M-14 | Each internal client is built with its configured base address, timeout, and the `X-Internal-Secret` header | Unit | P0 | ✓ |
+| M-15 | Dependency vulnerability scan across .NET, npm and Python — no known-vulnerable package ships | Tooling | P0 | ✓ (22 found, 20 fixed; the 2 remaining are documented as not-applicable — see work-plan §11.13) |
 
 ## 16. Area N — Email delivery (work-plan §7.6)
 

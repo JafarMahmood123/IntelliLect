@@ -190,7 +190,7 @@ public class UserStatusServiceTests
         => (new FakeStatusUserRepository(user), new RecordingStatusEventBus());
 
     private static IMapper BuildMapper()
-        => new MapperConfiguration(cfg => cfg.AddProfile<UserProfile>()).CreateMapper();
+        => TestMapper.Create();
 
     private static void AssertNotified(RecordingStatusEventBus bus, UserStatus expected)
     {

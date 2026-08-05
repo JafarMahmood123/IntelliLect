@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using ClassroomService.Application.Common.Mappings;
 
 namespace ClassroomService.UnitTests;
@@ -22,7 +23,8 @@ public sealed class MappingConfigurationTests
     [Fact]
     public void The_production_mapping_profile_is_valid()
     {
-        var configuration = new MapperConfiguration(cfg => cfg.AddProfile<ClassroomProfile>());
+        var configuration = new MapperConfiguration(
+            cfg => cfg.AddProfile<ClassroomProfile>(), NullLoggerFactory.Instance);
 
         configuration.AssertConfigurationIsValid();
     }
