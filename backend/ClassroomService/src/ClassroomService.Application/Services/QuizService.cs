@@ -830,7 +830,7 @@ public sealed class QuizService : IQuizService
 
         var participants = Participants(answers, submissions, countedIds);
 
-        var students = participants
+        var rows = participants
             .Select(participant =>
             {
                 var mine = answers
@@ -858,6 +858,9 @@ public sealed class QuizService : IQuizService
                 return new StudentTrackingDto(
                     participant.Key,
                     participant.Value,
+                    // Filled in by Ranked below: a position is a property of the whole class, so
+                    // it cannot be known while building one row of it.
+                    0,
                     quizzesTaken,
                     counted.Count,
                     mine.Count,
@@ -867,10 +870,9 @@ public sealed class QuizService : IQuizService
                     Percentage(score, totalAvailable),
                     sessionsTakenPart,
                     sessionsWithQuizzes.Count);
-            })
-            .OrderByDescending(s => s.Score)
-            .ThenBy(s => s.StudentName)
-            .ToList();
+            });
+
+        var students = Ranked(rows);
 
         var members = await _membershipRepository.GetMembersWithDetailsAsync(classroomId, ct);
 
@@ -945,8 +947,21 @@ public sealed class QuizService : IQuizService
         // never disagree about the number a student is being compared against.
         var classAverage = ClassAverage(answers, submissions, gradedIds, totalAvailable);
 
+        // Everyone's graded total, which is all a position needs. Built here rather than reusing
+        // the teacher's ranking because that one is over COUNTED quizzes: a rank that moved the
+        // moment you answered an open question would hand back the correctness this view exists
+        // to withhold.
+        var scoreByStudent = Participants(answers, submissions, gradedIds).Keys
+            .ToDictionary(
+                id => id,
+                id => answers
+                    .Where(a => a.StudentId == id && gradedIds.Contains(a.QuizId))
+                    .Sum(a => a.PointsAwarded));
+
         return new MyClassroomQuizTrackingDto(
             classroomId,
+            RankOf(studentId, scoreByStudent),
+            scoreByStudent.Count,
             score,
             totalAvailable,
             Percentage(score, totalAvailable),
@@ -993,6 +1008,61 @@ public sealed class QuizService : IQuizService
 
     private static int Percentage(int score, int available)
         => available > 0 ? (int)Math.Round(score * 100.0 / available) : 0;
+
+    /// <summary>
+    /// Orders students best-first and stamps each with a position.
+    ///
+    /// STANDARD COMPETITION RANKING: equal scores share a position, and the next distinct score
+    /// skips the positions the tie consumed — two students on 18 marks are both 2nd, and the next
+    /// is 4th. Ranking them 2nd and 3rd by name would tell the teacher that one beat the other
+    /// when the marks say nothing of the kind, and a ranking must not invent a difference the
+    /// scores do not contain.
+    ///
+    /// Name still orders the tied group, so the same data always returns the same list — a table
+    /// that reshuffles on refresh reads as marks changing.
+    ///
+    /// Ranked on SCORE rather than percentage, which is the same ordering: every student is
+    /// measured against the same class-wide total, so the percentage is a monotonic function of
+    /// the score. Score is the one that cannot round two different students onto the same number.
+    /// </summary>
+    private static List<StudentTrackingDto> Ranked(IEnumerable<StudentTrackingDto> students)
+    {
+        var ordered = students
+            .OrderByDescending(s => s.Score)
+            .ThenBy(s => s.StudentName)
+            .ToList();
+
+        var ranked = new List<StudentTrackingDto>(ordered.Count);
+        var rank = 0;
+        int? previousScore = null;
+
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            if (previousScore != ordered[index].Score)
+            {
+                // The position is the row number, not a running counter — which is exactly what
+                // makes the tied positions get skipped.
+                rank = index + 1;
+                previousScore = ordered[index].Score;
+            }
+
+            ranked.Add(ordered[index] with { Rank = rank });
+        }
+
+        return ranked;
+    }
+
+    /// <summary>
+    /// One student's position among their classmates, or null when they have taken nothing.
+    ///
+    /// The same competition rule as <see cref="Ranked"/>, stated the other way round: a position
+    /// is one more than the number of students who genuinely beat you. Everyone level with you is
+    /// on your position, not above it.
+    /// </summary>
+    private static int? RankOf(Guid studentId, IReadOnlyDictionary<Guid, int> scoreByStudent)
+        => scoreByStudent.TryGetValue(studentId, out var mine)
+            ? 1 + scoreByStudent.Values.Count(other => other > mine)
+            : null;
 
     /// <summary>Everyone who answered or finished a counted quiz, with their latest known name.</summary>
     private static Dictionary<Guid, string> Participants(

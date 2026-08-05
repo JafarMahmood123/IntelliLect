@@ -276,6 +276,12 @@ export interface MyQuizScore {
 export interface StudentTracking {
   studentId: string;
   studentName: string;
+  /**
+   * Position in the class, best first. Standard competition ranking, so tied students share a
+   * position and the next one skips it — never use the array index for this, which would show a
+   * difference between two students on identical marks.
+   */
+  rank: number;
   quizzesTaken: number;
   quizCount: number;
   answeredCount: number;
@@ -325,6 +331,10 @@ export interface MySessionTracking {
 
 export interface MyClassroomQuizTracking {
   classroomId: string;
+  /** This student's own position, or null when they have taken no graded quiz yet. */
+  rank: number | null;
+  /** How many students the rank is out of. The only other thing said about the class. */
+  rankedStudentCount: number;
   score: number;
   totalPointsAvailable: number;
   percentage: number;

@@ -430,18 +430,56 @@ hoisted for the limit above.
 
 ---
 
-## 6. Student ranking (best → worst)
+## 6. Student ranking (best → worst) — **DONE**
 
-- [ ] **6.1 Define the ranking metric** — quiz average? total marks? participation?
-      A single "best to worst" number is a product decision with fairness implications;
-      write down the formula before coding it. Ties need a defined rule.
-- [ ] **6.2 Scope & visibility** — per classroom. Does a student see the whole
-      leaderboard, only their own rank, or nothing? Showing every student's standing to
-      peers is a privacy decision, not a UI one — flag it for the teacher-only default.
-- [ ] **6.3 Backend** — ranked query with paging; avoid N+1 across submissions.
-- [ ] **6.4 Frontend** — teacher table with sort; student's own position highlighted.
-- [ ] **6.5 Tests** — ties, students with no submissions, students who joined late,
-      and the visibility rule.
+The table was *already* sorted best-first. What was missing was everything that makes a
+sort into a ranking: an explicit position, a rule for ties, and an answer to who may see
+it.
+
+- [x] **6.1 Metric: cumulative marks on quizzes that count.** Not an average of
+      percentages — every student is measured against the same class-wide total, so score
+      and percentage give the identical order, and score is the one that cannot round two
+      different students onto the same number.
+      **Ties: standard competition ranking.** Two students on 18 marks are both 2nd and
+      the next is 4th. The rejected alternative was breaking ties by name, which is what
+      the old row-index numbering effectively did — it tells a teacher that Amina beat
+      Bilal when the marks say nothing of the kind. Name still orders *within* a tie so
+      the list is stable across refreshes; a table that reshuffles reads as marks moving.
+- [x] **6.2 Visibility: teacher sees the table, a student sees only their own position**
+      and the size of the pool. Enforced by construction rather than by a filter — the
+      student endpoint never builds a table, so there is none to leak. `MyClassroomQuizTracking`
+      gains `Rank` and `RankedStudentCount` and still names nobody.
+      The student's rank is computed over **graded** quizzes, like everything else in that
+      view (§4). Ranking over open ones would restore the correctness leak by a new route:
+      a position that shifts the moment you answer tells you whether you were right.
+- [x] **6.3 Backend** — `Ranked()` and `RankOf()`, one rule expressed twice for the two
+      directions (a whole table, and one student's place in it). No paging: the query is
+      already one round trip for the whole classroom and ranking is a property of the
+      complete set — paging it would mean ranking a page. No N+1: answers, submissions and
+      memberships are each loaded once and grouped in memory.
+- [x] **6.4 Frontend** — the teacher's list now renders the **server's** rank instead of
+      the array index, so a tied pair both show the trophy. The rank cell gained an
+      `aria-label`, since a bare number beside a name says nothing read aloud and the top
+      row was an icon with no text at all. Students get a "Your rank" stat, `#2 of 5`, or
+      a dash when they have not sat a graded quiz yet.
+- [x] **6.5 Tests** — 10 backend, 4 frontend, covering J-01..J-06.
+
+**J-04 pinned rather than changed.** A student who joins late is still ranked against the
+whole term. `ClassroomMembership.JoinedAtUtc` and `Quiz.PublishedAtUtc` exist, so the
+alternative was implementable — but measuring each student only against quizzes that
+postdate their enrolment lets someone who sat one quiz outrank someone who sat ten, and it
+makes the rankings of two students incomparable, which is the one thing a ranking must not
+be. The teacher already sees `QuizzesTaken` against `QuizCount`. There is a test asserting
+this so the decision is visible rather than accidental; flipping it is a product call.
+
+**J-03 partially answered, and the limit is a data one.** A student who took part and
+scored nothing IS ranked last — including one who submitted without answering. A student
+who did *nothing at all* is not a row, because ClassroomService has no student names: they
+arrive only as snapshots on answer and submission rows, which is exactly what keeps this
+dashboard free of a cross-service call. Listing absentees by name would mean a UMS lookup
+in a teacher's hot path. The teacher still sees the gap — `EnrolledStudentCount` against
+`ActiveStudentCount`. Also pinned: a student whose only work was on a quiz the teacher
+later cancelled drops out of the table for the same reason.
 
 ---
 

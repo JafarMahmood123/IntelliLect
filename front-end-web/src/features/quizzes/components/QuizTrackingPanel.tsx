@@ -49,13 +49,25 @@ const TeacherTracking = ({ classroomId }: { classroomId: string }) => {
         hint="Measured against every mark offered to the class, not only the quizzes each student sat."
       >
         <div className="space-y-1.5">
-          {data.students.map((student, index) => (
+          {data.students.map((student) => (
             <div
               key={student.studentId}
               className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/50"
             >
-              <span className="w-5 shrink-0 text-center text-xs font-bold text-slate-400">
-                {index === 0 ? <Trophy size={14} className="mx-auto text-amber-500" /> : index + 1}
+              {/* The server's rank, never the row index: tied students share a position, and an
+                  index would quietly rank one of them above the other on identical marks. Both
+                  of a tied pair at the top get the trophy, for the same reason. */}
+              <span
+                // A bare number beside a name means nothing read aloud, and the top row is an
+                // icon with no text at all.
+                aria-label={`Rank ${student.rank}`}
+                className="w-5 shrink-0 text-center text-xs font-bold text-slate-400"
+              >
+                {student.rank === 1 ? (
+                  <Trophy size={14} className="mx-auto text-amber-500" aria-hidden="true" />
+                ) : (
+                  student.rank
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
@@ -111,6 +123,11 @@ const StudentTracking = ({ classroomId }: { classroomId: string }) => {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat icon={<BarChart3 size={16} />} label="Your total"
           value={`${data.score}/${data.totalPointsAvailable}`} hint={`${data.percentage}%`} />
+        {/* A position and a headcount, and nothing else about anyone: a student learns where they
+            stand without being shown a table of their classmates. */}
+        <Stat icon={<Trophy size={16} />} label="Your rank"
+          value={data.rank === null ? '—' : `#${data.rank}`}
+          hint={data.rank === null ? 'no graded quiz yet' : `of ${data.rankedStudentCount}`} />
         <Stat icon={<Users size={16} />} label="Class average"
           value={`${data.classAveragePercentage}%`} hint={comparison(data)} />
         <Stat icon={<ListChecks size={16} />} label="Quizzes taken"

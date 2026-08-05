@@ -24,7 +24,8 @@ public sealed class QuizTrackingTests
     private static readonly Guid SecondStudentId = Guid.NewGuid();
 
     private sealed record Harness(
-        QuizService Service, FakeQuizRepository Quizzes, FakeClock Clock, List<Session> Sessions);
+        QuizService Service, FakeQuizRepository Quizzes, FakeClock Clock, List<Session> Sessions,
+        FakeMembershipRepository Members);
 
     private sealed class NoAssistant : ILiveAssistantInternalClient
     {
@@ -70,7 +71,7 @@ public sealed class QuizTrackingTests
             new RecordingQuizNotifier(), new NoAssistant(), new FakeUnitOfWork(), new FakeClock(),
             new FakeQuizSettings(), new RecordingLogger<QuizService>());
 
-        return new Harness(service, quizzes, new FakeClock(), sessions);
+        return new Harness(service, quizzes, new FakeClock(), sessions, members);
     }
 
     private static QuizDraftRequest Draft(int questions = 1, int points = 5)
@@ -252,6 +253,196 @@ public sealed class QuizTrackingTests
         var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
 
         Assert.Equal(1, tracking.QuizCount);
+    }
+
+    // --- ranking ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task Students_are_ranked_best_first_with_an_explicit_position()
+    {
+        var h = Build();
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: false);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.Equal(["Amina", "Bilal"], tracking.Students.Select(x => x.StudentName));
+        Assert.Equal([1, 2], tracking.Students.Select(x => x.Rank));
+    }
+
+    [Fact]
+    public async Task A_tie_shares_a_position_and_the_next_student_skips_it()
+    {
+        // Standard competition ranking. Ranking the tied pair 1st and 2nd by name would tell the
+        // teacher that one beat the other when the marks say nothing of the kind.
+        var h = Build(sessionCount: 1);
+        var third = Guid.NewGuid();
+        h.Members.Enroll(ClassroomId, third);
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: true);
+        await AnswerAsync(h, quiz, third, "Carim", correctly: false);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.Equal(1, tracking.Students.Single(x => x.StudentName == "Amina").Rank);
+        Assert.Equal(1, tracking.Students.Single(x => x.StudentName == "Bilal").Rank);
+        // Not 2: the tie consumed that position.
+        Assert.Equal(3, tracking.Students.Single(x => x.StudentName == "Carim").Rank);
+    }
+
+    [Fact]
+    public async Task The_same_data_ranks_the_same_way_every_time()
+    {
+        // A table that reshuffles between refreshes reads as marks changing.
+        var h = Build(sessionCount: 1);
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: true);
+
+        var first = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+        var second = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.Equal(
+            first.Students.Select(x => x.StudentName),
+            second.Students.Select(x => x.StudentName));
+    }
+
+    [Fact]
+    public async Task Ranking_ignores_a_cancelled_quiz()
+    {
+        // Otherwise a withdrawn quiz decides who is top of the class.
+        var h = Build(sessionCount: 1);
+        var kept = await PublishAsync(h, h.Sessions[0].Id);
+        var withdrawn = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, kept, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, kept, SecondStudentId, "Bilal", correctly: false);
+        // Bilal aced the quiz the teacher then pulled. If it still counted he would be top.
+        await AnswerAsync(h, withdrawn, SecondStudentId, "Bilal", correctly: true);
+        await h.Service.CancelAsync(ClassroomId, withdrawn.Id, TeacherId, default);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.Equal(1, tracking.Students.Single(x => x.StudentName == "Amina").Rank);
+        var bilal = tracking.Students.Single(x => x.StudentName == "Bilal");
+        Assert.Equal(2, bilal.Rank);
+        Assert.Equal(0, bilal.Score);
+    }
+
+    [Fact]
+    public async Task A_student_whose_only_work_was_on_a_cancelled_quiz_is_not_listed()
+    {
+        // Pinning what the existing rule does rather than asserting a preference. The table is
+        // built from participation in quizzes that COUNT, so withdrawing a quiz withdraws the
+        // people whose only appearance was in it. They are still in EnrolledStudentCount, which
+        // is where the teacher sees that somebody is missing from the rows.
+        var h = Build(sessionCount: 1);
+        var kept = await PublishAsync(h, h.Sessions[0].Id);
+        var withdrawn = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, kept, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, withdrawn, SecondStudentId, "Bilal", correctly: true);
+        await h.Service.CancelAsync(ClassroomId, withdrawn.Id, TeacherId, default);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        Assert.DoesNotContain(tracking.Students, x => x.StudentName == "Bilal");
+        Assert.Equal(2, tracking.EnrolledStudentCount);
+        Assert.Equal(1, tracking.ActiveStudentCount);
+    }
+
+    [Fact]
+    public async Task A_student_who_took_part_but_scored_nothing_is_ranked_last_not_dropped()
+    {
+        // Finishing without answering is participation. Ranking has to show the teacher who is
+        // present and struggling, which is a different problem from who is absent.
+        var h = Build(sessionCount: 1);
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: true);
+        await h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, SecondStudentId, "Bilal", default);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        var bilal = tracking.Students.Single(x => x.StudentName == "Bilal");
+        Assert.Equal(0, bilal.Score);
+        Assert.Equal(2, bilal.Rank);
+    }
+
+    [Fact]
+    public async Task A_student_is_ranked_against_the_whole_term_even_if_they_joined_late()
+    {
+        // PINNED DECISION, not an accident. Everyone is measured against what the class was
+        // offered, which is the same rule the percentage already follows, and it is why a term
+        // ranking is comparable at all. Measuring a late joiner only against the quizzes that
+        // postdate their enrolment would let someone who sat one quiz outrank someone who sat
+        // ten. The teacher can already see the difference: QuizzesTaken against QuizCount says
+        // plainly that this student was present for one of three.
+        var h = Build(sessionCount: 2);
+        var early = await PublishAsync(h, h.Sessions[0].Id);
+        var late = await PublishAsync(h, h.Sessions[1].Id);
+        await AnswerAsync(h, early, StudentId, "Amina", correctly: true);
+        await AnswerAsync(h, late, StudentId, "Amina", correctly: true);
+        // Bilal only ever sat the second one, and got it right.
+        await AnswerAsync(h, late, SecondStudentId, "Bilal", correctly: true);
+
+        var tracking = await h.Service.GetClassroomTrackingAsync(ClassroomId, TeacherId, default);
+
+        var bilal = tracking.Students.Single(x => x.StudentName == "Bilal");
+        Assert.Equal(2, bilal.Rank);
+        Assert.Equal(1, bilal.QuizzesTaken);
+        Assert.Equal(2, bilal.QuizCount);
+    }
+
+    [Fact]
+    public async Task A_student_is_told_their_own_position_and_nobody_elses()
+    {
+        // The privacy answer to "who sees the leaderboard": a rank and a headcount. The endpoint
+        // cannot leak a table it never builds.
+        var h = Build(sessionCount: 1);
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, StudentId, "Amina", correctly: false);
+        await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: true);
+        await CloseAsync(h, quiz);
+
+        var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Equal(2, mine.Rank);
+        Assert.Equal(2, mine.RankedStudentCount);
+        Assert.DoesNotContain("Bilal", System.Text.Json.JsonSerializer.Serialize(mine));
+    }
+
+    [Fact]
+    public async Task A_student_who_has_taken_nothing_has_no_position()
+    {
+        // Better than "last of two": they are not in the race yet, and saying so is honest.
+        var h = Build(sessionCount: 1);
+        var quiz = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, quiz, SecondStudentId, "Bilal", correctly: true);
+        await CloseAsync(h, quiz);
+
+        var mine = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Null(mine.Rank);
+        Assert.Equal(1, mine.RankedStudentCount);
+    }
+
+    [Fact]
+    public async Task An_open_quiz_cannot_move_a_students_own_position()
+    {
+        // The same leak as the score: a rank that shifts the moment you answer tells you whether
+        // you were right, while your answer is still changeable.
+        var h = Build(sessionCount: 1);
+        var closed = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, closed, StudentId, "Amina", correctly: false);
+        await AnswerAsync(h, closed, SecondStudentId, "Bilal", correctly: true);
+        await CloseAsync(h, closed);
+
+        var before = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+        var open = await PublishAsync(h, h.Sessions[0].Id);
+        await AnswerAsync(h, open, StudentId, "Amina", correctly: true);
+        var after = await h.Service.GetMyClassroomTrackingAsync(ClassroomId, StudentId, default);
+
+        Assert.Equal(before.Rank, after.Rank);
     }
 
     // --- the student's own view ------------------------------------------------------

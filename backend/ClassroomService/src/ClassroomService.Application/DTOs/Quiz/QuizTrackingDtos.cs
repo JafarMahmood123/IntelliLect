@@ -35,6 +35,17 @@ public record ClassroomQuizTrackingDto(
 public record StudentTrackingDto(
     Guid StudentId,
     string StudentName,
+    /// <summary>
+    /// Position in the classroom, best first, by <paramref name="Score"/>.
+    ///
+    /// Standard competition ranking: equal scores share a position and the next distinct score
+    /// skips the ones consumed by the tie, so two students on 18 marks are both 2nd and the next
+    /// is 4th. The alternative — breaking ties by name — would tell the teacher that Amina beat
+    /// Bilal when the marks say nothing of the kind, and the ranking must not invent a difference
+    /// that the scores do not contain. Names still order the tied group, so repeated calls return
+    /// the same list.
+    /// </summary>
+    int Rank,
     int QuizzesTaken,
     int QuizCount,
     int AnsweredCount,
@@ -66,6 +77,21 @@ public record SessionTrackingDto(
 /// </summary>
 public record MyClassroomQuizTrackingDto(
     Guid ClassroomId,
+    /// <summary>
+    /// This student's own position, or null when they have taken no graded quiz yet.
+    ///
+    /// A rank and a headcount, and deliberately nothing else: a student is told where they stand
+    /// without being shown where anyone else does. Publishing a full leaderboard to peers is a
+    /// privacy decision rather than a UI one, and this is the answer to it — the endpoint cannot
+    /// leak a table it never builds.
+    ///
+    /// Ranked on GRADED quizzes only, like every other number in this view. Ranking on open ones
+    /// would put the correctness leak back: a rank that moves the moment you answer tells you
+    /// whether you were right.
+    /// </summary>
+    int? Rank,
+    /// <summary>How many students the rank is out of — those who have taken a graded quiz.</summary>
+    int RankedStudentCount,
     int Score,
     int TotalPointsAvailable,
     int Percentage,

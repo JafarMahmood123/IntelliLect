@@ -50,6 +50,7 @@ const teacherTracking = (
     {
       studentId: 'student-1',
       studentName: 'Amina',
+      rank: 1,
       quizzesTaken: 3,
       quizCount: 3,
       answeredCount: 3,
@@ -63,6 +64,7 @@ const teacherTracking = (
     {
       studentId: 'student-2',
       studentName: 'Bilal',
+      rank: 2,
       quizzesTaken: 1,
       quizCount: 3,
       answeredCount: 1,
@@ -93,6 +95,8 @@ const studentTracking = (
   overrides: Partial<MyClassroomQuizTracking> = {},
 ): MyClassroomQuizTracking => ({
   classroomId: CLASSROOM_ID,
+  rank: 2,
+  rankedStudentCount: 3,
   score: 10,
   totalPointsAvailable: 15,
   percentage: 67,
@@ -166,5 +170,54 @@ describe('QuizTrackingPanel', () => {
     renderWithProviders(<QuizTrackingPanel classroomId={CLASSROOM_ID} isTeacher />);
 
     expect(await screen.findByText('No quizzes yet')).toBeInTheDocument();
+  });
+
+  it('shows the position the server ranked each student at, not the row number', async () => {
+    // Two students tied at the top both hold position 1, and the next one is 3rd. Numbering the
+    // rows would show 1, 2, 3 and invent a winner the marks do not support.
+    mockTeacher.mockResolvedValue(
+      teacherTracking({
+        students: [
+          { ...teacherTracking().students[0], studentId: 'a', studentName: 'Amina', rank: 1 },
+          { ...teacherTracking().students[0], studentId: 'b', studentName: 'Bilal', rank: 1 },
+          { ...teacherTracking().students[1], studentId: 'c', studentName: 'Carim', rank: 3 },
+        ],
+      }),
+    );
+    renderWithProviders(<QuizTrackingPanel classroomId={CLASSROOM_ID} isTeacher />);
+
+    await screen.findByText('Amina');
+    // Both of the tied pair hold position 1; nobody holds 2, because the tie consumed it.
+    expect(screen.getAllByLabelText('Rank 1')).toHaveLength(2);
+    expect(screen.queryByLabelText('Rank 2')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Rank 3')).toBeInTheDocument();
+  });
+
+  it('tells a student their own position and how many it is out of', async () => {
+    mockStudent.mockResolvedValue(studentTracking({ rank: 2, rankedStudentCount: 5 }));
+    renderWithProviders(<QuizTrackingPanel classroomId={CLASSROOM_ID} isTeacher={false} />);
+
+    expect(await screen.findByText('#2')).toBeInTheDocument();
+    expect(screen.getByText('of 5')).toBeInTheDocument();
+  });
+
+  it('names no classmate in the student view', async () => {
+    // The privacy rule this ranking is built around: a position, a headcount, and nothing else.
+    mockStudent.mockResolvedValue(studentTracking());
+    const { container } = renderWithProviders(
+      <QuizTrackingPanel classroomId={CLASSROOM_ID} isTeacher={false} />,
+    );
+
+    await screen.findByText('#2');
+    expect(container.textContent).not.toContain('Amina');
+    expect(container.textContent).not.toContain('Bilal');
+  });
+
+  it('shows a dash rather than a last place for a student who has taken nothing', async () => {
+    mockStudent.mockResolvedValue(studentTracking({ rank: null, rankedStudentCount: 4 }));
+    renderWithProviders(<QuizTrackingPanel classroomId={CLASSROOM_ID} isTeacher={false} />);
+
+    expect(await screen.findByText('—')).toBeInTheDocument();
+    expect(screen.getByText('no graded quiz yet')).toBeInTheDocument();
   });
 });

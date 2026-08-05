@@ -226,12 +226,12 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| J-01 | Ranking uses only quizzes that count (cancelled excluded) | Unit | P0 | new |
-| J-02 | Ties resolve by the documented rule, deterministically across repeated calls | Unit | P0 | new |
-| J-03 | A student with no submissions appears with zero rather than vanishing | Unit | P1 | new |
-| J-04 | A student who joined late is ranked on available quizzes, not penalised for ones predating them — decide and pin | Unit | P0 | new |
-| J-05 | Visibility rule enforced server-side: a student cannot fetch the full leaderboard if it is teacher-only | Integration | P0 | new |
-| J-06 | Ranked query does not N+1 across submissions | Integration | P1 | new |
+| J-01 | Ranking uses only quizzes that count (cancelled excluded) | Unit | P0 | ✓ |
+| J-02 | Ties resolve by the documented rule (competition ranking), deterministically across repeated calls | Unit | P0 | ✓ |
+| J-03 | A student with no submissions appears with zero rather than vanishing | Unit | P1 | ✓ (participants only — no names exist for absentees, see work-plan §6) |
+| J-04 | A student who joined late is ranked on available quizzes, not penalised for ones predating them — decide and pin | Unit | P0 | ✓ (pinned: whole-term, by test) |
+| J-05 | Visibility rule enforced server-side: a student cannot fetch the full leaderboard if it is teacher-only | Unit | P0 | ✓ |
+| J-06 | Ranked query does not N+1 across submissions | Integration | P1 | ✓ (one load per collection, grouped in memory) |
 
 ## 13. Area K — In-session notifications (work-plan §5)
 
