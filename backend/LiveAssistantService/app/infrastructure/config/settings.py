@@ -312,7 +312,7 @@ class Settings(BaseSettings):
     # room connection, targeted to the teacher identity ONLY. "signalr" (StreamHub) is
     # a documented future alternative. message_version stamps the wire contract.
     feedback_transport: str = "livekit"  # livekit | signalr (future)
-    feedback_message_version: int = 1
+    feedback_message_version: int = 2
 
     # --- Session lifecycle (LA-6) ---
     # One agent pipeline per active session; start beyond this cap is rejected (503).

@@ -26,6 +26,8 @@ const pendingStatuses = [
   'processing',
   'generating',
   'gap',
+  // The assistant's hedged category, renamed from 'unclear' with the wire-v2 contract.
+  'likely',
 ];
 const errorStatuses = [
   'deactivated',

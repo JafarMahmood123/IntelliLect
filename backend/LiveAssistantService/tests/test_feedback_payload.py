@@ -37,7 +37,10 @@ def test_payload_matches_schema_and_maps_citations_to_sources():
         "version": 1,
         "session_id": str(session_id),
         "feedback_type": "discrepancy",
+        "severity": "incorrect",
         "text": "Reconsider the location [1]; clarify [2].",
+        "incorrect_text": None,
+        "corrected_text": None,
         "sources": [
             {"citation": 1, "document_id": str(doc1), "page": None, "slide": 4, "section": None},
             {"citation": 2, "document_id": str(doc2), "page": 12, "slide": None, "section": "Intro"},
@@ -61,7 +64,7 @@ def test_feedback_type_is_lowercased_for_each_kind():
     for kind, expected in [
         (FeedbackType.DISCREPANCY, "discrepancy"),
         (FeedbackType.GAP, "gap"),
-        (FeedbackType.UNCLEAR, "unclear"),
+        (FeedbackType.LIKELY, "likely"),
     ]:
         suggestion = TeacherSuggestion("x", kind, [], [])
         payload = build_feedback_payload(_session(uuid4()), suggestion, version=1, created_at=_WHEN)
@@ -69,6 +72,47 @@ def test_feedback_type_is_lowercased_for_each_kind():
 
 
 def test_version_is_stamped_from_argument():
-    suggestion = TeacherSuggestion("x", FeedbackType.UNCLEAR, [], [])
+    suggestion = TeacherSuggestion("x", FeedbackType.LIKELY, [], [])
     payload = build_feedback_payload(_session(uuid4()), suggestion, version=7, created_at=_WHEN)
     assert payload["version"] == 7
+
+
+def test_severity_is_carried_for_each_kind():
+    # The client colours by severity, not by the diagnostic label — so the mapping has to be on
+    # the wire, and it has to be the server that decided it.
+    for kind, expected in [
+        (FeedbackType.DISCREPANCY, "incorrect"),
+        (FeedbackType.LIKELY, "likely"),
+        (FeedbackType.GAP, "missing"),
+    ]:
+        payload = build_feedback_payload(
+            _session(uuid4()), TeacherSuggestion("x", kind, [], []), version=2, created_at=_WHEN
+        )
+        assert payload["severity"] == expected
+
+
+def test_correction_span_is_carried_verbatim():
+    suggestion = TeacherSuggestion(
+        text="The date is wrong [1].",
+        type=FeedbackType.DISCREPANCY,
+        incorrect_text="signed in 1919",
+        corrected_text="signed in 1920",
+    )
+
+    payload = build_feedback_payload(_session(uuid4()), suggestion, version=2, created_at=_WHEN)
+
+    assert payload["incorrect_text"] == "signed in 1919"
+    assert payload["corrected_text"] == "signed in 1920"
+
+
+def test_absent_span_is_an_explicit_null_not_a_missing_key():
+    # One shape either way: the client never has to tell "absent" from "not applicable".
+    payload = build_feedback_payload(
+        _session(uuid4()),
+        TeacherSuggestion("x", FeedbackType.GAP, [], []),
+        version=2,
+        created_at=_WHEN,
+    )
+
+    assert payload["incorrect_text"] is None
+    assert payload["corrected_text"] is None

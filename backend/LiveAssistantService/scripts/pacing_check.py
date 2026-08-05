@@ -35,7 +35,7 @@ def _script() -> list[tuple[float, str, TeacherSuggestion]]:
         (10, "burst (too soon)",
          _sug("Gravity is a force between masses [2].", FeedbackType.GAP, [2], 0.9)),
         (60, "low confidence",
-         _sug("Maybe reconsider the phrasing here [3].", FeedbackType.UNCLEAR, [3], 0.30)),
+         _sug("Maybe reconsider the phrasing here [3].", FeedbackType.LIKELY, [3], 0.30)),
         (120, "repeat of #1",
          _sug("The chloroplast, not the mitochondria, is where photosynthesis happens [1].", disc, [1], 0.9)),
         (200, "new, spaced out",

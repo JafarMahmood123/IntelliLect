@@ -68,7 +68,7 @@ class OllamaBrainClient(BrainClient):
     ) -> EvaluationOutcome:
         context, citation_map = build_numbered_context(chunks)
         content = await self._complete(SYSTEM_PROMPT, build_user_prompt(idea.text, context))
-        return parse_outcome(content, citation_map, self._default_confidence)
+        return parse_outcome(content, citation_map, self._default_confidence, idea.text)
 
     async def generate_quiz(
         self,

@@ -43,10 +43,13 @@ const encode = (value: unknown): Uint8Array =>
 
 const makePayload = (overrides: Record<string, unknown> = {}) => ({
   type: 'teaching_suggestion',
-  version: 1,
+  version: 2,
   session_id: 'sess-1',
   feedback_type: 'discrepancy',
+  severity: 'incorrect',
   text: 'Slide 4 contradicts the latency claim.',
+  incorrect_text: null,
+  corrected_text: null,
   sources: [
     { citation: 1, document_id: 'doc-1', page: null, slide: 4, section: null },
     { citation: 2, document_id: 'doc-1', page: 12, slide: null, section: null },
@@ -94,7 +97,7 @@ describe('TeacherFeedbackPanel', () => {
     expect(
       screen.getByText('Slide 4 contradicts the latency claim.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Discrepancy')).toBeInTheDocument(); // feedback_type badge
+    expect(screen.getByText('Incorrect')).toBeInTheDocument(); // severity chip
     expect(screen.getByText('slide 4')).toBeInTheDocument();
     expect(screen.getByText('p. 12')).toBeInTheDocument();
   });
@@ -119,7 +122,7 @@ describe('TeacherFeedbackPanel', () => {
     render(<TeacherFeedbackPanel />);
 
     await emit(makePayload({ type: 'chat_message' }));
-    await emit(makePayload({ version: 2 }));
+    await emit(makePayload({ version: 3 }));
     await emit('not-json{');
 
     expect(screen.getByText('No suggestions yet')).toBeInTheDocument();
@@ -155,6 +158,53 @@ describe('TeacherFeedbackPanel', () => {
     expect(screen.getByText('Suggestion 3')).toBeInTheDocument();
     expect(screen.getByText('Suggestion 7')).toBeInTheDocument();
     expect(screen.getAllByText(/^Suggestion \d$/)).toHaveLength(5);
+  });
+
+  it('shows the wrong words and the correction as separate, labelled rows', async () => {
+    render(<TeacherFeedbackPanel />);
+
+    await emit(
+      makePayload({
+        incorrect_text: 'about 40 milliseconds',
+        corrected_text: 'about 40 microseconds',
+      }),
+    );
+
+    // The labels are the point: colour is never the only thing carrying the meaning, so the card
+    // still reads correctly in greyscale and to a screen reader.
+    expect(screen.getByText('You said')).toBeInTheDocument();
+    expect(screen.getByText('about 40 milliseconds')).toBeInTheDocument();
+    expect(screen.getByText('Should be')).toBeInTheDocument();
+    expect(screen.getByText('about 40 microseconds')).toBeInTheDocument();
+  });
+
+  it('shows the wrong words alone when there is no correction', async () => {
+    render(<TeacherFeedbackPanel />);
+
+    await emit(makePayload({ incorrect_text: 'about 40 milliseconds' }));
+
+    expect(screen.getByText('about 40 milliseconds')).toBeInTheDocument();
+    expect(screen.queryByText('Should be')).not.toBeInTheDocument();
+  });
+
+  it('renders no correction block at all when the assistant could not quote a span', async () => {
+    render(<TeacherFeedbackPanel />);
+
+    await emit(makePayload({ feedback_type: 'gap', severity: 'missing' }));
+
+    expect(screen.getByText('Missing')).toBeInTheDocument();
+    expect(screen.queryByText('You said')).not.toBeInTheDocument();
+  });
+
+  it('labels a hedged suggestion "Likely to be" rather than asserting it', async () => {
+    render(<TeacherFeedbackPanel />);
+
+    await emit(makePayload({ feedback_type: 'likely', severity: 'likely' }));
+
+    expect(screen.getByText('Likely to be')).toBeInTheDocument();
+    expect(screen.queryByText('Incorrect')).not.toBeInTheDocument();
+    // The word this category used to be called must not survive anywhere in the UI.
+    expect(screen.queryByText(/unclear/i)).not.toBeInTheDocument();
   });
 
   it('removes the data listener on unmount', () => {

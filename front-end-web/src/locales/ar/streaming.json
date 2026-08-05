@@ -29,6 +29,15 @@
     "collapse": "طيّ لوحة الاقتراحات",
     "expand": "توسيع لوحة الاقتراحات",
     "unread": "{{count}} جديد",
+    "severity": {
+      "incorrect": "غير صحيح",
+      "likely": "يُرجَّح أنه",
+      "missing": "ناقص"
+    },
+    "correction": {
+      "said": "قلتَ",
+      "shouldBe": "والصواب"
+    },
     "sourcesLabel": "المصادر",
     "source": {
       "slide": "شريحة {{n}}",

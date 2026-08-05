@@ -1,10 +1,44 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Sparkles, X } from 'lucide-react';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTeachingSuggestions } from '../hooks/useTeachingSuggestions';
-import type { SuggestionSource, TeachingSuggestion } from '../types';
+import type {
+  FeedbackSeverity,
+  SuggestionSource,
+  TeachingSuggestion,
+} from '../types';
+
+/**
+ * How each severity is shown. Colour is never the only carrier: every entry pairs its palette
+ * with an icon AND a written label, so the card still reads correctly in greyscale, to a
+ * colour-blind teacher, and to a screen reader. A teacher glancing at this mid-sentence has no
+ * time to decode a hue.
+ */
+const SEVERITY_STYLES: Record<
+  FeedbackSeverity,
+  { icon: typeof AlertTriangle; chip: string }
+> = {
+  incorrect: {
+    icon: AlertTriangle,
+    chip: 'bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-500/30',
+  },
+  likely: {
+    icon: CircleHelp,
+    chip: 'bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-500/30',
+  },
+  missing: {
+    icon: Sparkles,
+    chip: 'bg-slate-500/15 text-slate-300 ring-1 ring-inset ring-slate-500/30',
+  },
+};
 
 /**
  * Private, teacher-only panel showing real-time AI teaching-assistant
@@ -131,12 +165,19 @@ const SuggestionCard = ({
   onDismiss,
 }: SuggestionCardProps) => {
   const { t } = useTranslation('streaming');
+  const severity = SEVERITY_STYLES[suggestion.severity];
+  const SeverityIcon = severity.icon;
 
   return (
     <article className="rounded-xl border border-white/5 bg-slate-800/60 p-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <StatusBadge status={suggestion.feedbackType} />
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${severity.chip}`}
+          >
+            <SeverityIcon size={11} aria-hidden="true" />
+            {t(`feedback.severity.${suggestion.severity}`)}
+          </span>
           {timeLabel && (
             <span className="text-[10px] font-medium text-slate-500">
               {timeLabel}
@@ -159,6 +200,13 @@ const SuggestionCard = ({
         {suggestion.text}
       </p>
 
+      {suggestion.incorrectText && (
+        <CorrectionSpan
+          incorrectText={suggestion.incorrectText}
+          correctedText={suggestion.correctedText}
+        />
+      )}
+
       {suggestion.sources.length > 0 && (
         <div className="mt-3">
           <p className="sr-only">{t('feedback.sourcesLabel')}</p>
@@ -177,6 +225,54 @@ const SuggestionCard = ({
         </div>
       )}
     </article>
+  );
+};
+
+interface CorrectionSpanProps {
+  incorrectText: string;
+  correctedText: string | null;
+}
+
+/**
+ * The wrong words and their replacement, side by side.
+ *
+ * This is the part of the card a teacher reads in a glance mid-sentence, so it does not rely on
+ * red-vs-green alone: each row carries an icon and a written label ("You said" / "Should be"),
+ * and the wrong text is struck through. Any one of those cues is enough on its own.
+ *
+ * Renders only when the server sent a span it had verified against the lecture, so the quoted
+ * words are always words the teacher actually said.
+ */
+const CorrectionSpan = ({ incorrectText, correctedText }: CorrectionSpanProps) => {
+  const { t } = useTranslation('streaming');
+
+  return (
+    <dl className="mt-3 space-y-1.5 rounded-lg bg-slate-900/60 p-2.5">
+      <div className="flex items-start gap-2">
+        <dt className="flex shrink-0 items-center gap-1 pt-px text-[10px] font-semibold uppercase tracking-wide text-red-400">
+          <X size={11} aria-hidden="true" />
+          {t('feedback.correction.said')}
+        </dt>
+        <dd
+          dir="auto"
+          className="min-w-0 break-words text-xs font-medium text-red-300 line-through decoration-red-500/60"
+        >
+          {incorrectText}
+        </dd>
+      </div>
+
+      {correctedText && (
+        <div className="flex items-start gap-2">
+          <dt className="flex shrink-0 items-center gap-1 pt-px text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+            <Check size={11} aria-hidden="true" />
+            {t('feedback.correction.shouldBe')}
+          </dt>
+          <dd dir="auto" className="min-w-0 break-words text-xs font-medium text-emerald-300">
+            {correctedText}
+          </dd>
+        </div>
+      )}
+    </dl>
   );
 };
 

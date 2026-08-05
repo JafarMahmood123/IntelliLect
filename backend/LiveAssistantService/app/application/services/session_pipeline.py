@@ -253,7 +253,7 @@ class SessionPipeline:
             if not reply:
                 logger.warning("smoke_llm_empty")
                 return
-            suggestion = TeacherSuggestion(text=reply, type=FeedbackType.UNCLEAR)
+            suggestion = TeacherSuggestion(text=reply, type=FeedbackType.LIKELY)
             outcome = EvaluationOutcome(has_feedback=True, suggestion=suggestion)
             await self._dispatcher.dispatch(outcome, self._session)
             logger.info("smoke_feedback_delivered")

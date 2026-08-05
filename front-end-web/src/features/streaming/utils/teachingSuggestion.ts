@@ -1,13 +1,21 @@
 import type {
+  FeedbackSeverity,
   FeedbackType,
   SuggestionSource,
   TeachingSuggestion,
 } from '../types';
 
-/** The only wire version this client understands. Unknown versions are ignored. */
-export const SUPPORTED_SUGGESTION_VERSION = 1;
+/**
+ * The only wire version this client understands. Unknown versions are ignored.
+ *
+ * Bumped to 2 with `severity` and the correction span. Version 1 carried a `feedback_type` of
+ * `unclear` that no longer exists here, so a v1 message is not merely missing fields — it would
+ * misrender. Falling silent on it is the correct behaviour.
+ */
+export const SUPPORTED_SUGGESTION_VERSION = 2;
 
-const FEEDBACK_TYPES: FeedbackType[] = ['discrepancy', 'gap', 'unclear'];
+const FEEDBACK_TYPES: FeedbackType[] = ['discrepancy', 'gap', 'likely'];
+const SEVERITIES: FeedbackSeverity[] = ['incorrect', 'likely', 'missing'];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -74,9 +82,16 @@ export const parseTeachingSuggestion = (
   const text = asNullableString(raw.text);
   if (text === null) return null;
 
+  // An unrecognized type or severity falls back to the hedged one. Overstating a claim the
+  // server did not make is the only failure here with a cost: a teacher told flatly "this is
+  // wrong", on a message this client did not actually understand, is worse than a cautious one.
   const feedbackType = FEEDBACK_TYPES.includes(raw.feedback_type as FeedbackType)
     ? (raw.feedback_type as FeedbackType)
-    : 'unclear';
+    : 'likely';
+
+  const severity = SEVERITIES.includes(raw.severity as FeedbackSeverity)
+    ? (raw.severity as FeedbackSeverity)
+    : 'likely';
 
   const sources = Array.isArray(raw.sources)
     ? raw.sources
@@ -84,11 +99,19 @@ export const parseTeachingSuggestion = (
         .filter((source): source is SuggestionSource => source !== null)
     : [];
 
+  // The server drops a correction whose incorrect span failed verification, but this client is
+  // the thing that paints them, so it enforces the same pairing rather than trusting it.
+  const incorrectText = asNullableString(raw.incorrect_text);
+  const correctedText = incorrectText === null ? null : asNullableString(raw.corrected_text);
+
   return {
     id: createClientId(),
     sessionId: asNullableString(raw.session_id) ?? '',
     feedbackType,
+    severity,
     text,
+    incorrectText,
+    correctedText,
     sources,
     createdAt: asNullableString(raw.created_at) ?? new Date().toISOString(),
     receivedAt: Date.now(),

@@ -67,7 +67,21 @@ export type RecordingState = 'Off' | 'Recording' | 'Ended';
 // Real-time AI teaching-assistant suggestions delivered over the existing
 // LiveKit data channel, targeted to the teacher's participant identity.
 
-export type FeedbackType = 'discrepancy' | 'gap' | 'unclear';
+/**
+ * What kind of problem the assistant found. `likely` replaced `unclear` in wire version 2 — the
+ * category now reports the assistant's own certainty ("probably wrong, but not asserted") rather
+ * than a property of the teacher's phrasing.
+ */
+export type FeedbackType = 'discrepancy' | 'gap' | 'likely';
+
+/**
+ * How firmly the claim is being made — the field this UI colours by.
+ *
+ * Deliberately not derived from `feedbackType` here. The server owns the mapping so that adding a
+ * feedback type never means teaching every client a new colour rule; this client's job is to
+ * render the three severities it knows and fall back quietly on anything else.
+ */
+export type FeedbackSeverity = 'incorrect' | 'likely' | 'missing';
 
 /** A citation pointing back into the classroom material. */
 export interface SuggestionSource {
@@ -86,7 +100,16 @@ export interface TeachingSuggestion {
   id: string;
   sessionId: string;
   feedbackType: FeedbackType;
+  severity: FeedbackSeverity;
   text: string;
+  /**
+   * The span: the teacher's own words that were wrong, and what they should have been. Both are
+   * often null — most feedback has no single phrase to point at — so the card must read correctly
+   * without them. `correctedText` is never present without `incorrectText`: a correction with
+   * nothing to correct cannot be rendered.
+   */
+  incorrectText: string | null;
+  correctedText: string | null;
   sources: SuggestionSource[];
   createdAt: string;
   receivedAt: number;

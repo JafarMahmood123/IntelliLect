@@ -180,12 +180,13 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 | H-04 | A contradiction of indexed material yields a discrepancy card | Integration | P0 | ✓ (e2e) |
 | H-05 | Pacing: no more than one card per configured interval; low-confidence cards are dropped | Unit | P0 | ✓ |
 | H-06 | Feedback is published only to the teacher, never to students | Unit | P0 | ✓ |
-| H-07 | **New contract**: the payload carries a severity and the wrong/corrected spans as separate fields | Unit | P0 | new |
-| H-08 | **New contract**: a model response missing those fields degrades to a plain card rather than crashing the parser | Unit | P0 | new |
-| H-09 | Each severity renders its colour, *and* a non-colour cue (icon/label) | Frontend | P0 | new |
+| H-07 | **New contract**: the payload carries a severity and the wrong/corrected spans as separate fields | Unit | P0 | ✓ |
+| H-08 | **New contract**: a model response missing those fields degrades to a plain card rather than crashing the parser | Unit | P0 | ✓ |
+| H-09 | Each severity renders its colour, *and* a non-colour cue (icon/label) | Frontend | P0 | ✓ |
 | H-10 | Contrast passes in both light and dark themes | Frontend | P1 | new |
-| H-11 | "Likely to be" replaces "unclear" in the enum, prompt vocabulary and both locales | Unit + Frontend | P1 | new |
+| H-11 | "Likely to be" replaces "unclear" in the enum, prompt vocabulary and both locales | Unit + Frontend | P1 | ✓ |
 | H-12 | STT failure or model timeout degrades to silence, never to a crashed session | Unit | P0 | partial |
+| H-13 | A quoted span the teacher never said is discarded, and the suggestion survives without it | Unit | P0 | ✓ |
 
 ## 11. Area I — Quizzes (work-plan §4)
 

@@ -293,25 +293,42 @@ account matching this filter" is a different and far more dangerous feature.
 
 ---
 
-## 3. Assistant feedback — colour semantics + wording
+## 3. Assistant feedback — colour semantics + wording — **DONE**
 
-- [ ] **3.1 Contract first.** The colour must not be a frontend guess. Add an explicit
-      semantic field to the feedback payload the assistant returns
-      (e.g. `severity`/`kind`: `error` | `correction` | `uncertain`) plus, where the
-      assistant can supply it, the **span** — what exactly was wrong and what it should
-      be. A card that says "wrong" without pointing at the word can't be coloured.
-- [ ] **3.2 Model side** — update the evaluation prompt/parser
-      (`evaluation_prompt.py`, the idea evaluator) so the brain emits the wrong text and
-      the correction as separate fields, not one prose blob. Parser must degrade
-      gracefully when the model omits them.
-- [ ] **3.3 Frontend rendering** — red for the wrong word/number, green for the
-      correction, orange for uncertain. Accessibility: colour alone is not a signal —
-      pair each with an icon or label, and check contrast in both light and dark themes.
-- [ ] **3.4 Rename "unclear" → "Likely to be"** everywhere: the enum/type value, the
-      prompt vocabulary, the i18n strings (en **and** ar — the Arabic phrasing needs a
-      real translation, not a transliteration), and the report text.
-- [ ] **3.5 Tests** — parser tests for each severity, a malformed-model-output test,
-      and a frontend render test per colour.
+- [x] **3.1 Contract first.** The wire payload (v2) now carries `severity`
+      (`incorrect` | `likely` | `missing`) **and** the span: `incorrect_text` /
+      `corrected_text`. Severity is derived server-side by `severity_of()` — the
+      frontend must never be the thing that decides which colour a diagnostic label
+      deserves, or every new feedback type becomes a change in every client.
+- [x] **3.2 Model side** — the prompt asks for the wrong wording and its correction as
+      separate fields, quoted VERBATIM, and the parser drops any quote it cannot find in
+      what the teacher actually said. That guard is the important part: a hallucinated
+      phrase painted red in front of a class reads as the assistant mishearing the
+      lecture, and costs more trust than showing no highlight at all. Matching is loose
+      about case, punctuation, spacing and typographic variants (the things STT and a
+      model disagree on) and strict about the words and their order. A dropped span never
+      costs the teacher the suggestion itself.
+- [x] **3.3 Frontend rendering** — red struck-through "You said", green "Should be",
+      amber for the hedged category. Every signal carries an icon **and** a written
+      label, so the card reads correctly in greyscale, to a colour-blind teacher, and to
+      a screen reader. The panel is dark-only chrome, so H-10's light-theme contrast
+      check does not apply to it.
+- [x] **3.4 Renamed "unclear" → "Likely to be"** — and it turned out to be a rename of
+      *meaning*, not wording: the category now reports the brain's own certainty
+      ("probably wrong, but I would not assert it") rather than a property of the
+      teacher's phrasing, which is the more useful thing to tell a teacher mid-lecture.
+      Enum, prompt vocabulary, wire value, `StatusBadge` grouping and both locales. The
+      parser still accepts `unclear` from the model as an alias — it is the obvious
+      synonym to reach for, and one word should not cost a teacher their feedback.
+- [x] **3.5 Tests** — 16 backend (13 span/severity + 3 payload) and 7 frontend. Backend
+      315 green, frontend 252 green.
+
+**Deliberately not done: confidence does not affect the colour.** It was tempting to
+downgrade a low-confidence discrepancy to amber, but `feedback_confidence_min` already
+suppresses those suggestions entirely — anything that reaches a card has passed that bar
+already, so re-using confidence for colour would dim cards for a reason the teacher
+cannot see. The model chooses `discrepancy` vs `likely` instead, which is the same
+judgement made where the information actually is.
 
 ---
 

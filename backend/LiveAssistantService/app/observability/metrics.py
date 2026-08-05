@@ -37,7 +37,7 @@ EVALUATIONS = Counter(
 SUGGESTIONS_DELIVERED = Counter(
     "suggestions_delivered_total",
     "Suggestions delivered to the teacher, by feedback type.",
-    ["type"],  # Discrepancy | Gap | Unclear
+    ["type"],  # Discrepancy | Gap | Likely
 )
 SUGGESTIONS_SUPPRESSED = Counter(
     "suggestions_suppressed_total",

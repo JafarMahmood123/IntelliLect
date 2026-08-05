@@ -29,6 +29,15 @@
     "collapse": "Collapse suggestions panel",
     "expand": "Expand suggestions panel",
     "unread": "{{count}} new",
+    "severity": {
+      "incorrect": "Incorrect",
+      "likely": "Likely to be",
+      "missing": "Missing"
+    },
+    "correction": {
+      "said": "You said",
+      "shouldBe": "Should be"
+    },
     "sourcesLabel": "Sources",
     "source": {
       "slide": "slide {{n}}",

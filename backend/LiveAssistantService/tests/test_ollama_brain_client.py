@@ -119,7 +119,7 @@ async def test_type_none_with_text_is_no_feedback():
 async def test_out_of_range_and_bogus_citations_are_dropped():
     chunks = _chunks(3)  # valid citation numbers are 1..3
     content = (
-        '{"has_feedback": true, "type": "unclear", "suggestion": "See [2].", '
+        '{"has_feedback": true, "type": "likely", "suggestion": "See [2].", '
         '"citations": [2, 99, 0, 2, "x", true]}'
     )
     outcome = await _StubBrain(content).evaluate(_idea(), chunks)

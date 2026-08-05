@@ -592,10 +592,13 @@ parses this versioned contract:
 ```json
 {
   "type": "teaching_suggestion",
-  "version": 1,
+  "version": 2,
   "session_id": "...",
-  "feedback_type": "discrepancy|gap|unclear",
+  "feedback_type": "discrepancy|gap|likely",
+  "severity": "incorrect|likely|missing",
   "text": "<the suggestion>",
+  "incorrect_text": "<verbatim quote of what was wrong>|null",
+  "corrected_text": "<what it should be>|null",
   "sources": [ { "citation": 1, "document_id": "...", "page": null,
                  "slide": 4, "section": null } ],
   "created_at": "<iso8601>"
@@ -603,7 +606,30 @@ parses this versioned contract:
 ```
 
 Raw chunk text is intentionally omitted — citations + document locations are enough
-for the UI to reference the source. **Alternative transport (not implemented):** a
+for the UI to reference the source.
+
+**`severity`** is the presentation semantic the teacher's UI colours by — red for
+`incorrect`, amber for `likely`, neutral for `missing`. It is derived on this side
+rather than by the client, so a new feedback type never requires every client to
+re-derive a palette from a diagnostic label it does not own.
+
+**`incorrect_text` / `corrected_text`** are the span: the exact words the teacher said
+that were wrong, and what they should have been. Both are frequently `null` — the brain
+often finds a problem without a clean phrase to quote, and a gap has nothing wrong to
+quote at all. `incorrect_text` is only ever sent after it has been matched against what
+the teacher actually said (case-, punctuation- and spacing-insensitive, but strict about
+the words and their order); an unverified quote is discarded while the suggestion text
+itself is kept. Highlighting words in red that the teacher never uttered would read as
+the assistant mishearing the lecture, which costs more trust than a missing highlight.
+
+**Version 2** added `severity` and the span pair, and renamed the `unclear` feedback
+type to `likely` — a rename of meaning, not just wording: the category now reports the
+brain's own certainty ("probably wrong, but I would not assert it") rather than a
+property of the teacher's phrasing. The value change is what makes this a version bump
+instead of an additive change. Each side ignores versions it does not recognise, so
+mismatched builds fall silent rather than misrender. The parser still accepts `unclear`
+from the model as an alias for `likely`, since that is the obvious synonym for a model
+to reach for and one word should not cost a teacher their feedback. **Alternative transport (not implemented):** a
 teacher-only method on the StreamingService `StreamHub` (SignalR) could carry the same
 payload; `FEEDBACK_TRANSPORT=signalr` is reserved for it. The LiveKit path is the one
 built here.

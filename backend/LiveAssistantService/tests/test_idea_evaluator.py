@@ -77,7 +77,7 @@ async def test_empty_retrieval_short_circuits():
 
 
 async def test_score_equal_to_min_is_kept():
-    brain = FakeBrainClient(EvaluationOutcome(True, TeacherSuggestion("x", FeedbackType.UNCLEAR)))
+    brain = FakeBrainClient(EvaluationOutcome(True, TeacherSuggestion("x", FeedbackType.LIKELY)))
     retrieval = FakeRetrievalClient([_chunk(0.25)])  # exactly the threshold
 
     outcome = await _evaluator(retrieval, brain, min_score=0.25).evaluate(_idea(), _session())
