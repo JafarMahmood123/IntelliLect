@@ -388,6 +388,12 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public LiveStream? Find(Guid sessionId) => _streams.FirstOrDefault(s => s.SessionId == sessionId);
 
+    /// <summary>How many rows exist for a session — one is the only correct answer.</summary>
+    public int Count(Guid sessionId) => _streams.Count(s => s.SessionId == sessionId);
+
+    /// <summary>Makes the next write fail, to reach a consumer's error path without a database.</summary>
+    public bool ThrowOnAdd { get; set; }
+
     public Task<bool> ExistsAsync(Guid sessionId, CancellationToken ct = default)
         => Task.FromResult(_streams.Any(s => s.SessionId == sessionId));
 
@@ -460,6 +466,7 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {
+        if (ThrowOnAdd) throw new InvalidOperationException("database unavailable");
         _streams.Add(entity);
         return Task.CompletedTask;
     }

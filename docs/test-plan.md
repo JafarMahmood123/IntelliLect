@@ -264,7 +264,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| L-01 | Every consumer is idempotent: the same message twice produces one effect (at-least-once delivery makes this inevitable, not hypothetical) | Unit | P0 | gap |
+| L-01 | Every **state-changing** consumer is idempotent: the same message twice produces one effect | Unit | P0 | ✓ (recording-ready, summary-ready, session-started; the five email consumers are exempt — see §17) |
 | L-02 | MassTransit envelope round-trips between the .NET and Python services | Unit | P0 | ✓ |
 | L-03 | Outbox message survives a service restart between commit and publish | Integration | P0 | partial |
 | L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Unit | P0 | ✓ (EmailService; other services still gap) |
@@ -312,6 +312,15 @@ a decision.
 
 - **Third-party correctness.** LiveKit's SFU, MinIO's storage, Postgres, RabbitMQ. We
   test our *use* of them, not them.
+- **Idempotency of the email consumers.** L-01 covers the consumers that write rows,
+  where a redelivery would corrupt data. The five in EmailService are deliberately left
+  out: MassTransit redelivers after a *failure*, and if the SMTP call threw then the mail
+  was almost certainly never sent — so re-sending is the correct behaviour, not a
+  duplicate. A true duplicate needs the send to succeed and the acknowledgement to be
+  lost, and the cost of that is one repeated email. Making it exact would mean a dedup
+  store keyed on message id: real infrastructure, permanently, to prevent a rare and
+  harmless annoyance. Revisit if an email ever carries a side effect stronger than
+  telling someone something.
 - **Model output quality.** Whether Gemini writes a *good* quiz question, or phrases
   feedback well, is not machine-assertable. We test the contract around the model:
   parsing, degradation, authorization, pacing, and silence-on-no-retrieval.

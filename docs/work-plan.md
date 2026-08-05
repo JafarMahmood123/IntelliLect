@@ -673,6 +673,31 @@ Three rules that watch the things this session has been quietly relying on.
 
 ---
 
+## 7.10 Consumer idempotency (L-01) — **DONE for the consumers that matter**
+
+At-least-once delivery is the broker's design, not a failure mode, so every consumer is
+redelivered eventually — a lost acknowledgement is enough. The question is only what a
+second delivery does.
+
+- [x] **`SessionStartedConsumer` had no tests at all**, and it holds the only guard stopping
+      a redelivery from creating a second live-stream row for one session. Two rows would
+      leave every later lookup picking one arbitrarily. Six cases: the happy path, an
+      unguessable stream key, the redelivery, that an already-live session is left *exactly*
+      as it was (a no-op, not a repair — overwriting would reset the start time and key of a
+      session people are watching), that two different sessions still each get a stream, and
+      that a repository failure faults the message instead of being swallowed.
+      Mutation-checked: removing the guard fails two of them.
+- [x] Recording-ready and summary-ready consumers already had duplicate-delivery tests.
+
+**The five EmailService consumers are deliberately exempt**, recorded in the test plan's
+§17 rather than left looking like an oversight. MassTransit redelivers after a *failure*,
+and if the SMTP call threw then the mail was almost certainly never sent — so re-sending is
+correct rather than duplicate. A genuine duplicate needs the send to succeed and the ack to
+be lost, and costs one repeated email. Making that exact means a dedup store keyed on
+message id: permanent infrastructure against a rare, harmless annoyance.
+
+---
+
 ## 8. Integration testing — core logic only
 
 - [ ] **8.1 Choose the harness** — Testcontainers vs the existing compose file, and
