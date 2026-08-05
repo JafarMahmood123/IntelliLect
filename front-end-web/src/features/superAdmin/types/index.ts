@@ -44,6 +44,36 @@ export const getStatusActions = (status: string): UserStatusAction[] => {
   }
 };
 
+/**
+ * The order actions appear in the bulk bar: the two that restore access first, the two that
+ * remove it second, so the destructive pair is never where the eye lands first.
+ */
+export const BULK_STATUS_ACTIONS: readonly UserStatusAction[] = [
+  'Accept',
+  'Reactivate',
+  'Reject',
+  'Deactivate',
+];
+
+/** What happened to ONE account in a bulk request. Every requested id gets a row. */
+export interface BulkUserStatusItem {
+  userId: string;
+  succeeded: boolean;
+  status: string | null;
+  error: string | null;
+}
+
+/**
+ * The outcome of a bulk status change. Deliberately not all-or-nothing — the counts describe a
+ * partial success, so callers must read `results` rather than assume the whole batch took.
+ */
+export interface BulkUserStatusResult {
+  requested: number;
+  succeeded: number;
+  failed: number;
+  results: BulkUserStatusItem[];
+}
+
 export interface SearchUsersParams {
   searchTerm?: string;
   role?: UserRoleValue;

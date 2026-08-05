@@ -208,11 +208,10 @@ existing pain in the code.
 
 #### Tier 1 — worth building
 
-1. **Wire the super-admin users directory to the bulk endpoint that already exists.**
-   `PUT /api/super-admin/users/status` is built and tested; `UsersDirectoryPage` still
-   changes status one row at a time via `useChangeUserStatus`. **Zero backend work** —
-   pure UI wiring, reusing the selection component pattern from `AdminDashboard`. Cheapest
-   item on this list by a wide margin.
+1. ~~**Wire the super-admin users directory to the bulk endpoint that already exists.**~~
+   **DONE — see 2.7.** `PUT /api/super-admin/users/status` was already built and tested;
+   `UsersDirectoryPage` changed status one row at a time via `useChangeUserStatus`. Zero
+   backend work, as predicted.
 2. **Outputs (recordings + summaries) bulk delete.** `IOutputAdminService` exposes only
    `DeleteRecordingAsync`/`DeleteSummaryAsync` per id. Recordings are the largest objects
    in storage and a term's worth is dozens of rows, so "reclaim space" is inherently a
@@ -260,6 +259,37 @@ it. Candidate areas to examine, to be confirmed against the code rather than ass
 For each: is the loop currently N HTTP calls from the browser? That is the real signal.
 
 </details>
+
+### 2.7 Bulk status changes in the super-admin directory — **DONE**
+
+Tier-1 item 1 above. No backend change: `PUT /api/super-admin/users/status` already
+existed from §2, so this was the UI it was missing.
+
+The directory is not the admin dashboard's pending-only list — it mixes every status on
+one page — and every decision below follows from that:
+
+- [x] **One action never fits the whole selection.** Each action button carries the number
+      of selected accounts it can actually change (`Accept (2)`, `Deactivate (1)`), and
+      only those ids are sent. Actions that reach nothing are not offered at all.
+- [x] **The confirmation counts what will change, not what is selected**, and adds an
+      explicit line for the accounts it will skip. The number in the prompt is the number
+      in the request.
+- [x] **The accounts an action did not touch stay selected.** Approving the pending half
+      of a mixed selection must not silently discard the other half — that would leave the
+      admin reselecting rows they never acted on. Covered by its own test.
+- [x] **Rows no action can reach are disabled, not hidden**: `Rejected` is terminal, and a
+      super admin may not change their own status. Select-all skips them, so "select all"
+      never claims more than it can do.
+- [x] **Eligibility comes from `getStatusActions`** — the same function the per-row buttons
+      use. The bulk bar and the row actions cannot disagree about what is legal.
+- [x] **Partial failures stay on screen** and stay selected for retry, as in §2.
+- [x] The failure panel is now `components/ui/BulkFailurePanel`, shared with the admin
+      dashboard — the two surfaces call the same endpoint and must report it the same way.
+- [x] **Tests:** 10 new cases in `UsersDirectoryPage.bulk.test.tsx`, the first tests this
+      page has ever had. Frontend suite 245 green.
+
+Not done here, deliberately: selection is per page, exactly as in §2. "Select every
+account matching this filter" is a different and far more dangerous feature.
 
 ---
 

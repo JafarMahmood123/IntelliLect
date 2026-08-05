@@ -11,6 +11,7 @@ import {
 import { PageHeader } from '../../../components/ui/PageHeader';
 import { Tabs } from '../../../components/ui/Tabs';
 import { ConfirmationModal } from '../../../components/ui/ConfirmationModal';
+import { BulkFailurePanel } from '../../../components/ui/BulkFailurePanel';
 import { Button } from '../../../components/ui/Button';
 import { Pagination } from '../../../components/ui/Pagination';
 import { useToast } from '../../../components/ui/ToastProvider';
@@ -384,28 +385,14 @@ export const AdminDashboard = () => {
             </div>
           )}
 
-          {failures.length > 0 && (
-            // Per-row reasons, kept on screen rather than in a toast that vanishes — a partial
-            // failure is something the admin has to act on, not just be told about.
-            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
-              <p className="mb-2 text-sm font-medium text-amber-900 dark:text-amber-200">
-                {t('bulk.failuresTitle', { n: failures.length })}
-              </p>
-              <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-300">
-                {failures.map((failure) => {
-                  const user = pendingUsers.find((candidate) => candidate.id === failure.userId);
-                  const label = user
-                    ? `${user.firstName} ${user.lastName}`.trim()
-                    : failure.userId;
-                  return (
-                    <li key={failure.userId}>
-                      <span className="font-medium">{label}</span> — {failure.error}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
+          <BulkFailurePanel
+            title={t('bulk.failuresTitle', { n: failures.length })}
+            failures={failures}
+            resolveName={(userId) => {
+              const user = pendingUsers.find((candidate) => candidate.id === userId);
+              return user ? `${user.firstName} ${user.lastName}`.trim() : userId;
+            }}
+          />
 
           <UsersTable
             users={pendingUsers}

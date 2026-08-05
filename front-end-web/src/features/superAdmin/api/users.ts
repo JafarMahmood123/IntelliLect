@@ -1,5 +1,6 @@
 import { apiClient } from '../../../lib/axios';
 import type {
+  BulkUserStatusResult,
   PagedResult,
   SearchUsersParams,
   UserDetailResponse,
@@ -47,5 +48,24 @@ export const changeUserStatus = async (
     `/super-admin/users/${userId}/status`,
     { action },
   );
+  return response.data;
+};
+
+/**
+ * Applies one action to many accounts in a single request.
+ *
+ * Resolves rather than rejects when individual accounts failed — the request succeeded, some
+ * accounts did not, and a rejection would hide the ones that DID change. Callers must read
+ * `results`. It rejects only when the request could not be attempted at all: no ids, more than
+ * the server's cap, or an unknown action.
+ */
+export const bulkChangeUserStatus = async (
+  userIds: string[],
+  action: UserStatusAction,
+): Promise<BulkUserStatusResult> => {
+  const response = await apiClient.put<BulkUserStatusResult>('/super-admin/users/status', {
+    userIds,
+    action,
+  });
   return response.data;
 };

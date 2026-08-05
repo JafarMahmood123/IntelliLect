@@ -1,12 +1,36 @@
 ' System block diagram — the whole platform in one view.
 ' Two transports are deliberately separated: request/response over internal
 ' HTTP with a shared secret, and fire-and-forget domain events over RabbitMQ.
+'
+' LAYOUT — READ BEFORE REARRANGING. smetana gives no direct control over rank
+' or column, so the three tricks below are what keep the edges untangled. They
+' were arrived at by rendering every ordering and counting edge crossings in
+' the SVG; the arrangement here scores 12 crossings, the worst one scores 22.
+'
+'   1. NO PACKAGE AROUND THE INFRASTRUCTURE. Boxing PostgreSQL, RabbitMQ,
+'      MinIO and LiveKit together forces all four onto one rank, which is what
+'      produced the long horizontal runs across the old version. Left loose,
+'      each one settles next to the services that actually use it.
+'   2. THE HIDDEN `right` CHAINS fix left-to-right order inside a package.
+'      The .NET order below is load-bearing: ClassroomService is the hub (it
+'      reaches five other nodes) so it sits centrally, and EmailService sits
+'      directly above RabbitMQ because that is its only edge.
+'   3. THE HIDDEN `down` EDGES into the external box push it onto a rank of its
+'      own. Without them it lands beside PostgreSQL and MinIO, which widens
+'      the diagram — and a wider diagram is a SMALLER diagram on the page,
+'      since the figure is scaled to \textwidth either way.
+'
+' The external group is a dashed rectangle rather than a `cloud`: PlantUML
+' underestimates a cloud's bounding box and the wavy outline gets clipped off
+' the bottom edge of the PNG.
 @startuml
 !include _style.puml
 skinparam componentStyle rectangle
-skinparam linetype ortho
-
-actor "المستخدم\n(متصفح)" as User
+hide stereotype
+skinparam rectangle<<external>> {
+  BorderStyle dashed
+  BorderColor #555555
+}
 
 package "الواجهة الأمامية" {
   [React 19 + Vite\nSPA] as SPA
@@ -19,45 +43,49 @@ package "خدمات .NET" {
   [ClassroomService\nالفصول والجلسات والاختبارات] as CS
   [StreamingService\nغرف البث والتسجيل] as SS
   [EmailService\nمستهلك أحداث فقط] as ES
+  UMS -[hidden]right- CS
+  CS -[hidden]right- SS
+  SS -[hidden]right- ES
 }
+
+node "LiveKit\nSFU + Egress + Redis" as LK
+database "PostgreSQL ×5\nقاعدة لكل خدمة" as PG
+queue "RabbitMQ\nMassTransit" as MQ
+storage "MinIO / S3\nتسجيلات وملخصات وملفات" as S3
 
 package "خدمات الذكاء (Python / FastAPI)" {
   [RagService\nالفهرسة والاسترجاع RAG] as KS
   [LiveAssistantService\nتحويل الكلام والتحليل] as LAS
+  KS -[hidden]right- LAS
 }
 
-package "البنية التحتية" {
-  database "PostgreSQL ×5\nقاعدة لكل خدمة" as PG
-  queue "RabbitMQ\nMassTransit" as MQ
-  storage "MinIO / S3\nتسجيلات وملخصات وملفات" as S3
-  node "LiveKit\nSFU + Egress + Redis" as LK
-}
-
-cloud "خدمات خارجية" {
+rectangle "خدمات خارجية" <<external>> {
   [Gemini\nتوليد وتضمين] as GEM
   [Groq\nتحويل الكلام إلى نص] as GRQ
+  GEM -[hidden]right- GRQ
 }
 
-User --> SPA
 SPA --> GW : HTTPS
 SPA ..> LK : **WebRTC**\n(لا يمر عبر البوابة)
 
+GW --> SS
 GW --> UMS
 GW --> CS
-GW --> SS
 
-CS --> KS : HTTP داخلي + سر مشترك
-CS --> LAS : HTTP داخلي + سر مشترك
-SS --> LK : واجهة LiveKit
+SS --> LK : واجهة\nLiveKit
+' Both Python services are reached the same way; labelling one arrow keeps the
+' two labels from colliding under the .NET box.
+CS --> KS : HTTP داخلي\n+ سر مشترك
+CS --> LAS
 
+SS --> MQ
 UMS --> MQ
 CS --> MQ
-SS --> MQ
 MQ --> ES : أحداث المجال
 
+SS --> PG
 UMS --> PG
 CS --> PG
-SS --> PG
 KS --> PG
 LAS --> PG
 
@@ -65,7 +93,10 @@ LK --> S3 : تسجيل MP4
 CS --> S3
 KS --> S3
 
+PG -[hidden]down- GRQ
+S3 -[hidden]down- GEM
+
 KS --> GEM
-LAS --> GRQ
 LAS --> GEM
+LAS --> GRQ
 @enduml

@@ -193,6 +193,40 @@
         "Deactivate": "Deactivate this account? The user will be signed out and cannot sign in until reactivated."
       }
     },
+    "bulk": {
+      "selectAllOnPage": "Select every changeable account on this page",
+      "selectOne": "Select {{name}}",
+      "selectUnavailable": "{{name}} cannot be changed in bulk",
+      "selectedCount": "{{n}} selected on this page",
+      "clear": "Clear selection",
+      "actionButton": "{{action}} ({{n}})",
+      "noneApplicable": "No action applies to these accounts.",
+      "confirm": {
+        "Accept": {
+          "title": "Accept selected registrations",
+          "body": "Accept {{n}} pending account(s)? Each person will be emailed that their account is active."
+        },
+        "Reactivate": {
+          "title": "Reactivate selected accounts",
+          "body": "Reactivate {{n}} deactivated account(s)? Each person will be able to sign in again."
+        },
+        "Reject": {
+          "title": "Reject selected registrations",
+          "body": "Reject {{n}} pending account(s)? Each person will be emailed and will not be able to sign in."
+        },
+        "Deactivate": {
+          "title": "Deactivate selected accounts",
+          "body": "Deactivate {{n}} active account(s)? Each person will be signed out and cannot sign in until reactivated."
+        }
+      },
+      "skipped": "{{n}} other selected account(s) will be skipped - this action does not apply to them.",
+      "confirmButton": "Yes, apply to {{n}}",
+      "successTitle": "Done",
+      "successMessage": "{{succeeded}} account(s) updated.",
+      "partialTitle": "Partly applied",
+      "partialMessage": "{{succeeded}} updated, {{failed}} could not be.",
+      "failuresTitle": "{{n}} account(s) were not changed"
+    },
     "pagination": {
       "showing": "Showing {{count}} of {{total}} users",
       "previous": "Previous",
