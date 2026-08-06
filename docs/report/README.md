@@ -185,13 +185,21 @@ docs/report/
 ├── main.tex          document skeleton: front matter, chapters, back matter
 ├── preamble.tex      all formatting — implements STRUCTURE.md
 ├── STRUCTURE.md      the template spec we follow
-├── chapters/         one file per chapter
+├── chapters/         one file per chapter, plus per-section files
 ├── front/            abstract, dedication, acknowledgements, references
 └── figures/          images extracted from the Word draft
 ```
 
 Edit chapters individually — a broken chapter fails on its own rather than taking
 the build down, and the diffs stay reviewable.
+
+A long chapter splits one level further: the chapter file keeps `\chapter`, the
+`\section` headings and their `\label`s, and pulls each section's body from
+`chapters/<NN>-<n>-<slug>.tex` — chapter number, section number, English slug.
+Chapter 5 is fully split this way, chapter 1 partly. The heading stays with the
+chapter so the chapter file alone still shows the outline; keep `\label`
+directly under its `\section` there, since a label in the included file would
+attach to whatever heading precedes it.
 
 ## When it breaks
 

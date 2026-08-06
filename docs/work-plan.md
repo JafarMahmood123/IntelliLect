@@ -1059,6 +1059,87 @@ correct rather than duplicate. A genuine duplicate needs the send to succeed and
 be lost, and costs one repeated email. Making that exact means a dedup store keyed on
 message id: permanent infrastructure against a rare, harmless annoyance.
 
+### 7.10b Retry policies (L-04) — **DONE, and two consumers had none at all**
+
+Idempotency answers "what does a second delivery do". This is the other half: **is there a
+second delivery?** Without a `ConsumerDefinition` carrying `UseMessageRetry`, a consumer gets
+one attempt and the message goes to the error queue — which nothing in this system watches.
+
+EmailService got this rule in §7.6, where three of its five consumers turned out to have no
+definition. Nobody asked the same question of the other services, and the answer was worse:
+
+- **DEFECT: `SessionRecordingReadyConsumer` (ClassroomService) was registered bare** — on the
+  line directly above `SessionSummaryReadyConsumer`, whose registration carries a comment
+  explaining why a definition is needed. Whoever added the summary retry fixed the consumer
+  they were looking at and not the one beside it. By the time this message arrives the
+  recording already exists in MinIO: the class was captured, the object is sitting there, and
+  this consumer is the only thing that turns it into a row the classroom can show. One
+  database blip and the lecture is **recorded and permanently invisible**, with no second
+  publish to fall back on and nothing anywhere saying so.
+
+- **DEFECT: StreamingService had no consumer definition of any kind.** Its only consumer
+  creates the `LiveStream` row for a class that has just started. Lose that message and the
+  lecture has no stream record while the teacher and the students are already in the room —
+  a live failure in front of an audience, produced by a fault that lasted a second, and not
+  recoverable without restarting the class. Retrying is safe precisely because §7.10 made
+  that consumer idempotent: retry and idempotency are the same guarantee from two sides, and
+  one is what makes the other affordable.
+
+**The rule is now three questions, not one, and the first two were learned the hard way.**
+
+1. *Is a definition REGISTERED?* — asked through the real `AddInfrastructure`, not by looking
+   for a type in the assembly. EmailService's original version did the latter, which a
+   definition nobody wired up would satisfy: file present, retry absent, rule green. That is
+   exactly the shape both defects above had. EmailService's rule was raised to match.
+2. *Does the definition actually DO anything?* — an empty `ConfigureConsumer` passed
+   everything above, and **survived as a mutation** until this was written. The definition is
+   now run against a `DispatchProxy` stand-in for the endpoint configurator, which records
+   that `UseMessageRetry` connected a `MessageRetryConfigurationObserver`. `DispatchProxy` is
+   BCL, so this does not bring a mocking library into a suite that has none.
+3. *Does the detection still work?* — the check above recognises a retry by a MassTransit
+   type name, not one of ours. A rename on upgrade would make every definition look
+   unprotected or, worse, make the match find nothing and report success forever. Two probe
+   definitions written for the purpose — one with a retry, one empty — separate "the
+   definitions are broken" from "the way we look at them is broken".
+
+Also added, and the part all of it rests on: **a database failure inside a consumer must
+fault the message rather than be swallowed.** A consumer that catches its own failure tells
+the broker the message was handled — the retry never runs, however well configured. Streaming
+had this case; ClassroomService's two consumers did not.
+
+**Mutation-checked, 8 mutations, all killed** — including both original defects reintroduced
+(the rule catches each), both consumers made to swallow, and an emptied definition in each of
+the three services.
+
+**Two repository-level problems surfaced on the way, both worth recording.**
+
+**A flaky test, and the dangerous kind: it accused the code under test.**
+`Two_different_sessions_each_get_their_own_stream` failed roughly one run in six.
+`FakeStreamRepository` keeps a plain `List<LiveStream>`, and the in-memory transport delivers
+concurrently — so two consumer invocations call `AddAsync` at the same moment and the list loses
+a write. The failure reads exactly like an over-eager idempotency check dropping a legitimate
+second session, which is a product bug that does not exist. It predates this cycle; the DI
+change cannot reach it, because that harness registers the consumer directly and never calls
+`AddInfrastructure`. The fake is now guarded by a lock. Twelve consecutive runs clean.
+
+**Two of the coverage commands printed in `testing-results.md` did not run at all.**
+ClassroomService's `.slnx` still pointed at the pre-`src/` layout and omitted its test project;
+StreamingService's sat inside `src/` and likewise excluded tests. `cd backend/<service> &&
+dotnet test ...` — the command that document promises produces each number — failed with MSB1003
+or MSB3202 for both. The numbers themselves were fine, since the collector reads the Cobertura
+artifacts wherever they land, but a document whose stated contract is "nothing is transcribed"
+was carrying two commands nobody could run. Both solution files now match the UserManagementService
+shape, and both commands were re-run through them to produce the figures below.
+
+**And the coverage jump those figures show is mostly not what it looks like.** ClassroomService
+62.3% → 77.8%, StreamingService 51.5% → 73.6%, EmailService 72.0% → 97.6%, on three to seven new
+tests each. The whole jump is in the Infrastructure layer: the new rules run the real
+`AddInfrastructure`, and a composition root is hundreds of lines no test had ever *executed*.
+It is execution, not verification — what the rules assert is narrow and deliberate. Said plainly
+in the results document rather than banked as an improvement.
+
+**ClassroomService 426 → 433, StreamingService 168 → 173, EmailService 28 → 31.**
+
 ---
 
 ## 8. Integration testing — core logic only

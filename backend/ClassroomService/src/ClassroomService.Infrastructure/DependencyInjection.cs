@@ -283,9 +283,10 @@ public static class DependencyInjection
                     cfg.ConfigureEndpoints(context);
                 });
 
-            x.AddConsumer<SessionRecordingReadyConsumer>();
-            // With the definition, so a transient DB failure while recording the outcome retries
-            // instead of dead-lettering and leaving the classroom stuck on Generating.
+            // Both WITH their definitions, so a transient DB failure while recording the outcome
+            // retries instead of dead-lettering. The recording one used to be registered bare,
+            // one line above the comment explaining why the other needed it.
+            x.AddConsumer<SessionRecordingReadyConsumer>(typeof(SessionRecordingReadyConsumerDefinition));
             x.AddConsumer<SessionSummaryReadyConsumer>(typeof(SessionSummaryReadyConsumerDefinition));
         });
 

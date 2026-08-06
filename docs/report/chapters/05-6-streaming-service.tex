@@ -1,0 +1,26 @@
+% Content for Chapter 5, Section 5.6 — pulled in by chapters/05-system-design.tex
+\subsection{مكوّنات الخدمة}
+
+تضمّ طبقة التطبيق في هذه الخدمة خدمةً واحدة، ويقع معظم التعقيد في طبقة البنية التحتية. ويعود ذلك إلى أنّ التسجيل عملية يقودها نظام خارجي (\en{LiveKit Egress}) يُجيب لاحقًا عبر إشعار غير مضمون الوصول. ويعرض الشكل~\ref{fig:comp-03} هذه المكوّنات.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-03-streaming.png}
+  \caption{مخطط المكوّنات التفصيلي لخدمة البث.}
+  \label{fig:comp-03}
+\end{figure}
+
+ويصل مسار الوسائط (\en{WebRTC}) المتصفّحَ بخادم \en{LiveKit} مباشرةً دون المرور بالخدمة. وتقتصر مهمّة الخدمة على إصدار رمز انضمام محدود الصلاحيات يحدّد إمكانية نشر الصوت والصورة لصاحبه. ويمنع هذا الفصل تحوّل الخدمة إلى عنق زجاجة عند ارتفاع عدد المشاركين.
+
+\subsection{نموذج البيانات}
+
+يضمّ نموذج البيانات خمسة كيانات يعرضها الشكل~\ref{fig:erd-03}: البثّ الحيّ ومشاركوه، ورسائل المحادثة والأسئلة والتفاعلات المرافقة للجلسة.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-03-streaming.png}
+  \caption{مخطط الكيانات والعلاقات لخدمة البث.}
+  \label{fig:erd-03}
+\end{figure}
+
+ويُبيَّن تدفّق تسجيل الجلسة، وما اعتُمد فيه من حجزٍ ومُصالِحٍ دوريّ لمعالجة التبعية لنظام خارجي، في القسم~\ref{subsubsec:flow-recording}.

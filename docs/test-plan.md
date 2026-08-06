@@ -342,7 +342,11 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | L-01 | Every **state-changing** consumer is idempotent: the same message twice produces one effect | Unit | P0 | ✓ (recording-ready, summary-ready, session-started; the five email consumers are exempt — see §17) |
 | L-02 | MassTransit envelope round-trips between the .NET and Python services | Unit | P0 | ✓ |
 | L-03 | Outbox message survives a service restart between commit and publish | Integration | P0 | partial |
-| L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Unit | P0 | ✓ (EmailService; other services still gap) |
+| L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Unit | P0 | ✓ (all four services; found ClassroomService's recording consumer and StreamingService's only consumer registered with no retry at all) |
+| L-07 | Every consumer is REGISTERED with a definition, checked through the real composition root — not merely that a definition type exists | Unit | P0 | ✓ (ClassroomService, StreamingService, EmailService) |
+| L-08 | Every definition actually configures a retry; an empty `ConfigureConsumer` is caught | Unit | P0 | ✓ (the definition is run against a recording configurator) |
+| L-09 | The retry detection itself is verified in both directions, so a MassTransit rename fails loudly instead of matching nothing | Unit | P1 | ✓ |
+| L-10 | A database failure inside a consumer faults the message rather than being swallowed — without this the retry policy never runs | Unit | P0 | ✓ (recording, summary, session-started) |
 | L-05 | Recording-ready and summary-ready consumers tolerate arriving out of order | Unit | P1 | ✓ |
 | L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | partial |
 

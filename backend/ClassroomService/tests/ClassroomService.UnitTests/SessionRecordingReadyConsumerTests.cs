@@ -131,4 +131,26 @@ public sealed class SessionRecordingReadyConsumerTests
         var recording = Assert.Single(repo.Store);
         Assert.Equal(RecordingStatus.Available, recording.Status);
     }
+
+    [Fact]
+    public async Task A_database_failure_faults_the_message_rather_than_swallowing_it()
+    {
+        // L-04, and the half the retry policy depends on. A consumer that catches its own failure
+        // tells the broker the message was handled: the retry never runs, the message is gone, and
+        // the only trace is a log line. By the time this message arrives the recording already
+        // exists in MinIO — the class was captured and the object is sitting there — so losing it
+        // leaves a lecture recorded and permanently invisible, with nothing anywhere saying so.
+        var repo = new FakeRecordingRepository();
+        var uow = new FakeUnitOfWork
+        {
+            BeforeSave = () => throw new InvalidOperationException("the database went away"),
+        };
+        await using var provider = BuildProvider(repo, uow);
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(SuccessMessage(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.True(await harness.Published.Any<Fault<SessionRecordingReadyMessage>>());
+    }
 }

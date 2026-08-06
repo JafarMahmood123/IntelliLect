@@ -382,29 +382,54 @@ public sealed class FakeRecordingMetrics : IRecordingMetrics
 public sealed class FakeStreamRepository : IStreamRepository
 {
     private readonly List<LiveStream> _streams = new();
-    public int SaveCalls { get; private set; }
+
+    /// <summary>
+    /// Guards every touch of the list above.
+    ///
+    /// The in-memory transport delivers concurrently, so a test that publishes two messages has
+    /// two consumer invocations calling AddAsync at the same moment — and List&lt;T&gt; loses a
+    /// write under that. It showed up as "Two_different_sessions_each_get_their_own_stream" failing
+    /// roughly one run in six, which reads exactly like a product bug in the idempotency check and
+    /// is not one. A flake that accuses the code under test is worse than no test.
+    /// </summary>
+    private readonly object _gate = new();
+
+    private int _saveCalls;
+    public int SaveCalls { get { lock (_gate) return _saveCalls; } }
 
     public FakeStreamRepository(params LiveStream[] seed) => _streams.AddRange(seed);
 
-    public LiveStream? Find(Guid sessionId) => _streams.FirstOrDefault(s => s.SessionId == sessionId);
+    public LiveStream? Find(Guid sessionId)
+    {
+        lock (_gate) return _streams.FirstOrDefault(s => s.SessionId == sessionId);
+    }
 
     /// <summary>How many rows exist for a session — one is the only correct answer.</summary>
-    public int Count(Guid sessionId) => _streams.Count(s => s.SessionId == sessionId);
+    public int Count(Guid sessionId)
+    {
+        lock (_gate) return _streams.Count(s => s.SessionId == sessionId);
+    }
 
     /// <summary>Makes the next write fail, to reach a consumer's error path without a database.</summary>
     public bool ThrowOnAdd { get; set; }
 
     public Task<bool> ExistsAsync(Guid sessionId, CancellationToken ct = default)
-        => Task.FromResult(_streams.Any(s => s.SessionId == sessionId));
+    {
+        lock (_gate) return Task.FromResult(_streams.Any(s => s.SessionId == sessionId));
+    }
 
     public Task<LiveStream?> GetBySessionIdAsync(Guid sessionId, bool includeParticipants = false, CancellationToken ct = default)
         => Task.FromResult<LiveStream?>(Find(sessionId));
 
     public Task<LiveStream?> GetByEgressIdAsync(string egressId, CancellationToken ct = default)
-        => Task.FromResult<LiveStream?>(_streams.FirstOrDefault(s => s.EgressId == egressId));
+    {
+        lock (_gate) return Task.FromResult<LiveStream?>(_streams.FirstOrDefault(s => s.EgressId == egressId));
+    }
 
     public Task<List<LiveStream>> GetLiveStreamsAsync(CancellationToken ct = default)
-        => Task.FromResult(_streams.Where(s => s.Status == StreamStatus.Live).ToList());
+    {
+        lock (_gate) return Task.FromResult(_streams.Where(s => s.Status == StreamStatus.Live).ToList());
+    }
 
     public int ClaimAttempts { get; private set; }
 
@@ -440,8 +465,11 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task SetEgressIdAsync(Guid streamId, string? egressId, CancellationToken ct = default)
     {
-        var stream = _streams.FirstOrDefault(s => s.Id == streamId);
-        if (stream is not null) stream.EgressId = egressId;
+        lock (_gate)
+        {
+            var stream = _streams.FirstOrDefault(s => s.Id == streamId);
+            if (stream is not null) stream.EgressId = egressId;
+        }
         return Task.CompletedTask;
     }
 
@@ -467,7 +495,7 @@ public sealed class FakeStreamRepository : IStreamRepository
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {
         if (ThrowOnAdd) throw new InvalidOperationException("database unavailable");
-        _streams.Add(entity);
+        lock (_gate) _streams.Add(entity);
         return Task.CompletedTask;
     }
 
@@ -475,7 +503,7 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        _streams.RemoveAll(s => s.Id == id);
+        lock (_gate) _streams.RemoveAll(s => s.Id == id);
         return Task.CompletedTask;
     }
 
@@ -484,7 +512,7 @@ public sealed class FakeStreamRepository : IStreamRepository
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
-        SaveCalls++;
+        lock (_gate) _saveCalls++;
         return Task.FromResult(1);
     }
 }

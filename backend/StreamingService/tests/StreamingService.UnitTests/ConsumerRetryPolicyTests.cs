@@ -1,33 +1,28 @@
 using System.Reflection;
-using EmailService.Infrastructure;
-using EmailService.Infrastructure.Consumers;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using StreamingService.Infrastructure;
+using StreamingService.Infrastructure.Consumers;
 
-namespace EmailService.UnitTests;
+namespace StreamingService.UnitTests;
 
 /// <summary>
-/// Every consumer must ship with a retry policy.
+/// Every consumer must be registered with a retry policy (test-plan L-04).
 ///
-/// Written as a rule over the service rather than a list of the five consumers that exist today,
-/// because the failure it guards against is one of omission. Two of the five had a definition and
-/// three did not — not by decision, just because nobody added one — which meant a single SMTP
-/// hiccup sent an approval or enrolment email to the error queue, and nobody watches an error
-/// queue for the email that told a student they were accepted.
+/// This service had no consumer definition of any kind, so its single consumer got one attempt
+/// and then the error queue. It is the consumer that creates the <c>LiveStream</c> row for a
+/// class that has just started — and it is the only thing that does, with no second publish to
+/// fall back on. A database fault lasting a second left a lecture with no stream record while the
+/// teacher and the students were already in the room.
 ///
-/// A list would have to be remembered. A rule catches the sixth consumer on the day it is written.
-///
-/// **Raised to ask the container, not the assembly (test-plan L-04).** The original version looked
-/// for a <c>ConsumerDefinition&lt;T&gt;</c> type anywhere in the assembly, which a definition
-/// nobody wired into <c>AddMassTransit</c> would satisfy: the file present, the retry absent, the
-/// rule green. That is not hypothetical — the same rule was then written for ClassroomService and
-/// StreamingService, and both had exactly the "registered bare" shape this form catches and the
-/// old one would not have.
+/// Written as a rule over the composition root rather than a check for one file, because the
+/// failure is one of omission and the next consumer added here would arrive exactly as bare as
+/// this one did.
 /// </summary>
 public sealed class ConsumerRetryPolicyTests
 {
-    private static readonly Assembly Infrastructure = typeof(UserStatusChangedConsumer).Assembly;
+    private static readonly Assembly Infrastructure = typeof(SessionStartedConsumer).Assembly;
 
     private static bool IsConsumer(Type type)
         => type is { IsClass: true, IsAbstract: false }
@@ -48,17 +43,18 @@ public sealed class ConsumerRetryPolicyTests
 
         Assert.True(
             undefended.Count == 0,
-            "These consumers are registered without a ConsumerDefinition, so a transient SMTP "
-            + "failure sends the email to the error queue after one attempt: "
+            "These consumers are registered without a ConsumerDefinition, so they get one attempt "
+            + "and then the error queue — which nobody watches: "
             + string.Join(", ", undefended));
     }
 
     [Fact]
     public void There_are_consumers_to_check_in_the_first_place()
     {
-        // Without this, a reflection bug that finds nothing would make the rule above pass by
-        // vacuum — the most comfortable kind of green.
-        Assert.Equal(5, Infrastructure.GetTypes().Count(IsConsumer));
+        // Without this, a reflection bug that finds nothing makes the rule above pass by vacuum.
+        // Update the count deliberately when a consumer is added; that is the moment to decide
+        // its retry policy.
+        Assert.Equal(1, Infrastructure.GetTypes().Count(IsConsumer));
     }
 
     [Fact]
@@ -186,6 +182,8 @@ public sealed class ConsumerRetryPolicyTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["ConnectionStrings:Database"] = "Host=localhost;Database=test",
+                ["Jwt:SecretKey"] = "a-signing-key-of-at-least-thirty-two-chars",
                 ["RabbitMq:Username"] = "guest",
                 ["RabbitMq:Password"] = "guest",
             })

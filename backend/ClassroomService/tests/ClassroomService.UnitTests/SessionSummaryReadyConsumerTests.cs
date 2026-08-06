@@ -128,4 +128,25 @@ public sealed class SessionSummaryReadyConsumerTests
         var summary = Assert.Single(repo.Store);
         Assert.Equal(SummaryStatus.Available, summary.Status);
     }
+
+    [Fact]
+    public async Task A_database_failure_faults_the_message_rather_than_swallowing_it()
+    {
+        // L-04. The summary itself already succeeded in RagService by the time this arrives, so
+        // swallowing a local write failure leaves the classroom showing "Generating" forever for
+        // a summary that is finished and sitting in S3 — and the retry that would have fixed it
+        // never runs, because the broker was told the message was handled.
+        var repo = new FakeSummaryRepository();
+        var uow = new FakeUnitOfWork
+        {
+            BeforeSave = () => throw new InvalidOperationException("the database went away"),
+        };
+        await using var provider = BuildProvider(repo, uow);
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        await harness.Bus.Publish(SuccessMessage(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.True(await harness.Published.Any<Fault<SessionSummaryReadyMessage>>());
+    }
 }

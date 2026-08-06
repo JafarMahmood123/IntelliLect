@@ -1,0 +1,82 @@
+% Content for Chapter 5, Section 5.8 — pulled in by chapters/05-system-design.tex
+\subsection{دور الخدمة ونطاقها}
+
+تتولّى خدمة المعرفة تحويل المواد المرجعية التي يرفعها المعلّم، من ملفّات \en{PDF} ومستندات \en{Word} وعروض \en{PowerPoint}، إلى قاعدة معرفية قابلة للبحث الدلالي. وتغذّي هذه القاعدة قدرات التوليد المعزّز بالاسترجاع (\en{RAG}) الموصوفة نظريًّا في القسم~\ref{sec:knowledge-pipeline}. وتنفّذ الخدمة مرحلتَي الفهرسة (\en{Indexing}) والاسترجاع (\en{Retrieval})، بحيث يُبنى فهرس دلالي لكل فصل دراسي يُستعان به في تأصيل إجابات النظام في المادة العلمية للفصل.
+
+\subsection{مكوّنات الخدمة}
+
+يعرض الشكل~\ref{fig:comp-05} مكوّنات الخدمة مجمّعةً بحسب المهامّ الأربع التي تؤدّيها: الاستيعاب والاسترجاع والتلخيص وإعادة التضمين.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-05-rag.png}
+  \caption{مخطط المكوّنات التفصيلي لخدمة المعرفة.}
+  \label{fig:comp-05}
+\end{figure}
+
+وطُبّق في هذه الخدمة نمطُ المنافذ والمحوِّلات (\en{Ports and Adapters}). فتعرّف طبقة التطبيق منافذ مجرّدة تصف ما تحتاجه الخدمة، كالاستخراج والتضمين والتخزين، دون تحديد كيفية تنفيذه. ويقع كل اختيار تقني (\en{Gemini} و\en{Tesseract} و\en{S3} و\en{pgvector}) في طبقة البنية التحتية خلف أحد هذه المنافذ. ويعرض الشكل~\ref{fig:class-01} هذا التصميم مطبَّقًا على خط أنابيب الاستيعاب.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/class-01-ports-adapters.png}
+  \caption{مخطط الصفوف لنمط المنافذ والمحوِّلات في خط أنابيب الاستيعاب.}
+  \label{fig:class-01}
+\end{figure}
+
+ويحصر هذا الفصل استبدالَ مزوّد التضمين أو محرّك التعرّف الضوئي في محوِّل واحد، دون تعديل منطق خط الأنابيب.
+
+\subsection{نموذج البيانات}
+\label{subsec:rag-data-model}
+
+يقوم نموذج البيانات على أربعة كيانات يعرضها الشكل~\ref{fig:erd-04}: المستند (\en{documents}) والمقطع (\en{chunks})، وسجلّات محاولات التلخيص (\en{summary\_runs})، وجدول صندوق الصادر (\en{outbox\_messages}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-04-rag.png}
+  \caption{مخطط الكيانات والعلاقات لخدمة المعرفة.}
+  \label{fig:erd-04}
+\end{figure}
+
+ويتضمّن هذا النموذج قرارين تصميميين:
+
+\begin{enumerate}
+  \item \textbf{تضمين معرّف الفصل في كيان المقطع}: يتيح ذلك قصر البحث الدلالي على فصل دراسي بعينه، ممّا يضمن عزل معرفة كل فصل ويمنع تسرّب محتوى فصلٍ إلى نتائج فصلٍ آخر.
+  \item \textbf{استعمال النوع \en{halfvec} لتخزين الأشعّة}: يبلغ طول شعاع التضمين المولَّد من \en{Gemini} 3072، وهو يتجاوز الحدّ الأقصى البالغ 2000 الذي يقبله فهرس \en{HNSW} للنوع \en{vector} في \en{pgvector}. ويقبل النوع \en{halfvec} هذا الطول ويسمح بفهرسته.
+\end{enumerate}
+
+\subsection{تدفّق الاستيعاب (\en{Ingestion})}
+
+صُمّم قلب الخدمة على هيئة خط أنابيب من مراحل متتابعة تُعالَج جميعها بشكل غير متزامن في الخلفية، تفاديًا لتعطيل عملية رفع الملفّ بانتظار المعالجة الثقيلة. ويعرض الشكل~\ref{fig:arch-02} مراحل هذا الخط.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02-rag-pipeline.png}
+  \caption{تدفّق استيعاب المستندات وفهرستها في خدمة المعرفة.}
+  \label{fig:arch-02}
+\end{figure}
+
+واعتُمد عامل معالجة (\en{Worker}) محدود التزامن، ممّا يتيح التحكّم في استهلاك الموارد ويمنع استنزاف الجهاز عند معالجة عدّة ملفّات معًا. وصُمّمت المعالجة خاملة التكرار (\en{Idempotent})، فلا يُعاد فهرسة الملفّ نفسه دون تغيّر في محتواه، مع دعم إعادة الفهرسة عند تغيّره. ويُطبَّق التعرّف الضوئي (\en{OCR}) انتقائيًّا على الصفحات الممسوحة والصور الحاملة للنص فقط، تطبيقًا لمبدأ الموازنة بين الدقة والكلفة (القسم~\ref{subsec:text-extraction-ocr}).
+
+\subsection{تدفّق الاسترجاع والإجابة}
+
+يعرض الشكل~\ref{fig:arch-02b} مسار الإجابة عن سؤال: تضمين السؤال، ثمّ البحث الدلالي المقصور على الفصل، ثمّ بناء السياق ضمن حدّ الرموز المتاح، ثمّ توليد الإجابة مؤصَّلةً في المقاطع المسترجَعة.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02b-rag-retrieval.png}
+  \caption{تدفّق الاسترجاع وتوليد الإجابة في خدمة المعرفة.}
+  \label{fig:arch-02b}
+\end{figure}
+
+\subsection{تدفّق توليد ملخّص الجلسة}
+
+يعرض الشكل~\ref{fig:arch-03b} مسار توليد ملخّص الجلسة بعد انتهائها.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-03b-session-summary.png}
+  \caption{تدفّق توليد ملخّص الجلسة في خدمة المعرفة.}
+  \label{fig:arch-03b}
+\end{figure}
+
+ويفصل هذا التدفّق بين التوليد والإعلان: فالمحاولة الفاشلة لا تنشر حدثًا ما دامت هناك محاولات باقية. ولولا هذا الفصل لانتقلت حالة الملخّص في واجهة الفصل من «قيد التوليد» إلى «فشل» ثمّ إلى «متاح» عند نجاح محاولة لاحقة، وهو تسلسل يظهر للمستخدم على أنّه خلل وإن كانت النتيجة النهائية صحيحة.

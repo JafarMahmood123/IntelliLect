@@ -1,0 +1,37 @@
+% Content for Chapter 5, Section 5.9 — pulled in by chapters/05-system-design.tex
+\subsection{مكوّنات الخدمة}
+
+يقوم المسار الرئيس في هذه الخدمة على حلقة متّصلة، لا على دورة طلب وجواب كبقية الخدمات. وتتوزّع مكوّنات طبقة التطبيق فيها على مراحل متتابعة، من التقاط الصوت إلى إصدار التدخّل التعليمي. ويعرض الشكل~\ref{fig:comp-06} هذه المكوّنات.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-06-live-assistant.png}
+  \caption{مخطط المكوّنات التفصيلي لخدمة المساعد الحيّ.}
+  \label{fig:comp-06}
+\end{figure}
+
+وتتضمّن طبقة النطاق (\en{Domain}) في هذه الخدمة منطقًا أوسع ممّا هو معتاد. فالقرارات المشفَّرة فيها، كتحديد اكتمال الفكرة أو ملاءمة توقيت التدخّل، منطق خالص لا يعتمد على نموذج أو اتصال شبكي أو قاعدة بيانات، ممّا يجعلها قابلة للاختبار الوحدوي.
+
+\subsection{نموذج البيانات}
+
+يقوم نموذج البيانات على كيانين يعرضهما الشكل~\ref{fig:erd-05}: نصّ الجلسة (\en{session\_transcripts}) ومقاطعه الزمنية (\en{transcript\_segments}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-05-live-assistant.png}
+  \caption{مخطط الكيانات والعلاقات لخدمة المساعد الحيّ.}
+  \label{fig:erd-05}
+\end{figure}
+
+\subsection{تدفّق الحلقة الحيّة}
+
+يعرض الشكل~\ref{fig:arch-03} الحلقة التي تعمل طوال الجلسة: التقاط الصوت، وتحويله إلى نص، وكشف اكتمال الفكرة، وتقييمها مقابل المصادر المفهرسة، ثمّ اتّخاذ قرار التدخّل من عدمه.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-03-live-assistant.png}
+  \caption{تدفّق الحلقة الحيّة في خدمة المساعد الحيّ.}
+  \label{fig:arch-03}
+\end{figure}
+
+ويتولّى مُوقِّع التدخّل (\en{FeedbackPacer}) ضبط معدّل التدخّلات. فصحّة الملاحظة وحدها لا تكفي لإرسالها، إذ يفرض المُوقِّع حدًّا أدنى زمنيًّا بين التدخّلات المتتالية تفاديًا لمقاطعة المعلّم في أثناء الشرح.

@@ -1,33 +1,31 @@
 using System.Reflection;
-using EmailService.Infrastructure;
-using EmailService.Infrastructure.Consumers;
+using ClassroomService.Infrastructure;
+using ClassroomService.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EmailService.UnitTests;
+namespace ClassroomService.UnitTests;
 
 /// <summary>
-/// Every consumer must ship with a retry policy.
+/// Every consumer must be registered with a retry policy (test-plan L-04).
 ///
-/// Written as a rule over the service rather than a list of the five consumers that exist today,
-/// because the failure it guards against is one of omission. Two of the five had a definition and
-/// three did not — not by decision, just because nobody added one — which meant a single SMTP
-/// hiccup sent an approval or enrolment email to the error queue, and nobody watches an error
-/// queue for the email that told a student they were accepted.
+/// EmailService has had this rule since §7.6, where three of its five consumers turned out to
+/// have no definition. The same omission was sitting in this service and in StreamingService, and
+/// nothing was looking: <c>SessionRecordingReadyConsumer</c> was registered bare on the line
+/// directly above <c>SessionSummaryReadyConsumer</c>, whose registration carries a comment
+/// explaining why a definition is needed.
 ///
-/// A list would have to be remembered. A rule catches the sixth consumer on the day it is written.
-///
-/// **Raised to ask the container, not the assembly (test-plan L-04).** The original version looked
-/// for a <c>ConsumerDefinition&lt;T&gt;</c> type anywhere in the assembly, which a definition
-/// nobody wired into <c>AddMassTransit</c> would satisfy: the file present, the retry absent, the
-/// rule green. That is not hypothetical — the same rule was then written for ClassroomService and
-/// StreamingService, and both had exactly the "registered bare" shape this form catches and the
-/// old one would not have.
+/// **This checks the registration, not the existence of a type.** EmailService's version asks
+/// whether a <c>ConsumerDefinition&lt;T&gt;</c> exists somewhere in the assembly, which a
+/// definition that nobody wired up would satisfy — the file would be there, the retry would not.
+/// Running the real <c>AddInfrastructure</c> and asking the container what it actually resolves
+/// removes that gap, and cannot drift from the composition root because it IS the composition
+/// root.
 /// </summary>
 public sealed class ConsumerRetryPolicyTests
 {
-    private static readonly Assembly Infrastructure = typeof(UserStatusChangedConsumer).Assembly;
+    private static readonly Assembly Infrastructure = typeof(SessionRecordingReadyConsumer).Assembly;
 
     private static bool IsConsumer(Type type)
         => type is { IsClass: true, IsAbstract: false }
@@ -48,17 +46,18 @@ public sealed class ConsumerRetryPolicyTests
 
         Assert.True(
             undefended.Count == 0,
-            "These consumers are registered without a ConsumerDefinition, so a transient SMTP "
-            + "failure sends the email to the error queue after one attempt: "
+            "These consumers are registered without a ConsumerDefinition, so they get one attempt "
+            + "and then the error queue — which nobody watches: "
             + string.Join(", ", undefended));
     }
 
     [Fact]
     public void There_are_consumers_to_check_in_the_first_place()
     {
-        // Without this, a reflection bug that finds nothing would make the rule above pass by
-        // vacuum — the most comfortable kind of green.
-        Assert.Equal(5, Infrastructure.GetTypes().Count(IsConsumer));
+        // Without this, a reflection bug that finds nothing makes the rule above pass by vacuum —
+        // the most comfortable kind of green. Update the count deliberately when a consumer is
+        // added; that is the moment to decide its retry policy.
+        Assert.Equal(2, Infrastructure.GetTypes().Count(IsConsumer));
     }
 
     [Fact]
@@ -186,8 +185,12 @@ public sealed class ConsumerRetryPolicyTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["ConnectionStrings:Database"] = "Host=localhost;Database=test",
+                ["Jwt:SecretKey"] = "a-signing-key-of-at-least-thirty-two-chars",
                 ["RabbitMq:Username"] = "guest",
                 ["RabbitMq:Password"] = "guest",
+                ["S3Settings:AccessKey"] = "test-access-key",
+                ["S3Settings:SecretKey"] = "test-secret-key",
             })
             .Build();
 }

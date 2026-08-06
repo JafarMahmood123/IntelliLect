@@ -1,7 +1,10 @@
 <Solution>
-  <Project Path="ClassroomService.Api/ClassroomService.Api.csproj" />
-  <Project Path="ClassroomService.Application/ClassroomService.Application.csproj" />
-  <Project Path="ClassroomService.Domain/ClassroomService.Domain.csproj" />
-  <Project Path="ClassroomService.Infrastructure/ClassroomService.Infrastructure.csproj" />
-  <Project Path="ClassroomService.Presentation/ClassroomService.Presentation.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/ClassroomService.UnitTests/ClassroomService.UnitTests.csproj" />
+  </Folder>
+  <Project Path="src/ClassroomService.Api/ClassroomService.Api.csproj" />
+  <Project Path="src/ClassroomService.Application/ClassroomService.Application.csproj" />
+  <Project Path="src/ClassroomService.Domain/ClassroomService.Domain.csproj" />
+  <Project Path="src/ClassroomService.Infrastructure/ClassroomService.Infrastructure.csproj" />
+  <Project Path="src/ClassroomService.Presentation/ClassroomService.Presentation.csproj" />
 </Solution>

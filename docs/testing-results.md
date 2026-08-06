@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 19:32 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 20:08 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 235 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 426 | `dotnet test ClassroomService/tests/*/*.csproj` |
-| StreamingService | 168 | `dotnet test StreamingService/tests/*/*.csproj` |
-| EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
+| ClassroomService | 433 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
+| EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 351 (+9 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,105** | |
+| **Total** | **2,120** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -61,9 +61,9 @@ that selection waits two minutes and then fails.
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
 | UserManagementService | 50.0% | 34.9% | measured 2026-08-06 (991 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| ClassroomService | 62.3% | 62.9% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| StreamingService | 51.5% | 34.4% | measured 2026-08-06 (651 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| ClassroomService | 77.8% | 73.6% | measured 2026-08-06 (1212 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| StreamingService | 73.6% | 43.8% | measured 2026-08-06 (656 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| EmailService | 97.6% | 93.8% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.0% | 68.2% | measured 2026-08-06 (3911 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | front-end-web | 41.4% | 79.5% | measured 2026-08-06 (14868 lines) | `cd front-end-web && npm run test:coverage` |
@@ -81,20 +81,31 @@ that selection waits two minutes and then fails.
 | UserManagementService | Api | 100.0% |
 | ClassroomService | Domain | 100.0% |
 | ClassroomService | Application | 97.8% |
-| ClassroomService | Infrastructure | 39.5% |
+| ClassroomService | Infrastructure | 70.8% |
 | ClassroomService | Presentation | 19.0% |
 | StreamingService | Domain | 100.0% |
 | StreamingService | Application | 58.9% |
-| StreamingService | Infrastructure | 47.0% |
+| StreamingService | Infrastructure | 81.2% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
-| EmailService | Infrastructure | 72.0% |
+| EmailService | Infrastructure | 97.6% |
 <!-- /generated:layers -->
 
 **The headline moves for reasons that have nothing to do with testing, and this project has a
 live example of it.** Coverlet reports on the assemblies a test run actually loads. If no test
 ever touches an assembly, it is absent from the report entirely and the percentage is computed
 without it.
+
+**And a third time, inflating rather than deflating — read the L-04 jump with care.** Adding the
+consumer-retry rules moved ClassroomService from 62.3% to **77.8%**, StreamingService from 51.5%
+to **73.6%** and EmailService from 72.0% to **97.6%**, on three to seven new tests each. Nothing
+about those services became better tested to that degree. The rules run the real
+`AddInfrastructure`, and a service's composition root is hundreds of lines that had never been
+*executed* by any test before — the entire jump is in the Infrastructure layer, and it is
+execution, not verification. What those tests actually assert is narrow and deliberate: that
+every consumer is registered with a definition and that the definition configures a retry. The
+DI wiring around it is now merely *run*. A reader who takes 97.6% as "EmailService is almost
+fully verified" has been misled by a number this document produced, which is why it says so here.
 
 **It happened again in this cycle, in the other direction.** Testing `GlobalExceptionHandler`
 required the test project to reference the Api assembly, which pulled it and Presentation into the
@@ -200,6 +211,9 @@ found by writing a test, not by a user.
 | 17 | A second, dead JWT minter in ClassroomService sharing the signing secret | §7.2 |
 | 18 | 22 dependency advisories, 20 fixed; npm's proposed react-router "fix" refused as a net regression | §11.13 |
 | 20 | **A client that timed out and hung up was logged as a 500 server error** — one manufactured error per abandoned request, arriving in bursts behind every retry, in the log somebody reads to find the real failure | S-14 exception-handler tests |
+| 22 | **ClassroomService's recording consumer and StreamingService's only consumer were registered with no retry policy** — one attempt, then an error queue nobody watches. A lecture already recorded in MinIO stays permanently invisible; a class that has just started gets no stream row while everyone is in the room | L-04 consumer-retry rules |
+| 23 | ClassroomService's solution file still pointed at the pre-`src/` layout and omitted its tests, and StreamingService's sat inside `src/` — so two of the coverage commands printed in this document did not run at all | noticed while regenerating this table |
+| 24 | `FakeStreamRepository` kept a plain `List<T>` while the in-memory transport delivers concurrently, so one run in six failed in a way that read as a product bug in the idempotency check | L-04 work; a flake that accuses the code under test |
 | 21 | **Every unexpected failure handed its exception message to the caller** — Npgsql messages carry the SQL, the table and the constraint; a configuration failure carries the connection string it tried | S-14 exception-handler tests |
 | 19 | **Nothing limited password guessing anywhere in the system** — no lockout in `AuthService`, no ASP.NET rate limiter, no `limit_req` in nginx. The reset endpoint and the 2FA challenge were both capped; the front door was not | A-07 lockout tests |
 
@@ -207,7 +221,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 120 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 128 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 

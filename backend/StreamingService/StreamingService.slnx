@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/StreamingService.UnitTests/StreamingService.UnitTests.csproj" />
+  </Folder>
+  <Project Path="src/StreamingService.Api/StreamingService.Api.csproj" />
+  <Project Path="src/StreamingService.Application/StreamingService.Application.csproj" />
+  <Project Path="src/StreamingService.Domain/StreamingService.Domain.csproj" />
+  <Project Path="src/StreamingService.Infrastructure/StreamingService.Infrastructure.csproj" />
+  <Project Path="src/StreamingService.Presentation/StreamingService.Presentation.csproj" />
+</Solution>

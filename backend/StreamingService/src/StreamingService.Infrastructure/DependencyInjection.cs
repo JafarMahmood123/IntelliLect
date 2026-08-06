@@ -104,7 +104,9 @@ public static class DependencyInjection
 
         services.AddMassTransit(x =>
         {
-            x.AddConsumer<SessionStartedConsumer>();
+            // With its definition: without one this consumer got a single attempt, and losing it
+            // means a class that has already started has no stream row and cannot recover.
+            x.AddConsumer<SessionStartedConsumer>(typeof(SessionStartedConsumerDefinition));
 
             x.AddEntityFrameworkOutbox<StreamingDbContext>(o =>
             {
