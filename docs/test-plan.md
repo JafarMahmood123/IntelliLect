@@ -499,7 +499,26 @@ own note on why.
 | S-13 | Two real connections racing on the same row — the remaining window needs an optimistic concurrency token on `Quiz` | Integration | P1 | **gap.** A fake cannot model transaction isolation, and a token makes every quiz write able to throw, so it wants an integration suite behind it first. |
 | S-14 | Bulk approve retried after a timeout (UMS, §2 idempotency) | Unit | P1 | gap |
 
-## 22. Deliberately not covered — and why
+## 22. Area T — Migrations (work-plan §11.8)
+
+`MigrationConformanceTests` (ClassroomService, StreamingService, UserManagementService) and
+`test_migration_conformance.py` (RagService, LiveAssistantService). All containerless.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| T-01 | **The model and the migrations have not drifted** — an entity changed with no migration to match | Unit | P0 | ✓ |
+| T-02 | Every EF migration can be undone — an empty `Down` reports success and changes nothing | Unit | P0 | ✓ |
+| T-03 | Migration ids are unique and ordered by their timestamps | Unit | P1 | ✓ |
+| T-04 | There are migrations and entities to check (the guard on the guards) | Unit | P0 | ✓ |
+| T-05 | The Alembic history has exactly one root and one head — two heads break on deploy, not in CI | Unit | P0 | ✓ |
+| T-06 | Every Alembic parent link points at a revision that exists | Unit | P0 | ✓ |
+| T-07 | Every Alembic revision id is unique | Unit | P0 | ✓ |
+| T-08 | Every Alembic upgrade does something | Unit | P1 | ✓ |
+| T-09 | **Every Alembic revision can actually be undone** — `alembic downgrade` reports success on an empty body | Unit | P0 | ✓ |
+| T-10 | EF migrations apply cleanly to an empty database | Integration | P0 | gap (needs Postgres) |
+| T-11 | Alembic upgrades **and downgrades** without loss — an empty downgrade is detectable here, a *wrong* one is not | Integration | P0 | gap (needs Postgres + pgvector) |
+
+## 23. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -531,7 +550,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 23. Entry / exit criteria
+## 24. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -549,7 +568,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume
    (**authored — Area P; the containerless half already passes**).
 
-## 24. Traceability
+## 25. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -571,3 +590,4 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | Q | §10.4 |
 | R | §10.5 |
 | S | §11.7 |
+| T | §11.8 |

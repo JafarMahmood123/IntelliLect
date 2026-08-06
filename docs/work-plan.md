@@ -1589,9 +1589,51 @@ Ranked by value:
       retried after a timeout** (UMS, §2 idempotency) is also still open.
 
       **ClassroomService 404 → 422.**
-- [ ] **11.8 Migration tests.** EF migrations apply cleanly to an empty database and
-      Alembic upgrades **and downgrades** without loss. Directly relevant to §1 (rename)
-      and P3 (an embedding-dimension change rewrites the pgvector column).
+- [~] **11.8 Migration tests — the containerless half is DONE**, and it is the half that
+      catches the failure that actually happens. Test-plan Area T.
+
+      Applying a migration needs a real Postgres and stays integration work. But the
+      question that goes wrong is not "does this migration run" — it is **"did somebody
+      change an entity and not add a migration?"** The model and the last migration's
+      snapshot both live in the same assembly, so EF compares them with **no database at
+      all**: `context.Database.HasPendingModelChanges()`, verified to detect a single
+      added property.
+
+      That drift is quiet and expensive. The code compiles, every test passes — they all
+      use fakes or SQLite — and it only surfaces when a request touches the missing column
+      against the real database, which is after the deployment. `MigrationConformanceTests`
+      now runs in ClassroomService, StreamingService and UserManagementService (4 rules
+      each): no pending model changes, every migration reversible, ids unique and ordered,
+      and a guard that there is anything to check at all.
+
+      For the two Alembic services, `test_migration_conformance.py` checks the history's
+      shape: a single root and a single head, every parent link resolving, unique revision
+      ids, and **every downgrade doing something**. That last one is the one that matters
+      under pressure — `alembic downgrade` reports **success** on an empty body, stamps the
+      previous revision and leaves the schema exactly as the failed upgrade left it. The
+      rollback looks complete while the change is still there. P3, an embedding-dimension
+      change that rewrites the pgvector column, is precisely the migration someone will
+      need to reverse in a hurry.
+
+      Parsed statically with `ast` rather than through `alembic.script`, because building a
+      `ScriptDirectory` runs `env.py`, which wants application settings and a database URL.
+      A rule that needs the thing it checks to be reachable is a rule that gets skipped.
+
+      **Mutation-checked, 8 mutations, all killed** — a second head, a dangling parent, a
+      duplicate revision id, an empty downgrade, a downgrade that is only a docstring, an
+      un-migrated entity property, and an emptied EF `Down`. (A ninth, changing a property's
+      *type*, does not compile, so it is not a mutation this suite can be asked about.)
+
+      One incidental fix: UserManagementService's test project resolved an older EF than its
+      Infrastructure was built against, so it could not reference the DbContext at all. Now
+      pinned with a comment saying why.
+
+      **Still container-bound:** that the migrations actually apply to an empty database,
+      and that an Alembic downgrade loses nothing in practice — an empty body is detectable
+      here, a *wrong* one is not.
+
+      **ClassroomService 422 → 426, StreamingService 164 → 168, UMS 179 → 183,
+      RagService 335 → 351, LiveAssistantService 375 → 381.**
 - [x] **11.9 i18n key parity, en vs ar.** A trivial test asserting the two locale JSON
       trees have identical key sets. You ship Arabic; every feature in §2–§6 adds strings
       to both files, and a missing key currently shows a raw key to the user. Cheap, and
