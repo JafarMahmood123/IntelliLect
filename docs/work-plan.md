@@ -1122,30 +1122,30 @@ places where a test would catch something nothing currently catches.
 
 Ranked by value:
 
-- [ ] **11.1 EmailService has zero tests — no `tests/` directory at all.**
+- [x] **11.1 EmailService has zero tests — no `tests/` directory at all.**
       The highest-value gap, and it sits directly under §2: bulk-approving 200 users
       fans out through this service. Untested templating, retry and failure handling
-      means a bulk approve can silently deliver nothing. Start here.
+      means a bulk approve can silently deliver nothing. Start here. → **DONE (§7.6).** 28 tests in a new `EmailService.UnitTests` project; consumers driven through MassTransit's in-memory harness. Found HTML injection into outgoing mail and three consumers with no retry policy.
 - [ ] **11.2 Authorization enforcement per endpoint.** I found no test asserting that a
       student hitting a teacher-only route gets 403, or that a non-member of a classroom
       cannot read its materials/quizzes/recordings. Services are tested; the *guards* are
       not. For a system with roles this is the biggest correctness-and-security hole, and
       it grows with every feature in §2–§6.
-- [ ] **11.3 `UserManagementService.IntegrationTests` is an empty shell** — the project
+- [x] **11.3 `UserManagementService.IntegrationTests` is an empty shell** — the project
       exists and builds, but contains no test source, only `obj/` artefacts. Either fill
       it (§8 needs it anyway, via `Microsoft.AspNetCore.Mvc.Testing`) or delete it. An
-      empty test project reads as coverage that does not exist.
-- [ ] **11.4 AuthService core is largely untested.** Only `AuthServiceLogoutTests` and
+      empty test project reads as coverage that does not exist. → **DONE (§7.9).** Deleted. An empty project that never runs is worse than no project: it reports green.
+- [x] **11.4 AuthService core is largely untested.** Only `AuthServiceLogoutTests` and
       `AuthServiceTwoFactorTests` exist. Untested: registration, login success/failure,
       password hashing and reset, email verification, refresh-token lifetime and reuse,
-      lockout on repeated failures. This is the security core of the application.
-- [ ] **11.5 Internal-surface negative tests.** Every `/api/internal` route should 401 on
+      lockout on repeated failures. This is the security core of the application. → **DONE (§7.1).** `AuthServiceCoreTests` added alongside the logout and 2FA suites. Found that `RefreshAsync` never re-checked account status.
+- [x] **11.5 Internal-surface negative tests.** Every `/api/internal` route should 401 on
       a missing or wrong `X-Internal-Secret`. Individual internal *clients* are tested;
       the *rejection* path does not appear to be. One parametrised test per service
-      covers it cheaply and prevents an accidentally-public internal route.
-- [ ] **11.6 Idempotency and duplicate delivery.** The bus is at-least-once and there is
+      covers it cheaply and prevents an accidentally-public internal route. → **DONE (§7b).** Filter tests plus a rule over the assembly per service, so a new `api/internal` controller cannot ship without the guard. Found the guard failing *open* when unconfigured, and StreamingService having none at all.
+- [x] **11.6 Idempotency and duplicate delivery.** The bus is at-least-once and there is
       an outbox — so consumers must tolerate the same message twice without double
-      recording, double emailing or double crediting a quiz. Worth a test per consumer.
+      recording, double emailing or double crediting a quiz. Worth a test per consumer. → **DONE (§7.10).** `SessionStartedConsumer` had no tests and holds the only guard against a redelivery creating a second stream; recording-ready and summary-ready already had theirs.
 - [ ] **11.7 Concurrency races that only appear under real use:**
       quiz double-submit (same student, two tabs), submission landing exactly at the
       deadline against `QuizDeadlineSweeper`, an extension granted while the sweeper is
@@ -1153,16 +1153,20 @@ Ranked by value:
 - [ ] **11.8 Migration tests.** EF migrations apply cleanly to an empty database and
       Alembic upgrades **and downgrades** without loss. Directly relevant to §1 (rename)
       and P3 (an embedding-dimension change rewrites the pgvector column).
-- [ ] **11.9 i18n key parity, en vs ar.** A trivial test asserting the two locale JSON
+- [x] **11.9 i18n key parity, en vs ar.** A trivial test asserting the two locale JSON
       trees have identical key sets. You ship Arabic; every feature in §2–§6 adds strings
       to both files, and a missing key currently shows a raw key to the user. Cheap, and
-      it never stops paying.
-- [ ] **11.10 Frontend has no tests for auth, users, admin, superAdmin or roles.** The 28
+      it never stops paying. → **DONE (§7.9).** Per namespace, keys *and* interpolation placeholders, plural-aware over base keys so Arabic's six categories are not read as drift.
+- [x] **11.10 Frontend has no tests for auth, users, admin, superAdmin or roles.** The 28
       suites cluster in quizzes, streaming and whiteboard. Login, registration and the
-      admin approval table — where §2's UI lands — have no coverage at all.
-- [ ] **11.11 Accessibility assertions on the feedback cards (§3).** If red/green/orange
+      admin approval table — where §2's UI lands — have no coverage at all. → **DONE (§7.7).** Route guards 0% → 100%, the auth store, `getDefaultRoute`, and the axios interceptor — where a refresh-per-request defect was found and fixed.
+- [~] **11.11 Accessibility assertions on the feedback cards (§3).** If red/green/orange
       is the signal, an automated a11y check plus a contrast assertion in both themes
-      stops the colour work from being unusable for colour-blind users.
+      stops the colour work from being unusable for colour-blind users. → **The
+      colour-blindness half is DONE (§3/§7.7):** each severity carries an icon *and* a
+      label, not colour alone, and there are tests asserting the non-colour cue. **The
+      contrast half is not** — test-plan H-10 is still open, and it needs a rendering
+      check in both themes rather than a unit test.
 - [ ] **11.12 No browser-level e2e.** `backend/tests/e2e` drives the API and LiveKit
       directly, which is the right layer for the assistant loop but never exercises the
       React app. One Playwright journey (login → join session → submit quiz → see mark)
@@ -1405,13 +1409,21 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       `_GROUNDING_QUERY_MAX_CHARS`) sit as module constants rather than in `Settings`.
       All are single-valued today with no evidence of needing per-environment variation —
       left until something actually needs to vary.
-- [ ] **14.2 Classify each one — not everything belongs in env.** Three buckets:
-      - **env var** — differs per environment or is a secret (URLs, credentials, keys)
-      - **config file** (appsettings / settings.py defaults) — a tunable with a sane
-        default that rarely changes
-      - **leave as a constant** — a genuine domain invariant. Moving these to config is
-        a downgrade: it turns a compile-time guarantee into a runtime failure. Resist
-        the urge to externalise everything.
+- [x] **14.2 Classify each one — DONE, and the classification was largely already made.**
+      The sweep in §14.1 plus the `.env.example` work in §14.5 had already sorted things into
+      exactly these three buckets; this item was mostly confirming that and writing the rule
+      down where a reader will find it (see §14.8).
+
+      - **env var** — every credential, signing key and shared secret, in `backend/.env`.
+        Eleven variables, all using compose's `${VAR:?}` form.
+      - **config file** — base URLs, timeouts and feature toggles, inline in each
+        `docker-compose.unit.yml` next to the service they configure, or as `appsettings.json`
+        / `settings.py` defaults. The two model-heavy Python services keep their own
+        `.env.example` because their settings are numerous and specific.
+      - **constant** — left alone. The one deliberate correction made under this item was in
+        the *other* direction, in §14.4: two timeouts were constants in C# while compose
+        supplied values nothing read, so they became configuration. Nothing was externalised
+        just because it could be.
 - [x] **14.3 Bind through typed options — DONE.** Both Python services already had a single
       `Settings` object, and ClassroomService and StreamingService already bound their sections
       (`RagServiceOptions`, `LiveAssistantOptions`, `LiveKitSettings`, `MediaOptions`,
@@ -1506,12 +1518,39 @@ app-level check, no frontend pre-check. `ClassroomFilesController.Upload` takes 
       before. No daemon needed, so this was verifiable with the stack down.
 
       37 substitutions across 7 files; zero credential literals remain in any compose file.
-- [ ] **14.8 Document the required-vs-optional split** in the README, and note which
-      keys must be changed before a real deployment.
-- [ ] **14.9 Tests** — settings binding, defaults applied when a key is absent, startup
-      failure on a missing required key, and a drift test asserting every key read by
-      the code appears in `.env.example` (this is the one that keeps the file honest
-      after you stop looking at it).
+- [x] **14.8 Document the required-vs-optional split — DONE.** A new **Configuration**
+      section in the root README, built from the code rather than from memory: the three
+      buckets and where each lives; a table of the eleven required variables with **what a
+      mismatch actually looks like** for each (the JWT key is "every request 401s with no
+      other symptom"; the internal secret is "indexing, transcripts and quiz generation stop
+      silently"), since that is the information someone debugging has and a list of names is
+      not; which three are additionally enforced *inside* the .NET services by `Required(...)`
+      and which four sections UMS validates with `ValidateOnStart`; and the one genuinely
+      optional variable, `LIVEKIT_HOST_IP`, with the Docker Desktop constraint that makes
+      changing it wrong on most machines.
+
+      A **"Before a real deployment"** list closes it: replace every `change-me` (they are
+      placeholders, not defaults — the stack starts with them), give each service its own
+      Postgres password, set a real `LIVEKIT_HOST_IP`, and **rotate `SMTP_APP_PASSWORD`**,
+      with the reason stated plainly: a working Google App Password is in this repository's
+      history, and rotating it is the only thing that invalidates it.
+
+      Also fixed while there: the README's Tests section omitted EmailService entirely and
+      listed the services in a different order from everything else, and it now points at the
+      dependency-scan commands from §11.13.
+- [x] **14.9 Tests — DONE**, across §7.9 and §14.3/14.4 rather than as one batch:
+      - **binding and defaults** — `InternalServiceOptionsTests` (each section binds its own
+        values; an unset `TimeoutSeconds` falls back to 10), `MediaOptionsTests`
+        (StreamingService), `UploadLimits` tests (ClassroomService).
+      - **startup failure on a missing required key** — `RequiredSettingsTests` against the
+        real composition root for `Jwt:SecretKey` and both broker credentials, plus
+        `InternalServiceOptionsTests` for all four downstream sections, asserting the message
+        names the key to set and the env var it must match.
+      - **drift, both directions** — `EnvironmentTemplateTests`: every variable a compose file
+        requires appears in `.env.example`, and nothing in `.env.example` is unread. This is
+        the one that keeps the file honest, and it has already caught two false positives
+        worth remembering (compose's `${VAR:-default}` form, and `bin`/`obj` copies of the
+        compose files being picked up by a recursive search).
 
 ---
 

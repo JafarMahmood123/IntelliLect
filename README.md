@@ -21,6 +21,7 @@ LiveAssistant 302 · frontend 219.
 - [Cross-cutting design decisions](#cross-cutting-design-decisions)
 - [Optimisations](#optimisations)
 - [Running it](#running-it)
+- [Configuration](#configuration)
 - [Tests](#tests)
 - [Further reading](#further-reading)
 
@@ -300,18 +301,82 @@ from a single place so they cannot drift apart — see
 
 ---
 
+## Configuration
+
+Settings live in one of three places, and which one is a deliberate choice rather than a habit:
+
+| Bucket | Where | What belongs there |
+| --- | --- | --- |
+| **Secret / per-environment** | `backend/.env` (template: [`.env.example`](backend/.env.example)) | Credentials, signing keys, and anything that differs between machines. Never committed. |
+| **Per-service tunable** | inline in each `docker-compose.unit.yml`, or `appsettings.json` / `settings.py` defaults | Base URLs, timeouts, feature toggles — readable next to the service they configure. |
+| **Domain invariant** | a constant in code | Not externalised. Moving one of these to config turns a compile-time guarantee into a runtime failure. |
+
+Two services keep their own template because their settings are numerous and specific:
+[`RagService/.env.example`](backend/RagService/.env.example) (embeddings, chunking, OCR) and
+[`LiveAssistantService/.env.example`](backend/LiveAssistantService/.env.example) (STT, boundary
+detection, brain).
+
+### Required — the stack refuses to start without these
+
+Every variable in `backend/.env` uses compose's `${VAR:?}` form, so a missing one stops the stack
+immediately naming the variable, rather than starting a service that fails later.
+
+| Variable | Read by | A mismatch looks like |
+| --- | --- | --- |
+| `JWT_SECRET_KEY` | UMS issues tokens; ClassroomService and StreamingService validate them | Every request 401s, with no other symptom |
+| `INTERNAL_API_SECRET` | all five services, on the `/api/internal` surface | Indexing, transcripts and quiz generation stop silently — the guard fails closed |
+| `RABBITMQ_USER` / `RABBITMQ_PASS` | the broker and all four .NET services | No events flow; nothing is published |
+| `POSTGRES_PASSWORD` | every service's database | Startup failure |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | object storage and recording egress | Recordings and materials cannot be stored |
+| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | join tokens and recording egress | Nobody can join a session |
+| `SMTP_SENDER_EMAIL` / `SMTP_APP_PASSWORD` | EmailService | No mail is delivered; approvals go unnoticed |
+
+Three of these are also enforced *inside* the .NET services, not just by compose: `Jwt:SecretKey`,
+`RabbitMq:Username` and `RabbitMq:Password` are read through a `Required(...)` helper at startup,
+so a bare `dotnet run` without them fails immediately naming the key. UMS additionally validates
+its four downstream `/api/internal` sections (`BaseUrl`, `InternalApiSecret`, `TimeoutSeconds`)
+with `ValidateOnStart`.
+
+The Python services differ deliberately: their `internal_api_secret` defaults to empty and the
+guard treats empty as *refuse everything*. A missing secret there produces 401s rather than a
+failed boot — failing closed, but diagnosed at the first request instead of at startup.
+
+### Optional — sane defaults, change only if you need to
+
+`LIVEKIT_HOST_IP` is the only variable in `backend/.env` with a default (`127.0.0.1`). **On Docker
+Desktop it must stay `127.0.0.1`**: host networking forwards UDP on loopback only, so a LAN IP
+produces a session that connects and then carries no media. Set a real LAN IP only when a second
+machine has to join. Everything else optional lives in the compose files and per-service
+templates, next to what it configures.
+
+### Before a real deployment
+
+- **Replace every `change-me`.** They are placeholders, not defaults — the stack starts with them.
+- **Rotate `SMTP_APP_PASSWORD`.** A working Google App Password was committed earlier in this
+  repository's history. Rotating it is the only thing that actually invalidates it; removing it
+  from the working tree does not.
+- **Use a long random `JWT_SECRET_KEY`.** Anything shorter than 32 bytes is rejected, but short
+  and guessable passes that check.
+- **Give each service its own `POSTGRES_PASSWORD`** if the databases are not all on one trusted
+  host. The single shared value is a development convenience.
+- **Set `LIVEKIT_HOST_IP`** to the machine's real LAN address, and confirm the LiveKit server's
+  keys match `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` — it runs outside this compose stack.
+
+---
+
 ## Tests
 
 ```bash
 # .NET
 cd backend
+dotnet test UserManagementService/tests/UserManagementService.UnitTests/UserManagementService.UnitTests.csproj
 dotnet test ClassroomService/tests/ClassroomService.UnitTests/ClassroomService.UnitTests.csproj
 dotnet test StreamingService/tests/StreamingService.UnitTests/StreamingService.UnitTests.csproj
-dotnet test UserManagementService/tests/UserManagementService.UnitTests/UserManagementService.UnitTests.csproj
+dotnet test EmailService/tests/EmailService.UnitTests/EmailService.UnitTests.csproj
 
 # Python
-cd backend/RagService     && ./.venv/bin/python -m pytest
-cd backend/LiveAssistantService && ./.venv/bin/python -m pytest
+cd backend/RagService            && ./.venv/bin/python -m pytest
+cd backend/LiveAssistantService  && ./.venv/bin/python -m pytest
 
 # Frontend
 cd front-end-web && npm test
@@ -319,6 +384,18 @@ cd front-end-web && npm test
 
 None of these need Docker, a database, a model or a network. Every external dependency sits behind
 an interface with a hand-written fake, which is why the whole suite runs in well under a minute.
+
+Coverage is collected but deliberately not gated on a threshold — a gate that fails on the day it
+lands gets switched off. See [`docs/work-plan.md`](docs/work-plan.md) §7 for per-service numbers
+and [`docs/test-plan.md`](docs/test-plan.md) for the case catalogue.
+
+**Dependency scanning** is part of the suite's hygiene rather than a separate chore:
+
+```bash
+cd backend/<service> && dotnet list src/*.sln* package --vulnerable --include-transitive
+cd front-end-web     && npm audit
+cd backend/RagService && ./.venv/bin/pip-audit
+```
 
 ---
 
