@@ -25,6 +25,7 @@ markers = [
     "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit WebRTC media + Ollama + a TTS.",
     "feedback: exercises the full feedback loop via fake audio (real STT/retrieval/LLM), no WebRTC. Needs the LiveAssistant in AGENT_AUDIO_SOURCE=fake mode (run-in-network.sh).",
     "recording: exercises the egress/recording + summary path. Needs the docker-compose.e2e.yml overlay.",
+    "internal: probes the /api/internal surface for the shared-secret guard. Read-only, no seeding, no models — needs only the platform up, and must be run IN-NETWORK (nginx blocks these routes, so through the gateway it would pass with the guard removed).",
 ]
 log_cli = true
 log_cli_level = "INFO"

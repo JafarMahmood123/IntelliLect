@@ -1,0 +1,53 @@
+' Design pattern — Strategy.
+'
+' Three real families in the system, each one port with interchangeable
+' implementations picked by a single setting at composition time.
+'
+' The families are stacked into a column with hidden links: laid out freely,
+' smetana puts all three side by side and the diagram comes out ~3:1.
+@startuml
+!include _style.puml
+skinparam linetype ortho
+
+' The selecting setting is a stereotype on the interface, NOT a side note.
+' As three notes on the right the diagram rendered 2.35:1 — past the 2.2 limit
+' in README.md — because each note added its own column of width.
+interface EmbeddingProvider <<EMBEDDING_PROVIDER>> {
+  + embed_documents(texts)
+  + embed_query(text)
+}
+class GeminiEmbeddingProvider
+class OllamaEmbeddingProvider
+
+interface Chunker <<CHUNKING_STRATEGY>> {
+  + chunk(result, document_id, classroom_id)
+}
+class StructuralChunker
+class SemanticChunker
+
+interface SpeechToText <<STT_PROVIDER>> {
+  + transcribe(audio)
+}
+class GroqSpeechToText
+class GeminiSpeechToText
+class FasterWhisperSpeechToText
+
+EmbeddingProvider <|.. GeminiEmbeddingProvider
+EmbeddingProvider <|.. OllamaEmbeddingProvider
+
+Chunker <|.. StructuralChunker
+Chunker <|.. SemanticChunker
+
+SpeechToText <|.. GroqSpeechToText
+SpeechToText <|.. GeminiSpeechToText
+SpeechToText <|.. FasterWhisperSpeechToText
+
+EmbeddingProvider -[hidden]down- Chunker
+Chunker -[hidden]down- SpeechToText
+
+note bottom of FasterWhisperSpeechToText
+  المستدعي يعرف المنفذ وحده. وتبديل التحقيق
+  يجري بضبط متغيّر واحد في جذر التركيب،
+  دون تعديل سطر واحد في خط الأنابيب.
+end note
+@enduml

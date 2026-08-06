@@ -1,0 +1,46 @@
+' Design pattern — Database per Service.
+'
+' Drawn with TWO services rather than all six: the rule is what matters, not the
+' inventory, and six service/database pairs lay out ~3:1 and shrink to a strip.
+' The note carries the full list instead.
+'
+' The point of the diagram is the two crossed dashed arrows. Nothing technically
+' stops a service opening a connection to another service's database — the
+' constraint is a design rule, and the diagram is where it gets stated.
+'
+' Two things kept deliberately OUT of this diagram, both learned by rendering it:
+'   - The message bus and its event arrows. They belong to the pub/sub pattern,
+'     and adding them here put six labelled edges through the middle of the
+'     figure; the labels collided and nothing was readable.
+'   - Free placement of the databases. Without the hidden edge below, smetana
+'     ordered them classroomdb-then-users_db against the services above them,
+'     so the two OWNERSHIP arrows crossed and read as the forbidden ones.
+@startuml
+!include _style.puml
+skinparam linetype ortho
+
+rectangle "خدمة إدارة المستخدمين" as UMS
+rectangle "خدمة الفصول الدراسية" as CS
+
+database "users_db" as UDB
+database "classroomdb" as CDB
+
+' Pin both rows left-to-right so each service sits directly above its own
+' database and only the forbidden arrows cross. Do not remove.
+UMS -[hidden]right- CS
+UDB -[hidden]right- CDB
+
+UMS --> UDB : تقرأ وتكتب
+CS --> CDB : تقرأ وتكتب
+
+UMS ..> CDB : ممنوع
+CS ..> UDB : ممنوع
+
+note bottom of UDB
+  لكل خدمة قاعدتها وحدها: users_db، classroomdb،
+  streaming_db، knowledgedb، liveassistantdb.
+  وخدمة البريد بلا قاعدة أصلًا.
+  ولا تصل خدمةٌ إلى قاعدة غيرها، بل تتبادل الخدمات
+  عبر الناقل، أو بنداء HTTP داخلي حين يلزم جواب.
+end note
+@enduml

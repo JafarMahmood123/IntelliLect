@@ -1063,8 +1063,28 @@ message id: permanent infrastructure against a rare, harmless annoyance.
 
 ## 8. Integration testing — core logic only
 
-- [ ] **8.1 Choose the harness** — Testcontainers vs the existing compose file, and
-      where these live (`backend/tests/` already has an `e2e` folder — reuse or extend).
+- [x] **8.1 Choose the harness — DECIDED: extend `backend/tests/e2e`, not Testcontainers.**
+      Not a close call once the existing harness is read properly. It is already a pytest
+      suite with typed HTTP clients for all five services, a config module driven by `E2E_*`
+      env vars, readiness polling, and — the part that matters most — a `run-in-network.sh`
+      that runs the suite **inside the compose network**, which is the only way to reach the
+      unpublished `/api/internal` ports on ClassroomService and StreamingService.
+
+      Testcontainers would mean re-declaring a topology compose already declares: seven
+      services, four Postgres instances, RabbitMQ, MinIO and LiveKit. Worse, the compose files
+      encode constraints that were expensive to learn and are not obvious — `LIVEKIT_HOST_IP`
+      having to be `127.0.0.1` on Docker Desktop because host networking forwards UDP on
+      loopback only, and the `include:`-based layout that makes running a unit file alone
+      fail. A second declaration of all that would drift from the first, and the drift would
+      present as a test failure rather than as a configuration difference.
+
+      `WebApplicationFactory` was ruled out separately, in §7b: `Program.cs` migrates the
+      database at startup and throws after five retries, so an in-process host needs a real
+      Postgres anyway — at which point compose is already doing the job.
+
+      **Where they live:** alongside the existing suite, one file per §8 item, each behind its
+      own pytest marker so a run can pick what its environment supports (the existing
+      `media` / `feedback` / `recording` markers already work this way).
 - [ ] **8.2 Auth → approval → login** across UMS + EmailService, including the bulk path.
 - [ ] **8.3 Classroom lifecycle** — create, enrol, upload material, index into RAG,
       delete and confirm the cascade across services.
@@ -1073,8 +1093,44 @@ message id: permanent infrastructure against a rare, harmless annoyance.
 - [ ] **8.5 Assistant loop** — transcript → boundary → retrieval → evaluation → card,
       with the model and STT faked so it is deterministic and runnable without Groq.
 - [ ] **8.6 Quiz loop** — generate, publish, submit, score, extend, close.
-- [ ] **8.7 Inter-service contract tests** — the `X-Internal-Secret` `/api/internal`
-      surface: a missing/wrong secret must 401 on every internal route.
+- [~] **8.7 Inter-service contract tests — AUTHORED, not yet run** (needs the platform up).
+      `tests/e2e/test_internal_surface_contract.py`, marker `internal`, **55 tests**: 18
+      read-only internal routes × three cases, plus a rule over the table.
+
+      The route table is derived from the controllers and routers themselves and every path
+      was verified against the source, not against documentation. Covers all four services
+      that expose an internal surface.
+
+      Three things about its design are the point of it:
+
+      - **The third case is the one that makes the other two mean anything.** A service that
+        is down, a path that no longer exists, or a guard that rejects everything would make
+        both "must 401" assertions pass for entirely the wrong reason — and refusal tests are
+        the ones most likely to be trusted without being re-read. So every route is also
+        probed *with* the correct secret and asserted **not** 401. Deliberately weak on the
+        success side: a missing id gives 404, an empty list gives 200: pinning an exact status
+        would make the file break whenever fixture data changed, which is how a security test
+        ends up deleted.
+      - **Read-only, on purpose.** The internal surface includes deletes — purging a
+        classroom's index, dropping a transcript. If the guard were broken, which is precisely
+        what this file exists to detect, probing those would carry them out. A read is a safe
+        proxy for the whole controller because the .NET filter is declared at controller level
+        and the FastAPI dependency at router level, with unit-level assembly rules pinning
+        that. Two POST-only routers are therefore not probed at all, and the file says so
+        rather than leaving it as an apparent omission — probing them would trigger a real
+        summary run and a real quiz generation, really billed, on every run.
+      - **It must run in-network.** Through the gateway these routes are blocked by nginx, so
+        a version pointed at `E2E_GATEWAY_URL` would be testing nginx's route table and would
+        pass with the guard removed entirely. The in-network runner points each client at the
+        service's own container DNS name — the exact path the guard exists to protect.
+
+      This is the integration half of test-plan B-10; B-08/B-09/B-12/B-13 already cover the
+      guard's logic at unit level. **To run it:**
+
+      ```bash
+      cd backend && docker compose up -d
+      cd tests/e2e && ./run-in-network.sh -m internal
+      ```
 
 ---
 

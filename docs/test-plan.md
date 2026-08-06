@@ -87,7 +87,7 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration | P0 | gap |
 | B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
 | B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |
-| B-10 | Internal routes are not reachable through nginx from outside | Integration | P0 | gap (still needs a running gateway — but the routes no longer depend on nginx alone, see B-12) |
+| B-10 | Internal routes are not reachable through nginx from outside | Integration | P0 | authored, unrun — `tests/e2e/test_internal_surface_contract.py`, 55 tests over 18 routes; probes in-network so it tests the guard rather than nginx's route table |
 | B-11 | Role change takes effect on the next token, and an in-flight old token cannot exceed its new rights on sensitive routes | Integration | P1 | gap |
 | B-14 | Client route guards: a disallowed role is redirected, not shown the page; matching is exact (no substring, no case-insensitive) and an empty allow-list admits nobody | Frontend | P1 | ✓ |
 | B-15 | Logout clears both tokens AND the persisted store copy, even when the server-side revocation fails | Frontend | P0 | ✓ |
