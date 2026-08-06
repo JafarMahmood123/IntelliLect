@@ -6,6 +6,8 @@ using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Domain.Entities;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace UserManagementService.UnitTests.Authentication;
 
 // Unit tests for the super admin two-factor login use-case ("تسجيل دخول المدير الأعلى بالمصادقة الثنائية").
@@ -257,7 +259,8 @@ public class AuthServiceTwoFactorTests
             twoFactorRepository: challenges,
             twoFactorCodeGenerator: new StubTwoFactorCodeGenerator(GeneratedCode),
             mapper: BuildMapper(),
-            eventBus: eventBus);
+            eventBus: eventBus,
+            logger: NullLogger<AuthService>.Instance);
 
     private static IMapper BuildMapper() => TestMapper.Create();
 

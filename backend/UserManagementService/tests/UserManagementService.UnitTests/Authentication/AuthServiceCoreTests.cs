@@ -6,6 +6,8 @@ using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Domain.Entities;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace UserManagementService.UnitTests.Authentication;
 
 /// <summary>
@@ -347,6 +349,7 @@ public sealed class AuthServiceCoreTests
         public readonly RecordingEventBus Bus = new();
         public readonly RecordingJwtProvider Jwt = new();
         public readonly FakeTwoFactorChallengeRepository TwoFactor = new();
+        public readonly RecordingResetTokenRepository ResetTokens = new();
         public readonly AuthService Sut;
 
         public Harness()
@@ -361,12 +364,13 @@ public sealed class AuthServiceCoreTests
                 new FakeHasher(),
                 Jwt,
                 RefreshTokens,
-                new RecordingResetTokenRepository(),
+                ResetTokens,
                 new FixedResetTokenGenerator(),
                 TwoFactor,
                 new StubTwoFactorCodeGenerator("123456"),
                 TestMapper.Create(),
-                Bus);
+                Bus,
+                NullLogger<AuthService>.Instance);
         }
     }
 }
@@ -408,7 +412,16 @@ internal sealed class SeedableUserRepository : IUserRepository
         return Task.FromResult(1);
     }
 
-    public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    /// <summary>The seeded row WITH its sessions. FindByEmail deliberately does not include
+    /// them, which is the trap ResetPasswordAsync has to avoid.</summary>
+    public Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default)
+    {
+        LoadedWithRefreshTokens.Add(id);
+        return Task.FromResult(_users.FirstOrDefault(u => u.Id == id));
+    }
+
+    /// <summary>Which ids were loaded through the query that actually Includes the sessions.</summary>
+    public List<Guid> LoadedWithRefreshTokens { get; } = [];
     public Task<List<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<User>> GetByIdsWithRefreshTokensAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<User?> FindByResetToken(string token, CancellationToken ct) => throw new NotImplementedException();
@@ -416,7 +429,15 @@ internal sealed class SeedableUserRepository : IUserRepository
     public Task<(List<User> Items, int TotalCount)> GetPaginatedUsersAsync(Guid? roleId, int page, int pageSize, CancellationToken ct) => throw new NotImplementedException();
     public Task<(List<User> Items, int TotalCount)> SearchUsersAsync(UserManagementService.Application.Common.Users.UserQuerySpecification specification, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task UpdateAsync(User entity, CancellationToken ct = default) => throw new NotImplementedException();
+    /// <summary>The rows are the same objects the service mutated, so an update is a no-op —
+    /// but it must not throw, or a service that legitimately saves a change cannot be tested.</summary>
+    public Task UpdateAsync(User entity, CancellationToken ct = default)
+    {
+        Updated.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public List<User> Updated { get; } = [];
     public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 }
 
@@ -436,21 +457,48 @@ internal sealed class SeedableRoleRepository : IRepository<Role>
 
 internal sealed class RecordingResetTokenRepository : IResetTokenRepository
 {
+    private readonly Dictionary<Guid, ResetPasswordToken> _byUser = new();
+
     public ResetPasswordToken? Added { get; private set; }
+    public List<Guid> Deleted { get; } = [];
+    public int SaveCount { get; private set; }
+    public int UpdateCount { get; private set; }
+
+    public void Seed(ResetPasswordToken token) => _byUser[token.UserId] = token;
 
     public Task<ResetPasswordToken?> FindResetPasswordTokenByUserId(Guid userId)
-        => Task.FromResult<ResetPasswordToken?>(null);
+        => Task.FromResult(_byUser.GetValueOrDefault(userId));
 
     public Task AddAsync(ResetPasswordToken entity, CancellationToken ct = default)
     {
         Added = entity;
+        _byUser[entity.UserId] = entity;
         return Task.CompletedTask;
     }
 
-    public Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(1);
-    public Task UpdateAsync(ResetPasswordToken entity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveCount++;
+        return Task.FromResult(1);
+    }
+
+    public Task UpdateAsync(ResetPasswordToken entity, CancellationToken ct = default)
+    {
+        UpdateCount++;
+        return Task.CompletedTask;
+    }
+
     public Task<ResetPasswordToken?> GetByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Deleted.Add(id);
+        foreach (var (userId, token) in _byUser.Where(pair => pair.Value.Id == id).ToList())
+        {
+            _byUser.Remove(userId);
+        }
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FixedResetTokenGenerator : IResetPasswordTokenGenerator

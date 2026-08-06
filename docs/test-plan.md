@@ -55,7 +55,11 @@ test classes today.
 | A-05 | Wrong password is rejected; the response is indistinguishable from an unknown email (no user enumeration) | Unit | P0 | ✓ |
 | A-06 | Passwords are stored hashed; the plaintext never reaches the entity | Unit | P0 | ✓ (hashing verified; "never returned by any endpoint" still needs the response-shape sweep) |
 | A-07 | Repeated failures trigger lockout; lockout expires | Unit | P1 | gap |
-| A-08 | Password reset token is single-use, expires, and is invalidated by a successful reset | Unit | P0 | gap |
+| A-08 | Password reset token is single-use, expires, and is invalidated by a successful reset | Unit | P0 | ✓ (13 cases; found that the code was logged in plaintext and that a reset left every session alive) |
+| A-17 | **A successful password reset revokes every existing session** — the whole point of resetting a credential you believe is compromised | Unit | P0 | ✓ |
+| A-18 | The reset code is never written to a log, and what is stored is not the code itself | Unit | P0 | ✓ |
+| A-19 | A refused reset leaves both the sessions and the outstanding code untouched — otherwise guessing wrong is a denial of service | Unit | P0 | ✓ |
+| A-20 | The daily reset cap starts over after a day, giving a whole new allowance rather than one request | Unit | P1 | ✓ |
 | A-09 | Reset for a non-existent email returns the same response as a real one | Unit | P1 | ✓ |
 | A-10 | Email verification token is single-use and expiring | Unit | P1 | gap |
 | A-11 | Refresh token rotates on use; a replayed old token is rejected | Unit | P0 | ✓ |
@@ -63,7 +67,7 @@ test classes today.
 | A-13 | Super admin stage 1 issues no usable session — only a 2FA challenge | Unit | P0 | ✓ |
 | A-14 | Stage 2 with a correct code issues a token bearing `amr:mfa` | Unit | P0 | ✓ |
 | A-15 | A token without `amr:mfa` fails the `SuperAdminTwoFactor` policy | Integration | P0 | gap |
-| A-16 | 2FA code is single-use, expiring, and rate-limited against brute force | Unit | P0 | partial |
+| A-16 | 2FA code is single-use, expiring, and rate-limited against brute force | Unit | P0 | ✓ (`AuthServiceTwoFactorTests`: expiry deletes the challenge, a wrong code increments attempts, max attempts invalidates it, a valid one is single-use) |
 | A-17 | Expired access token is rejected; clock-skew tolerance is bounded | Integration | P1 | gap |
 | A-18 | An expired refresh token is refused | Unit | P0 | ✓ |
 | A-19 | A rejected or deactivated account cannot RENEW a session, independently of revocation having run | Unit | P0 | ✓ |
@@ -273,7 +277,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | I-03 | Publish stamps `ClosesAtUtc` from the sum of question time limits | Unit | P0 | ✓ |
 | I-04 | Composer limits enforced server-side (max questions, min/max answers, max duration) — not merely offered by the UI | Unit | P0 | ✓ |
 | I-05 | An answer after `ClosesAtUtc` is refused **even if `Status` is still `Open`** (a missed status flip must not extend scoring) | Unit | P0 | ✓ |
-| I-06 | An answer at exactly the deadline boundary — pick the rule and pin it | Unit | P0 | partial |
+| I-06 | An answer at exactly the deadline boundary — pick the rule and pin it | Unit | P0 | ✓ (§11.7: one `QuizDeadline.IsPast` both callers ask; the boundary is a table in `QuizConcurrencyTests`) |
 | I-07 | Changing an answer before submitting replaces it; the unique index holds under two concurrent writes | Integration | P0 | partial |
 | I-08 | After `SubmitQuiz`, answers are frozen — a later change is refused | Unit | P0 | ✓ |
 | I-09 | `SubmitQuiz` is idempotent: a double-click returns the existing submission, not a conflict | Unit | P0 | ✓ |

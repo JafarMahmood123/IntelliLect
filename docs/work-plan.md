@@ -1531,6 +1531,46 @@ Ranked by value:
       `AuthServiceTwoFactorTests` exist. Untested: registration, login success/failure,
       password hashing and reset, email verification, refresh-token lifetime and reuse,
       lockout on repeated failures. This is the security core of the application. → **DONE (§7.1).** `AuthServiceCoreTests` added alongside the logout and 2FA suites. Found that `RefreshAsync` never re-checked account status.
+
+      **REOPENED AND CLOSED AGAIN (test-plan A-08, A-17..A-20).** §7.1 covered registration,
+      login and refresh; it did not cover `ResetPasswordAsync`, which is the half that actually
+      changes a credential. `ForgotPasswordAsync` had two cases and its counterpart had none —
+      and it is the most attractive endpoint in the system, since it hands out a short-lived
+      secret over email and takes it back in exchange for a new password. **Two of the four
+      properties it rests on were wrong.**
+
+      **DEFECT: a password reset left every existing session alive.** Resetting a password is
+      what somebody does when they believe their account is compromised, and it revoked nothing
+      — so an attacker holding a stolen refresh token kept renewing it indefinitely *after* the
+      victim had "locked them out". The victim's own recovery step was the thing that gave them
+      false confidence. `UserStatusService` already revokes sessions on rejection and
+      deactivation, so the rule was known; this was the third door into the same room, standing
+      open. The fix has a trap in it worth naming: `FindByEmail` does not `Include` the refresh
+      tokens, so the obvious revocation loop iterates an empty collection and reports success
+      while revoking nothing. There is a test asserting the *other* query was used.
+
+      **DEFECT: the reset code was written to the log in plaintext**, beside the email address,
+      through `Console.WriteLine` — which bypasses log-level filtering entirely and still lands
+      in Serilog's file sink. Anyone able to read a log file could take over any account: ask for
+      a reset, read the code, never touch the mailbox. Now a proper `ILogger` line carrying the
+      user id and the attempt count, and nothing else.
+
+      Also tightened: the token delete and the password write were two separate saves, leaving a
+      window where the code had been burned but the password had not changed — the user then had
+      neither their old password nor a usable code. One save now.
+
+      **Mutation-checked, 7 mutations. One survived, and it was a test making a claim it did not
+      check.** "The daily count starts again once the day has passed" asserted only that the
+      request went out — which it does either way. With the counter reset removed the count goes
+      5 → 6 and the timestamp is stamped to now, so the user is locked out again immediately and,
+      since the count only ever grows, permanently. Now asserted directly, plus a second case
+      from the user's side: a whole new allowance of five, not one request before the door shuts.
+
+      **A-16 was also understated as "partial"** — `AuthServiceTwoFactorTests` already covers
+      expiry, wrong-code attempts, the max-attempt invalidation and single use. Corrected rather
+      than re-tested.
+
+      **UserManagementService 183 → 196.**
 - [x] **11.5 Internal-surface negative tests.** Every `/api/internal` route should 401 on
       a missing or wrong `X-Internal-Secret`. Individual internal *clients* are tested;
       the *rejection* path does not appear to be. One parametrised test per service

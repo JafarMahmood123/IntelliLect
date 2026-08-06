@@ -1,5 +1,6 @@
 using AutoMapper;
 using IntelliLect.Contracts.Messages;
+using Microsoft.Extensions.Logging;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
@@ -22,6 +23,7 @@ public sealed class AuthService : IAuthService
     private readonly IEventBus _eventBus;
     private readonly IMapper _mapper;
     private readonly IRoleRepository _roleQueryRepository;
+    private readonly ILogger<AuthService> _logger;
 
     // Two-factor codes are short-lived to limit the window for interception/guessing.
     private static readonly TimeSpan TwoFactorCodeLifetime = TimeSpan.FromMinutes(5);
@@ -39,7 +41,8 @@ public sealed class AuthService : IAuthService
     ITwoFactorChallengeRepository twoFactorRepository,
     ITwoFactorCodeGenerator twoFactorCodeGenerator,
     IMapper mapper,
-    IEventBus eventBus)
+    IEventBus eventBus,
+    ILogger<AuthService> logger)
     {
         _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
         _roleRepository = roleRepository ?? throw new ArgumentNullException(nameof(roleRepository));
@@ -53,6 +56,7 @@ public sealed class AuthService : IAuthService
         _twoFactorCodeGenerator = twoFactorCodeGenerator;
         _mapper = mapper;
         _eventBus = eventBus;
+        _logger = logger;
     }
 
     public async Task<Guid> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
@@ -338,8 +342,14 @@ public sealed class AuthService : IAuthService
         await _eventBus.PublishAsync(new SendResetCodeMessage(email, code), ct);
         await _resetPasswordRepository.SaveChangesAsync(ct);
 
-        // Logging the result
-        Console.WriteLine($"[AUTH] Reset code for {email}: {code} (Attempt {resetPasswordToken.RequestCount}/5)");
+        // The CODE is never logged. It used to be, in plaintext beside the email address, on
+        // Console.WriteLine — which bypasses log-level filtering entirely and lands in Serilog's
+        // file sink. Anyone who could read a log file could take over any account by asking for a
+        // reset and then reading the code, without ever touching the mailbox. The attempt count
+        // is the only part worth keeping, and the user is identified by id rather than address.
+        _logger.LogInformation(
+            "Password reset code issued for user {UserId} (attempt {Attempt} of 5).",
+            user.Id, resetPasswordToken.RequestCount);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
@@ -357,14 +367,30 @@ public sealed class AuthService : IAuthService
         if (resetPasswordToken.IsExpired || !_hasher.Verify(request.Token, resetPasswordToken.Token))
             throw new InvalidOperationException("Invalid or expired reset token.");
 
+        // Resetting a password is what somebody does when they believe their account is
+        // compromised, so every session opened with the old one has to end. Without this, an
+        // attacker holding a stolen refresh token keeps renewing it indefinitely AFTER the
+        // victim has "locked them out" — and the victim has no way to tell.
+        //
+        // Loaded by id rather than reusing the user above: FindByEmail does not Include the
+        // refresh tokens, so `user.RefreshTokens` is an empty collection and revoking it would
+        // silently revoke nothing. UserStatusService.RevokeActiveSessions does the same thing
+        // for rejection and deactivation; this is the third door into the same room.
+        var withSessions = await _userRepository.GetByIdWithRefreshTokensAsync(user.Id, ct);
+        foreach (var token in (withSessions ?? user).RefreshTokens.Where(t => t.IsActive))
+        {
+            token.Revoke();
+        }
+
+        var account = withSessions ?? user;
+        account.PasswordHash = _hasher.Hash(request.NewPassword);
+
         await _resetPasswordRepository.DeleteAsync(resetPasswordToken.Id);
+        await _userRepository.UpdateAsync(account, ct);
 
-        await _resetPasswordRepository.SaveChangesAsync(ct);
-
-        user.PasswordHash = _hasher.Hash(request.NewPassword);
-
-        await _userRepository.UpdateAsync(user, ct);
-
+        // One save for all three changes. They share a DbContext, and splitting them left a
+        // window where the code had been burned but the password had not changed — the user
+        // then had neither their old password nor a usable reset code.
         await _userRepository.SaveChangesAsync(ct);
     }
     public async Task<IReadOnlyList<RegistrationRoleResponse>> GetRegistrationRolesAsync(CancellationToken ct = default)

@@ -2,6 +2,8 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Authentication;
 using UserManagementService.Domain.Entities;
 
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace UserManagementService.UnitTests.Authentication;
 
 // Unit tests for AuthService.LogoutAsync, mirroring the "تسجيل الخروج" use-case in the report:
@@ -111,7 +113,8 @@ public class AuthServiceLogoutTests
             twoFactorRepository: null!,
             twoFactorCodeGenerator: null!,
             mapper: null!,
-            eventBus: null!);
+            eventBus: null!,
+            logger: NullLogger<AuthService>.Instance);
 }
 
 // Fakes: only the members LogoutAsync actually exercises are implemented; the rest throw

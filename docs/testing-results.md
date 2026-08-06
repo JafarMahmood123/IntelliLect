@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 18:34 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 18:50 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -33,7 +33,7 @@ without an attribute does not.
 
 | Suite | Tests | Command |
 |---|---|---|
-| UserManagementService | 183 | `dotnet test UserManagementService/tests/*/*.csproj` |
+| UserManagementService | 196 | `dotnet test UserManagementService/tests/*/*.csproj` |
 | ClassroomService | 426 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 168 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
@@ -41,7 +41,7 @@ without an attribute does not.
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,053** | |
+| **Total** | **2,066** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -60,7 +60,7 @@ that selection waits two minutes and then fails.
 <!-- generated:coverage -->
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
-| UserManagementService | 51.2% | 34.6% | measured 2026-08-06 (899 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| UserManagementService | 52.4% | 35.5% | measured 2026-08-06 (900 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 62.3% | 62.9% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 51.5% | 34.4% | measured 2026-08-06 (651 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
@@ -74,8 +74,8 @@ that selection waits two minutes and then fails.
 <!-- generated:layers -->
 | Service | Layer | Line |
 |---|---|---|
-| UserManagementService | Domain | 60.7% |
-| UserManagementService | Application | 67.2% |
+| UserManagementService | Domain | 78.7% |
+| UserManagementService | Application | 67.3% |
 | UserManagementService | Infrastructure | 33.3% |
 | ClassroomService | Domain | 100.0% |
 | ClassroomService | Application | 97.8% |
@@ -175,19 +175,21 @@ found by writing a test, not by a user.
 | 1 | `RAG_BASE_URL` bound to nothing after the §1 rename — the live assistant retrieved course material from an empty base URL and degraded every idea to "no feedback" | §10.4 settings-binding rule |
 | 2 | ClassroomService's MinIO credentials were string literals; rotating the password would break every upload, download, recording and summary in that service alone | §10.4 credential-source rule |
 | 3 | No timeout or retry bound on the S3 client — AWS SDK defaults meant a stopped MinIO held a request for minutes | §10.4 ceiling rules |
-| 4 | UserManagementService had no `/health` endpoint at all | §10.1 smoke inventory |
-| 5 | Three `/health` endpoints could only ever return 200 — every check reported `Degraded`, which maps to 200 | §10.1 smoke inventory |
-| 6 | The E2E readiness gate was effectively checking nginx only | §10.1 |
-| 7 | The classroom's teacher could take part in their own quiz, polluting the live respondent counts | §11.2 authorization rules |
-| 8 | UMS was never configured to call LiveAssistant or RagService — every such call 401'd in the deployed compose | §14.3 |
-| 9 | `GET /api/classrooms/{id}/members` threw for every classroom with students | §7.2 mapping tests |
-| 10 | Token refresh signed users out despite succeeding, non-deterministically | §7.7 axios interceptor tests |
-| 11 | `RefreshAsync` never re-checked account status — a disabled account kept working | §7.1 |
-| 12 | The internal-secret guard failed **open** when unconfigured; StreamingService had no guard at all | §7b |
-| 13 | HTML injection into outgoing mail; three consumers with no retry policy | §7.6 |
-| 14 | `POST /api/internal/reembed` returned 202 for a refused run, contradicting its own docstring | §7.5 |
-| 15 | A second, dead JWT minter in ClassroomService sharing the signing secret | §7.2 |
-| 16 | 22 dependency advisories, 20 fixed; npm's proposed react-router "fix" refused as a net regression | §11.13 |
+| 4 | **A successful password reset revoked no sessions** — an attacker holding a stolen refresh token kept access after the victim reset their password | A-08 reset tests |
+| 5 | **The password-reset code was logged in plaintext** beside the email address, via `Console.WriteLine`, into Serilog's file sink | A-08 reset tests |
+| 6 | UserManagementService had no `/health` endpoint at all | §10.1 smoke inventory |
+| 7 | Three `/health` endpoints could only ever return 200 — every check reported `Degraded`, which maps to 200 | §10.1 smoke inventory |
+| 8 | The E2E readiness gate was effectively checking nginx only | §10.1 |
+| 9 | The classroom's teacher could take part in their own quiz, polluting the live respondent counts | §11.2 authorization rules |
+| 10 | UMS was never configured to call LiveAssistant or RagService — every such call 401'd in the deployed compose | §14.3 |
+| 11 | `GET /api/classrooms/{id}/members` threw for every classroom with students | §7.2 mapping tests |
+| 12 | Token refresh signed users out despite succeeding, non-deterministically | §7.7 axios interceptor tests |
+| 13 | `RefreshAsync` never re-checked account status — a disabled account kept working | §7.1 |
+| 14 | The internal-secret guard failed **open** when unconfigured; StreamingService had no guard at all | §7b |
+| 15 | HTML injection into outgoing mail; three consumers with no retry policy | §7.6 |
+| 16 | `POST /api/internal/reembed` returned 202 for a refused run, contradicting its own docstring | §7.5 |
+| 17 | A second, dead JWT minter in ClassroomService sharing the signing secret | §7.2 |
+| 18 | 22 dependency advisories, 20 fixed; npm's proposed react-router "fix" refused as a net regression | §11.13 |
 
 ## 9. Mutation testing
 
