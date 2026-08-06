@@ -1,0 +1,34 @@
+' Design pattern — Factory.
+'
+' A strict tree: caller → factory → port → two implementations. Nothing points
+' back up and nothing points sideways, so there is no edge to cross.
+'
+' The «ينشئ» arrows from the factory down to the two concrete chunkers are left
+' OUT on purpose. They are true, but drawing them means two long edges reaching
+' past the interface to the classes below it, and they cross both realisation
+' arrows. What the figure needs to say — the caller receives a Chunker and
+' never names a concrete one — survives without them.
+@startuml
+!include _style.puml
+!include _pattern-style.puml
+
+' Top-down. Left-to-right laid the four links out as one row and the figure
+' came out 7.6:1 — a strip, well past the 2.2:1 the README allows.
+'
+' Which setting the factory reads is prose, not a compartment on the box: the
+' line is long enough to set the width of the whole figure on its own.
+class "خط الاستيعاب" as CALLER
+
+class "create_chunker(settings)" as FACTORY <<مصنع>>
+
+interface Chunker <<منفذ>>
+
+class StructuralChunker
+class SemanticChunker
+
+CALLER --> FACTORY : يطلب مقسِّمًا
+FACTORY --> Chunker : يُرجِع تحقيقًا
+
+Chunker <|.. StructuralChunker
+Chunker <|.. SemanticChunker
+@enduml

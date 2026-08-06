@@ -1,3 +1,5 @@
+using UserManagementService.Domain.Policies;
+
 namespace UserManagementService.Domain.Entities;
 
 public sealed class User
@@ -16,6 +18,13 @@ public sealed class User
     // Super admins are always challenged regardless of this flag (see AuthService),
     // but the column is kept so 2FA can later be opted into for other roles too.
     public bool TwoFactorEnabled { get; set; }
+
+    // Wrong passwords in a row. Reset by a correct one, and by a lock that has run its course —
+    // never allowed to accumulate across unrelated occasions.
+    public int FailedLoginCount { get; private set; }
+
+    // When the account starts accepting sign-in attempts again. Null means it never stopped.
+    public DateTime? LockoutEndsAtUtc { get; private set; }
 
     public Guid Version { get; private set; } = Guid.NewGuid();
 
@@ -66,4 +75,49 @@ public sealed class User
         Status = UserStatus.Active;
         Version = Guid.NewGuid();
     }
+
+    /// <summary>Whether this account is currently refusing sign-in attempts.</summary>
+    public bool IsLockedOut(DateTime nowUtc) => LoginLockout.IsLockedOut(LockoutEndsAtUtc, nowUtc);
+
+    /// <summary>
+    /// Record a wrong password, locking the account once the run reaches the limit.
+    ///
+    /// None of these transitions touch <see cref="Version"/>. It is the optimistic-concurrency
+    /// token for edits to the account, and a failed sign-in is not an edit anybody is racing —
+    /// rolling it here would make two people mistyping their password at once into a conflict.
+    /// </summary>
+    public void RegisterFailedLogin(DateTime nowUtc)
+    {
+        // An attempt made while the lock is already up does not extend it. Otherwise a script
+        // that keeps guessing keeps the real owner out indefinitely, and a defence against
+        // brute force becomes a way to deny one specific person their account — which is a
+        // better attack than the one it was built to stop, because it always succeeds.
+        if (IsLockedOut(nowUtc)) return;
+
+        // A lock that has expired closes the run it belonged to. Without this the count only
+        // ever grows, so four mistyped passwords last term plus one today is a lockout, and
+        // every subsequent mistake is another one.
+        if (LockoutEndsAtUtc is not null)
+        {
+            FailedLoginCount = 0;
+            LockoutEndsAtUtc = null;
+        }
+
+        FailedLoginCount++;
+
+        if (FailedLoginCount >= LoginLockout.MaxFailedAttempts)
+        {
+            LockoutEndsAtUtc = nowUtc.Add(LoginLockout.Duration);
+        }
+    }
+
+    /// <summary>The password was right, so the run of failures is over.</summary>
+    public void RegisterSuccessfulLogin()
+    {
+        FailedLoginCount = 0;
+        LockoutEndsAtUtc = null;
+    }
+
+    /// <summary>Whether anything about the sign-in history still needs writing back.</summary>
+    public bool HasFailedLoginHistory => FailedLoginCount != 0 || LockoutEndsAtUtc is not null;
 }

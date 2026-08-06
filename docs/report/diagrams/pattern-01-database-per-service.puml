@@ -1,23 +1,19 @@
 ' Design pattern — Database per Service.
 '
-' Drawn with TWO services rather than all six: the rule is what matters, not the
+' Two services rather than all six: the rule is what matters, not the
 ' inventory, and six service/database pairs lay out ~3:1 and shrink to a strip.
-' The note carries the full list instead.
 '
-' The point of the diagram is the two crossed dashed arrows. Nothing technically
-' stops a service opening a connection to another service's database — the
-' constraint is a design rule, and the diagram is where it gets stated.
+' ONE forbidden arrow, not two. The earlier version drew both directions; the
+' two dashed edges crossed between the databases and their two «ممنوع» labels
+' landed on top of the two «تقرأ وتكتب» labels, so the middle of the figure was
+' a knot. One arrow states the same rule and leaves the figure readable.
 '
-' Two things kept deliberately OUT of this diagram, both learned by rendering it:
-'   - The message bus and its event arrows. They belong to the pub/sub pattern,
-'     and adding them here put six labelled edges through the middle of the
-'     figure; the labels collided and nothing was readable.
-'   - Free placement of the databases. Without the hidden edge below, smetana
-'     ordered them classroomdb-then-users_db against the services above them,
-'     so the two OWNERSHIP arrows crossed and read as the forbidden ones.
+' The legitimate cross-service path is drawn too — otherwise the figure says
+' what is forbidden without saying what replaces it. The full list of the five
+' databases is prose now, not a note box.
 @startuml
 !include _style.puml
-skinparam linetype ortho
+!include _pattern-style.puml
 
 rectangle "خدمة إدارة المستخدمين" as UMS
 rectangle "خدمة الفصول الدراسية" as CS
@@ -25,22 +21,17 @@ rectangle "خدمة الفصول الدراسية" as CS
 database "users_db" as UDB
 database "classroomdb" as CDB
 
-' Pin both rows left-to-right so each service sits directly above its own
-' database and only the forbidden arrows cross. Do not remove.
+' Pin each service directly above its own database. Without this, smetana
+' orders the two rows independently and the ownership arrows themselves cross.
 UMS -[hidden]right- CS
 UDB -[hidden]right- CDB
 
-UMS --> UDB : تقرأ وتكتب
-CS --> CDB : تقرأ وتكتب
+UMS --> UDB : تملك
+CS --> CDB : تملك
 
-UMS ..> CDB : ممنوع
-CS ..> UDB : ممنوع
-
-note bottom of UDB
-  لكل خدمة قاعدتها وحدها: users_db، classroomdb،
-  streaming_db، knowledgedb، liveassistantdb.
-  وخدمة البريد بلا قاعدة أصلًا.
-  ولا تصل خدمةٌ إلى قاعدة غيرها، بل تتبادل الخدمات
-  عبر الناقل، أو بنداء HTTP داخلي حين يلزم جواب.
-end note
+CS -[dashed]-> UDB : <b>ممنوع</b>
+' Short label on purpose: the two services sit side by side, so whatever this
+' edge is labelled sets the width of the whole figure. Spelling out "نداء
+' داخلي أو حدث على الناقل" here took it to 2.64:1, past the README's 2.2.
+CS -left-> UMS : عبر الناقل
 @enduml

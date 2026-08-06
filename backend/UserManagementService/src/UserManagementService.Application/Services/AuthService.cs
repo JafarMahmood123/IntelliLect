@@ -90,9 +90,57 @@ public sealed class AuthService : IAuthService
         // credentials first. Alternate path 2أ: a wrong email or password yields the same
         // generic error so the response never reveals whether an email is registered.
         var user = await _userRepository.FindByEmail(request.Email, ct);
+        var nowUtc = DateTime.UtcNow;
+
+        // An account that has just been guessed at stops answering — and it stops answering
+        // BEFORE the password is checked, so the reply cannot vary with the password. Checking
+        // the lock afterwards would turn the form into an oracle: an attacker guessing during a
+        // lockout would see one message for wrong passwords and a different one for the right
+        // one, and would walk away with the credential without ever being let in.
+        //
+        // The message is the same generic failure a wrong password and an unknown email get. It
+        // is deliberately unhelpful to the locked-out owner, because naming the lock would say
+        // "this address is registered here" — the enumeration leak A-02 and A-05 arrange the
+        // rest of this method to avoid. The lock is short and lifts by itself, which is what
+        // makes that silence affordable.
+        if (user is not null && user.IsLockedOut(nowUtc))
+            throw new UnauthorizedAccessException("Invalid credentials.");
 
         if (user == null || !_hasher.Verify(request.Password, user.PasswordHash))
+        {
+            // Nothing is recorded against an unknown email. There is no row to record it on, and
+            // inventing one would build the list of attempted addresses that this method spends
+            // the rest of its length refusing to reveal.
+            if (user is not null)
+            {
+                user.RegisterFailedLogin(nowUtc);
+                await _userRepository.SaveChangesAsync(ct);
+
+                if (user.LockoutEndsAtUtc is not null)
+                {
+                    // Only ever reached on the attempt that trips the lock: RegisterFailedLogin
+                    // returns early while one is already up. The account is named by id, and the
+                    // password that was tried is not written anywhere — a near-miss in a log file
+                    // is still somebody's password.
+                    _logger.LogWarning(
+                        "Account {UserId} locked until {LockoutEndsAtUtc:o} after {Attempts} failed sign-in attempts.",
+                        user.Id, user.LockoutEndsAtUtc, user.FailedLoginCount);
+                }
+            }
+
             throw new UnauthorizedAccessException("Invalid credentials.");
+        }
+
+        // The password was right, so the run of failures is over. Without this the count only
+        // ever grows: an account that mistyped four times months ago is one slip away from a
+        // lockout for the rest of its life, and every unlock afterwards lasts a single attempt.
+        // Saved before the status checks below, because the credential has been proven whatever
+        // the account's status turns out to be.
+        if (user.HasFailedLoginHistory)
+        {
+            user.RegisterSuccessfulLogin();
+            await _userRepository.SaveChangesAsync(ct);
+        }
 
         // Step 2: the account must be active. Alternate path 2ب: an inactive account is told
         // its status and stopped here, before any code is generated or sent.

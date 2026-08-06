@@ -319,7 +319,16 @@ internal sealed class StubUserRepository : IUserRepository
     public Task AddAsync(User entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task UpdateAsync(User entity, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task DeleteAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+    /// <summary>Counted rather than thrown: a wrong password now writes the failure back to the
+    /// user row, so this is a legitimate call on the path these cases exercise.</summary>
+    public int SaveCount { get; private set; }
+
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        SaveCount++;
+        return Task.FromResult(1);
+    }
 }
 
 internal sealed class FakeTwoFactorChallengeRepository : ITwoFactorChallengeRepository

@@ -35,12 +35,23 @@ skipped=0
 
 for src in "$DIR"/*.puml; do
   name="$(basename "$src" .puml)"
-  [[ "$name" == _* ]] && continue          # _style.puml is an include, not a diagram
+  [[ "$name" == _* ]] && continue          # _*.puml are includes, not diagrams
   target="$OUT/$name.png"
 
-  if [[ "$force" != "--all" && -f "$target" && "$target" -nt "$src" && "$target" -nt "$DIR/_style.puml" ]]; then
-    skipped=$((skipped + 1))
-    continue
+  if [[ "$force" != "--all" && -f "$target" && "$target" -nt "$src" ]]; then
+    # Staleness against the includes this diagram actually names, not just
+    # _style.puml. Diagrams pulling in _pattern-style.puml were silently
+    # skipped after it changed, and a skip here is invisible — the old PNG
+    # stays and the report keeps using it.
+    stale=0
+    while read -r inc; do
+      [[ -f "$DIR/$inc" ]] || continue
+      [[ "$target" -nt "$DIR/$inc" ]] || { stale=1; break; }
+    done < <(grep -oP '^\s*!include\s+\K\S+' "$src")
+    if [[ $stale -eq 0 ]]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
   fi
 
   printf '  %-44s' "$name"

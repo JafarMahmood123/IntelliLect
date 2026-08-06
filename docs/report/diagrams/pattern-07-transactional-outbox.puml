@@ -1,13 +1,20 @@
 ' Design pattern — Transactional Outbox.
 '
+' Renamed from pattern-02 when §5.2 was reordered; figure numbers follow the
+' order the section reads in.
+'
 ' The whole point is the group box: the business write and the message write
 ' land in ONE transaction, so there is no window in which the work is committed
 ' but the message was never published (or the reverse).
 '
 ' Drawn from the session-termination path in ClassroomService, which is where
 ' the pattern earns its keep — see flow-02-session-lifecycle.puml.
+'
+' One note, not two. The second note (bus failure delays but does not lose)
+' moved to the prose; kept here it split the lower half of the figure in two.
 @startuml
 !include _style.puml
+!include _pattern-style.puml
 autonumber
 
 participant "خدمة الفصول\nالدراسية" as SVC
@@ -23,7 +30,7 @@ group معاملة واحدة
 end
 
 note over SVC, DB
-  إمّا أن تنجح الكتابتان معًا أو تفشلا معًا.
+  إمّا أن تنجح الكتابتان معًا أو تفشلا معًا،
   ولا تُنشر أيّ رسالة قبل الإيداع.
 end note
 
@@ -31,9 +38,4 @@ RELAY -> DB : قراءة الرسائل غير المرحّلة
 RELAY -> BUS : نشر الرسالة
 RELAY -> DB : تعليم الرسالة مرحّلةً
 BUS -> CONS : تسليم الرسالة
-
-note over RELAY, BUS
-  تعطّل الناقل هنا يؤخّر التسليم ولا يُضيع الرسالة:
-  تبقى في الجدول ويعيد العامل محاولتها.
-end note
 @enduml

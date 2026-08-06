@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 18:50 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 19:12 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -33,7 +33,7 @@ without an attribute does not.
 
 | Suite | Tests | Command |
 |---|---|---|
-| UserManagementService | 196 | `dotnet test UserManagementService/tests/*/*.csproj` |
+| UserManagementService | 217 | `dotnet test UserManagementService/tests/*/*.csproj` |
 | ClassroomService | 426 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 168 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
@@ -41,7 +41,7 @@ without an attribute does not.
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,066** | |
+| **Total** | **2,087** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -60,7 +60,7 @@ that selection waits two minutes and then fails.
 <!-- generated:coverage -->
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
-| UserManagementService | 52.4% | 35.5% | measured 2026-08-06 (900 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| UserManagementService | 53.5% | 37.3% | measured 2026-08-06 (921 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 62.3% | 62.9% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 51.5% | 34.4% | measured 2026-08-06 (651 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
@@ -74,7 +74,7 @@ that selection waits two minutes and then fails.
 <!-- generated:layers -->
 | Service | Layer | Line |
 |---|---|---|
-| UserManagementService | Domain | 78.7% |
+| UserManagementService | Domain | 84.1% |
 | UserManagementService | Application | 67.3% |
 | UserManagementService | Infrastructure | 33.3% |
 | ClassroomService | Domain | 100.0% |
@@ -190,12 +190,13 @@ found by writing a test, not by a user.
 | 16 | `POST /api/internal/reembed` returned 202 for a refused run, contradicting its own docstring | §7.5 |
 | 17 | A second, dead JWT minter in ClassroomService sharing the signing secret | §7.2 |
 | 18 | 22 dependency advisories, 20 fixed; npm's proposed react-router "fix" refused as a net regression | §11.13 |
+| 19 | **Nothing limited password guessing anywhere in the system** — no lockout in `AuthService`, no ASP.NET rate limiter, no `limit_req` in nginx. The reset endpoint and the 2FA challenge were both capped; the front door was not | A-07 lockout tests |
 
 ## 9. Mutation testing
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 100 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 110 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 
@@ -219,7 +220,7 @@ test that works.
 | Runtime 401/403 assertions, cross-tenant reads, the IDOR sweep | Need a running host and real data (test-plan B-04…B-07) |
 | Integration suites (§8.2–8.6), migrations (§11.8), concurrency races (§11.7) | Need containers |
 | Browser-level E2E (§11.12) | Needs Playwright; one journey would cover the §4/§5/§6 seams |
-| Contrast assertions on the feedback cards (H-10) | Needs a rendering check in both themes; the colour-blindness half is done (icon + label, not colour alone) |
+| Email verification of a registered address (A-10) | **The feature does not exist.** Registration lands in `Pending` and an administrator approves it, which is the stronger gate — but nothing proves the address belongs to the registrant, and the approving administrator gets no signal either way |
 | Performance, stress, breaking point (§10.2–10.3) | k6 not installed |
 | Behaviour under a stopped dependency (§10.4 runtime half) | Needs containers |
 | The .NET equivalent of the settings-binding rule | .NET's binder ignores unknown keys just as silently, but settings are read through a mix of options classes and direct `configuration["A:B"]` lookups; a static rule over that produced false positives on every service |

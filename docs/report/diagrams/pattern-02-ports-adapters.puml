@@ -1,0 +1,46 @@
+' Design pattern — Ports and Adapters.
+'
+' Three of RagService's fourteen ports. Three is the smallest number that still
+' shows the shape (one service, many ports, one adapter behind each); fourteen
+' would be an inventory, and the count belongs in the prose.
+'
+' Ports and adapters are listed in the same order in both packages so the three
+' realisation arrows run parallel and never cross.
+@startuml
+!include _style.puml
+!include _pattern-style.puml
+
+' Three ranks: the caller, then the ports in a row, then their adapters in a
+' row under them. The hidden edges at the foot are what put each row in a row —
+' left to itself smetana stacks the ports into a column, pushes the adapter
+' package diagonally clear of them, and curves the caller's three edges down
+' the full height of the figure. Left-to-right instead of hidden edges fixes
+' the stacking but yields 3.2:1, past the 2.2 the README allows.
+package "طبقة التطبيق" {
+  class IngestionService
+
+  interface EmbeddingProvider <<منفذ>>
+  interface FileStorage <<منفذ>>
+  interface Extractor <<منفذ>>
+}
+
+package "طبقة البنية التحتية" {
+  class GeminiEmbeddingProvider <<محوِّل>>
+  class S3FileStorage <<محوِّل>>
+  class ExtractorRouter <<محوِّل>>
+}
+
+IngestionService --> EmbeddingProvider
+IngestionService --> FileStorage
+IngestionService --> Extractor
+
+EmbeddingProvider <|.. GeminiEmbeddingProvider
+FileStorage <|.. S3FileStorage
+Extractor <|.. ExtractorRouter
+
+' Keep both rows in the same order; see the header note.
+EmbeddingProvider -[hidden]right- FileStorage
+FileStorage -[hidden]right- Extractor
+GeminiEmbeddingProvider -[hidden]right- S3FileStorage
+S3FileStorage -[hidden]right- ExtractorRouter
+@enduml

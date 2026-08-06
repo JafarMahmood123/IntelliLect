@@ -54,14 +54,21 @@ test classes today.
 | A-04 | Correct credentials on an `Active` account issue a token carrying the right role claims | Unit | P0 | ✓ |
 | A-05 | Wrong password is rejected; the response is indistinguishable from an unknown email (no user enumeration) | Unit | P0 | ✓ |
 | A-06 | Passwords are stored hashed; the plaintext never reaches the entity | Unit | P0 | ✓ (hashing verified; "never returned by any endpoint" still needs the response-shape sweep) |
-| A-07 | Repeated failures trigger lockout; lockout expires | Unit | P1 | gap |
+| A-07 | Repeated failures trigger lockout; lockout expires | Unit | P1 | ✓ (there was no lockout to test — the feature was built here, `AuthServiceLockoutTests`) |
 | A-08 | Password reset token is single-use, expires, and is invalidated by a successful reset | Unit | P0 | ✓ (13 cases; found that the code was logged in plaintext and that a reset left every session alive) |
-| A-17 | **A successful password reset revokes every existing session** — the whole point of resetting a credential you believe is compromised | Unit | P0 | ✓ |
-| A-18 | The reset code is never written to a log, and what is stored is not the code itself | Unit | P0 | ✓ |
-| A-19 | A refused reset leaves both the sessions and the outstanding code untouched — otherwise guessing wrong is a denial of service | Unit | P0 | ✓ |
-| A-20 | The daily reset cap starts over after a day, giving a whole new allowance rather than one request | Unit | P1 | ✓ |
+| A-23 | **A successful password reset revokes every existing session** — the whole point of resetting a credential you believe is compromised | Unit | P0 | ✓ |
+| A-24 | The reset code is never written to a log, and what is stored is not the code itself | Unit | P0 | ✓ |
+| A-25 | A refused reset leaves both the sessions and the outstanding code untouched — otherwise guessing wrong is a denial of service | Unit | P0 | ✓ |
+| A-26 | The daily reset cap starts over after a day, giving a whole new allowance rather than one request | Unit | P1 | ✓ |
 | A-09 | Reset for a non-existent email returns the same response as a real one | Unit | P1 | ✓ |
-| A-10 | Email verification token is single-use and expiring | Unit | P1 | gap |
+| A-10 | Email verification token is single-use and expiring | Unit | P1 | n/a — **there is no email-verification step in this system.** Registration lands in `Pending` and a human administrator approves it (A-01), which is a stronger gate than a mailed link and is the one the product actually uses. Listed as a `gap` until now, which read as "tests missing" rather than "feature absent". Residual risk, stated rather than tested away: an account can be registered against an address its owner never sees, and the administrator approving it has no signal that the address was proven. |
+| A-27 | A locked account answers exactly like a wrong password and an unknown email — the lock is not an enumeration oracle | Unit | P0 | ✓ |
+| A-28 | The lock is enforced BEFORE the password is checked, so no reply can vary with the password | Unit | P0 | ✓ (asserted on the hasher, not on the message) |
+| A-29 | Attempts made during a lock do not extend it — a stranger cannot hold one account shut indefinitely | Unit | P1 | ✓ |
+| A-30 | An expired lock returns the whole allowance, not one attempt | Unit | P1 | ✓ |
+| A-31 | A correct password clears the run of failures | Unit | P1 | ✓ |
+| A-32 | Each failed attempt is persisted, and an unknown email persists nothing | Unit | P1 | ✓ |
+| A-33 | A locked super admin is sent no verification code | Unit | P1 | ✓ |
 | A-11 | Refresh token rotates on use; a replayed old token is rejected | Unit | P0 | ✓ |
 | A-12 | Logout invalidates the refresh token | Unit | P0 | ✓ |
 | A-13 | Super admin stage 1 issues no usable session — only a 2FA challenge | Unit | P0 | ✓ |

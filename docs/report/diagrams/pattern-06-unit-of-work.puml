@@ -1,0 +1,34 @@
+' Design pattern — Unit of Work.
+'
+' A sequence diagram rather than a class diagram: what matters here is the
+' ORDER of the calls and where the boundary opens and closes, and a class
+' diagram of IUnitOfWork is four method names and no story.
+'
+' Drawn from SessionTerminationService, the real caller — two writes through
+' two different repositories, one transaction over both.
+'
+' The failure branch is one `alt` and no more. Both branches spelled out in
+' full doubled the height for a rule the caption states in a line.
+@startuml
+!include _style.puml
+!include _pattern-style.puml
+autonumber
+
+participant "خدمة إنهاء\nالجلسة" as SVC
+participant "IUnitOfWork" as UOW
+participant "المستودعات" as REPO
+database "قاعدة بيانات\nالخدمة" as DB
+
+SVC -> UOW : BeginTransactionAsync
+SVC -> REPO : تعليم الجلسة منتهية
+SVC -> REPO : إضافة سجلّ الملخّص
+
+alt نجاح
+  SVC -> UOW : SaveChangesAsync
+  SVC -> UOW : CommitAsync
+  UOW -> DB : إيداع الكتابتين معًا
+else فشل أيّ خطوة
+  SVC -> UOW : RollbackAsync
+  UOW -> DB : إلغاء الكتابتين معًا
+end
+@enduml

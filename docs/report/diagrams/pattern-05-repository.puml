@@ -1,0 +1,54 @@
+' Design pattern — Repository (with a generic base).
+'
+' Renamed from pattern-04 when §5.2 was reordered; figure numbers follow the
+' order the section reads in.
+'
+' Two columns, one per layer, each holding three boxes that line up with the
+' box opposite it. Every edge is then either vertical inside a column or
+' horizontal between the columns, and none of them cross.
+'
+' Down from four specialised repositories to one. The other three added a
+' three-way fan under GenericRepository and no information: that ten of them
+' inherit the base is a number, and numbers read better in prose than as
+' repeated boxes.
+@startuml
+!include _style.puml
+!include _pattern-style.puml
+
+package "طبقة التطبيق" {
+  class SessionService
+
+  interface "IRepository<T>" as IRepo {
+    + GetByIdAsync(id)
+    + AddAsync(entity)
+    + UpdateAsync(entity)
+    .. والعمليات المشتركة الباقية ..
+  }
+
+  interface ISessionRepository {
+    + GetActiveForClassroomAsync(id)
+    + TryMarkEndedAsync(id, endedAt)
+  }
+}
+
+package "طبقة البنية التحتية" {
+  class "GenericRepository<T>" as GRepo
+  class SessionRepository
+  class "ApplicationDbContext" as DBC
+}
+
+SessionService --> ISessionRepository
+IRepo <|-- ISessionRepository
+
+IRepo <|.. GRepo
+ISessionRepository <|.. SessionRepository
+GRepo <|-- SessionRepository
+
+GRepo --> DBC : Entity Framework
+
+' Hold each column in reading order so the two realisation arrows stay
+' horizontal and parallel.
+SessionService -[hidden]down- IRepo
+IRepo -[hidden]down- ISessionRepository
+GRepo -[hidden]down- SessionRepository
+@enduml

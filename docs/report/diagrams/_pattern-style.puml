@@ -1,0 +1,57 @@
+' ===========================================================================
+' Shared look for the seven design-pattern figures of chapter 5 §5.2.
+' Included AFTER _style.puml, which it narrows rather than replaces.
+'
+' These seven are read side by side in one section, so they are held to a
+' tighter brief than the rest of the report's diagrams:
+'   - one idea per figure, six boxes at most;
+'   - no explanatory notes inside the figure — the prose carries that, and a
+'     note box is what pushed the earlier versions past a readable ratio;
+'   - the default UML class/interface icons off (they are the only colour left
+'     in an otherwise greyscale set, and the template bans decorative colour).
+' ===========================================================================
+
+hide circle
+hide empty members
+skinparam classAttributeIconSize 0
+
+' Plain rectangles for the layer boxes. With the default tabbed style the tab
+' of the lower package landed on top of a realisation arrow crossing into it.
+skinparam packageStyle rectangle
+
+skinparam class {
+  BackgroundColor      #F2F2F2
+  BorderColor          black
+  ArrowColor           black
+  FontSize             22
+  AttributeFontSize    19
+  StereotypeFontSize   18
+  StereotypeFontColor  black
+}
+
+skinparam interface {
+  BackgroundColor      white
+  BorderColor          black
+  FontSize             22
+  StereotypeFontSize   18
+  StereotypeFontColor  black
+}
+
+skinparam package {
+  BackgroundColor  white
+  BorderColor      #777777
+  FontSize         20
+}
+
+skinparam database {
+  BackgroundColor  #F2F2F2
+  BorderColor      black
+}
+
+' The block above only reaches databases in class diagrams. A `database`
+' participant in a sequence diagram takes these two instead, and left alone it
+' renders in PlantUML's default lilac — the only colour in a greyscale set.
+skinparam databaseBackgroundColor  #F2F2F2
+skinparam databaseBorderColor      black
+skinparam queueBackgroundColor     #F2F2F2
+skinparam queueBorderColor         black

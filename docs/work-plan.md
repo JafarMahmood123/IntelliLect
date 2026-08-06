@@ -1571,6 +1571,60 @@ Ranked by value:
       than re-tested.
 
       **UserManagementService 183 → 196.**
+
+      **REOPENED A THIRD TIME AND CLOSED (test-plan A-07, A-27..A-33).** The item above lists
+      "lockout on repeated failures" among the things it was written to cover, and it did not
+      cover it — because there was nothing to cover. **There was no limit of any kind on
+      password guessing anywhere in the system.** Not in `AuthService`, not as an ASP.NET rate
+      limiter, not as `limit_req` in nginx: `grep` finds no match for any of them. Meanwhile
+      `ForgotPasswordAsync` caps a user at five codes a day and `VerifyTwoFactorAsync` destroys
+      the challenge after a fixed number of wrong codes. **The front door — the one that takes a
+      password and returns a session — was the only entrance in the building that would answer
+      an unlimited number of guesses.** Both of its neighbours were already guarded, which is
+      what makes this an oversight rather than a decision.
+
+      So this one is a feature, not only a test: `LoginLockout` (the policy, written once, the
+      way `QuizDeadline` is), `User.RegisterFailedLogin` / `RegisterSuccessfulLogin`, two new
+      columns via `AddLoginLockout`, and the enforcement in `LoginAsync`. Five wrong passwords
+      lock the account for fifteen minutes.
+
+      **The two design decisions that carry the security, both of which are easy to get backwards:**
+
+      *The lock is checked before the password, and answers with the same generic failure as a
+      wrong password and an unknown email.* Checked afterwards it would be an oracle: an attacker
+      guessing through a lockout would see one message for wrong passwords and another for the
+      right one, and would walk off with the credential without ever being let in. The test
+      asserts this on the **hasher's call count**, not on the message — the message being equal
+      today does not stop someone making it specific tomorrow. Saying "your account is locked"
+      would also confirm the address is registered here, which is the enumeration leak A-02 and
+      A-05 arrange the whole method to avoid. The cost is real and accepted: the locked-out owner
+      is told nothing, which is only affordable because the lock lifts by itself.
+
+      *Attempts made during a lock do not extend it.* If they did, anyone who knew an address
+      could hold its owner out permanently with a loop — an attack that always succeeds, in place
+      of one that mostly does not. A brute-force defence that converts into a reliable denial of
+      service against one named person is worse than none.
+
+      And the rule the A-08 cycle taught, applied in advance: an expired lock returns the **whole
+      allowance of five**, not one attempt. A test asserting only that the sixth attempt is
+      accepted passes against an implementation that re-locks on the very next wrong password —
+      a lockout that becomes permanent after the first one.
+
+      **Mutation-checked, 10 mutations, all killed** — including the boundary (`<` → `<=`), the
+      reordering that creates the password oracle (6 tests), the missing `SaveChangesAsync` that
+      would make every HTTP request the first failure (3), and the unguarded reset that turns
+      every successful login into a write against a concurrency-token column (3).
+
+      **A-10 was not a gap and never could be closed: there is no email-verification step in this
+      system.** Registration lands in `Pending` and a human administrator approves it, which is
+      the stronger gate. Marked `n/a` with the residual risk written down — an account can be
+      registered against an address its owner never sees, and the approving administrator has no
+      signal that the address was proven — rather than left reading as "tests missing".
+
+      Also fixed: the four rows added last cycle were numbered A-17..A-20, which already existed.
+      Renumbered A-23..A-26.
+
+      **UserManagementService 196 → 217.**
 - [x] **11.5 Internal-surface negative tests.** Every `/api/internal` route should 401 on
       a missing or wrong `X-Internal-Secret`. Individual internal *clients* are tested;
       the *rejection* path does not appear to be. One parametrised test per service
