@@ -477,7 +477,29 @@ The document: **[testing-results.md](testing-results.md)**, filled by
 would mean running every suite from the collector, which turns reading the file into a two-minute
 operation; the commands are stated instead.
 
-## 21. Deliberately not covered — and why
+## 21. Area S — Concurrency & interleaving (work-plan §11.7)
+
+`QuizConcurrencyTests` (ClassroomService). Driven interleavings, not threads — see the file's
+own note on why.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| S-01 | An extension granted while the sweep is running is not overwritten, and the teacher's deadline is the one that survives | Unit | P0 | ✓ |
+| S-02 | A quiz that was **not** extended still closes in the same sweep — the reprieve is per quiz | Unit | P0 | ✓ |
+| S-03 | A reprieved quiz is not announced as closed | Unit | P0 | ✓ |
+| S-04 | An ordinary sweep with nothing racing still closes the quiz (the control) | Unit | P0 | ✓ |
+| S-05 | Submitting twice records one submission and returns the original timestamp, not a conflict | Unit | P0 | ✓ |
+| S-06 | Two students submitting interleaved do not displace each other | Unit | P1 | ✓ |
+| S-07 | Answering the same question twice updates the answer instead of accumulating a second row | Unit | P0 | ✓ |
+| S-08 | An answer inside the late-answer grace is accepted; past it, refused — even while the quiz is still `Open` | Unit | P0 | ✓ |
+| S-09 | The sweep and the answer path agree on where the deadline is, at the exact boundary | Unit | P0 | ✓ |
+| S-10 | One rule decides when a quiz is over: at the deadline, at deadline+grace, and one second past | Unit | P0 | ✓ |
+| S-11 | A quiz with no timer is never over; a negative grace does not bring the deadline forward | Unit | P1 | ✓ |
+| S-12 | A student with extra time is not cut off by the class deadline | Unit | P0 | ✓ |
+| S-13 | Two real connections racing on the same row — the remaining window needs an optimistic concurrency token on `Quiz` | Integration | P1 | **gap.** A fake cannot model transaction isolation, and a token makes every quiz write able to throw, so it wants an integration suite behind it first. |
+| S-14 | Bulk approve retried after a timeout (UMS, §2 idempotency) | Unit | P1 | gap |
+
+## 22. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -509,7 +531,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 22. Entry / exit criteria
+## 23. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -527,7 +549,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume
    (**authored — Area P; the containerless half already passes**).
 
-## 23. Traceability
+## 24. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -548,3 +570,4 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | P | §10.1 |
 | Q | §10.4 |
 | R | §10.5 |
+| S | §11.7 |

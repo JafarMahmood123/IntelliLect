@@ -25,6 +25,21 @@ public interface IQuizRepository
     /// </summary>
     Task<List<Quiz>> GetOpenPastDeadlineAsync(DateTime cutoffUtc, CancellationToken ct = default);
 
+    /// <summary>
+    /// The deadlines as they stand in the database RIGHT NOW, untracked (§11.7).
+    ///
+    /// The sweep decides which quizzes have run out, then writes. Between those two things a
+    /// teacher can grant extra time, and the sweep's own copy of the quiz still holds the
+    /// deadline it read before that happened — so it would close a quiz that had just been
+    /// extended, cutting the class off and releasing the answer key mid-question. This is the
+    /// re-read that lets it notice.
+    ///
+    /// Untracked deliberately: a tracked read returns the stale instance the sweep already holds,
+    /// which is the very thing being checked against.
+    /// </summary>
+    Task<Dictionary<Guid, DateTime?>> GetCurrentDeadlinesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default);
+
     Task AddAsync(Quiz quiz, CancellationToken ct = default);
 
     /// <summary>Drops a draft's questions (and their options, by cascade) before rewriting them.</summary>

@@ -36,6 +36,15 @@ public sealed class QuizRepository : IQuizRepository
             .OrderBy(q => q.ClosesAtUtc)
             .ToListAsync(ct);
 
+    /// <inheritdoc />
+    public async Task<Dictionary<Guid, DateTime?>> GetCurrentDeadlinesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default)
+        => await _context.Quizzes
+            .AsNoTracking()
+            .Where(q => quizIds.Contains(q.Id))
+            .Select(q => new { q.Id, q.ClosesAtUtc })
+            .ToDictionaryAsync(q => q.Id, q => q.ClosesAtUtc, ct);
+
     public async Task AddAsync(Quiz quiz, CancellationToken ct = default)
         => await _context.Quizzes.AddAsync(quiz, ct);
 

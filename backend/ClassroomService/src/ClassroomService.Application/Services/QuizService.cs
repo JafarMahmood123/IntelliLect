@@ -1194,13 +1194,11 @@ public sealed class QuizService : IQuizService
     private bool IsPastDeadline(Quiz quiz, QuizExtension? extension)
     {
         var deadline = EffectiveDeadline(quiz, extension);
-        return deadline is { } closesAt
-               && _clock.UtcNow > closesAt.AddSeconds(Math.Max(0, _settings.LateAnswerGraceSeconds));
+        return QuizDeadline.IsPast(deadline, _clock.UtcNow, _settings.LateAnswerGraceSeconds);
     }
 
     private bool IsPastDeadline(Quiz quiz)
-        => quiz.ClosesAtUtc is { } closesAt
-           && _clock.UtcNow > closesAt.AddSeconds(Math.Max(0, _settings.LateAnswerGraceSeconds));
+        => QuizDeadline.IsPast(quiz.ClosesAtUtc, _clock.UtcNow, _settings.LateAnswerGraceSeconds);
 
     private void ApplyDraft(Quiz quiz, QuizDraftRequest request)
     {

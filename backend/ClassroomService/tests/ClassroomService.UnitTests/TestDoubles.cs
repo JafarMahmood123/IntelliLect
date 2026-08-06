@@ -441,14 +441,32 @@ public sealed class FakeUnitOfWork : IUnitOfWork
 {
     public int SaveChangesCount { get; private set; }
 
+    /// <summary>
+    /// Runs immediately before a save, once per registration (§11.7).
+    ///
+    /// This is how a race is tested without one. A real concurrency test spins two threads and
+    /// hopes the interleaving it cares about happens — which is flaky by construction and proves
+    /// nothing on the runs where it does not. The interleavings that actually matter here are
+    /// specific and nameable ("the teacher's extension commits after the sweep decided, before it
+    /// wrote"), so they are driven exactly rather than fished for.
+    ///
+    /// Cleared after firing, so a hook that itself performs a save cannot recurse.
+    /// </summary>
+    public Func<Task>? BeforeSave { get; set; }
+
     public Task BeginTransactionAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
 
-    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    public async Task<int> SaveChangesAsync(CancellationToken ct = default)
     {
+        if (BeforeSave is { } hook)
+        {
+            BeforeSave = null;
+            await hook();
+        }
         SaveChangesCount++;
-        return Task.FromResult(1);
+        return 1;
     }
 }
 

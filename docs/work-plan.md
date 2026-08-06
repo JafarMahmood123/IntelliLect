@@ -1538,10 +1538,57 @@ Ranked by value:
 - [x] **11.6 Idempotency and duplicate delivery.** The bus is at-least-once and there is
       an outbox — so consumers must tolerate the same message twice without double
       recording, double emailing or double crediting a quiz. Worth a test per consumer. → **DONE (§7.10).** `SessionStartedConsumer` had no tests and holds the only guard against a redelivery creating a second stream; recording-ready and summary-ready already had theirs.
-- [ ] **11.7 Concurrency races that only appear under real use:**
-      quiz double-submit (same student, two tabs), submission landing exactly at the
-      deadline against `QuizDeadlineSweeper`, an extension granted while the sweeper is
-      closing the quiz, and bulk approve retried after a timeout (§2 idempotency).
+- [~] **11.7 Concurrency races — the ordering half is DONE and found a real one.**
+      `QuizConcurrencyTests` (ClassroomService, 18 cases). Test-plan Area S.
+
+      **These are not threaded tests, deliberately.** Spinning two tasks and hoping they
+      collide proves nothing on the runs where they do not, and a test that passes for
+      timing reasons is worse than none. The interleavings that matter here are specific
+      and nameable, so each is driven exactly through a hook that fires at the moment one
+      caller has finished reading and the other commits.
+
+      **DEFECT: an extension granted while the sweep was running was silently discarded.**
+      `QuizDeadlineSweeper` reads which quizzes have run out, queries their extensions,
+      then writes `Closed`. A teacher watching the timer run down grants more time in
+      between — which is precisely *when* a teacher does it. The sweep's copy of the quiz
+      still held the pre-extension deadline, so it closed a quiz that had just been
+      extended: the class cut off mid-question **and handed the answer key**, since
+      closing is what releases the review. Nothing reported it; the teacher would simply
+      find the quiz they had just extended sitting closed.
+
+      Fixed with a `GetCurrentDeadlinesAsync` re-read (untracked — a tracked read returns
+      the same stale instance) immediately before the write, and a per-quiz reprieve. That
+      narrows the window from the whole read phase, including a second round-trip for
+      extensions, to the save itself. **It does not close it.** Closing it needs a
+      concurrency token on `Quiz`, which is left open below with the reason.
+
+      **DEFECT: the sweep and the answer path disagreed by one instant.** The answer path
+      asked `now > closesAt + grace`; the sweep compared against a cutoff with `<=`. At
+      exactly `closesAt + grace` the sweep closed a quiz whose answers the service was
+      still accepting. One tick is not much of a bug — *two spellings of one rule* is,
+      because the next change to the grace period only has to be applied to one of them.
+      Now a single `QuizDeadline.IsPast` both call, with the repository query demoted to a
+      coarse pre-filter and the shared rule making the decision.
+
+      Also covered, and already correct: submitting twice records one submission and
+      returns the original timestamp rather than a conflict; two students submitting
+      interleaved do not displace each other; answering the same question twice updates
+      instead of accumulating; a student with extra time is not cut off by the class
+      deadline.
+
+      **Mutation-checked, 9 mutations. Two survived and both were the same lesson** — the
+      boundary was written twice, so mutating either copy left the other enforcing it and
+      no test could tell. That is what prompted extracting `QuizDeadline` rather than
+      adding a third assertion. Re-run against the shared rule, all nine die.
+
+      **Still open and genuinely container-bound:** real transaction isolation. A fake
+      cannot model two connections, so what is proven here is the ordering of the code,
+      not the database's guarantees — the remaining window needs an optimistic
+      concurrency token (`xmin`) on `Quiz`, which would make *every* write to a quiz able
+      to throw and so wants an integration suite behind it before it ships. **Bulk approve
+      retried after a timeout** (UMS, §2 idempotency) is also still open.
+
+      **ClassroomService 404 → 422.**
 - [ ] **11.8 Migration tests.** EF migrations apply cleanly to an empty database and
       Alembic upgrades **and downgrades** without loss. Directly relevant to §1 (rename)
       and P3 (an embedding-dimension change rewrites the pgvector column).

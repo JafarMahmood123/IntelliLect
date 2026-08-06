@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 16:06 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 16:57 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 179 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 404 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| ClassroomService | 422 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 164 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 335 (+9 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 375 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 346 in 38 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **1,980** | |
+| **Total** | **1,998** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -61,7 +61,7 @@ that selection waits two minutes and then fails.
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
 | UserManagementService | 49.6% | 34.6% | measured 2026-08-06 (899 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| ClassroomService | 62.2% | 61.3% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| ClassroomService | 62.3% | 62.9% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 50.7% | 34.4% | measured 2026-08-06 (651 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.0% | 68.2% | measured 2026-08-06 (3911 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -78,7 +78,7 @@ that selection waits two minutes and then fails.
 | UserManagementService | Application | 67.2% |
 | UserManagementService | Infrastructure | 29.9% |
 | ClassroomService | Domain | 100.0% |
-| ClassroomService | Application | 97.6% |
+| ClassroomService | Application | 97.8% |
 | ClassroomService | Infrastructure | 39.5% |
 | ClassroomService | Presentation | 19.0% |
 | StreamingService | Domain | 100.0% |

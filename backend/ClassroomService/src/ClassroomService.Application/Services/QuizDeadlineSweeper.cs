@@ -62,12 +62,50 @@ public sealed class QuizDeadlineSweeper : IQuizDeadlineSweeper
             .ToDictionary(g => g.Key, g => g.Max(e => e.ClosesAtUtc));
 
         var expired = candidates
-            .Where(q => !lastExtension.TryGetValue(q.Id, out var until) || until <= cutoff)
+            .Where(q => !lastExtension.TryGetValue(q.Id, out var until) || until < cutoff)
             .ToList();
 
         if (expired.Count == 0)
         {
             return 0;
+        }
+
+        // §11.7. Everything above is a DECISION taken from data read some milliseconds ago, and
+        // between that read and the write below a teacher can grant more time — which is the one
+        // thing a teacher does at exactly this moment, because the quiz is visibly running out.
+        // The copy of the quiz held here still carries the deadline from before the extension, so
+        // without this re-read the sweep closes a quiz that has just been extended: the class is
+        // cut off mid-question AND handed the answer key, since closing is what releases the
+        // review. Nothing would report it; the teacher would see a quiz they had just extended
+        // sitting closed.
+        //
+        // This narrows the window from "the whole read phase, including a second round-trip for
+        // extensions" to the save itself. It does not close it — that needs a concurrency token on
+        // Quiz, which is recorded in the work plan as the remaining half, because making every
+        // write to a quiz able to fail is a much larger change than making this one able to notice.
+        var currentDeadlines = await _quizRepository.GetCurrentDeadlinesAsync(
+            expired.Select(q => q.Id).ToList(), ct);
+
+        // The SAME question the answer path asks, through the same helper — not a cutoff
+        // comparison that happens to agree with it. See QuizDeadline.
+        var reprieved = expired
+            .Where(q => currentDeadlines.TryGetValue(q.Id, out var deadline)
+                        && !QuizDeadline.IsPast(deadline, now, _settings.LateAnswerGraceSeconds))
+            .ToList();
+
+        if (reprieved.Count > 0)
+        {
+            foreach (var quiz in reprieved)
+            {
+                _logger.LogInformation(
+                    "Quiz {QuizId} was given more time while the sweep was running; leaving it open.",
+                    quiz.Id);
+            }
+            expired = expired.Except(reprieved).ToList();
+            if (expired.Count == 0)
+            {
+                return 0;
+            }
         }
 
         foreach (var quiz in expired)

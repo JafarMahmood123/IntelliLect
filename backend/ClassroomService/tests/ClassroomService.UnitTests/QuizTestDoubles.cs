@@ -38,6 +38,17 @@ public sealed class FakeQuizRepository : IQuizRepository
             .OrderBy(q => q.ClosesAtUtc)
             .ToList());
 
+    /// <summary>
+    /// The deadlines as stored. The fake shares entity instances, so this returns the same values
+    /// a tracked read would — which is fine for the race under test, because what the sweep holds
+    /// is a LIST captured before the extension, not a live view of it.
+    /// </summary>
+    public Task<Dictionary<Guid, DateTime?>> GetCurrentDeadlinesAsync(
+        IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default)
+        => Task.FromResult(_quizzes.Values
+            .Where(q => quizIds.Contains(q.Id))
+            .ToDictionary(q => q.Id, q => q.ClosesAtUtc));
+
     public Task AddAsync(Quiz quiz, CancellationToken ct = default)
     {
         _quizzes[quiz.Id] = quiz;
@@ -129,9 +140,29 @@ public sealed class FakeQuizRepository : IQuizRepository
     public Task<List<QuizExtension>> GetExtensionsAsync(Guid quizId, CancellationToken ct = default)
         => Task.FromResult(Extensions.Where(e => e.QuizId == quizId).ToList());
 
-    public Task<List<QuizExtension>> GetExtensionsForQuizzesAsync(
+    /// <summary>
+    /// Fires once, immediately after the sweep has read everything it decides on (§11.7).
+    ///
+    /// This is the interleaving point, and it is here rather than on the unit of work for a
+    /// reason worth writing down: these fakes share entity instances, so a hook at save time
+    /// would run AFTER the sweep had already set Status = Closed on the shared object — and the
+    /// teacher's extension would then be refused with "only a running quiz can be given more
+    /// time", which is not what another scope sees. Before the sweep commits, the quiz is still
+    /// Open everywhere else. That is what this reproduces.
+    /// </summary>
+    public Func<Task>? AfterReadingExtensions { get; set; }
+
+    public async Task<List<QuizExtension>> GetExtensionsForQuizzesAsync(
         IReadOnlyCollection<Guid> quizIds, CancellationToken ct = default)
-        => Task.FromResult(Extensions.Where(e => quizIds.Contains(e.QuizId)).ToList());
+    {
+        var found = Extensions.Where(e => quizIds.Contains(e.QuizId)).ToList();
+        if (AfterReadingExtensions is { } hook)
+        {
+            AfterReadingExtensions = null;  // once, so a hook that reads cannot recurse
+            await hook();
+        }
+        return found;
+    }
 
     public Task AddExtensionAsync(QuizExtension extension, CancellationToken ct = default)
     {
