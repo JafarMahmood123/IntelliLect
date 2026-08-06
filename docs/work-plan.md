@@ -1248,7 +1248,7 @@ cd tests/e2e && ./run-in-network.sh -m latency
 
 ---
 
-## 10. Smoke, performance and stress testing — **10.1 DONE**
+## 10. Smoke, performance and stress testing — **10.1 DONE, 10.4 part-done**
 
 - [x] **10.1 Smoke suite — DONE, and writing it found that three of the six health
       endpoints could not fail and a fourth did not exist.**
@@ -1312,8 +1312,78 @@ cd tests/e2e && ./run-in-network.sh -m latency
 - [ ] **10.3 Stress / breaking point** — ramp until failure to find the limit and, more
       importantly, confirm it degrades rather than corrupts: no dropped submissions, no
       half-written recordings, no orphaned sessions.
-- [ ] **10.4 Resource ceilings** — what happens when MinIO, Postgres or the model
-      provider is slow or down. Timeouts and retries are the thing under test.
+- [~] **10.4 Resource ceilings — the configuration half is DONE and found four defects, one
+      of them serious.** Behaviour under a *stopped* dependency needs containers. But what
+      decides that behaviour — whether a call has a timeout, how often it retries, where its
+      credentials come from, and whether a configured variable binds to anything at all — is
+      configuration, and configuration is checkable today. That turned out to be the half where
+      everything was wrong. Test-plan Area Q.
+
+      **DEFECT 1 (serious): `RAG_BASE_URL` bound to nothing, so the live assistant has never
+      retrieved course material in the deployed compose.** The §1 rename moved
+      `KNOWLEDGE_BASE_URL` to `RAG_BASE_URL` in the compose file, the README, the tests and the
+      service's own error messages — but not in the `Settings` field it binds to, which stayed
+      `knowledge_base_url`. LiveAssistantService declares `extra="ignore"`, so the variable was
+      discarded in silence and `RagRetrievalClient` ran with an empty base URL. Every idea then
+      failed retrieval, and `IdeaEvaluator` degrades a failed retrieval to "no feedback" — which
+      is indistinguishable from the assistant having nothing useful to say. Verified directly:
+      with `RAG_BASE_URL` set, `settings.knowledge_base_url` was `''`.
+
+      Nothing caught it because every retrieval test constructs `Settings(knowledge_base_url=...)`
+      in Python and passes the value straight in, which is the one path that cannot exercise the
+      environment binding. The field is now `rag_base_url` with an `AliasChoices` accepting both
+      names, so an existing `.env` keeps working.
+
+      **DEFECT 2: ClassroomService's MinIO credentials were string literals** —
+      `"testuser"` / `"testpassword123!"` in the composition root — while MinIO itself and
+      StreamingService's egress both read the same two values from `backend/.env`. So the
+      platform worked right up until someone changed the MinIO password, which is the first item
+      on the README's own pre-deployment list, and then every upload, download, recording and
+      summary in *this service alone* failed with `InvalidAccessKeyId` against a bucket that
+      plainly exists. Now read from `S3Settings__AccessKey`/`__SecretKey`, wired to the same
+      `${MINIO_ROOT_USER}`/`${MINIO_ROOT_PASSWORD}` as everything else, with a startup guard that
+      names the variables. The same literals were also shipped as defaults in two StreamingService
+      `appsettings.json` files; both are now blank.
+
+      **DEFECT 3: no timeout or retry bound on the S3 client**, so the AWS SDK's defaults applied
+      — 100 seconds and four retries with backoff. Reasonable for S3 across the internet, wrong
+      for a MinIO container one hop away: a dependency that was merely *down* held a user's
+      request for minutes rather than failing in one. Now 10s and one retry, both configurable.
+      And `/health` inherited it: `RecordingsStorageHealthCheck` calls `DoesS3BucketExistV2Async`,
+      which takes no cancellation token — so the endpoint the smoke suite and the readiness gate
+      now poll could block for minutes with MinIO down. It has its own 3s budget, the same shape
+      RagService already used for the identical bucket HEAD.
+
+      **DEFECT 4: two clients had a configured base URL and no configured timeout** —
+      StreamingService's LiveAssistant client, and LiveAssistantService's retrieval client, which
+      borrowed `EVAL_TIMEOUT_SECONDS` so that raising the brain's budget silently raised
+      retrieval's. Not unbounded hangs; the values existed, but in code, where nobody changing a
+      deployment will look. The same drift §14.3 fixed in UMS.
+
+      **Three rule files, all containerless**: `test_resource_ceilings.py` (every configured base
+      URL declares its own timeout; storage calls are bounded and do not retry forever; the health
+      probe is tighter than the call it probes; everything that talks to MinIO reads the same two
+      variables; the development credentials appear in no shipped file),
+      `test_settings_binding.py` (no variable a deployment sets binds to nothing — the rule that
+      would have caught defect 1), and `S3ClientFactoryTests` (12 cases over the factory that was
+      extracted so the two S3 defects became assertable rather than only observable in a
+      deployment).
+
+      **Mutation-checked, 8 mutations, and one survived long enough to expose a bug in my own
+      rule.** Re-introducing the missing StreamingService timeout changed nothing — because
+      `_compose_text()` was keyed on `path.name`, and **six of the seven compose files are called
+      `docker-compose.unit.yml`**, so the dictionary held two entries and five services were never
+      read. Every rule in the file had been passing while examining a fraction of the platform,
+      which is precisely the failure a conformance test cannot report about itself. Keyed on the
+      relative path now, with a guard asserting all seven documents arrive and that exactly four
+      carry `Section__Key` settings.
+
+      **Still open and genuinely container-bound:** actually stopping MinIO, Postgres and the
+      model provider and watching what the services do. The .NET equivalent of the
+      settings-binding rule is also not covered — .NET's configuration binder ignores unknown keys
+      just as silently, but its settings are read through a mix of options classes and direct
+      `configuration["A:B"]` lookups, and a static rule over that produced false positives on
+      every service. It needs a different approach, not a quick one.
 - [ ] **10.5 Write the results template** for the report so the run only has to fill it.
 
 ---

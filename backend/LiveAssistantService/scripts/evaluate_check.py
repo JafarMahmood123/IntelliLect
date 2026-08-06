@@ -130,7 +130,7 @@ async def _run_live(classroom_id: str, idea_text: str) -> int:
     evaluator = build_idea_evaluator(
         settings, build_retrieval_client(settings), build_brain_client(settings)
     )
-    print(f"[live] RagService({settings.knowledge_base_url}) + Ollama({settings.eval_model})")
+    print(f"[live] RagService({settings.rag_base_url}) + Ollama({settings.eval_model})")
     print(f"idea: {idea_text}")
     print("-" * 72)
     _print_outcome(await evaluator.evaluate(idea, session))

@@ -104,6 +104,9 @@ services:
       # fetch relevant chunks for each spoken idea. Without this the evaluator raises
       # RetrievalError and no suggestion is ever produced.
       - RAG_BASE_URL=http://rag-service:8080
+      # §10.4: retrieval's own budget. It used to borrow EVAL_TIMEOUT_SECONDS, so raising the
+      # brain's budget silently raised the retrieval one too.
+      - RAG_TIMEOUT_SECONDS=60
       # Shared internal secret across the internal mesh. Must match RagService's
       # INTERNAL_API_SECRET (used for /api/search) AND StreamingService's
       # LiveAssistant__InternalApiSecret (used for /api/internal/sessions). One value everywhere.

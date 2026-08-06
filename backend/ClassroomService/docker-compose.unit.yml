@@ -39,6 +39,17 @@ services:
       # Browser-reachable MinIO endpoint used only to sign download URLs (host-published port).
       # The service still uploads/reads over the internal ServiceUrl above.
       - S3Settings__PublicServiceUrl=http://localhost:9000
+      # The SAME two values MinIO itself and StreamingService's egress read, so they can no
+      # longer drift. These were string literals in the composition root, which meant rotating
+      # the MinIO password broke every upload, download, recording and summary in THIS service
+      # and nothing else — with an InvalidAccessKeyId naming nothing useful.
+      - S3Settings__AccessKey=${MINIO_ROOT_USER:?set it in backend/.env}
+      - S3Settings__SecretKey=${MINIO_ROOT_PASSWORD:?set it in backend/.env}
+      # §10.4: bound what a stopped MinIO can cost. The AWS SDK defaults to a 100s timeout and
+      # four retries, so a dependency that is simply down held a user request for minutes.
+      - S3Settings__TimeoutSeconds=10
+      - S3Settings__MaxErrorRetry=1
+      - S3Settings__HealthProbeTimeoutSeconds=3
       - Jwt__SecretKey=${JWT_SECRET_KEY:?set it in backend/.env}
       - Jwt__Issuer=IntelliLect
       - Jwt__Audience=IntelliLect

@@ -145,6 +145,9 @@ services:
       # LiveAssistantService trigger (LA-6): notify it on session start/end. Secret
       # must match live-assistant-service's INTERNAL_API_SECRET. Same intellilect-net.
       - LiveAssistant__BaseUrl=http://live-assistant-service:8080
+      # §10.4: every configured BaseUrl declares its own timeout. This one did not, so the
+      # number lived in C# where nobody looks for it — the same drift §14.3 fixed in UMS.
+      - LiveAssistant__TimeoutSeconds=5
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
       # (which is also what live-assistant presents to RagService). One value everywhere.
       - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}

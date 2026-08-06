@@ -25,7 +25,7 @@ async def _reachable(url: str) -> bool:
 
 async def _check_rag_service(settings: Settings) -> str:
     """"reachable" / "unreachable" / "not-configured" for RagService."""
-    base = settings.knowledge_base_url.rstrip("/")
+    base = settings.rag_base_url.rstrip("/")
     if not base:
         return "not-configured"
     return "reachable" if await _reachable(f"{base}/health") else "unreachable"

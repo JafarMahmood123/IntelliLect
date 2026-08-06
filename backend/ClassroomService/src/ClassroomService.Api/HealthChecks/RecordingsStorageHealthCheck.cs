@@ -32,10 +32,31 @@ public sealed class RecordingsStorageHealthCheck : IHealthCheck
 
         var data = new Dictionary<string, object> { ["bucket"] = _s3Settings.BucketName };
 
+        // §10.4. `DoesS3BucketExistV2Async` takes no cancellation token, so the only way to bound
+        // it is to stop waiting on it. That is not belt-and-braces over the client's own timeout:
+        // this endpoint is what the smoke suite and the e2e readiness gate now poll, and a probe
+        // that blocks while its dependency is down turns one sick service into a stalled
+        // orchestrator. RagService bounds the identical bucket HEAD the same way, in
+        // `_check_summary_storage`.
+        var budget = TimeSpan.FromSeconds(
+            _s3Settings.HealthProbeTimeoutSeconds > 0 ? _s3Settings.HealthProbeTimeoutSeconds : 3);
+
         try
         {
-            var exists = await AmazonS3Util.DoesS3BucketExistV2Async(_s3, _s3Settings.BucketName);
-            return exists
+            var probe = AmazonS3Util.DoesS3BucketExistV2Async(_s3, _s3Settings.BucketName);
+            var finished = await Task.WhenAny(probe, Task.Delay(budget, cancellationToken));
+
+            if (finished != probe)
+            {
+                // The abandoned probe is left to complete on its own — it holds no lock and its
+                // own client timeout will end it. What matters is that /health has already
+                // answered.
+                return HealthCheckResult.Degraded(
+                    $"Recordings S3 bucket did not answer within {budget.TotalSeconds:0}s.",
+                    data: data);
+            }
+
+            return await probe
                 ? HealthCheckResult.Healthy("Recordings S3 bucket reachable.", data)
                 : HealthCheckResult.Degraded("Recordings S3 bucket not found.", data: data);
         }

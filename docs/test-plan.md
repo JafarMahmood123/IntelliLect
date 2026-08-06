@@ -431,7 +431,30 @@ unauthenticated health surface; their outages surface through the services that 
 on them), and `livekit-egress` has no HTTP surface at all — it is a worker, covered by
 the recording path in G-06.
 
-## 19. Deliberately not covered — and why
+## 19. Area Q — Dependency ceilings & configuration binding (work-plan §10.4)
+
+Rules over configuration: `backend/tests/e2e/test_resource_ceilings.py` and
+`test_settings_binding.py` (`-m resilience`, nothing running), plus `S3ClientFactoryTests`
+in ClassroomService.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| Q-01 | **No variable a deployment sets binds to nothing** — `extra="ignore"` discards a renamed setting in silence | Unit | P0 | ✓ |
+| Q-02 | The retrieval base URL binds to the name compose, the README and the error messages all use, and the pre-rename name still works | Unit | P0 | ✓ |
+| Q-03 | Every configured `BaseUrl` declares its own `TimeoutSeconds`, so the value is where a deployment can see it | Unit | P0 | ✓ |
+| Q-04 | Object-storage calls are bounded and retry a bounded number of times — not the SDK's 100s × 4 | Unit | P0 | ✓ |
+| Q-05 | Turning retries off is honoured rather than read as "unset" and silently restored | Unit | P1 | ✓ |
+| Q-06 | The storage health probe has a tighter budget than a storage call | Unit | P0 | ✓ |
+| Q-07 | Everything that talks to MinIO reads the **same two** environment variables | Unit | P0 | ✓ |
+| Q-08 | The development MinIO credentials appear in no shipped source, appsettings or compose file | Unit | P0 | ✓ |
+| Q-09 | Missing storage credentials stop startup naming the variables, rather than failing on the first upload | Unit | P0 | ✓ |
+| Q-10 | Every compose file actually reaches the rules above (six share one filename) | Unit | P0 | ✓ |
+| Q-11 | A stopped MinIO degrades rather than hangs — the request fails inside its budget | Integration | P0 | gap (needs containers) |
+| Q-12 | A stopped Postgres surfaces as 503 from `/health` and not as a hung request | Integration | P0 | gap (needs containers) |
+| Q-13 | A slow or absent model provider degrades the assistant to "no feedback" without stalling the session | Integration | P1 | gap (needs containers) |
+| Q-14 | The .NET equivalent of Q-01 — a `Section__Key` that binds to no options property | Unit | P1 | **not covered.** .NET's binder ignores unknown keys just as silently, but settings are read through a mix of options classes and direct `configuration["A:B"]` lookups; a static rule over that gave false positives on every service. |
+
+## 20. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -463,7 +486,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 20. Entry / exit criteria
+## 21. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -479,7 +502,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume
    (**authored — Area P; the containerless half already passes**).
 
-## 21. Traceability
+## 22. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -498,3 +521,4 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | N | §7.6, §11.1 |
 | O | §9 |
 | P | §10.1 |
+| Q | §10.4 |

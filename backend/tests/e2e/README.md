@@ -136,6 +136,21 @@ in both directions, plus that every service actually exposes the `/health` the p
 assume. A smoke suite decays invisibly — a service gets added and never gets a probe,
 and the suite passes while proving less each release.
 
+## Resilience config (`-m resilience`)
+
+`test_resource_ceilings.py` and `test_settings_binding.py` need **nothing running**. They are
+§10.4's configuration half: every configured base URL declares its own timeout, storage calls
+are bounded and do not retry forever, everything that talks to MinIO reads the same two
+variables, and — the one that matters most — **no variable a deployment sets binds to nothing**.
+
+Both Python services declare `extra="ignore"`, so a renamed setting goes quietly dead. That is
+how `RAG_BASE_URL` came to be set in compose while `Settings` still declared
+`knowledge_base_url`, and the live assistant retrieved course material from an empty base URL.
+
+```bash
+cd backend/tests/e2e && .venv/bin/python -m pytest -m resilience
+```
+
 ## Latency (`-m latency`)
 
 `test_latency.py` measures the session-broadcast hops and writes `latency-results.md`

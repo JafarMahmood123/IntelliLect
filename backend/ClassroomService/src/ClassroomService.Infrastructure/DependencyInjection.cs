@@ -120,24 +120,10 @@ public static class DependencyInjection
         services.Configure<S3Settings>(s3Section);
         var s3Settings = s3Section.Get<S3Settings>();
 
-        static AmazonS3Client BuildS3Client(S3Settings s, string? serviceUrl)
-        {
-            var config = new AmazonS3Config
-            {
-                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s.Region),
-                ForcePathStyle = true
-            };
-
-            if (!string.IsNullOrEmpty(serviceUrl))
-            {
-                config.ServiceURL = serviceUrl;
-            }
-
-            return new AmazonS3Client("testuser", "testpassword123!", config);
-        }
+        S3ClientFactory.EnsureCredentialsConfigured(s3Settings);
 
         // Main client — talks to MinIO over the internal endpoint for uploads/deletes/byte reads.
-        services.AddSingleton<IAmazonS3>(_ => BuildS3Client(s3Settings!, s3Settings!.ServiceUrl));
+        services.AddSingleton<IAmazonS3>(_ => S3ClientFactory.Create(s3Settings!, s3Settings!.ServiceUrl));
 
         services.AddScoped<IFileStorageService, S3FileStorageService>();
 
@@ -147,7 +133,7 @@ public static class DependencyInjection
         var presignServiceUrl = string.IsNullOrWhiteSpace(s3Settings!.PublicServiceUrl)
             ? s3Settings.ServiceUrl
             : s3Settings.PublicServiceUrl;
-        var presignS3Client = BuildS3Client(s3Settings, presignServiceUrl);
+        var presignS3Client = S3ClientFactory.Create(s3Settings, presignServiceUrl);
 
         // Recording downloads (R-3): reuse the S3 client/bucket above; only the URL TTL is new.
         var recordingsSection = configuration.GetSection(RecordingsOptions.SectionName);

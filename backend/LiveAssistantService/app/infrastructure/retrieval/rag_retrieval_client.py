@@ -31,9 +31,9 @@ class RagRetrievalClient(RetrievalClient):
     def __init__(
         self, settings: Settings, *, transport: httpx.BaseTransport | None = None
     ) -> None:
-        self._base_url = settings.knowledge_base_url.rstrip("/")
+        self._base_url = settings.rag_base_url.rstrip("/")
         self._secret = settings.internal_api_secret
-        self._timeout = settings.eval_timeout_seconds
+        self._timeout = settings.rag_timeout_seconds
         # transport is injectable so tests can assert the exact request via MockTransport.
         self._transport = transport
 

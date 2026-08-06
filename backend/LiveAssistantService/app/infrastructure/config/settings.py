@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +15,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # Unknown variables are ignored so this service can share a compose `.env` with its
+        # siblings. That convenience is also a trap — a variable the deployment sets and this
+        # class does not declare vanishes without a word. `test_settings_binding.py` in
+        # tests/e2e is the guard: every variable compose sets here must bind to a field.
         extra="ignore",
+        # Aliased fields stay constructible by field name, which keeps unit tests readable.
+        populate_by_name=True,
     )
 
     # --- LiveKit (server-side agent) ---
@@ -240,7 +247,19 @@ class Settings(BaseSettings):
     # --- Retrieval (LA-4): classroom material via the existing RagService ---
     # Retrieval goes over HTTP to RagService (it owns the vector DB); the idea
     # TEXT is sent as the query and RagService embeds + searches internally.
-    knowledge_base_url: str = ""  # e.g. http://rag-service:8080
+    # NAMED `RAG_BASE_URL` IN THE ENVIRONMENT. The field kept its pre-rename name while compose,
+    # the README, the tests and this service's own error messages all moved to RAG_BASE_URL in
+    # §1 — and because unknown variables are ignored, the deployment set a variable that bound to
+    # nothing and retrieval ran with an empty base URL. Every idea then failed retrieval and the
+    # evaluator degraded to "no feedback", which is indistinguishable from having nothing to say.
+    # The old name is still accepted so an existing .env does not break.
+    rag_base_url: str = Field(
+        default="", validation_alias=AliasChoices("RAG_BASE_URL", "KNOWLEDGE_BASE_URL")
+    )
+
+    # Its own budget rather than borrowing eval_timeout_seconds: retrieval and generation are
+    # different operations, and raising one should not silently raise the other.
+    rag_timeout_seconds: float = 60.0
     internal_api_secret: str = ""  # shared secret, sent as X-Internal-Secret
     retrieval_top_k: int = 6  # chunks requested per idea
     retrieval_min_score: float = 0.25  # below this = "no relevant material" (short-circuit)

@@ -20,7 +20,7 @@ from app.infrastructure.retrieval.rag_retrieval_client import (
 
 
 def _settings() -> Settings:
-    return Settings(knowledge_base_url="http://rag-service:8080", internal_api_secret="s3cret")
+    return Settings(rag_base_url="http://rag-service:8080", internal_api_secret="s3cret")
 
 
 def _client(handler) -> RagRetrievalClient:
