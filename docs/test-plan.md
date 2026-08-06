@@ -242,7 +242,7 @@ embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same
 | H-07 | **New contract**: the payload carries a severity and the wrong/corrected spans as separate fields | Unit | P0 | ✓ |
 | H-08 | **New contract**: a model response missing those fields degrades to a plain card rather than crashing the parser | Unit | P0 | ✓ |
 | H-09 | Each severity renders its colour, *and* a non-colour cue (icon/label) | Frontend | P0 | ✓ |
-| H-10 | Contrast passes in both light and dark themes | Frontend | P1 | new |
+| H-10 | Feedback-card contrast meets WCAG AA on every label, over both a dark and a bright room backdrop, measured on the composited translucent layers | Unit | P1 | ✓ (found the timestamp at 3.38:1; the palette is read from the installed Tailwind, not copied) |
 | H-11 | "Likely to be" replaces "unclear" in the enum, prompt vocabulary and both locales | Unit + Frontend | P1 | ✓ |
 | H-12 | STT failure or model timeout degrades to silence, never to a crashed session | Unit | P0 | ✓ |
 | H-13 | A quoted span the teacher never said is discarded, and the suggestion survives without it | Unit | P0 | ✓ |

@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 18:21 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 18:34 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -39,9 +39,9 @@ without an attribute does not.
 | EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 351 (+9 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
-| front-end-web | 346 in 38 files | `cd front-end-web && npx vitest run` |
+| front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,032** | |
+| **Total** | **2,053** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -66,7 +66,7 @@ that selection waits two minutes and then fails.
 | EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.0% | 68.2% | measured 2026-08-06 (3911 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
-| front-end-web | 41.4% | 79.5% | measured 2026-08-06 (14857 lines) | `cd front-end-web && npm run test:coverage` |
+| front-end-web | 41.4% | 79.5% | measured 2026-08-06 (14868 lines) | `cd front-end-web && npm run test:coverage` |
 <!-- /generated:coverage -->
 
 ### Read the layer, not the headline

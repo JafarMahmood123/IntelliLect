@@ -17,12 +17,34 @@ import type {
 } from '../types';
 
 /**
+ * The translucent layers a label is read against, outermost first (test-plan H-10).
+ *
+ * Every one of these is semi-transparent, so the colour behind a chip is a composite of all
+ * three and of whatever video frame is underneath. Naming them here rather than only in the
+ * markup is what lets `TeacherFeedbackPanel.contrast.test.ts` compute the contrast a teacher
+ * actually sees instead of the contrast of the topmost layer alone.
+ */
+export const SURFACES = {
+  panel: 'bg-slate-900/95',
+  header: 'bg-slate-950/60',
+  card: 'bg-slate-800/60',
+} as const;
+
+/** Text colours on those surfaces, so the same test can check them too. */
+export const TEXT_ON_SURFACE = {
+  body: 'text-slate-100',
+  meta: 'text-slate-400',
+  subtitle: 'text-slate-400',
+  emptyState: 'text-slate-400',
+} as const;
+
+/**
  * How each severity is shown. Colour is never the only carrier: every entry pairs its palette
  * with an icon AND a written label, so the card still reads correctly in greyscale, to a
  * colour-blind teacher, and to a screen reader. A teacher glancing at this mid-sentence has no
  * time to decode a hue.
  */
-const SEVERITY_STYLES: Record<
+export const SEVERITY_STYLES: Record<
   FeedbackSeverity,
   { icon: typeof AlertTriangle; chip: string }
 > = {
@@ -134,7 +156,7 @@ export const TeacherFeedbackPanel = () => {
           aria-relevant="additions"
         >
           {suggestions.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs italic text-slate-500">
+            <p className={`px-2 py-6 text-center text-xs italic ${TEXT_ON_SURFACE.emptyState}`}>
               {t('feedback.empty')}
             </p>
           ) : (
@@ -179,7 +201,7 @@ const SuggestionCard = ({
             {t(`feedback.severity.${suggestion.severity}`)}
           </span>
           {timeLabel && (
-            <span className="text-[10px] font-medium text-slate-500">
+            <span className={`text-[10px] font-medium ${TEXT_ON_SURFACE.meta}`}>
               {timeLabel}
             </span>
           )}

@@ -1641,13 +1641,50 @@ Ranked by value:
 - [x] **11.10 Frontend has no tests for auth, users, admin, superAdmin or roles.** The 28
       suites cluster in quizzes, streaming and whiteboard. Login, registration and the
       admin approval table — where §2's UI lands — have no coverage at all. → **DONE (§7.7).** Route guards 0% → 100%, the auth store, `getDefaultRoute`, and the axios interceptor — where a refresh-per-request defect was found and fixed.
-- [~] **11.11 Accessibility assertions on the feedback cards (§3).** If red/green/orange
-      is the signal, an automated a11y check plus a contrast assertion in both themes
-      stops the colour work from being unusable for colour-blind users. → **The
-      colour-blindness half is DONE (§3/§7.7):** each severity carries an icon *and* a
-      label, not colour alone, and there are tests asserting the non-colour cue. **The
-      contrast half is not** — test-plan H-10 is still open, and it needs a rendering
-      check in both themes rather than a unit test.
+- [x] **11.11 Accessibility assertions on the feedback cards — DONE, and it found a
+      contrast failure.** Test-plan H-10 closed.
+
+      **The plan assumed this needed a rendering check in both themes. It did not, and a
+      rendering check would have been the weaker test.** `getComputedStyle` in jsdom hands
+      the class names back unresolved, and in a real browser it reports whatever that build
+      produced — so a browser assertion tells you the pixels were right on the machine that
+      ran it. These colours are design tokens, and asserting on the tokens catches the
+      problem where it is introduced, in milliseconds.
+
+      **DEFECT: the timestamp on every feedback card failed WCAG AA.** `text-slate-500`
+      reads at **3.38:1** against the card and **3.29:1** against the panel — below the 4.5
+      required for normal text, and it is 10px text, so the normal-text threshold is
+      unambiguously the one that applies. The same colour was on the empty-state line.
+      Both are now `text-slate-400` (6.12:1 and 5.70:1). The three severity chips were
+      already comfortable — 7.46, 8.58 and 9.28 — so the colour work itself was sound; it
+      was the small grey label beside it that was not.
+
+      The palette is **read from `node_modules/tailwindcss/theme.css`**, not copied.
+      Tailwind 4 ships OKLCH and has re-tuned its colours between minor versions, so a
+      hard-coded table would keep passing against values the app no longer uses. That meant
+      implementing OKLCH → sRGB → relative luminance, pinned against facts that are true by
+      definition: white on black is exactly 21, a colour against itself is exactly 1, and
+      `red-300` resolves to the `#ffa2a2` Tailwind ships.
+
+      Every layer here is translucent — the chip tint sits on a translucent card on a
+      translucent panel on the video — so contrast is measured against the **composite**,
+      and against both a black and a white room backdrop, since the content behind is not
+      ours to control.
+
+      **And there is only one theme.** The panel carries no `dark:` variants at all, against
+      648 elsewhere in the app: it is fixed dark because it floats over a video room. That
+      is a deliberate exception, and a test now pins it — if someone adds light-theme
+      support here, every ratio was computed against the wrong background, and that test is
+      the reminder to recompute rather than delete.
+
+      **Mutation-checked, 7 mutations, all killed** — including re-introducing both
+      `slate-500` usages, dimming a chip label, giving two severities one colour, removing a
+      chip's ring, and two breaking the maths itself (dropping gamma decoding, ignoring
+      alpha when compositing).
+
+      **front-end-web 346 → 367 tests.** The colour-blindness half was already done in §3:
+      every severity carries an icon *and* a written label, so the card reads in greyscale.
+
 - [ ] **11.12 No browser-level e2e.** `backend/tests/e2e` drives the API and LiveKit
       directly, which is the right layer for the assistant loop but never exercises the
       React app. One Playwright journey (login → join session → submit quiz → see mark)
