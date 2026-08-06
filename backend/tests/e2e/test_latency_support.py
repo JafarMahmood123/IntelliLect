@@ -22,7 +22,10 @@ import pytest
 from support.latency import Report, Series
 from support.signalr import RECORD_SEPARATOR, SignalRClient, to_websocket_url
 
-pytestmark = pytest.mark.latency
+# `offline` is the marker that means what it says: this module needs nothing running.
+# The topical marker alone does not — `-m smoke` and `-m latency` both also select
+# modules that require a live platform.
+pytestmark = [pytest.mark.latency, pytest.mark.offline]
 
 
 @pytest.fixture(scope="session", autouse=True)

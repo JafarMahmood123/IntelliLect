@@ -27,7 +27,10 @@ import pytest
 
 from support import inventory
 
-pytestmark = pytest.mark.resilience
+# `offline` is the marker that means what it says: this module needs nothing running.
+# The topical marker alone does not — `-m smoke` and `-m latency` both also select
+# modules that require a live platform.
+pytestmark = [pytest.mark.resilience, pytest.mark.offline]
 
 PYTHON_SERVICES = {
     "RagService": (

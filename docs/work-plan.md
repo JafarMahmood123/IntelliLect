@@ -1248,7 +1248,7 @@ cd tests/e2e && ./run-in-network.sh -m latency
 
 ---
 
-## 10. Smoke, performance and stress testing — **10.1 DONE, 10.4 part-done**
+## 10. Smoke, performance and stress testing — **10.1 + 10.5 DONE, 10.4 part-done, 10.2/10.3 blocked on k6**
 
 - [x] **10.1 Smoke suite — DONE, and writing it found that three of the six health
       endpoints could not fail and a fourth did not exist.**
@@ -1384,7 +1384,66 @@ cd tests/e2e && ./run-in-network.sh -m latency
       just as silently, but its settings are read through a mix of options classes and direct
       `configuration["A:B"]` lookups, and a static rule over that produced false positives on
       every service. It needs a different approach, not a quick one.
-- [ ] **10.5 Write the results template** for the report so the run only has to fill it.
+- [x] **10.5 Results template — DONE, and generated rather than transcribed.**
+      **[docs/testing-results.md](testing-results.md)**, filled by
+      `backend/tests/e2e/collect_results.py` from real artifacts.
+
+      A results section fails in a way nobody catches: by the time it is read, the code has moved
+      on and there is nothing left to check it against. Two causes, and the template is built
+      against both. **Transcription** — seven components, each with a coverage percentage, copied
+      into a table by hand during a week of changes; one will be wrong and nothing says which. And
+      **staleness** — a coverage artifact is a file, and it reads identically whether it was
+      written a minute ago or a month ago against code that has since changed.
+
+      So every artifact is compared against the source it claims to measure, and one that is older
+      than the code is reported as **stale with the number withheld**. Not rounded, not footnoted:
+      a stale percentage is not an approximate claim, it is a precise claim about code that no
+      longer exists. **This project's own artifacts were exactly that when the collector first
+      ran** — three commits out of date, and they would have been quoted as current.
+
+      **The measured numbers, fresh (2026-08-06), and they change the story §0.2 tells.**
+
+      | Component | Line | vs §0.2 baseline |
+      | --- | --- | --- |
+      | LiveAssistantService | **87.2%** | 81% |
+      | RagService | **83.0%** | 77% |
+      | EmailService | **72.0%** | none (no test project existed) |
+      | ClassroomService | **62.2%** | 57.4% |
+      | StreamingService | **50.7%** | 28.2% |
+      | UserManagementService | **49.6%** | 62.1% — *down* |
+      | front-end-web | **41.4%** | 31.4% |
+
+      **UserManagementService fell 12 points while its tests went 120 → 179 and its Application
+      layer rose.** Not a regression — the opposite. Coverlet reports only on assemblies a test
+      run actually loads, and §0.2 recorded that UMS's Infrastructure was "never loaded by any
+      test", so its 62.1% was really Application + Domain. Adding one Infrastructure test
+      (§14.3's options tests) pulled ~300 lines of untested adapter code into the denominator.
+      A report quoting only the headline records that as things getting worse. The template
+      carries the per-layer table and the explanation next to the number so it cannot.
+
+      **Against the stated exit criterion** (test-plan 2, ≥85% per service): on the headline,
+      **one of seven components meets it**. On the Application+Domain reading §0.2 recommends,
+      ClassroomService (97.6% / 100%) and EmailService (100%) meet it comfortably and UMS and
+      StreamingService do not. Either way it is not met across the board, and the template says so
+      rather than averaging it away.
+
+      **A marker was needed, and finding out why is the useful part.** The template publishes "N
+      tests need nothing running", and the topical markers cannot carry that claim — `-m smoke`
+      and `-m latency` each select a containerless rule module *and* a module that needs the real
+      platform. Running that selection with nothing up waits two minutes and then fails eight
+      tests, which is how it was discovered. There is now an `offline` marker, and a rule keeping
+      it honest: a module bypassing conftest's readiness gate must carry it, or be a named
+      exception with a reason. `test_smoke.py` is that exception — it shadows the gate to make the
+      wait *shorter*, deliberately, since a smoke run answers "is this alive now".
+
+      **Mutation-checked, 8 mutations, one survived.** Blanking the "how to produce this" command
+      for a *missing* artifact changed nothing, because the missing-artifact test built its own
+      object with the command already filled in and never exercised the collector. It also could
+      not have: every artifact exists on this machine, so that branch is unreachable without
+      pointing the collector at an empty tree — which is exactly the state a reader is in when a
+      suite has never been run. Now tested there.
+
+      **ClassroomService 404, e2e 124 → 149 collected (73 offline). 1,980 tests in total.**
 
 ---
 

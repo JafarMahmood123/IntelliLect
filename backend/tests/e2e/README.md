@@ -136,6 +136,27 @@ in both directions, plus that every service actually exposes the `/health` the p
 assume. A smoke suite decays invisibly — a service gets added and never gets a probe,
 and the suite passes while proving less each release.
 
+## Everything that needs nothing running (`-m offline`)
+
+```bash
+cd backend/tests/e2e && .venv/bin/python -m pytest -m offline
+```
+
+73 tests: the smoke inventory, the latency harness's own arithmetic, the dependency-ceiling and
+settings-binding rules, and the results collector. **Use this marker, not the topical ones** —
+`-m smoke` and `-m latency` each also select a module that needs the real platform, so with
+nothing up that selection waits two minutes and then fails.
+
+## Results collector (§10.5)
+
+```bash
+cd backend/tests/e2e && .venv/bin/python collect_results.py
+```
+
+Fills the generated blocks in `docs/testing-results.md` from coverage artifacts and the latency
+harness's output. Produce the artifacts first; it will not run the suites for you, and it will not
+print a number from an artifact older than the code it measures — that is reported as stale.
+
 ## Resilience config (`-m resilience`)
 
 `test_resource_ceilings.py` and `test_settings_binding.py` need **nothing running**. They are

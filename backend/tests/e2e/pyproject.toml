@@ -31,6 +31,7 @@ markers = [
     "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit WebRTC media + Ollama + a TTS.",
     "feedback: exercises the full feedback loop via fake audio (real STT/retrieval/LLM), no WebRTC. Needs the LiveAssistant in AGENT_AUDIO_SOURCE=fake mode (run-in-network.sh).",
     "recording: exercises the egress/recording + summary path. Needs the docker-compose.e2e.yml overlay.",
+    "offline: needs NOTHING running — rules over source, configuration and the harnesses' own arithmetic. `-m offline` is the whole containerless suite; the topical markers select platform-dependent modules too.",
     "smoke: the shortest sequence that proves a deployment is alive — every service probed, one login, one classroom fetch, one session start. Must finish well under a minute. test_smoke_inventory.py carries the same marker but needs nothing running.",
     "resilience: rules over configuration for what a slow or absent dependency costs (§10.4) — timeouts, retry counts and credential sources. Needs nothing running.",
     "latency: measures the session-broadcast hops in docs/latency.md (chat, quiz publish, assistant, SFU transit) and writes latency-results.md. Needs the platform up; the assistant hop additionally needs a feedback run to have happened, and the audio hop needs UDP media to flow.",

@@ -454,7 +454,30 @@ in ClassroomService.
 | Q-13 | A slow or absent model provider degrades the assistant to "no feedback" without stalling the session | Integration | P1 | gap (needs containers) |
 | Q-14 | The .NET equivalent of Q-01 — a `Section__Key` that binds to no options property | Unit | P1 | **not covered.** .NET's binder ignores unknown keys just as silently, but settings are read through a mix of options classes and direct `configuration["A:B"]` lookups; a static rule over that gave false positives on every service. |
 
-## 20. Deliberately not covered — and why
+## 20. Area R — Results reporting (work-plan §10.5)
+
+The document: **[testing-results.md](testing-results.md)**, filled by
+`backend/tests/e2e/collect_results.py`. Rules: `test_results_collector.py` (`-m offline`).
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| R-01 | A coverage artifact older than the code it measures **withholds the number**, and shows both dates | Unit | P0 | ✓ |
+| R-02 | A current measurement is reported with the date it was taken | Unit | P0 | ✓ |
+| R-03 | A missing artifact says so **and** gives the command that would produce it — including when no artifact exists anywhere | Unit | P0 | ✓ |
+| R-04 | Equal timestamps count as current, not stale | Unit | P1 | ✓ |
+| R-05 | Staleness is undecidable rather than assumed when a date is missing | Unit | P1 | ✓ |
+| R-06 | Frontend coverage is summed from LCOV counts, never averaged across per-file percentages | Unit | P0 | ✓ |
+| R-07 | Every component produces a row — one silently dropped is one the report silently omits | Unit | P0 | ✓ |
+| R-08 | Regenerating replaces only the generated blocks and never the prose | Unit | P0 | ✓ |
+| R-09 | A missing generated marker stops the run rather than writing nothing | Unit | P0 | ✓ |
+| R-10 | The results document still contains every block the collector fills | Unit | P1 | ✓ |
+| R-11 | Every module that needs nothing running carries the `offline` marker, or is a named exception with a reason (both directions) | Unit | P0 | ✓ |
+
+**Not covered:** test counts are still transcribed into §2 of the document by hand. Parsing them
+would mean running every suite from the collector, which turns reading the file into a two-minute
+operation; the commands are stated instead.
+
+## 21. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -486,7 +509,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 21. Entry / exit criteria
+## 22. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -495,14 +518,16 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 **Exit** — before the work in [work-plan.md](work-plan.md) is called done:
 
 1. Every **P0** case above exists and passes.
-2. Per-service line coverage ≥ 85% after the agreed exclusions.
+2. Per-service line coverage ≥ 85% after the agreed exclusions. **Currently met by one of
+   seven components on the headline** — see [testing-results.md](testing-results.md) §3, which
+   also explains why the headline is the wrong number to judge it on.
 3. Mutation spot-check passes on quiz scoring and the auth path — the two places where
    a test that never fails would be most dangerous.
 4. No P0 case is marked "not implemented" without a written reason here.
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume
    (**authored — Area P; the containerless half already passes**).
 
-## 22. Traceability
+## 23. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -522,3 +547,4 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | O | §9 |
 | P | §10.1 |
 | Q | §10.4 |
+| R | §10.5 |

@@ -18,7 +18,10 @@ import pytest
 
 from support import inventory
 
-pytestmark = pytest.mark.smoke
+# `offline` is the marker that means what it says: this module needs nothing running.
+# The topical marker alone does not — `-m smoke` and `-m latency` both also select
+# modules that require a live platform.
+pytestmark = [pytest.mark.smoke, pytest.mark.offline]
 
 
 @pytest.fixture(scope="session", autouse=True)
