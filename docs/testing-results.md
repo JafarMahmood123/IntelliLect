@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-06 19:12 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-06 19:32 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -33,7 +33,7 @@ without an attribute does not.
 
 | Suite | Tests | Command |
 |---|---|---|
-| UserManagementService | 217 | `dotnet test UserManagementService/tests/*/*.csproj` |
+| UserManagementService | 235 | `dotnet test UserManagementService/tests/*/*.csproj` |
 | ClassroomService | 426 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 168 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 28 | `dotnet test EmailService/tests/*/*.csproj` |
@@ -41,7 +41,7 @@ without an attribute does not.
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,087** | |
+| **Total** | **2,105** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -60,7 +60,7 @@ that selection waits two minutes and then fails.
 <!-- generated:coverage -->
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
-| UserManagementService | 53.5% | 37.3% | measured 2026-08-06 (921 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| UserManagementService | 50.0% | 34.9% | measured 2026-08-06 (991 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 62.3% | 62.9% | measured 2026-08-06 (1208 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 51.5% | 34.4% | measured 2026-08-06 (651 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 72.0% | 87.5% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
@@ -77,6 +77,8 @@ that selection waits two minutes and then fails.
 | UserManagementService | Domain | 84.1% |
 | UserManagementService | Application | 67.3% |
 | UserManagementService | Infrastructure | 33.3% |
+| UserManagementService | Presentation | 0.0% |
+| UserManagementService | Api | 100.0% |
 | ClassroomService | Domain | 100.0% |
 | ClassroomService | Application | 97.8% |
 | ClassroomService | Infrastructure | 39.5% |
@@ -93,6 +95,13 @@ that selection waits two minutes and then fails.
 live example of it.** Coverlet reports on the assemblies a test run actually loads. If no test
 ever touches an assembly, it is absent from the report entirely and the percentage is computed
 without it.
+
+**It happened again in this cycle, in the other direction.** Testing `GlobalExceptionHandler`
+required the test project to reference the Api assembly, which pulled it and Presentation into the
+report for the first time. UserManagementService's headline **fell from 53.5% to 50.0% while
+eighteen tests were added and two defects were fixed**, and a `Presentation | 0.0%` row appeared
+that had simply been invisible before. The controllers were never covered; they were merely not
+being counted.
 
 UserManagementService's Infrastructure assembly was in exactly that position at the §0.2 baseline
 — "never loaded by any test" — so its headline of 62.1% was really Application + Domain. Adding a
@@ -190,13 +199,15 @@ found by writing a test, not by a user.
 | 16 | `POST /api/internal/reembed` returned 202 for a refused run, contradicting its own docstring | §7.5 |
 | 17 | A second, dead JWT minter in ClassroomService sharing the signing secret | §7.2 |
 | 18 | 22 dependency advisories, 20 fixed; npm's proposed react-router "fix" refused as a net regression | §11.13 |
+| 20 | **A client that timed out and hung up was logged as a 500 server error** — one manufactured error per abandoned request, arriving in bursts behind every retry, in the log somebody reads to find the real failure | S-14 exception-handler tests |
+| 21 | **Every unexpected failure handed its exception message to the caller** — Npgsql messages carry the SQL, the table and the constraint; a configuration failure carries the connection string it tried | S-14 exception-handler tests |
 | 19 | **Nothing limited password guessing anywhere in the system** — no lockout in `AuthService`, no ASP.NET rate limiter, no `limit_req` in nginx. The reset endpoint and the 2FA challenge were both capped; the front door was not | A-07 lockout tests |
 
 ## 9. Mutation testing
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 110 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 120 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 
@@ -208,6 +219,7 @@ Six survived, and each one meant a test was passing for the wrong reason:
 | Removing the teacher check on quiz submission | A teacher is not normally enrolled, so the enrolment check refused them anyway — until one enrols |
 | Removing `[Authorize(Roles = "Teacher")]` from `ClassroomsController.Delete` | The exemption list was keyed on action name; an entry meant for recordings was covering it |
 | Removing a `TimeoutSeconds` from compose | The rule's file map was keyed on `path.name`, and six compose files share one name — five services were never checked |
+| Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 
 One "mutation" turned out never to have applied (attribute order in the source differed), which
 is worth recording on its own: a patch that silently does not apply is indistinguishable from a

@@ -1679,10 +1679,71 @@ Ranked by value:
       cannot model two connections, so what is proven here is the ordering of the code,
       not the database's guarantees — the remaining window needs an optimistic
       concurrency token (`xmin`) on `Quiz`, which would make *every* write to a quiz able
-      to throw and so wants an integration suite behind it before it ships. **Bulk approve
-      retried after a timeout** (UMS, §2 idempotency) is also still open.
+      to throw and so wants an integration suite behind it before it ships.
 
       **ClassroomService 404 → 422.**
+
+      **S-14 CLOSED (UMS bulk approve retried after a timeout), and it found two defects —
+      neither of them where the row pointed.** The existing bulk suite covered the easy
+      retry: the first attempt committed, the response was lost, the second finds
+      everything already done. It never asked the harder one — **the first attempt did not
+      finish.** A super admin approving fifty registrations sees a gateway timeout and
+      presses the button again, knowing nothing about whether the first request changed
+      nothing, everything, or half of it.
+
+      The server's half turned out to be correct, and the value was in pinning *why*:
+      **the batch is one transaction.** Accounts are mutated in memory as the loop decides
+      them, notifications are queued into the outbox as it goes, and one `SaveChangesAsync`
+      commits the lot — so "half of it" is not among the outcomes and the retry only ever
+      meets a batch entirely done or entirely undone. Nothing was asserting that, and a
+      later change to save per account would have left every existing case passing.
+
+      Testing it needed a repository fake that can **lose a transaction**. The other fakes
+      hand back the instances the service mutated, so a failed save leaves those mutations
+      visible — the opposite of what a database does, which would have made every case here
+      pass for the wrong reason. `RollbackAwareUserRepository` snapshots each account as it
+      is read and restores it if the save throws, and rolls back the outbox with it, because
+      the outbox rows live in the same DbContext and that is the whole reason the service
+      publishes into it rather than to the broker. It models a rollback and nothing else —
+      no isolation, no second connection; that remains S-13.
+
+      **The two defects were in what the timed-out caller actually receives**, which runs
+      through `GlobalExceptionHandler` — one handler deciding the status and body for every
+      endpoint in the service, with no tests at all.
+
+      **DEFECT: a client that hung up was recorded as a server error.** ASP.NET cancels the
+      request token when the connection drops, EF raises `OperationCanceledException`, and
+      it fell through to the catch-all: logged at Error as "an unhandled exception occurred",
+      answered 500 down a socket that is already gone. Nobody receives it. What is left is a
+      log of manufactured server errors, one per abandoned request and arriving in bursts,
+      since a timeout is normally followed by a retry — noise at exactly the moment somebody
+      is reading the log to find the real failure. Now 499 (nginx's "Client Closed Request",
+      which the proxy in front already writes for the same case) and logged at Information.
+
+      **DEFECT: every unexpected failure handed its exception message to the caller.**
+      `Detail` was the raw message for every exception including the unmapped ones — and
+      those carry whatever the failing component had to hand: Npgsql includes the SQL, the
+      table and the constraint, a configuration failure includes the connection string it
+      tried. The mapped exceptions are ours and their messages are written to be read by a
+      user, so they stay; the catch-all is by definition the case where nobody decided that,
+      and now says so generically. The detail stays in the log.
+
+      Also fixed: nothing is written over a response that has already started. Past the
+      first byte there is no status line to change, and appending a `ProblemDetails` glues
+      an error object onto a half-written body under the status already promised.
+
+      **Mutation-checked, 10 mutations, all killed** — but one first appeared to survive and
+      the reason is worth more than the mutation. Removing the `HasStarted` guard made the
+      run report **"Passed! 12 of 12"**, then "89 of 89", instead of 235. The test double
+      was at fault, not the test: `StartedResponseFeature.StatusCode` delegated back to
+      `HttpResponse.StatusCode`, which reads from whichever response feature is installed —
+      so it recursed until the stack ran out, and a `StackOverflowException` kills the test
+      host outright rather than failing a case. **The run reports success with most of the
+      suite silently never executed.** Same family as the mutation recorded earlier that
+      never applied: a green result whose green means nothing. Worth checking the test
+      *count*, not only the word.
+
+      **UserManagementService 217 → 235.**
 - [~] **11.8 Migration tests — the containerless half is DONE**, and it is the half that
       catches the failure that actually happens. Test-plan Area T.
 

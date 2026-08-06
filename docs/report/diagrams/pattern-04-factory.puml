@@ -17,6 +17,10 @@
 '
 ' Which setting the factory reads is prose, not a compartment on the box: the
 ' line is long enough to set the width of the whole figure on its own.
+' Four ranks make this 0.85:1, and at width=\textwidth that is taller than half
+' the text block, so LaTeX floats it alone onto a page of its own. smetana
+' ignores skinparam ranksep, so the fix is on the LaTeX side: this figure is
+' included at 0.6\textwidth. Keep it there if the diagram grows a rank.
 class "خط الاستيعاب" as CALLER
 
 class "create_chunker(settings)" as FACTORY <<مصنع>>

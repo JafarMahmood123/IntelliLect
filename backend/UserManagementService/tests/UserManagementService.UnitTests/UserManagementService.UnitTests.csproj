@@ -30,6 +30,9 @@
     <ProjectReference Include="..\..\src\UserManagementService.Domain\UserManagementService.Domain.csproj" />
     <!-- The composition root: a fallback reintroduced there is what these tests catch. -->
     <ProjectReference Include="..\..\src\UserManagementService.Infrastructure\UserManagementService.Infrastructure.csproj" />
+    <!-- GlobalExceptionHandler lives here, and it decides what EVERY endpoint returns when
+         something throws — including what a client that timed out and retried is told. -->
+    <ProjectReference Include="..\..\src\UserManagementService.Api\UserManagementService.Api.csproj" />
   </ItemGroup>
 
 </Project>

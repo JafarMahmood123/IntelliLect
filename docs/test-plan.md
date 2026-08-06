@@ -508,7 +508,13 @@ own note on why.
 | S-11 | A quiz with no timer is never over; a negative grace does not bring the deadline forward | Unit | P1 | ✓ |
 | S-12 | A student with extra time is not cut off by the class deadline | Unit | P0 | ✓ |
 | S-13 | Two real connections racing on the same row — the remaining window needs an optimistic concurrency token on `Quiz` | Integration | P1 | **gap.** A fake cannot model transaction isolation, and a token makes every quiz write able to throw, so it wants an integration suite behind it first. |
-| S-14 | Bulk approve retried after a timeout (UMS, §2 idempotency) | Unit | P1 | gap |
+| S-14 | Bulk approve retried after a timeout (UMS, §2 idempotency) | Unit | P1 | ✓ (`UserStatusRetryTests`; the batch is one transaction, so a retry only ever meets it entirely done or entirely undone) |
+| S-15 | A batch that fails to commit approves nobody and emails nobody — the outbox rows die with the transaction | Unit | P0 | ✓ |
+| S-16 | A retry that is partly already done finishes the rest without notifying anyone twice | Unit | P1 | ✓ |
+| S-17 | Every status transition rolls `User.Version`, which is what makes a racing retry collide instead of duplicating | Unit | P1 | ✓ (the entity's half; behaviour under real isolation is S-13) |
+| S-18 | A caller that gave up is answered 499 and is not logged as a server error | Unit | P1 | ✓ (`GlobalExceptionHandlerTests`) |
+| S-19 | An unexpected failure does not hand its exception message to the caller | Unit | P0 | ✓ |
+| S-20 | Nothing is written over a response that has already started | Unit | P1 | ✓ |
 
 ## 22. Area T — Migrations (work-plan §11.8)
 
