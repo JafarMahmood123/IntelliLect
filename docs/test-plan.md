@@ -78,12 +78,13 @@ not. Every case here is a template applied per endpoint, not a one-off.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| B-01 | Anonymous request to any `[Authorize]` route → 401 | Integration | P0 | gap |
-| B-02 | Student calling a `[Authorize(Roles="Teacher")]` route → 403 (upload, publish quiz, close quiz, extend, change teacher) | Integration | P0 | gap |
+| B-01 | Anonymous request to any `[Authorize]` route → 401 | Integration | P0 | ✓ (unit rule) — every controller either requires authentication or is on a named, reasoned exemption list; the list is checked for stale and unnecessary entries in both directions |
+| B-02 | Student calling a `[Authorize(Roles="Teacher")]` route → 403 (upload, publish quiz, close quiz, extend, change teacher) | Integration | P0 | ✓ (unit rule) — every state-changing action decides authorization somewhere explicit: a role attribute, or a `Controller.Action` entry naming the service that checks it |
 | B-03 | Teacher calling a super-admin route → 403 | Integration | P0 | gap |
 | B-04 | Non-member of a classroom cannot read its files, quizzes, recordings, summaries or Q&A | Integration | P0 | gap |
 | B-05 | Teacher of classroom X cannot act on classroom Y | Integration | P0 | gap |
 | B-06 | Student cannot read another student's answers, marks or submission state | Integration | P0 | gap |
+| B-22 | The classroom's teacher cannot take part in their own quiz — including when also enrolled as a student | Unit | P0 | ✓ (defect found & fixed) |
 | B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration | P0 | gap |
 | B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
 | B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |

@@ -475,7 +475,7 @@ public sealed class QuizService : IQuizService
         Guid classroomId, Guid quizId, Guid studentId, string studentName,
         SubmitAnswerRequest request, CancellationToken ct = default)
     {
-        await EnsureMemberAsync(classroomId, studentId, ct);
+        await EnsureEnrolledStudentAsync(classroomId, studentId, ct);
 
         var quiz = await _quizRepository.GetWithQuestionsAsync(quizId, ct);
         if (quiz is null || quiz.ClassroomId != classroomId)
@@ -561,7 +561,7 @@ public sealed class QuizService : IQuizService
         Guid classroomId, Guid quizId, Guid studentId, string studentName,
         CancellationToken ct = default)
     {
-        await EnsureMemberAsync(classroomId, studentId, ct);
+        await EnsureEnrolledStudentAsync(classroomId, studentId, ct);
 
         var quiz = await _quizRepository.GetWithQuestionsAsync(quizId, ct);
         if (quiz is null || quiz.ClassroomId != classroomId)
@@ -1458,6 +1458,37 @@ public sealed class QuizService : IQuizService
             || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct);
 
         if (!isMember)
+        {
+            throw new ForbiddenAccessException("You are not a member of this classroom.");
+        }
+    }
+
+    /// <summary>
+    /// Membership is not enough to ANSWER: the answerer must be an enrolled student.
+    ///
+    /// <see cref="EnsureMemberAsync"/> deliberately counts the teacher as a member, which is right
+    /// for reading a classroom's own material and wrong here. Answering is the one action where
+    /// the teacher is not a participant, and every count on the live view is derived from the
+    /// answer rows rather than from the roster — so a teacher who answered their own quiz became a
+    /// respondent, appeared in their own results list, and watched "1 of 20 responded" that was
+    /// themselves. The marks were never affected (tracking and ranking iterate the roster, which
+    /// has no teacher in it), which is exactly why nothing surfaced it.
+    ///
+    /// The controller cannot express this: `SubmitAnswer`/`SubmitQuiz` carry no role because a
+    /// role alone would not prove enrolment in THIS classroom. It has to be checked here.
+    /// </summary>
+    private async Task EnsureEnrolledStudentAsync(Guid classroomId, Guid userId, CancellationToken ct)
+    {
+        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
+            ?? throw new KeyNotFoundException("Classroom not found.");
+
+        if (classroom.TeacherId == userId)
+        {
+            throw new ForbiddenAccessException(
+                "The classroom's teacher cannot take part in their own quiz.");
+        }
+
+        if (!await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct))
         {
             throw new ForbiddenAccessException("You are not a member of this classroom.");
         }

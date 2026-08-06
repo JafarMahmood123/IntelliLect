@@ -67,6 +67,7 @@
   \begin{tabular}{|>{\raggedleft\arraybackslash}p{3.2cm}|>{\raggedleft\arraybackslash}p{11.1cm}|}
     \hline
     \textbf{النمط} & \textbf{ما يجسّده في الشيفرة} \\ \hline
+    قاعدة بيانات لكل خدمة & ملفّ \code{docker-compose.unit.yml} لكل خدمة، وخمس حاويات \en{PostgreSQL} منفصلة بسلاسل وصلٍ مستقلّة \\ \hline
     المنافذ والمحوِّلات & \code{app/application/ports/} مقابل \code{app/infrastructure/} في خدمتَي \en{Python}، ومجلّد \code{Application/Abstractions} مقابل \code{Infrastructure} في خدمات \en{.NET} الأربع \\ \hline
     حقن التبعيات & \code{DependencyInjection.cs}: 48 تسجيلًا في خدمة الفصول الدراسية وحدها \\ \hline
     الاستراتيجية & \code{GeminiEmbeddingProvider} و\code{OllamaEmbeddingProvider}، و\code{SemanticChunker} و\code{StructuralChunker}، وثلاثة محقّقات للمنفذ \code{SpeechToText} \\ \hline

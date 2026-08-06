@@ -1182,7 +1182,63 @@ Ranked by value:
       The highest-value gap, and it sits directly under §2: bulk-approving 200 users
       fans out through this service. Untested templating, retry and failure handling
       means a bulk approve can silently deliver nothing. Start here. → **DONE (§7.6).** 28 tests in a new `EmailService.UnitTests` project; consumers driven through MassTransit's in-memory harness. Found HTML injection into outgoing mail and three consumers with no retry policy.
-- [ ] **11.2 Authorization enforcement per endpoint.** I found no test asserting that a
+- [~] **11.2 Authorization enforcement per endpoint — the containerless half is DONE**, and it
+      found a defect. `PublicRouteAuthorizationTests` (ClassroomService, 6 rules over the
+      assembly, test-plan B-01/B-02).
+
+      Proving an actual 401/403 needs a running host, which is §8 work. But the failure that
+      *happens* is not ASP.NET forgetting to enforce `[Authorize]` — it is a new endpoint
+      shipping without one, and that is a question about the assembly, answerable today. Same
+      shape as the `[InternalSecret]` rule that already exists, and for the same reason: the
+      check was a habit repeated per controller, and nothing would notice the one that forgot.
+
+      Two rules, each with its exemption list checked in both directions (an entry for a
+      controller that no longer exists is dead permission the next controller to take that
+      name inherits; an entry for one that has since gained `[Authorize]` makes the list stop
+      meaning what it says):
+      - every controller requires authentication, or is a named exception with a reason;
+      - every **state-changing** action decides authorization somewhere explicit — a role
+        attribute, or a `Controller.Action` entry naming the service that checks it.
+
+      **The second rule was written the wrong way round first.** "Every mutation names a role"
+      seemed obvious and flagged three actions that are all correct: `QaController.Answer`
+      (POST only because it carries a question body — both teachers and students may ask, so
+      no single role fits) and `RecordingsController.Delete` (deliberately *not* Teacher-only,
+      because that would lock out Admins, who are explicitly allowed). The real invariant is
+      that authorization is decided *somewhere explicit*, not that it is decided by an
+      attribute.
+
+      **DEFECT FOUND AND FIXED: the teacher could take part in their own quiz.**
+      `SubmitAnswer`/`SubmitQuiz` are the only mutations with no role — correctly, since
+      `Student` does not prove enrolment in *this* classroom — but the service checked
+      `EnsureMemberAsync`, which counts the teacher as a member. That is right for reading a
+      classroom's material and wrong for answering. Every count on the live view derives from
+      the **answer rows**, not the roster, so a teacher who answered became a respondent,
+      appeared in their own results list, and watched "1 of 20 responded" that was themselves
+      while deciding whether to close the quiz. The marks were never wrong — tracking and
+      ranking iterate the roster, which has no teacher in it — which is exactly why nothing
+      surfaced it. Now `EnsureEnrolledStudentAsync`, which refuses the owner and requires
+      enrolment.
+
+      **Mutation-checked, 6 mutations, and three of them earned their keep:**
+      - Removing the teacher check changed nothing, because a teacher is not normally in the
+        membership table so the enrolment check refused them anyway. But nothing stops a
+        teacher enrolling as a student in their own classroom — `EnrollStudentAsync` does not
+        exclude them — and then only the ownership check refuses. There is now a test for
+        exactly that, and it is what makes the check load-bearing rather than decorative.
+      - Removing `[Authorize(Roles = "Teacher")]` from `ClassroomsController.Delete` changed
+        nothing, because the exemption list was keyed on the **action name** and an entry meant
+        for `RecordingsController.Delete` was silently covering it. Now keyed on
+        `Controller.Action` — the exact collision the file's own comment had warned about.
+      - A third "mutation" turned out to be a no-op: the attribute order in the source is
+        `[HttpDelete]` then `[Authorize]`, so the patch never applied and the rule was never
+        actually exercised. Re-run correctly, it fails as it should. Worth recording, because
+        a mutation that silently does not apply looks exactly like a test that passes.
+
+      Still open here and genuinely container-bound: the runtime 401/403 assertions themselves,
+      and B-04 through B-07 (cross-tenant reads, the IDOR sweep), which need real data.
+
+      Original note: I found no test asserting that a
       student hitting a teacher-only route gets 403, or that a non-member of a classroom
       cannot read its materials/quizzes/recordings. Services are tested; the *guards* are
       not. For a system with roles this is the biggest correctness-and-security hole, and

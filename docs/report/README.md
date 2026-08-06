@@ -173,7 +173,8 @@ only when an outward arrow lands on it. See the header comment in
 
 `uc-NN-*` use cases, `ssd-NN-*` system sequence diagrams, `erd-NN-*` entity
 relations, `comp-NN-*` per-service component diagrams, `flow-NN-*` and `arch-NN-*`
-flowcharts, `class-NN-*` class diagrams. The rendered PNG takes the same stem, so
+flowcharts, `class-NN-*` class diagrams, `pattern-NN-*` design patterns. The
+rendered PNG takes the same stem, so
 `\includegraphics{figures/uc-01-unregistered.png}` pairs with
 `diagrams/uc-01-unregistered.puml`.
 

@@ -25,7 +25,8 @@ public sealed class QuizServiceTests
         FakeQuizRepository Quizzes,
         RecordingQuizNotifier Notifier,
         FakeClock Clock,
-        FakeLiveAssistant Assistant);
+        FakeLiveAssistant Assistant,
+        FakeMembershipRepository Members);
 
     /// <summary>
     /// Stands in for LiveAssistantService. Records the bounds it was called with, because the
@@ -113,7 +114,7 @@ public sealed class QuizServiceTests
             new FakeUnitOfWork(), clock, settings ?? new FakeQuizSettings(),
             new RecordingLogger<QuizService>());
 
-        return new Harness(service, quizzes, notifier, clock, assistant);
+        return new Harness(service, quizzes, notifier, clock, assistant, members);
     }
 
     private static QuizDraftRequest Draft(
@@ -311,6 +312,105 @@ public sealed class QuizServiceTests
 
         Assert.Equal(nameof(QuizStatus.Open), published.Status);
         Assert.Equal(180, published.TotalSeconds);
+    }
+
+
+    // --- who may take part -------------------------------------------------------
+
+    [Fact]
+    public async Task The_teacher_cannot_answer_their_own_quiz()
+    {
+        // Found by asking why SubmitAnswer is the only mutation on the controller with no role.
+        // It could not have one — a role does not prove enrolment in THIS classroom — so the
+        // check has to live here, and it did not. `EnsureMemberAsync` counts the teacher as a
+        // member, which is right for reading the classroom's material and wrong for answering.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        var view = await h.Service.GetForStudentAsync(ClassroomId, quiz.Id, TeacherId, default);
+        var question = view.Questions[0];
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitAnswerAsync(
+                ClassroomId, quiz.Id, TeacherId, "The Teacher",
+                new SubmitAnswerRequest(question.Id, question.Options[0].Id), default));
+    }
+
+    [Fact]
+    public async Task The_teacher_cannot_submit_their_own_quiz()
+    {
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, TeacherId, "The Teacher", default));
+    }
+
+    [Fact]
+    public async Task A_teacher_who_is_also_enrolled_still_cannot_take_part()
+    {
+        /*
+         * The case that makes the teacher check load-bearing rather than decorative.
+         *
+         * The two tests above pass with the check deleted, because a teacher is not normally in
+         * the membership table and the enrolment check refuses them anyway. Mutation testing is
+         * what surfaced that: removing the teacher branch changed nothing.
+         *
+         * But nothing stops a teacher being enrolled as a student in their own classroom —
+         * `MembershipService.EnrollStudentAsync` does not exclude them — and then the enrolment
+         * check admits them. Only the explicit ownership check refuses.
+         */
+        var h = Build();
+        h.Members.Enroll(ClassroomId, TeacherId);
+        var quiz = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, TeacherId, "The Teacher", default));
+    }
+
+    [Fact]
+    public async Task A_teacher_who_answers_is_not_counted_among_the_respondents()
+    {
+        // The reason this mattered rather than being merely untidy. Every count on the live view
+        // is derived from the ANSWER rows, not from the roster — so the teacher became a
+        // respondent and watched "1 of 20 responded" that was themselves, while deciding whether
+        // to close the quiz. The marks were never affected, because tracking and ranking iterate
+        // the roster and there is no teacher in it, which is exactly why nothing surfaced it.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, TeacherId, "The Teacher", default));
+
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, quiz.Id, TeacherId, default);
+        Assert.Equal(0, teacherView.RespondentCount);
+        Assert.Empty(teacherView.Respondents);
+    }
+
+    [Fact]
+    public async Task An_enrolled_student_may_still_answer()
+    {
+        // The anti-vacuity half: a guard that refused everyone would satisfy all three tests
+        // above, and would take the quiz feature down entirely.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+
+        var result = await AnswerFirstAsync(h, quiz, StudentId);
+
+        Assert.NotNull(result);
+        var teacherView = await h.Service.GetForTeacherAsync(ClassroomId, quiz.Id, TeacherId, default);
+        Assert.Equal(1, teacherView.RespondentCount);
+    }
+
+    [Fact]
+    public async Task Someone_from_another_classroom_still_cannot_answer()
+    {
+        // The pre-existing membership rule, kept honest while the stricter one was added.
+        var h = Build();
+        var quiz = await PublishedAsync(h);
+        var outsider = Guid.NewGuid();
+
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
+            () => h.Service.SubmitQuizAsync(ClassroomId, quiz.Id, outsider, "Outsider", default));
     }
 
     [Fact]
