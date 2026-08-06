@@ -25,6 +25,45 @@ class Transcript:
     text: str
 
 
+@dataclass(frozen=True)
+class HistogramSnapshot:
+    """One reading of a Prometheus histogram. Cumulative — subtract two to get a run."""
+
+    metric: str
+    buckets: list[tuple[float, float]]  # (upper bound seconds, cumulative count)
+    total: float  # _sum, seconds
+    count: float  # _count, observations
+
+    def __sub__(self, earlier: "HistogramSnapshot") -> "HistogramSnapshot":
+        earlier_by_edge = dict(earlier.buckets)
+        return HistogramSnapshot(
+            metric=self.metric,
+            buckets=[(edge, value - earlier_by_edge.get(edge, 0.0)) for edge, value in self.buckets],
+            total=self.total - earlier.total,
+            count=self.count - earlier.count,
+        )
+
+    @property
+    def mean_seconds(self) -> float:
+        return self.total / self.count if self.count else float("nan")
+
+    def quantile_seconds(self, fraction: float) -> float:
+        """The bucket upper bound at or above the requested quantile.
+
+        Deliberately NOT interpolated. Prometheus' own histogram_quantile interpolates
+        within a bucket and thereby reports values that were never observed; with these
+        bucket widths that is a fiction. Returning the bucket edge says "at most this",
+        which is the only claim the data supports.
+        """
+        if not self.count or not self.buckets:
+            return float("nan")
+        target = fraction * self.count
+        for edge, cumulative in self.buckets:
+            if cumulative >= target:
+                return edge
+        return self.buckets[-1][0]
+
+
 class LiveAssistantClient:
     def __init__(self, base_url: str, internal_secret: str, timeout_s: float) -> None:
         self._http = httpx.Client(
@@ -95,3 +134,41 @@ class LiveAssistantClient:
             except ValueError:
                 continue
         return total
+
+    # --- histograms (§9) ------------------------------------------------------
+
+    def histogram(self, metric: str) -> "HistogramSnapshot":
+        """Read a Prometheus histogram's cumulative buckets, sum and count.
+
+        This is how the assistant hop (L-3) is measured: the pipeline already times
+        itself in-process (`app/observability/metrics.py`), which is strictly better
+        than timing it from outside — every stage boundary is on one clock, and there
+        is no host-to-container skew to subtract.
+
+        The catch, and the reason ``HistogramSnapshot`` supports subtraction: these
+        are cumulative since the process started. Reporting them raw would mix this
+        run's numbers with every earlier one, including runs made before a fix.
+        """
+        text = self.metrics()
+        buckets: list[tuple[float, float]] = []
+        total = 0.0
+        count = 0.0
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            name, _, value = line.rpartition(" ")
+            try:
+                numeric = float(value)
+            except ValueError:
+                continue
+            if name.startswith(f"{metric}_bucket"):
+                edge = re.search(r'le="([^"]+)"', name)
+                if edge:
+                    upper = float("inf") if edge.group(1) == "+Inf" else float(edge.group(1))
+                    buckets.append((upper, numeric))
+            elif name == f"{metric}_sum":
+                total = numeric
+            elif name == f"{metric}_count":
+                count = numeric
+        return HistogramSnapshot(metric=metric, buckets=sorted(buckets), total=total, count=count)

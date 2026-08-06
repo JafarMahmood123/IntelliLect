@@ -374,7 +374,37 @@ silently.
 | N-09 | **Every** consumer in the assembly has a retry policy — a rule, not a list, so a new consumer cannot ship without one | Unit | P0 | ✓ |
 | N-10 | SMTP transport itself (connect, STARTTLS, auth) | Integration | P1 | not covered — needs a real or fake SMTP server, see §17 |
 
-## 17. Deliberately not covered — and why
+## 17. Area O — Latency budgets (work-plan §9)
+
+Definitions, budgets and the derivation of every number: **[latency.md](latency.md)**.
+Harness: `backend/tests/e2e/test_latency.py` (`-m latency`), which writes
+`latency-results.md`. The harness's own arithmetic and protocol handling are covered by
+`test_latency_support.py`, which needs nothing running.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| O-01 | Chat send → another participant renders, p50 ≤ 150ms / p95 ≤ 350ms | E2E | P1 | authored, unrun |
+| O-02 | Quiz publish → a student's socket learns of it, p50 ≤ 300ms / p95 ≤ 700ms | E2E | P1 | authored, unrun |
+| O-03 | Quiz publish → the student **holds** the quiz (signal + fetch), p95 ≤ 1200ms — a fairness budget, since the answering clock starts at publish | E2E | P0 | authored, unrun |
+| O-04 | Assistant idea closes → feedback delivered, p50 ≤ 5s / p95 ≤ 15s | E2E | P1 | authored, unrun (reads the service's own histogram; needs a feedback run first) |
+| O-05 | Audio publish → subscriber through the SFU, p50 ≤ 80ms / p95 ≤ 150ms — **transit only, not glass-to-glass** | E2E | P2 | authored, unrun (needs UDP media) |
+| O-06 | Every broadcast the hub sends is timed, under the name of the client method it invoked (rule over `IStreamHubContext`, so a ninth broadcast cannot ship untimed) | Unit | P1 | ✓ |
+| O-07 | A broadcast that throws records no latency sample — fast failures must not flatter the percentiles | Unit | P0 | ✓ |
+| O-08 | The timer spans the awaited fan-out, not the group lookup that starts it | Unit | P0 | ✓ |
+| O-09 | Each event is its own series, so a slow quiz relay cannot be averaged into fast chat traffic | Unit | P1 | ✓ |
+| O-10 | The metric actually emits on the meter a scraper would read (`MeterListener`, not just the interface being called) | Unit | P1 | ✓ |
+| O-11 | Percentiles are observed values at nearest rank, never interpolated ones | Unit | P0 | ✓ |
+| O-12 | The warm-up sample is discarded from the front, and never when it is the only one | Unit | P0 | ✓ |
+| O-13 | A hop that could not be measured reports as not-measured with the reason, never as a pass | Unit | P0 | ✓ |
+| O-14 | A hop that was cut short is still judged on the samples it got, and marked INCOMPLETE | Unit | P0 | ✓ |
+| O-15 | Several SignalR records packed into one WebSocket frame are all dispatched, and share one arrival stamp | Unit | P0 | ✓ |
+| O-16 | The send stamp is taken before the write, and the arrival stamp before parsing | Unit | P0 | ✓ |
+| O-17 | Glass-to-glass proper (browser capture + playout buffers) and a second participant across a real network | E2E | P2 | **not covered — cannot be, from here.** See latency.md; L-4 measures the transit floor and says so. |
+
+**Not covered on purpose:** the runtime numbers themselves, until the platform is up.
+Everything above that could be decided without a container has been.
+
+## 18. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -406,7 +436,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 18. Entry / exit criteria
+## 19. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -421,7 +451,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 4. No P0 case is marked "not implemented" without a written reason here.
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume.
 
-## 19. Traceability
+## 20. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -437,3 +467,5 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | K | §5 |
 | L | §11.6 |
 | M | §14, §11.8, §11.9 |
+| N | §7.6, §11.1 |
+| O | §9, §10 |

@@ -101,3 +101,66 @@ class ClassroomClient:
             )
         )
         return resp.json()
+
+    # --- quizzes (used by the latency harness, §9) ----------------------------
+
+    def create_quiz_draft(
+        self, teacher: Account, classroom_id: str, session_id: str, *, title: str
+    ) -> str:
+        """One trivial question. The quiz's content is irrelevant to the hop being
+        measured; its *timer* is not, which is why the question is given a long limit —
+        a quiz that self-closes mid-run would turn a latency failure into a 409."""
+        body = {
+            "title": title,
+            "questions": [
+                {
+                    "text": "Latency probe.",
+                    "points": 1,
+                    "timeLimitSeconds": 300,
+                    "options": [
+                        {"text": "A", "isCorrect": True},
+                        {"text": "B", "isCorrect": False},
+                    ],
+                }
+            ],
+        }
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/sessions/{session_id}/quizzes",
+                json=body,
+                headers=teacher.auth,
+            )
+        )
+        quiz_id = get_ci(resp.json(), "id")
+        assert quiz_id, f"create quiz draft returned no id: {resp.text}"
+        return quiz_id
+
+    def publish_quiz_response(
+        self, teacher: Account, classroom_id: str, quiz_id: str
+    ) -> httpx.Response:
+        """Publish, returning the raw response. Unwrapped on purpose: the caller stamps
+        the clock immediately around this call, so it must not be wrapped in retry or
+        polling logic that would land inside the measured interval."""
+        return self._http.post(
+            f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/publish",
+            headers=teacher.auth,
+        )
+
+    def cancel_quiz(self, teacher: Account, classroom_id: str, quiz_id: str) -> None:
+        expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/cancel",
+                headers=teacher.auth,
+            )
+        )
+
+    def get_student_quiz(self, student: Account, classroom_id: str, quiz_id: str) -> dict:
+        """The student's view — no answer key. This is the follow-up fetch every client
+        makes on a QuizChanged broadcast, because the broadcast carries the id only."""
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/student-view",
+                headers=student.auth,
+            )
+        )
+        return resp.json()

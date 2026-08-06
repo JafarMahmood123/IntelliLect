@@ -13,6 +13,8 @@
 #   ./run-in-network.sh                 # the feedback loop (default)
 #   ./run-in-network.sh -m "not media"  # just the cross-service wiring
 #   ./run-in-network.sh -m media        # the real-WebRTC path (needs media to flow)
+#   ./run-in-network.sh -m latency      # the §9 latency budgets (no agent rebuild)
+#   ./run-in-network.sh -m internal     # the /api/internal guard (no agent rebuild)
 #   ./run-in-network.sh -k xyz -s       # any pytest args
 #
 # Revert LiveAssistant to normal (LiveKit audio) afterwards:
@@ -25,9 +27,29 @@ NET="${E2E_NETWORK:-intellilect-platform_intellilect-net}"
 IMAGE="${E2E_IMAGE:-intellilect-e2e}"
 WAV="$DIR/assets/teacher_line.wav"
 
+# 0) Does this run actually need the agent in fake-audio mode?
+#
+#    Only the audio-driven markers do. Reconfiguring for the others is not merely
+#    wasted time: `up -d --build live-assistant-service` RESTARTS the service, and its
+#    Prometheus histograms are in-process — so a latency run that rebuilt first would
+#    read an empty `idea_to_feedback_latency_seconds` and report L-3 as unmeasurable,
+#    every time, for a reason nothing in the output would explain.
+MARKERS=""
+for ((i = 1; i <= $#; i++)); do
+  if [ "${!i}" = "-m" ]; then
+    j=$((i + 1))
+    MARKERS="${MARKERS} ${!j:-}"
+  fi
+done
+NEEDS_AGENT_AUDIO=1
+if [ -n "${MARKERS// /}" ] && ! echo "$MARKERS" | grep -Eq 'feedback|media'; then
+  NEEDS_AGENT_AUDIO=0
+  echo ">>> Markers '${MARKERS# }' need no teacher audio — leaving live-assistant-service alone."
+fi
+
 # 1) Ensure the teacher voice WAV exists (mounted into LiveAssistant + used by the
 #    real-media path). Generated from the test's TEACHER_WRONG_LINE via the host venv.
-if [ ! -f "$WAV" ]; then
+if [ "$NEEDS_AGENT_AUDIO" = "1" ] && [ ! -f "$WAV" ]; then
   echo ">>> Synthesizing teacher voice ($WAV) ..."
   if [ -x "$DIR/.venv/bin/python" ]; then
     ( cd "$DIR" && .venv/bin/python - <<'PY'
@@ -46,14 +68,16 @@ echo ">>> Building test runner image ($IMAGE) ..."
 docker build -t "$IMAGE" "$DIR"
 
 # 2) Put LiveAssistant in fake-audio mode (rebuild to pick up code, mount the WAV).
-echo ">>> Reconfiguring live-assistant-service for fake-audio mode ..."
-export E2E_WAV_HOST_PATH="$WAV"
-( cd "$BACKEND" && docker compose -f docker-compose.yml -f tests/e2e/docker-compose.e2e.yml \
-    up -d --build live-assistant-service )
+if [ "$NEEDS_AGENT_AUDIO" = "1" ]; then
+  echo ">>> Reconfiguring live-assistant-service for fake-audio mode ..."
+  export E2E_WAV_HOST_PATH="$WAV"
+  ( cd "$BACKEND" && docker compose -f docker-compose.yml -f tests/e2e/docker-compose.e2e.yml \
+      up -d --build live-assistant-service )
 
-# Wait for it to come back healthy.
-echo ">>> Waiting for live-assistant-service ..."
-until curl -sf -o /dev/null "http://localhost:8084/health"; do sleep 2; done
+  # Wait for it to come back healthy.
+  echo ">>> Waiting for live-assistant-service ..."
+  until curl -sf -o /dev/null "http://localhost:8084/health"; do sleep 2; done
+fi
 
 PYTEST_ARGS=("$@")
 if [ ${#PYTEST_ARGS[@]} -eq 0 ]; then

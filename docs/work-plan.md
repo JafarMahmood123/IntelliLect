@@ -1134,18 +1134,117 @@ message id: permanent infrastructure against a rare, harmless annoyance.
 
 ---
 
-## 9. Session broadcast latency
+## 9. Session broadcast latency — **DONE except the run itself**
 
-- [ ] **9.1 Define what is being measured** — speaker-audio-to-listener glass-to-glass,
-      chat send-to-render, quiz publish-to-appear, and assistant idea→card (there is
-      already a 3.10s / 12.18s / 2.02s baseline recorded for that last one).
-- [ ] **9.2 Instrument** — timestamps at each hop; the measurement must not itself
-      distort the number.
-- [ ] **9.3 Set budgets** — a target per hop, so a result can pass or fail rather than
-      just being a number in the report.
-- [ ] **9.4 Author the harness now, run when containers are up.** Note the known
-      constraint: LiveKit is loopback-only today, so multi-participant numbers are not
-      obtainable until the bridge-networking work is done.
+Everything decidable without a container is decided. **[docs/latency.md](latency.md)**
+holds the definitions, the budgets and the derivation of every number; the harness is
+`backend/tests/e2e/test_latency.py` (`-m latency`) and writes `latency-results.md`.
+Test-plan Area O.
+
+```bash
+cd backend && docker compose up -d
+cd tests/e2e && ./run-in-network.sh -m latency
+```
+
+- [x] **9.1 Define what is being measured.** Five hops, each stating its start event,
+      its end event and **whose clock** — because most of the ways this measurement
+      could be wrong are ways of being vague about exactly that.
+
+      **The one constraint that drove the whole design: one clock.** The tempting
+      approach is a server timestamp in the payload, subtracted on the client. It is
+      wrong here — the services are in containers, the harness is on the host, and
+      subtracting one clock from another measures skew as much as latency. On a laptop
+      that has suspended, skew is routinely larger than the hop. So the harness plays
+      **both ends of every hop itself**, sending as the teacher and receiving as the
+      student in one process on one `perf_counter`. These are therefore
+      *user-perceived* numbers, which is the right thing to budget: nobody experiences
+      the hub's fan-out time.
+
+      **Two hops are not what their name suggests, and the plan asked for one of them
+      by that name.** §9.1 asked for glass-to-glass audio. Glass-to-glass cannot be
+      measured from here: its two largest terms — the browser's mic capture buffer and
+      its *adaptive* playout jitter buffer, 40–200ms — happen inside a browser this
+      harness is not. What L-4 measures is the SFU transit floor: encode → SFU →
+      decode, the part our deployment owns. Reported as glass-to-glass it would
+      understate reality by a factor of two or more, so it is labelled as transit
+      everywhere it appears, including in the results file itself.
+
+      **The plan's stated blocker turned out to be half right.** "LiveKit is
+      loopback-only, so multi-participant numbers are not obtainable" — but two
+      participants on the *same* host both reach `127.0.0.1:7880` fine, which is what
+      L-4 does. What loopback actually blocks is a measurement across a real network,
+      i.e. the one that would contain real jitter. So L-4 is obtainable and is a lower
+      bound on a lower bound; that is now written down rather than left as "blocked".
+
+- [x] **9.2 Instrument.** Two instruments, answering different questions.
+
+      Client-side needs **no product change at all**, and that is the point: the paths
+      measured are byte-for-byte the ones the browser uses (`skipNegotiation` +
+      WebSockets, matching `useStreamHub.ts`), so there is no instrumented variant that
+      could drift from the shipped one.
+
+      Server-side is new: **`signalr_broadcast_duration_seconds{event}`**
+      (`BroadcastMetrics`, StreamingService), `System.Diagnostics.Metrics` to match the
+      existing `RecordingMetrics`. When a budget is missed, "it was slow" is not a
+      finding — this is what splits it into server time and wire time. Adding it
+      collapsed `StreamHubContext`'s eight near-identical broadcast methods into one
+      timed helper, so the timing is applied in one place rather than eight.
+
+      Three rules, each a way the instrument could have distorted its own number:
+      **stamp before you parse** (arrival is recorded the instant a frame comes off the
+      socket, before `json.loads` and before dispatch); **a failed broadcast records
+      nothing** (failures return fast, and feeding them into a latency histogram moves
+      the percentiles in the reassuring direction — the one direction in which a
+      latency metric actively lies); and **no polling** (a 500ms poll for "the quiz
+      appeared" would add up to 500ms of quantisation to a hop budgeted at 700ms).
+
+      **`signalrcore` was rejected deliberately.** It runs its receive loop on a
+      background thread with a sleep-based poll, and that interval lands directly
+      inside the number being measured. `support/signalr.py` is ~180 lines because
+      `skipNegotiation` means there is no negotiate handshake or transport fallback to
+      reproduce — just a WebSocket, the JSON handshake, and 0x1e-separated records.
+
+- [x] **9.3 Set budgets.** Each derived from what the *feature* needs, never from what
+      was measured — a budget set to last week's number cannot be missed and therefore
+      cannot tell you anything. Full derivations in latency.md; the one worth repeating
+      here is **L-2b (quiz publish → the student holds the quiz), p95 ≤ 1200ms, which
+      is a fairness budget rather than a comfort one**: `ClosesAtUtc` is
+      `PublishedAtUtc + totalSeconds`, so every millisecond between publish and arrival
+      is deducted from the student's answering time. Against a 30s question 1200ms is
+      4%, under the 5% we are willing to take from a student without compensating. If
+      per-question timers ever drop below 30s, that budget must drop with them.
+
+- [x] **9.4 Author the harness.** Authored, unit-tested, **not yet run** — it needs the
+      platform. 5 hops in `test_latency.py`; 22 tests in `test_latency_support.py` that
+      run *today*, with nothing up, over the harness's own percentile arithmetic,
+      warm-up rule, budget judgement and SignalR framing.
+
+      That support suite is not ceremony. The harness will sit unrun for a while and
+      its output then goes into the report **as measured fact** — a percentile off by
+      one rank, or a frame carrying two records where only the first is read, would be
+      invisible and uncorrectable after the fact.
+
+      **Mutation-checked, 12 mutations, 11 killed immediately.** The survivor was the
+      useful one: removing the `unavailable` clause from `Report.unmeasured()` changed
+      nothing, and chasing why exposed a real flaw. A hop that collected six samples and
+      *then* lost its connection — which is exactly how the audio probe fails — had its
+      six real observations thrown away **and** was excused from its budget, so a hop
+      that was measurably too slow would have reported as merely interrupted. Now a
+      series with samples is always judged on them and marked `INCOMPLETE` in the table.
+
+      Two smaller things the tests pinned rather than discovered: at 20 samples,
+      nearest-rank p95 is the *second*-slowest observation, so one catastrophic sample
+      does not move it — correct, and the reason the results table carries a `worst`
+      column beside p95. And `run-in-network.sh` rebuilt `live-assistant-service` into
+      fake-audio mode for **every** invocation, which for a latency run would restart
+      the service and hence empty the in-process histogram L-3 reads: the run would
+      have reported "assistant hop unmeasurable" every time, for a reason nothing in
+      the output explained. It now only reconfigures when the markers need audio,
+      which also stops `-m internal` paying for a rebuild it never needed.
+
+      **StreamingService 158 → 164 tests** (`BroadcastMetricsTests`, 6, all 5 mutations
+      killed). **e2e 55 → 82** collected, of which the 22 support tests run without a
+      platform.
 
 ---
 
@@ -1364,10 +1463,15 @@ excludes Migrations/obj/Program.cs — that is §0.3 mostly answered for .NET; t
 
 ### Needed for §9–§10 (latency, perf, stress)
 
+**§9 needs nothing installed.** Its harness is pytest + `websockets` (already in the
+e2e `pyproject.toml` and `Dockerfile`); the budgets are enforced in the harness itself
+rather than by a load tool's thresholds, because they are per-hop budgets on a push
+channel and k6 has no SignalR client. The table below is for §10.
+
 | Tool | Scope | Install |
 | --- | --- | --- |
-| **k6** | load/stress | `sudo apt install k6` (via the Grafana apt repo) or the standalone binary. Recommended over NBomber/Locust here: scripts are JS, so they sit naturally next to the frontend, and it has first-class thresholds — which is what turns §9.3's budgets into pass/fail. |
-| `k6-browser` or Playwright | glass-to-glass timing | only if you want real browser timings rather than API timings |
+| **k6** | load/stress (§10) | `sudo apt install k6` (via the Grafana apt repo) or the standalone binary. Recommended over NBomber/Locust here: scripts are JS, so they sit naturally next to the frontend, and it has first-class thresholds. |
+| `k6-browser` or Playwright | glass-to-glass timing | **the only way to close the gap §9 leaves.** L-4 measures SFU transit; the browser's capture and playout jitter buffers — usually the larger terms — are only observable from inside a browser, via `getStats()`. See [latency.md](latency.md). |
 
 ### Recommended, not required
 

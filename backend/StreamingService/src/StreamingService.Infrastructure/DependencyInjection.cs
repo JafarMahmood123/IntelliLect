@@ -178,6 +178,11 @@ public static class DependencyInjection
         // Capture metrics (R-5): Meter-based, singleton so the underlying Meter is shared.
         services.AddSingleton<IRecordingMetrics, Observability.RecordingMetrics>();
 
+        // SignalR fan-out latency (§9.2): same shape, and a singleton for the same reason — a
+        // per-request Meter would register a fresh instrument on every broadcast and the
+        // histogram would never accumulate.
+        services.AddSingleton<IBroadcastMetrics, Observability.BroadcastMetrics>();
+
         services.AddScoped<IStreamChatMessageRepository, StreamChatMessageRepository>();
         services.AddScoped<IStreamQuestionRepository, StreamQuestionRepository>();
 

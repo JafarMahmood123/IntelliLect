@@ -87,6 +87,8 @@ cd backend/tests/e2e
 ./run-in-network.sh                 # media loop
 ./run-in-network.sh -m "not media"  # just the cross-service wiring
 ./run-in-network.sh -k feedback -s  # any pytest args
+./run-in-network.sh -m latency      # the §9 latency budgets (see below)
+./run-in-network.sh -m internal     # the /api/internal shared-secret guard
 ```
 
 ### Directly on the host (venv)
@@ -94,7 +96,7 @@ cd backend/tests/e2e
 ```bash
 cd backend/tests/e2e
 uv venv && source .venv/bin/activate
-uv pip install pytest pytest-asyncio httpx "livekit>=1.0" "minio>=7.2" "reportlab>=4.0" "gTTS>=2.5"
+uv pip install pytest pytest-asyncio httpx "livekit>=1.0" "minio>=7.2" "reportlab>=4.0" "gTTS>=2.5" "websockets>=13"
 
 pytest -m "not media"   # cross-service wiring (needs a responsive host — see below)
 pytest -m media         # the AI feedback loop
@@ -104,6 +106,31 @@ pytest                  # both
 > On a memory-pressured host the synchronous session-start can exceed nginx's 60s
 > gateway timeout; the test retries, but the in-network runner (direct URLs) avoids
 > the cap entirely. Prefer `run-in-network.sh` when the host is loaded.
+
+## Latency (`-m latency`)
+
+`test_latency.py` measures the session-broadcast hops and writes `latency-results.md`
+next to it — the table the report consumes, filled in rather than transcribed. What
+each hop is, and what it is allowed to cost, is in **`docs/latency.md`**; do not read a
+number out of the results file without it, because two of the five hops do not measure
+what their names suggest.
+
+```bash
+cd backend/tests/e2e
+./run-in-network.sh -m latency
+```
+
+Run it **in-network**: through the gateway the SignalR hop would also be measuring
+nginx's proxying, which is not what the budget is about. The assistant hop (L-3) reads
+the service's own histogram, so it reports "not measured" until a feedback run has
+happened on that instance — do `./run-in-network.sh -m feedback` first if you want it
+in the table. The audio hop (L-4) needs UDP media to actually flow, and reports itself
+as not-measured with the reason rather than failing the run when it does not.
+
+`test_latency_support.py` (also `-m latency`) is the odd one out in this directory: it
+needs **nothing running**. It covers the harness's own percentile arithmetic, warm-up
+rule, budget judgement and SignalR framing, because the harness will sit unrun for a
+while and its output later becomes measured fact in the report.
 
 ## Configuration
 
