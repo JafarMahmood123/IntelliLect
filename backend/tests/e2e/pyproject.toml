@@ -18,6 +18,9 @@ dependencies = [
     # Latency harness (§9): a hand-rolled SignalR client needs a WebSocket and nothing
     # else. `signalrcore` was rejected deliberately — see support/signalr.py.
     "websockets>=13",
+    # Smoke inventory (§10.1): the service list is read from the compose files rather
+    # than maintained by hand, so a new service without a probe fails a test.
+    "pyyaml>=6.0",
 ]
 
 [tool.pytest.ini_options]
@@ -28,6 +31,7 @@ markers = [
     "media: exercises the real LiveKit media loop (synthetic teacher audio -> STT -> feedback). Needs LiveKit WebRTC media + Ollama + a TTS.",
     "feedback: exercises the full feedback loop via fake audio (real STT/retrieval/LLM), no WebRTC. Needs the LiveAssistant in AGENT_AUDIO_SOURCE=fake mode (run-in-network.sh).",
     "recording: exercises the egress/recording + summary path. Needs the docker-compose.e2e.yml overlay.",
+    "smoke: the shortest sequence that proves a deployment is alive — every service probed, one login, one classroom fetch, one session start. Must finish well under a minute. test_smoke_inventory.py carries the same marker but needs nothing running.",
     "latency: measures the session-broadcast hops in docs/latency.md (chat, quiz publish, assistant, SFU transit) and writes latency-results.md. Needs the platform up; the assistant hop additionally needs a feedback run to have happened, and the audio hop needs UDP media to flow.",
     "internal: probes the /api/internal surface for the shared-secret guard. Read-only, no seeding, no models — needs only the platform up, and must be run IN-NETWORK (nginx blocks these routes, so through the gateway it would pass with the guard removed).",
 ]

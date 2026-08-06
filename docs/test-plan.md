@@ -404,7 +404,34 @@ Harness: `backend/tests/e2e/test_latency.py` (`-m latency`), which writes
 **Not covered on purpose:** the runtime numbers themselves, until the platform is up.
 Everything above that could be decided without a container has been.
 
-## 18. Deliberately not covered — and why
+## 18. Area P — Smoke & deployment liveness (work-plan §10.1)
+
+Harness: `backend/tests/e2e/test_smoke.py` (`-m smoke`). `test_smoke_inventory.py`
+carries the same marker but needs nothing running.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| P-01 | Every service answers its health endpoint with **2xx** — a 503 is a working endpoint reporting a broken service, and only 2xx is alive | E2E | P0 | authored, unrun |
+| P-02 | A seeded account can log in — proves the seeder, the hasher and the signing key, none of which liveness can see | E2E | P0 | authored, unrun |
+| P-03 | A teacher can be registered, approved, logged in, and can read and write a classroom | E2E | P0 | authored, unrun |
+| P-04 | Starting a session cascades ClassroomService → StreamingService → LiveKit → LiveAssistantService, and ending it always runs | E2E | P0 | authored, unrun |
+| P-05 | The whole smoke run finishes inside 60s, and a breach names its own long pole | E2E | P1 | authored, unrun |
+| P-06 | Every service in the compose graph is probed or exempt **with a written reason** — read from the compose files, not a hand-kept list | Unit | P0 | ✓ |
+| P-07 | Nothing is listed that compose no longer runs (an exemption for a deleted service silently excuses the next one to take the name) | Unit | P0 | ✓ |
+| P-08 | Every .NET service maps `/health`, matched on the real shapes — a comment mentioning the path must not satisfy the rule | Unit | P0 | ✓ |
+| P-09 | Every Python service serves a `/health` route | Unit | P0 | ✓ |
+| P-10 | The health check of every data-holding service can report **Unhealthy**, and does not report Degraded — which `MapHealthChecks` answers with 200 | Unit | P0 | ✓ |
+| P-11 | A reachable database is Healthy; an unreachable one is Unhealthy, not Degraded | Unit | P0 | ✓ |
+| P-12 | The health-check failure text never names the host, database or path — `/health` is unauthenticated | Unit | P0 | ✓ |
+| P-13 | The probe answers inside its own deadline rather than waiting out the driver's 15s connect timeout | Unit | P1 | ✓ |
+| P-14 | EmailService is probed too — it has no host port, so from the host this skips loudly rather than being dropped | E2E | P1 | authored, unrun |
+
+**Not covered on purpose:** RabbitMQ and Redis are not probed directly (no
+unauthenticated health surface; their outages surface through the services that depend
+on them), and `livekit-egress` has no HTTP surface at all — it is a worker, covered by
+the recording path in G-06.
+
+## 19. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -436,7 +463,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 19. Entry / exit criteria
+## 20. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -449,9 +476,10 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 3. Mutation spot-check passes on quiz scoring and the auth path — the two places where
    a test that never fails would be most dangerous.
 4. No P0 case is marked "not implemented" without a written reason here.
-5. The smoke suite passes against a fresh `docker compose up` from a clean volume.
+5. The smoke suite passes against a fresh `docker compose up` from a clean volume
+   (**authored — Area P; the containerless half already passes**).
 
-## 20. Traceability
+## 21. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -468,4 +496,5 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | L | §11.6 |
 | M | §14, §11.8, §11.9 |
 | N | §7.6, §11.1 |
-| O | §9, §10 |
+| O | §9 |
+| P | §10.1 |

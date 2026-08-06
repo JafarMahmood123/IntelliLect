@@ -87,6 +87,7 @@ cd backend/tests/e2e
 ./run-in-network.sh                 # media loop
 ./run-in-network.sh -m "not media"  # just the cross-service wiring
 ./run-in-network.sh -k feedback -s  # any pytest args
+./run-in-network.sh -m smoke        # is this deployment alive? (see below)
 ./run-in-network.sh -m latency      # the §9 latency budgets (see below)
 ./run-in-network.sh -m internal     # the /api/internal shared-secret guard
 ```
@@ -106,6 +107,34 @@ pytest                  # both
 > On a memory-pressured host the synchronous session-start can exceed nginx's 60s
 > gateway timeout; the test retries, but the in-network runner (direct URLs) avoids
 > the cap entirely. Prefer `run-in-network.sh` when the host is loaded.
+
+## Smoke (`-m smoke`)
+
+`test_smoke.py` is the shortest sequence that proves a deployment is alive: every
+service probed, then one login, one classroom read, one session start (the cascade
+through ClassroomService → StreamingService → LiveKit → LiveAssistantService). It
+asserts its own runtime against a 60s budget, because a smoke suite that takes two
+minutes stops being run, and then it stops being true.
+
+```bash
+cd backend/tests/e2e
+./run-in-network.sh -m smoke
+```
+
+**It does not wait for the platform.** conftest's readiness gate polls for two minutes,
+which is right for a functional suite and wrong here — the question is "is this
+deployment alive *now*", and waiting turns a dead service into a slow pass. Set
+`E2E_SMOKE_WAIT_S` when running against a stack that is still coming up.
+
+Run it **in-network** if you want EmailService covered: it publishes no host port and
+nginx does not route to it, so from the host that one probe skips (loudly — bulk
+approve fans out through it).
+
+`test_smoke_inventory.py` (also `-m smoke`) needs **nothing running**. It reads the
+compose files and checks that every service is either probed or exempt with a reason,
+in both directions, plus that every service actually exposes the `/health` the probes
+assume. A smoke suite decays invisibly — a service gets added and never gets a probe,
+and the suite passes while proving less each release.
 
 ## Latency (`-m latency`)
 

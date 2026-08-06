@@ -36,6 +36,12 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    // §10.1: liveness gated on the database — the dependency whose absence makes this
+    // service unable to answer anything, login included.
+    builder.Services.AddHealthChecks()
+        .AddCheck<UserManagementService.Infrastructure.Observability.DatabaseHealthCheck>(
+            "database", tags: new[] { "liveness" });
+
     var app = builder.Build();
 
     using (var scope = app.Services.CreateScope())
@@ -89,6 +95,9 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
+    // §10.1: this service had NO health endpoint — the one that owns login, and so the one
+    // whose absence takes the whole platform down, was the one nothing could probe.
+    app.MapHealthChecks("/health");
 
     app.Run();
 }

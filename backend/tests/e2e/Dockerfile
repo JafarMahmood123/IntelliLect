@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg iptables
 # Deps only — the test code is bind-mounted at run time (see run-in-network.sh).
 RUN pip install --no-cache-dir \
     pytest pytest-asyncio httpx "livekit>=1.0" "minio>=7.2" "reportlab>=4.0" "gTTS>=2.5" \
-    "websockets>=13" numpy
+    "websockets>=13" numpy pyyaml
 
 COPY container-entrypoint.sh /usr/local/bin/container-entrypoint.sh
 RUN chmod +x /usr/local/bin/container-entrypoint.sh

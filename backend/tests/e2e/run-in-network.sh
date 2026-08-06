@@ -13,6 +13,7 @@
 #   ./run-in-network.sh                 # the feedback loop (default)
 #   ./run-in-network.sh -m "not media"  # just the cross-service wiring
 #   ./run-in-network.sh -m media        # the real-WebRTC path (needs media to flow)
+#   ./run-in-network.sh -m smoke        # is the deployment alive? (no agent rebuild)
 #   ./run-in-network.sh -m latency      # the §9 latency budgets (no agent rebuild)
 #   ./run-in-network.sh -m internal     # the /api/internal guard (no agent rebuild)
 #   ./run-in-network.sh -k xyz -s       # any pytest args

@@ -29,8 +29,13 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    // §10.1: the database check is the one that can return Unhealthy, and therefore the only
+    // one that makes /health a probe rather than a formality. The egress check below reports
+    // Degraded, which MapHealthChecks answers with 200.
     // R-5: recording capture config health (LiveKit egress + webhook verification key).
     builder.Services.AddHealthChecks()
+        .AddCheck<StreamingService.Infrastructure.Observability.DatabaseHealthCheck>(
+            "database", tags: new[] { "liveness" })
         .AddCheck<StreamingService.Api.HealthChecks.EgressConfigHealthCheck>(
             "recording_capture_config", tags: new[] { "recording" });
 

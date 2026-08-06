@@ -1248,11 +1248,63 @@ cd tests/e2e && ./run-in-network.sh -m latency
 
 ---
 
-## 10. Smoke, performance and stress testing
+## 10. Smoke, performance and stress testing — **10.1 DONE**
 
-- [ ] **10.1 Smoke suite** — the shortest sequence that proves a deployment is alive:
-      every service health endpoint, one login, one classroom fetch, one session start.
-      Must run in well under a minute.
+- [x] **10.1 Smoke suite — DONE, and writing it found that three of the six health
+      endpoints could not fail and a fourth did not exist.**
+      `backend/tests/e2e/test_smoke.py` (`-m smoke`): every service probed, then one
+      login, one classroom read, one session start — the cascade through ClassroomService
+      → StreamingService → LiveKit → LiveAssistantService. It asserts its own runtime
+      against a 60s budget, because a smoke suite that takes two minutes stops being run,
+      and then it stops being true. Test-plan Area P.
+
+      **DEFECT 1: UserManagementService had no `/health` at all.** The service that owns
+      login — the one whose absence takes the platform down — was the only one nothing
+      could probe. Nobody noticed because every *other* service had one, and a
+      per-service habit is exactly the kind of thing that gets skipped once. Now mapped,
+      gated on the database.
+
+      **DEFECT 2: three `/health` endpoints could only ever return 200.** Every
+      pre-existing health check in the solution reports `Degraded` when its dependency is
+      missing, and `MapHealthChecks` answers Degraded with **200**. So ClassroomService's
+      and StreamingService's `/health` were incapable of failing whatever was broken —
+      and an endpoint that cannot fail is not a probe: an orchestrator watching it never
+      restarts the container that needs it, and a smoke suite asserting on it asserts on
+      a constant. `DatabaseHealthCheck` (Infrastructure, one per service) gates liveness
+      on `CanConnectAsync` and reports **Unhealthy**, with a 3s internal deadline —
+      Npgsql's own connect timeout is 15s, and a `/health` that blocks that long turns
+      one sick service into a stalled orchestrator, i.e. the probe becomes the outage.
+      Its failure text is deliberately generic: `/health` is unauthenticated and a raw
+      connection error names the host, the database and usually the user.
+
+      **DEFECT 3: the e2e readiness gate was checking nginx.** `conftest.platform_ready`
+      polled `{gateway}/health`, which nginx answers with a **hard-coded 200**, plus
+      LiveAssistant and Rag. UserManagementService, ClassroomService, StreamingService
+      and EmailService were never checked by anything — which is how a suite gets to fail
+      deep inside a scenario on something a readiness probe should have named in one
+      line. It now waits on all of them, and on 2xx rather than `< 500`, since a 503 is a
+      *working* endpoint reporting a broken service.
+
+      **`test_smoke_inventory.py` needs nothing running**, and is the part that keeps the
+      rest honest. A smoke suite decays in a way its own results cannot show: nobody
+      writes a wrong assertion into it — a service gets added to compose and never gets a
+      probe, and the green tick quietly means less every release. So the service list is
+      **read from the seven compose files** rather than maintained by hand, both
+      exemption lists are checked in both directions, and every service's source is
+      checked for the `/health` its probe assumes. 17 services; every one probed or
+      exempt with a written reason (the five databases are exempt *because* their
+      owning service's `/health` now fails when they are gone — an exemption that was
+      not true before this item).
+
+      **Mutation-checked, 7 mutations, all killed** — including re-introducing defects 1
+      and 2 (removing UMS's `MapHealthChecks`, and reverting the database check to
+      `Degraded`). One mutation exposed a weak assertion of my own: the `/health` rule
+      accepted any `"/health"` string, so a *comment* mentioning the endpoint satisfied
+      it. Tightened to the two real shapes, `MapHealthChecks("/health")` and
+      `MapGet("/health"`.
+
+      **ClassroomService 388 → 392** (`DatabaseHealthCheckTests`). **e2e 82 → 108**
+      collected, of which the 13 inventory rules run with nothing up.
 - [ ] **10.2 Performance** — pick the tool (k6 / NBomber / Locust) and script the
       realistic mixes: many students joining one session; concurrent quiz submissions at
       the deadline (the natural thundering herd); RAG search under load; bulk approve of

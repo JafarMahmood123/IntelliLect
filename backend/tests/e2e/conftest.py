@@ -71,21 +71,46 @@ def knowledge(config: Config) -> Iterator[RagClient]:
 
 
 def _http_ok(url: str) -> bool:
+    """Answered at all. Right for a probe whose only claim is "the process is up"."""
     try:
         return httpx.get(url, timeout=5).status_code < 500
     except Exception:  # noqa: BLE001
         return False
 
 
+def _healthy(url: str) -> bool:
+    """Answered 2xx. Right for `/health`, where 503 is a working endpoint reporting a
+    broken service — a distinction `< 500` erases, and the one that matters most."""
+    try:
+        return httpx.get(url, timeout=5).is_success
+    except Exception:  # noqa: BLE001
+        return False
+
+
 @pytest.fixture(scope="session", autouse=True)
 def platform_ready(config: Config, liveassistant: LiveAssistantClient, knowledge: RagClient) -> None:
-    """Block until the HTTP services answer. LiveKit is NOT a hard gate here — it is
-    only needed by the media test, which verifies it by actually connecting; its
-    node-ip may be unreachable for a plain HTTP health probe (VPN/host routing)."""
+    """Block until the HTTP services answer.
+
+    This gate used to check the gateway, LiveAssistant and Rag — and nginx answers
+    `/health` with a **hard-coded 200**, so "the platform is ready" effectively meant
+    "nginx is running". UserManagementService, ClassroomService, StreamingService and
+    EmailService were never checked at all, which is how a suite gets to fail deep
+    inside a scenario on something a readiness probe should have named in one line.
+
+    It now waits on the services the suites actually use. LiveKit is still NOT a hard
+    gate — it is only needed by the media test, which verifies it by connecting; its
+    node-ip may be unreachable for a plain HTTP probe (VPN/host routing).
+    """
 
     def ready() -> bool:
         checks = {
             "gateway": _http_ok(f"{config.gateway_url}/health"),
+            # 2xx only. A 503 means the service is up and its database is not, which is
+            # not "ready" — and before §10.1 gave these three a health check capable of
+            # failing, this line could not have distinguished the two.
+            "user": _healthy(f"{config.user_url}/health"),
+            "classroom": _healthy(f"{config.classroom_url}/health"),
+            "streaming": _healthy(f"{config.streaming_url}/health"),
             "liveassistant": liveassistant.healthy(),
             "knowledge": knowledge.healthy(),
         }
