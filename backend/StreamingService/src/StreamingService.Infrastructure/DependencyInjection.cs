@@ -207,6 +207,27 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 5);
         });
 
+        // ClassroomService internal client (G-02): typed HttpClient + options. This one is NOT
+        // best-effort — it answers an authorization question, and the client returns "no" for every
+        // failure rather than throwing, so a ClassroomService outage refuses new joins instead of
+        // admitting everybody. Shorter timeout than the assistant's, because a person is waiting on
+        // it. See ClassroomInternalClient for the trade-off, stated in full.
+        services.Configure<ClassroomServiceOptions>(
+            configuration.GetSection(ClassroomServiceOptions.SectionName));
+        services.AddHttpClient<IClassroomInternalClient, ClassroomInternalClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<ClassroomServiceOptions>>().Value;
+            var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+                ? "http://classroom-service:8080"
+                : options.BaseUrl;
+            if (!baseUrl.EndsWith('/'))
+            {
+                baseUrl += "/";
+            }
+            client.BaseAddress = new Uri(baseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds > 0 ? options.TimeoutSeconds : 3);
+        });
+
         return services;
     }
 

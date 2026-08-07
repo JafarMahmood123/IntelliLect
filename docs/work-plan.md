@@ -1382,7 +1382,7 @@ B-08 and B-09 prove an `/api/internal` route refuses a caller without the shared
 the layer in front: those routes should not be reachable from outside at all, so the secret is the
 second lock rather than the only one.
 
-Its coverage was `tests/e2e/test_internal_surface_contract.py` — 55 tests over 18 routes, authored
+Its coverage was `tests/e2e/test_internal_surface_contract.py` — 58 tests over 19 routes, authored
 and never run, and by its own note probing **in-network**. That is a deliberate choice and a good
 one for what it tests, but it means the suite exercises the guard and **nothing at all exercises
 the route table**.
@@ -1756,6 +1756,120 @@ used twice, once by a Unit nginx row and once by a Frontend auth row. Second occ
 to `B-26`..`B-28`, as with `L-10` → `L-19`.
 
 **ClassroomService 488 → 512 tests.**
+
+### 7.4d The join token was handed to anyone who asked (G-02, G-36..G-43) — **DONE; the worst of the sweep**
+
+`GET /api/streams/{sessionId}`, behind a bare `[Authorize]`:
+
+    var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
+    if (stream == null) throw new KeyNotFoundException("Stream not found.");
+    if (stream.Status != StreamStatus.Live) throw new InvalidOperationException("This session has ended.");
+    ...
+    var joinToken = _mediaProvider.GenerateJoinToken(...);
+
+Two checks about the STREAM. **None about the caller.** Any account in the platform could name any
+live session and be handed a LiveKit join token for it.
+
+That is not one step of several. §7.4's own note on this service puts it plainly: the token *"IS the
+authorization for the media room, and once LiveKit holds it our code is never consulted again."*
+There was no second place this could have been caught, no audit of it, and nothing in the room to
+say who had arrived.
+
+**And it was worse for a teacher**, because publishing rights were computed from the caller's own
+role claim:
+
+    bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
+    bool canPublishAudio = isTeacher || stream.StudentsCanPublishAudio;
+
+`role` came out of the requester's token and had nothing to do with this classroom. **Any
+Teacher-role account could walk into any live lecture in the platform with camera and microphone
+publishing rights**, appearing to everyone in the room as a teacher.
+
+`POST /api/streams/{sessionId}/join` was separately unguarded, and it is a separate endpoint: it
+writes the participant row the teacher's screen counts and that hand-raise and chat look up. So a
+stranger could appear in a lecture's roster even where the publish policy would not let them speak.
+
+**The check has to be remote, and that is the interesting part.** StreamingService holds a stream's
+`ClassroomId` and `TeacherId` and no roster at all. So ClassroomService gained
+`GET /api/internal/classrooms/{id}/access/{userId}` — the roster question asked one person at a
+time — and StreamingService gained a typed client for it, following `LiveAssistantInternalClient`
+exactly.
+
+**It fails closed, and the cost is stated rather than hidden.** Every other internal client here is
+best-effort, because the assistant is an enhancement and a lost notification costs a feature. This
+one answers an authorization question, and there is no such thing as a best-effort authorization
+decision — §7b already found the opposite shape on the internal secret, a guard that admitted
+everybody precisely when it was misconfigured. A 404, a 401, a 5xx, a connection refused, a timeout
+and a body that will not parse all return "not a member".
+
+What that buys is that a ClassroomService outage refuses **new joins** rather than admitting
+everyone. What it costs is that during such an outage nobody new can enter a live lecture. People
+already in the room are untouched, because LiveKit holds their token and never asks us again — so
+the failure is "no new joins", not "the class stops", which is the right way round. The timeout is
+3 seconds rather than the assistant client's 5, because a person is waiting on it and a timeout is
+a refusal they can retry by pressing the button again.
+
+**The fix to the role claim is structural, not a better check.** The `role` parameter is gone from
+`GetStreamBySessionIdAsync` entirely. Ownership of the classroom decides publishing now, and the
+role that travels into LiveKit's participant metadata — which is what the publish-policy sweep reads
+— is derived from that rather than echoed from the caller. A rule fails if the parameter comes back,
+because a future edit re-adding it would compile, pass every behavioural case by ignoring it, and
+reopen the defect the moment somebody wired it to `isTeacher` again.
+
+**Two rules across the wire.** Nothing compiles across a URL string in another repository directory:
+a renamed route segment is not a build error, it is a 404, which the client correctly reads as "not
+a member", which refuses **every join in the platform** while logging about unknown classrooms.
+Fails closed and therefore fails silently. So ClassroomService's tests read StreamingService's
+client source and pin the path and both JSON field names — the same shape as
+`MediaSettingsBrowserContractTests` reading the front-end's TypeScript, and the same reasoning: the
+side that owns the contract holds the test.
+
+The second rule is the one that will matter later: **the remote answer must mean what
+`ClassroomAccess.EnsureMemberAsync` means.** If one counts the teacher as a member and the other
+does not, a teacher is refused their own lecture — or worse, the remote answer is the more generous
+and nothing in either service reports the disagreement. Driven over teacher, student and stranger
+rather than asserted once, because the teacher is precisely the case the two would differ on.
+
+**The test double starts by refusing everybody.** The obvious `FakeClassroomInternalClient` answers
+"yes" by default so the existing tests keep passing untouched, and that is the shape this suite has
+now been bitten by three times — a stream repository that accepted two rows for one session, a user
+stub that compared case-insensitively, a hub context that discarded its argument. A permissive
+default would have made every test that calls `GetStreamBySessionIdAsync` pass whether or not the
+check existed at all.
+
+**Mutation-checked (§7.8), 14 mutations, and two of them earned their keep.**
+
+- **M10 survived**: making the internal route answer `Ok(IsMember: true)` for an unknown classroom
+  broke nothing. The service's "returns null" was tested and the controller's translation of that
+  null was not — so the fail-OPEN direction was untested on the one route whose answer decides entry
+  to a live lecture, and a stream naming a deleted classroom is exactly when it would fire. Closed
+  with a controller-level test, including the vacuum guard that a controller answering 404 for
+  everything would also have passed.
+- **M11 would not compile** as first written (renaming `BaseUrl`, which `DependencyInjection` reads).
+  Re-expressed as the question the §10.4 settings rule actually exists for — a compose key that binds
+  to nothing — and killed.
+
+**A defect the mutations did not find, and the status is the point of it.** Every refusal in this
+service threw `UnauthorizedAccessException`, which its handler maps to **401**. The front-end's axios
+interceptor reads a 401 as an expired access token: it refreshes the session — rotating the refresh
+token — replays the request, and is refused again. So every refused join spent a rotation to reach
+the same answer, and a refresh that failed while that was happening would have signed the user out
+and sent them to `/login` for clicking on a lecture they are not enrolled in. `ForbiddenAccessException`
+→ 403 now, as ClassroomService has had since §7.2, and the two other "only the teacher can …"
+refusals in this service moved with it. A rule over the source fails on the next one, and M15 pins
+the mapping.
+
+**Also promoted rather than copied:** `FakeParticipantRepository` moved out of `StreamJoinLeaveTests`
+into `TestDoubles` as `TrackingParticipantRepository`, because the new file needed the same thing to
+prove that a refused join writes no row. Two doubles for one port is how they end up disagreeing
+about what the port does.
+
+**Deployment.** `ClassroomService__BaseUrl`, `__InternalApiSecret` and `__TimeoutSeconds` are new on
+`streaming-service`. The secret is the same `INTERNAL_API_SECRET` everything else uses, so nothing
+new goes in `.env` — but a `streaming-service` started without them refuses every join, loudly in
+its own log and silently to the student, and that is the deliberate direction of the failure.
+
+**ClassroomService 512 → 522, StreamingService 204 → 230.**
 
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 

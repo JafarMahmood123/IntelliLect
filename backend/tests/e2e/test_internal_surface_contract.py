@@ -83,6 +83,10 @@ ROUTES: list[InternalRoute] = [
     InternalRoute("classroom-service", "classroom_url", "/api/internal/classrooms"),
     InternalRoute("classroom-service", "classroom_url", f"/api/internal/classrooms/{MISSING_ID}"),
     InternalRoute("classroom-service", "classroom_url", f"/api/internal/classrooms/{MISSING_ID}/members"),
+    # G-02: StreamingService asks this before it mints a LiveKit join token. An unguarded
+    # membership oracle would let anyone enumerate who is in which classroom — and it is
+    # called on every join, so it is the internal route under the most traffic.
+    InternalRoute("classroom-service", "classroom_url", f"/api/internal/classrooms/{MISSING_ID}/access/{MISSING_ID}"),
     InternalRoute("classroom-service", "classroom_url", f"/api/internal/classrooms/{MISSING_ID}/deletion-impact"),
     InternalRoute("classroom-service", "classroom_url", "/api/internal/files"),
     InternalRoute("classroom-service", "classroom_url", "/api/internal/sessions"),

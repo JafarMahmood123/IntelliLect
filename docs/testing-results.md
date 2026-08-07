@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 16:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 17:29 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -35,14 +35,14 @@ without an attribute does not.
 | Suite | Tests | Status | Command |
 |---|---|---|---|
 | UserManagementService | 324 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
-| ClassroomService | 512 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
-| StreamingService | 204 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
+| ClassroomService | 522 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
+| StreamingService | 230 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,341** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,377** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -78,8 +78,8 @@ that selection waits two minutes and then fails.
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
 | UserManagementService | 51.4% | 36.3% | measured 2026-08-07 (1012 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| ClassroomService | 80.5% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| StreamingService | 74.9% | 43.8% | measured 2026-08-07 (662 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| ClassroomService | 81.3% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| StreamingService | 75.8% | 43.8% | measured 2026-08-07 (685 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -99,10 +99,10 @@ that selection waits two minutes and then fails.
 | ClassroomService | Domain | 100.0% |
 | ClassroomService | Application | 97.9% |
 | ClassroomService | Infrastructure | 75.1% |
-| ClassroomService | Presentation | 25.0% |
+| ClassroomService | Presentation | 35.6% |
 | StreamingService | Domain | 100.0% |
-| StreamingService | Application | 58.9% |
-| StreamingService | Infrastructure | 83.1% |
+| StreamingService | Application | 61.0% |
+| StreamingService | Infrastructure | 83.8% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
 | EmailService | Infrastructure | 100.0% |
@@ -271,6 +271,10 @@ found by writing a test, not by a user.
 | 41 | **Two live streams for one session, with nothing to stop it.** `SessionStartedConsumer` guards a redelivery with `ExistsAsync` then `AddAsync` — two calls — and `Streams.SessionId` carried **no index at all**, unique or otherwise. At-least-once delivery means the message arrives twice; two concurrent invocations both pass the check before either insert. The consumer's own comment names the consequence: "every later lookup picks one arbitrarily", so students join one row while recording state and participant count attach to the other, permanently and silently | found by a test FAILING under load, twice — see below |
 | 42 | `FakeStreamRepository` accepted two rows for one session, so the suite could not tell an idempotent consumer from one that usually wins the race. **A double more permissive than the database turns a real defect into a flake** — and this file already carried a comment about an earlier flake here that accused the product wrongly. This time the accusation was correct | L-01 |
 | 40 | **Sentence splitting was English-only, and it made the semantic chunker inert in Arabic.** `_SENTENCE_RE` was `[.!?]` — none of Arabic's terminators. Arabic borrows the Latin full stop, so statements split and questions did not: four Arabic questions came back as **one** sentence. `SemanticChunker` then takes its `len(sentences) == 1` shortcut, **never calls the embedder**, and falls through to the token-window packer — so the semantic tier silently became the structural tier and `semantic_breakpoint_percentile` did nothing. Every chunking test in the suite is written in English | F-27, F-28 |
+| 55 | **The LiveKit join token was handed to anyone who asked.** `GET /api/streams/{sessionId}` checked that the stream existed and that it was Live, and nothing about the caller — so any account in the platform could name any live session and receive a token for it. The token is not a step towards entry, it *is* entry: §7.4's own note says "once LiveKit holds it our code is never consulted again", so there was no second place this could have been caught and no record that it had happened | G-02 |
+| 56 | **And publishing rights came from the caller's own role claim.** `isTeacher = role.Equals("Teacher", …)`, where `role` was read off the requester's token and had nothing to do with this classroom — so any Teacher-role account could walk into any live lecture **with camera and microphone**, appearing to the room as a teacher. The parameter is gone rather than better checked | G-36 |
+| 57 | **Joining the roster was separately unguarded.** A different endpoint from the token, and the one that writes the participant row the teacher's screen counts and that hand-raise and chat look up — so a stranger could appear in a lecture's roster even where the publish policy would not let them speak | G-39 |
+| 58 | **Every refusal in StreamingService was a 401**, which the browser reads as an expired access token: the axios interceptor refreshes the session — rotating the refresh token — replays the request and is refused again. A refresh that failed during that would have signed the user out and sent them to `/login` for clicking on a lecture they are not enrolled in. Found by asking what the new refusal would actually look like to the front end, not by a mutation | G-02 follow-through |
 | 49 | **Any teacher could start any session in the platform, from its id alone.** `StartSessionAsync(sessionId, ct)` took no caller *and no classroom* — its route is `/api/classrooms/{classroomId}/sessions/{sessionId}/start`, and the action never bound the classroom, so the id in the URL was decorative and nothing cross-checked that the session belonged to it. `[Authorize(Roles = "Teacher")]` was the whole check. The class goes live, the media room opens, recording begins if configured; the teacher who owns it later gets "Only scheduled sessions can be started" with nothing naming who did it | B-25, B-30 |
 | 50 | **Any teacher could schedule a session in any other teacher's classroom**, visible to that classroom's students. Same shape, same route family, same role attribute standing in for a tenancy check | B-25 |
 | 51 | **Any authenticated user could read any classroom's roster by id** — and `MemberResponse` carries each student's full name, so a personal-data disclosure rather than a metadata one. `RemoveStudentAsync` next door checks ownership *before* the membership lookup precisely so a classroom id cannot be used to probe who is enrolled; the listing answered the question outright | B-24 |
@@ -283,12 +287,13 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 291 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 305 mutations across the project so far.
 
-Twelve survived, and each one meant a test was passing for the wrong reason. (This said "nine"
+Thirteen survived, and each one meant a test was passing for the wrong reason. (This said "nine"
 until it was counted against the table below, which had thirteen rows by then — the count was
-edited by hand while the rows were appended. It is counted now. The thirteenth row is in the table
-because it is the most instructive entry here and **not** because it survived; it says so.)
+edited by hand while the rows were appended. It is counted now, and the count is checked against
+the table whenever a row is added. One row is present because it is the most instructive entry here
+and **not** because it survived; it says so.)
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -303,6 +308,7 @@ because it is the most instructive entry here and **not** because it survived; i
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 | Removing the unique-index modelling from `FakeStreamRepository` | Honest, and recorded rather than engineered around. Once `ConsumeAsync` was made to publish **sequentially** — which is what a redelivery actually is — the second consume returns at `ExistsAsync` and never reaches `AddAsync`, so the double's constraint is not exercised there. It exists so the fake cannot be more permissive than the schema; the concurrent case has its own file, with its own constrained repository |
 | Removing the `\b` anchor from the TRX reader's counter lookup | **An honest survivor, and the comment claiming otherwise was the thing that changed.** The anchor guards `executed="` against matching inside `notExecuted="` — and it cannot, because the counter is spelled with a capital E, so no attribute order collides. Recorded in the test that was written to kill it. Two neighbouring mutations did earn their keep: one exposed a "test" asserting `61 - 59 == 2`, a tautology exercising no product code at all |
+| Answering `IsMember: true` for an unknown classroom on the internal membership route | The service's "returns null for a classroom that does not exist" was tested; the **controller's translation of that null into a 404** was not. So the fail-OPEN direction went unchecked on the one route whose answer decides entry to a live lecture — and a stream naming a deleted classroom is precisely when it fires |
 | Dropping the classroom scoping from `StartSessionAsync` | **The test could not fail.** "A session started under the wrong classroom is 404" asked with an *invented* classroom id — and an unknown classroom is 404 from the ownership check too, so both the fixed and the broken code answered the same. Rewritten to ask as the *other* teacher, under a real classroom that is genuinely theirs, for a session that is not: the probe the 404 exists to defeat, and the one that was not being made |
 | Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
 
@@ -314,7 +320,7 @@ test that works.
 
 | Gap | Reason |
 |---|---|
-| Runtime 401/403 assertions, and the IDOR sweep over every `{id}` route param | Need a running host and real data. The cross-tenant *decisions* are no longer in this row: B-04/B-05 are covered at the unit level and found five open endpoints, and B-07's question — can this method refuse at all — is now a rule over the service layer (B-23) |
+| Runtime 401/403 assertions, and the IDOR sweep over every `{id}` route param | Need a running host and real data. The cross-tenant *decisions* are no longer in this row: B-04/B-05 are covered at the unit level and found five open endpoints, and B-07's question — can this method refuse at all — is now a rule over the service layer (B-23). G-02, the LiveKit join token, is covered too, including the cross-service contract the check now depends on |
 | Integration suites (§8.2–8.6), migrations (§11.8), concurrency races (§11.7) | Need containers |
 | Browser-level E2E (§11.12) | Needs Playwright; one journey would cover the §4/§5/§6 seams |
 | Email verification of a registered address (A-10) | **The feature does not exist.** Registration lands in `Pending` and an administrator approves it, which is the stronger gate — but nothing proves the address belongs to the registrant, and the approving administrator gets no signal either way |

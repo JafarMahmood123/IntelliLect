@@ -151,6 +151,13 @@ services:
       # Shared internal secret — must match live-assistant-service's INTERNAL_API_SECRET
       # (which is also what live-assistant presents to RagService). One value everywhere.
       - LiveAssistant__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
+      # ClassroomService membership check (G-02): asked before this service mints a join token,
+      # because the token is entry to the media room and this service holds no roster. Fails
+      # CLOSED — see ClassroomInternalClient — so an unset secret refuses new joins rather than
+      # admitting everybody, which is the right way round for an authorization dependency.
+      - ClassroomService__BaseUrl=http://classroom-service:8080
+      - ClassroomService__TimeoutSeconds=3
+      - ClassroomService__InternalApiSecret=${INTERNAL_API_SECRET:?set it in backend/.env}
       # INBOUND guard for this service's own /api/internal routes. The two above are what this
       # service PRESENTS to others; this is what it REQUIRES of callers. Same value, opposite
       # direction — and the guard fails closed, so leaving it unset refuses every internal call

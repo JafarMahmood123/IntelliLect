@@ -1,3 +1,4 @@
+using StreamingService.Application.Abstractions;
 using StreamingService.Application.Services;
 using StreamingService.Domain.Entities;
 using StreamingService.Domain.Enums;
@@ -48,6 +49,10 @@ public sealed class StreamServiceRecordingToggleTests
             egress,
             settings: null!,
             mediaSettings: null!,
+            // Refuses everybody, and the recording toggle passes anyway: it is a teacher action on
+            // a stream the caller already owns, not a request to enter the room. If a membership
+            // check ever appears on this path these tests will say so rather than sail through.
+            new FakeClassroomInternalClient(),
             new RecordingLogger<StreamService>());
 
     // --- starting ---------------------------------------------------------------
@@ -225,7 +230,7 @@ public sealed class StreamServiceRecordingToggleTests
         var repo = new FakeStreamRepository(Stream(sessionId, Guid.NewGuid()));
         var egress = new FakeRecordingEgressService();
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+        await Assert.ThrowsAsync<ForbiddenAccessException>(
             () => Create(repo, egress, new RecordingStreamHubContext())
                 .UpdateRecordingStateAsync(sessionId, teacherId: Guid.NewGuid(), enabled: true));
 

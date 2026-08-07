@@ -28,9 +28,12 @@ public sealed class StreamsController : ApiBaseController
     [HttpGet("{sessionId:guid}")]
     public async Task<IActionResult> GetStream(Guid sessionId, CancellationToken ct)
     {
-        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Student";
+        // The role claim is deliberately not read here any more. It used to be passed through and
+        // used to decide publishing rights, so any Teacher-role account could walk into any live
+        // lecture with camera and microphone. Ownership of the classroom decides that now, inside
+        // the service, and there is nothing left on this line to get wrong.
         var userName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Anonymous";
-        var response = await _streamService.GetStreamBySessionIdAsync(sessionId, UserId, role, userName, ct);
+        var response = await _streamService.GetStreamBySessionIdAsync(sessionId, UserId, userName, ct);
         return Ok(response);
     }
 

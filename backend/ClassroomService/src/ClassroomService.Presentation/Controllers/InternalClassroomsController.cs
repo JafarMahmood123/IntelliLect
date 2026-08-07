@@ -192,6 +192,23 @@ public sealed class InternalClassroomsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Whether one user may be in this classroom (test-plan G-02). 404 for an unknown classroom.
+    ///
+    /// StreamingService calls this before it mints a LiveKit join token. That token is the entire
+    /// authorization for the media room — once LiveKit holds it, nothing of ours is consulted again
+    /// — and StreamingService has no roster, so without this route the only checks it could make
+    /// were "the stream exists" and "the stream is Live".
+    /// </summary>
+    [HttpGet("{id:guid}/access/{userId:guid}")]
+    [ProducesResponseType(typeof(ClassroomAccessResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAccess(Guid id, Guid userId, CancellationToken ct)
+    {
+        var access = await _members.GetAccessAsync(id, userId, ct);
+        return access is null ? NotFound() : Ok(access);
+    }
+
     /// <summary>Steps 5-6: add a student. No-op (Changed=false) when already a member (5ج).</summary>
     [HttpPost("{id:guid}/members")]
     [ProducesResponseType(typeof(MemberMutationResult), StatusCodes.Status200OK)]

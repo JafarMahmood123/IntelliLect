@@ -130,7 +130,7 @@ across every `{id}` route param. Every case here is a template applied per endpo
 | B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration **+ Unit** | P0 | partial — the *sweep* needs a running host, but the question it asks is now a rule (B-23): a method handed a `classroomId` and no caller cannot refuse anything. `StartSessionAsync` never even bound the classroom in its own route |
 | B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
 | B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |
-| B-10 | Internal routes are not reachable through nginx from outside | Integration **+ Unit** | P0 | ✓ (unit: `NginxRouteTableTests` resolves every `[Route]` against `nginx.conf` the way nginx does). The e2e half — `tests/e2e/test_internal_surface_contract.py`, 55 tests over 18 routes — is still authored-unrun, and by its own note probes in-network, so it tests the guard and never the route table |
+| B-10 | Internal routes are not reachable through nginx from outside | Integration **+ Unit** | P0 | ✓ (unit: `NginxRouteTableTests` resolves every `[Route]` against `nginx.conf` the way nginx does). The e2e half — `tests/e2e/test_internal_surface_contract.py`, 58 tests over 19 routes — is still authored-unrun, and by its own note probes in-network, so it tests the guard and never the route table |
 | B-15 | An internal controller added to the service behind nginx's `/api/` catch-all is caught — today's safety is placement, not policy, and it is one file away from being public | Unit | P0 | ✓ |
 | B-16 | Every PUBLIC route reaches the service that hosts it; a misrouted one 404s from a service that never owned the endpoint and logs nothing at the one that does | Unit | P1 | ✓ |
 | B-17 | The not-through-the-gateway exemption list is checked in both directions — the entry still names a real route, and that route is still unreachable | Unit | P1 | ✓ (one entry: the LiveKit webhook, delivered to a host-published port) |
@@ -289,7 +289,15 @@ embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | G-01 | Token issuance encodes the correct role in metadata; a student token cannot publish as teacher | Unit | P0 | ✓ |
-| G-02 | A non-member cannot obtain a token for a session | Integration | P0 | gap |
+| G-02 | A non-member cannot obtain a token for a session | Integration **+ Unit** | P0 | ✓ (unit, **the worst defect the tenancy sweep found**) — the route checked that the stream existed and was Live, and nothing about the caller. Proving the resulting 403 over HTTP is still integration work |
+| G-36 | Publishing rights come from the classroom, never from the caller's own role claim — the parameter that carried the claim is gone, and a rule fails if it returns | Unit | P0 | ✓ (defect found & fixed) |
+| G-37 | Membership is checked **before** the token is minted; a refusal mints nothing | Unit | P0 | ✓ |
+| G-38 | An ended session is refused before ClassroomService is asked — the remote call is not paid per request on a session nobody can join | Unit | P1 | ✓ |
+| G-39 | A non-member cannot join the roster either; the participant row and the count broadcast are a separate endpoint and were separately unguarded | Unit | P0 | ✓ (defect found & fixed) |
+| G-40 | The membership client **fails closed**: 404, 401, 5xx, connection refused, timeout and an unreadable body all refuse, and each is logged | Unit | P0 | ✓ |
+| G-41 | The caller's own cancellation still propagates rather than being logged as a failed check (§11.7's 499 lesson) | Unit | P1 | ✓ |
+| G-42 | The route StreamingService calls is the one ClassroomService serves, and the fields it reads are the ones ClassroomService sends — checked across the two repositories' sources | Unit | P0 | ✓ |
+| G-43 | The remote answer means the same thing as `ClassroomAccess.EnsureMemberAsync`, driven over teacher / student / stranger rather than asserted once | Unit | P0 | ✓ |
 | G-03 | LiveKit webhook signature is verified; a forged webhook is rejected | Unit | P0 | ✓ |
 | G-04 | Recording start/stop toggles produce exactly one egress; a double-start does not | Unit | P0 | ✓ |
 | G-05 | Egress reconciler recovers a recording orphaned by a crash | Unit | P1 | ✓ |

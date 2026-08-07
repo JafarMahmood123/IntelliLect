@@ -10,30 +10,26 @@
 
 \begin{figure}[htbp]
   \centering
-  % Width to be re-checked when the draw.io export replaces this PNG.
+  % 1.82:1 — full width is ~37% of the text block, so it places inline.
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-05-rag.png}
   \caption{مخطط مكوّنات خدمة المعرفة.}
   \label{fig:comp-05}
 \end{figure}
 
-وطُبّق في هذه الخدمة نمط المنافذ والمحوِّلات: تُعرّف طبقة التطبيق منافذ مجرّدة تصف ما تحتاجه الخدمة من استخراج وتضمين وتخزين، ويقع كل اختيار تقني خلف أحدها في طبقة البنية التحتية. ويحصر ذلك استبدال مزوّد التضمين أو محرّك التعرّف الضوئي في محوِّل واحد، دون تعديل منطق خط الأنابيب. ويعرض الشكل~\ref{fig:class-01} هذا التصميم مطبَّقاً على خط أنابيب الاستيعاب.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/class-01-ports-adapters.png}
-  \caption{مخطط الصفوف لنمط المنافذ والمحوِّلات في خط أنابيب الاستيعاب.}
-  \label{fig:class-01}
-\end{figure}
+وطُبّق في هذه الخدمة نمط المنافذ والمحوِّلات: تُعرّف طبقة التطبيق منافذ مجرّدة تصف ما تحتاجه الخدمة من استخراج وتضمين وتخزين، ويقع كل اختيار تقني خلف أحدها في طبقة البنية التحتية. ويحصر ذلك استبدال مزوّد التضمين أو محرّك التعرّف الضوئي في محوِّل واحد، دون تعديل منطق خط الأنابيب.
 
 \subsection{نموذج البيانات}
 \label{subsec:rag-data-model}
 
 يقوم نموذج البيانات على أربعة كيانات يعرضها الشكل~\ref{fig:erd-04}: المستند والمقطع، وسجلّات محاولات التلخيص، وجدول صندوق الصادر.
 
-\begin{figure}[htbp]
+% [H]: pinned under the paragraph that introduces it. At 1.07:1 full width
+% would be ~79% of the text block and could not share the page.
+\begin{figure}[H]
   \centering
-  % Width to be re-checked when the draw.io export replaces this PNG.
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-04-rag.png}
+  % 0.55 is the widest that fits the space left below the paragraph; 0.65 and
+  % above overflow and [H] then pushes the figure to the next page.
+  \includegraphics[width=0.55\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-04-rag.png}
   \caption{مخطط الكيانات والعلاقات لخدمة المعرفة.}
   \label{fig:erd-04}
 \end{figure}

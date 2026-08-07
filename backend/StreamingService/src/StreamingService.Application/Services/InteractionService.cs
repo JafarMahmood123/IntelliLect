@@ -148,7 +148,7 @@ public sealed class InteractionService : IInteractionService
             _logger.LogWarning(
                 "Answer rejected: unauthorized. QuestionId: {QuestionId}, TeacherId: {TeacherId}",
                 questionId, teacherId);
-            throw new UnauthorizedAccessException("Only the teacher can answer questions.");
+            throw new ForbiddenAccessException("Only the teacher can answer questions.");
         }
 
         question.AnswerText = answerText?.Trim();

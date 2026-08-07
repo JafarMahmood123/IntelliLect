@@ -23,6 +23,7 @@ namespace StreamingService.UnitTests;
 public sealed class StreamJoinMediaSettingsTests
 {
     private static readonly Guid SessionId = Guid.NewGuid();
+    private static readonly Guid ClassroomId = Guid.NewGuid();
     private static readonly Guid TeacherId = Guid.NewGuid();
     private static readonly Guid StudentId = Guid.NewGuid();
 
@@ -66,7 +67,7 @@ public sealed class StreamJoinMediaSettingsTests
     {
         Id = Guid.NewGuid(),
         SessionId = SessionId,
-        ClassroomId = Guid.NewGuid(),
+        ClassroomId = ClassroomId,
         TeacherId = TeacherId,
         Status = status,
         StreamKey = "k",
@@ -85,10 +86,14 @@ public sealed class StreamJoinMediaSettingsTests
             recordingEgress: null!,
             new StubStreamSettings(),
             media ?? new DistinctMediaSettings(),
+            // Both people these tests join as are members. The refusal cases live in
+            // StreamJoinAuthorizationTests; here the point is what a legitimate join receives.
+            new FakeClassroomInternalClient().Member(ClassroomId, StudentId).Teacher(ClassroomId, TeacherId),
             new RecordingLogger<StreamService>());
 
-    private static Task<StreamResponse> JoinAsync(FakeStreamRepository repo, string role = "Student")
-        => Create(repo).GetStreamBySessionIdAsync(SessionId, StudentId, role, "Ammar", default);
+    /// <summary>Joins as the student by default; pass <see cref="TeacherId"/> for the owner.</summary>
+    private static Task<StreamResponse> JoinAsync(FakeStreamRepository repo, Guid? asUser = null)
+        => Create(repo).GetStreamBySessionIdAsync(SessionId, asUser ?? StudentId, "Ammar", default);
 
     // --- the rule ------------------------------------------------------------------
 
@@ -178,8 +183,8 @@ public sealed class StreamJoinMediaSettingsTests
         // settings is a call where one of them cannot see the other.
         var repo = new FakeStreamRepository(Stream());
 
-        var asTeacher = await JoinAsync(repo, "Teacher");
-        var asStudent = await JoinAsync(repo, "Student");
+        var asTeacher = await JoinAsync(repo, TeacherId);
+        var asStudent = await JoinAsync(repo, StudentId);
 
         Assert.Equal(asTeacher.Media, asStudent.Media);
     }
@@ -220,7 +225,7 @@ public sealed class StreamJoinMediaSettingsTests
         // the room for real, and the students' stale tokens would then work again.
         var repo = new FakeStreamRepository(Stream(StreamStatus.Ended));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => JoinAsync(repo, "Teacher"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => JoinAsync(repo, TeacherId));
     }
 
     [Fact]

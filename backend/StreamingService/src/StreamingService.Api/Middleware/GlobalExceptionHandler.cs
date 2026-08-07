@@ -21,6 +21,10 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         {
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
+            // 403, not 401. The front-end's interceptor reads a 401 as an expired access token and
+            // spends a refresh-token rotation replaying the request — which will be refused again.
+            StreamingService.Application.Abstractions.ForbiddenAccessException
+                => (StatusCodes.Status403Forbidden, "Forbidden"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
             InvalidOperationException => (StatusCodes.Status409Conflict, "Conflict"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")

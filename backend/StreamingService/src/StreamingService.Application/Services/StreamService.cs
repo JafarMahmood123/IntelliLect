@@ -18,6 +18,7 @@ public sealed class StreamService : IStreamService
     private readonly IRecordingEgressService _recordingEgress;
     private readonly IStreamSettings _settings;
     private readonly IMediaSettings _mediaSettings;
+    private readonly IClassroomInternalClient _classrooms;
     private readonly ILogger<StreamService> _logger;
 
     public StreamService(
@@ -30,6 +31,7 @@ public sealed class StreamService : IStreamService
         IRecordingEgressService recordingEgress,
         IStreamSettings settings,
         IMediaSettings mediaSettings,
+        IClassroomInternalClient classrooms,
         ILogger<StreamService> logger)
     {
         _streamRepository = streamRepository;
@@ -41,6 +43,7 @@ public sealed class StreamService : IStreamService
         _recordingEgress = recordingEgress;
         _settings = settings;
         _mediaSettings = mediaSettings;
+        _classrooms = classrooms;
         _logger = logger;
     }
 
@@ -67,7 +70,17 @@ public sealed class StreamService : IStreamService
         s.PeerConnectionTimeoutMs,
         s.WebsocketTimeoutMs);
 
-    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string role, string userName, CancellationToken ct)
+    /// <summary>
+    /// Mints the LiveKit join token for a member of the stream's classroom.
+    /// </summary>
+    /// <remarks>
+    /// The caller's ROLE CLAIM used to be a parameter here and is gone on purpose. It decided
+    /// publishing rights — `isTeacher || stream.StudentsCanPublishAudio` — which meant the answer
+    /// to "may this person turn their microphone on in this lecture" was read from a claim the
+    /// lecture has nothing to do with. Whose room this is now decides, and there is no longer a
+    /// parameter through which the old answer could come back.
+    /// </remarks>
+    public async Task<StreamResponse> GetStreamBySessionIdAsync(Guid sessionId, Guid userId, string userName, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, true, ct);
         if (stream == null) throw new KeyNotFoundException("Stream not found.");
@@ -83,13 +96,35 @@ public sealed class StreamService : IStreamService
             throw new InvalidOperationException("This session has ended.");
         }
 
-        bool isTeacher = role.Equals("Teacher", StringComparison.OrdinalIgnoreCase);
+        // Members of this classroom only (test-plan G-02).
+        //
+        // Everything above this line is a check about the STREAM — that it exists, that it is still
+        // running. Nothing was a check about the CALLER. The route is `GET /api/streams/{sessionId}`
+        // behind a bare `[Authorize]`, so any account in the platform could name any live session
+        // and be handed a join token for it. That token is not a step towards entry; it IS entry —
+        // once LiveKit holds it our code is never consulted again, so there was no second place
+        // where this could have been caught.
+        //
+        // Worse for a Teacher-role account, because the publish rights below are computed from the
+        // caller's own role claim: any teacher could walk into any live lecture in the platform with
+        // camera and microphone publishing rights.
+        await EnsureClassroomMemberAsync(stream, userId, "a join token", ct);
+
+        // Teacher of THIS classroom, not merely a Teacher-role account. The role claim decides what
+        // the person is; the classroom decides whose room this is. Using the claim alone is what
+        // made the paragraph above so much worse than a viewing leak.
+        bool isTeacher = stream.TeacherId == userId;
         // The teacher always publishes freely; a student gets exactly the current per-source policy.
         bool canPublishAudio = isTeacher || stream.StudentsCanPublishAudio;
         bool canPublishVideo = isTeacher || stream.StudentsCanPublishVideo;
 
+        // The role still travels into LiveKit's participant metadata, because that is what
+        // UpdateStudentPublishPolicyAsync reads when it sweeps the room. It is now consistent with
+        // the ownership decision above rather than being whatever the caller's token said: a
+        // teacher visiting another teacher's classroom as an enrolled member is a student here.
+        var effectiveRole = isTeacher ? "Teacher" : "Student";
         var joinToken = _mediaProvider.GenerateJoinToken(
-            sessionId, userId, role, userName, canPublishAudio, canPublishVideo);
+            sessionId, userId, effectiveRole, userName, canPublishAudio, canPublishVideo);
 
         return new StreamResponse(
             stream.Id,
@@ -120,7 +155,7 @@ public sealed class StreamService : IStreamService
         // Only the session's own teacher may change the policy (defence in depth on top of the
         // controller's [Authorize(Roles = "Teacher")]: a different teacher can't touch this room).
         if (stream.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Only the session's teacher can change publish settings.");
+            throw new ForbiddenAccessException("Only the session's teacher can change publish settings.");
 
         stream.StudentsCanPublishAudio = canPublishAudio;
         stream.StudentsCanPublishVideo = canPublishVideo;
@@ -150,7 +185,7 @@ public sealed class StreamService : IStreamService
         // Only the session's own teacher may record it (defence in depth on top of the controller's
         // [Authorize(Roles = "Teacher")]: a different teacher can't touch this room).
         if (stream.TeacherId != teacherId)
-            throw new UnauthorizedAccessException("Only the session's teacher can change recording.");
+            throw new ForbiddenAccessException("Only the session's teacher can change recording.");
 
         // Stopping is final. Rejected here rather than only in the UI so the rule holds for any
         // caller — and the recording stays one continuous video.
@@ -232,6 +267,11 @@ public sealed class StreamService : IStreamService
         if (stream == null || stream.Status != StreamStatus.Live)
             throw new InvalidOperationException("Stream is not active.");
 
+        // The roster, checked for the same reason as the token. This endpoint writes the
+        // participant row the teacher's screen counts and the hand-raise and chat paths look up, so
+        // without it a stranger could appear in a lecture's roster even where they could not speak.
+        await EnsureClassroomMemberAsync(stream, userId, "a place in the room", ct);
+
         var isAlreadyJoined = stream.Participants.Any(p => p.UserId == userId);
 
         if (!isAlreadyJoined)
@@ -253,6 +293,30 @@ public sealed class StreamService : IStreamService
             await _hubContext.NotifyParticipantCountAsync(
                 sessionId, await _participantRepository.CountInStreamAsync(stream.Id, ct));
         }
+    }
+
+    /// <summary>
+    /// Refuses anyone who does not belong to the stream's classroom.
+    ///
+    /// Deliberately does not distinguish "not a member" from "could not ask ClassroomService" —
+    /// <see cref="IClassroomInternalClient"/> collapses the two on purpose, and the reason it can is
+    /// that the only safe response to either is the same. Which one it was is in that client's log.
+    /// </summary>
+    private async Task EnsureClassroomMemberAsync(
+        LiveStream stream, Guid userId, string what, CancellationToken ct)
+    {
+        var access = await _classrooms.GetAccessAsync(stream.ClassroomId, userId, ct);
+        if (access.IsMember)
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            "Refused {What} for session {SessionId}: user {UserId} does not belong to classroom "
+            + "{ClassroomId}.",
+            what, stream.SessionId, userId, stream.ClassroomId);
+
+        throw new ForbiddenAccessException("You are not a member of this classroom.");
     }
 
     public async Task LeaveStreamAsync(Guid sessionId, Guid userId, CancellationToken ct)

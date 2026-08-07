@@ -12,6 +12,14 @@ public interface IClassroomMemberAdminService
     /// <exception cref="KeyNotFoundException">The classroom does not exist (5أ).</exception>
     Task<ClassroomMembersResult> GetMembersAsync(Guid classroomId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Whether one user belongs to one classroom — the roster question asked one person at a time,
+    /// for a service that holds no roster (test-plan G-02). Returns null for an unknown classroom
+    /// rather than throwing, because the caller's only sensible response to either is to refuse.
+    /// </summary>
+    Task<ClassroomAccessResult?> GetAccessAsync(
+        Guid classroomId, Guid userId, CancellationToken ct = default);
+
     /// <summary>Adds a student. A no-op (Changed=false) when the student already belongs (5ج).</summary>
     /// <exception cref="KeyNotFoundException">The classroom does not exist (5أ).</exception>
     Task<MemberMutationResult> AddMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default);

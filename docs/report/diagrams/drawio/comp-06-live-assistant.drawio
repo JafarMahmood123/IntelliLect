@@ -1,0 +1,72 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="LiveAssistantService Components">
+    <mxGraphModel dx="1200" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1160" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1140" height="580" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cs" value="خدمة الفصول الدراسية&lt;br&gt;بدء الجلسة وإنهاؤها" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="45" y="255" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svc" value="خدمة المساعد الحيّ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+          <mxGeometry x="270" y="50" width="400" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="طبقة الواجهات&lt;br&gt;FastAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="300" y="100" width="340" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="الحلقة الحيّة&lt;br&gt;التقاط · تحويل إلى نصّ · كشف الفكرة&lt;br&gt;تقييم · إيقاع · إرسال" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="300" y="175" width="340" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="طبقة النطاق&lt;br&gt;أنواع القرار" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="300" y="275" width="340" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="المنافذ&lt;br&gt;صوت · كلام إلى نصّ · توليد · تضمين&lt;br&gt;استرجاع · إرسال · تخزين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="300" y="350" width="340" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" value="المحوِّلات&lt;br&gt;طبقة البنية التحتية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="300" y="450" width="340" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lk" value="خادم البثّ&lt;br&gt;LiveKit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="55" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="stt" value="محرّك تحويل الكلام إلى نصّ&lt;br&gt;Groq Whisper" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="160" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="مزوّد النماذج&lt;br&gt;توليد وتضمين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="265" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ks" value="خدمة المعرفة&lt;br&gt;استرجاع المقاطع المرجعية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="370" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="قاعدة بيانات الخدمة&lt;br&gt;PostgreSQL" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="470" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="k0" value="HTTP داخلي" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="cs" target="svc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k1" value="صوت وارد · قناة بيانات" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.08;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="lk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k2" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.29;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="stt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k3" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k4" value="HTTP داخلي" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.71;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="ks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k5" value="SQL" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.92;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

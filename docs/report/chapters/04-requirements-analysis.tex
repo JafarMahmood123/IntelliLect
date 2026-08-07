@@ -2015,6 +2015,15 @@
 % CH2-REF: originally ended "والكلفة (القسم~\ref{subsec:text-extraction-ocr})." — restore with chapter 2.
 \noindent واعتُمد عامل معالجة محدود التزامن، ممّا يتيح التحكّم في استهلاك الموارد ويمنع استنزاف الجهاز عند معالجة عدّة ملفّات معاً. وصُمّمت المعالجة خاملة التكرار (\en{Idempotent})، فلا تُعاد فهرسة الملفّ نفسه دون تغيّر في محتواه، مع دعم إعادة الفهرسة عند تغيّره. ويُطبَّق التعرّف الضوئي (\en{OCR}) على الصفحات الممسوحة والصور الحاملة للنص فقط، موازنةً بين الدقة والكلفة.
 
+ويقوم خط الأنابيب على نمط المنافذ والمحوِّلات، فيُحصر استبدال مزوّد التضمين أو محرّك التعرّف الضوئي في محوِّل واحد دون تعديل منطق الخط. ويعرض الشكل~\ref{fig:class-01} هذا التصميم.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/class-01-ports-adapters.png}
+  \caption{مخطط الصفوف لنمط المنافذ والمحوِّلات في خط أنابيب الاستيعاب.}
+  \label{fig:class-01}
+\end{figure}
+
 \subsubsection{تدفّق الاسترجاع والإجابة}
 \label{subsubsec:flow-retrieval}
 

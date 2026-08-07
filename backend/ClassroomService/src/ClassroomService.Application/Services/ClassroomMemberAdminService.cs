@@ -30,6 +30,28 @@ public sealed class ClassroomMemberAdminService : IClassroomMemberAdminService
         return new ClassroomMembersResult(classroomId, info.Name, info.TeacherId, students);
     }
 
+    public async Task<ClassroomAccessResult?> GetAccessAsync(
+        Guid classroomId, Guid userId, CancellationToken ct = default)
+    {
+        var info = await _classroomRepository.GetTeacherInfoAsync(classroomId, ct);
+        if (info is null)
+        {
+            return null;
+        }
+
+        var isTeacher = info.TeacherId == userId;
+
+        // The same disjunction as ClassroomAccess.EnsureMemberAsync, and deliberately not a call to
+        // it: this answers a question rather than refusing a request, and the caller is another
+        // service that decides what to do with the answer. What must not drift is the MEANING of
+        // "member" — the teacher counts — and there is a test pinning the two against each other.
+        return new ClassroomAccessResult(
+            classroomId,
+            userId,
+            IsMember: isTeacher || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct),
+            IsTeacher: isTeacher);
+    }
+
     public async Task<MemberMutationResult> AddMemberAsync(Guid classroomId, Guid studentId, CancellationToken ct = default)
     {
         var info = await RequireClassroomAsync(classroomId, ct); // 5أ

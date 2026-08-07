@@ -30,52 +30,12 @@ public sealed class StreamJoinLeaveTests
 {
     private static readonly Guid SessionId = Guid.NewGuid();
     private static readonly Guid StreamId = Guid.NewGuid();
+    private static readonly Guid ClassroomId = Guid.NewGuid();
     private static readonly Guid Joiner = Guid.NewGuid();
 
-    /// <summary>
-    /// Shares its list with the stream entity, so "what is in the table" and "what this request
-    /// loaded" are the same thing unless a test deliberately separates them — which is how the
-    /// stale-read defect is reproduced below.
-    /// </summary>
-    private sealed class FakeParticipantRepository : IParticipantRepository
-    {
-        public readonly List<StreamParticipant> Rows = [];
-        public int SaveCalls { get; private set; }
-
-        public Task AddAsync(StreamParticipant entity, CancellationToken ct = default)
-        {
-            Rows.Add(entity);
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteAsync(Guid id, CancellationToken ct = default)
-        {
-            Rows.RemoveAll(row => row.Id == id);
-            return Task.CompletedTask;
-        }
-
-        public Task<int> CountInStreamAsync(Guid streamId, CancellationToken ct = default)
-            => Task.FromResult(Rows.Count(row => row.StreamId == streamId));
-
-        public Task<StreamParticipant?> GetBySessionAndUserAsync(
-            Guid sessionId, Guid userId, CancellationToken ct = default)
-            => Task.FromResult(Rows.FirstOrDefault(row => row.UserId == userId));
-
-        public Task<bool> IsUserInStreamAsync(Guid streamId, Guid userId, CancellationToken ct = default)
-            => Task.FromResult(Rows.Any(row => row.StreamId == streamId && row.UserId == userId));
-
-        public Task<int> SaveChangesAsync(CancellationToken ct = default)
-        {
-            SaveCalls++;
-            return Task.FromResult(1);
-        }
-
-        public Task<StreamParticipant?> GetByIdAsync(Guid id, CancellationToken ct = default)
-            => Task.FromResult(Rows.FirstOrDefault(row => row.Id == id));
-
-        public Task UpdateAsync(StreamParticipant entity, CancellationToken ct = default)
-            => Task.CompletedTask;
-    }
+    /// <summary>Admits the joiner and anyone the helper seeds; refuses everyone else by default.</summary>
+    private static readonly FakeClassroomInternalClient Classrooms =
+        new FakeClassroomInternalClient().Member(ClassroomId, Joiner);
 
     // --- joining ------------------------------------------------------------------------------
 
@@ -188,10 +148,10 @@ public sealed class StreamJoinLeaveTests
         JoinedAtUtc = DateTime.UtcNow,
     };
 
-    private static (StreamService Service, FakeParticipantRepository Participants, RecordingStreamHubContext Hub, LiveStream Stream)
+    private static (StreamService Service, TrackingParticipantRepository Participants, RecordingStreamHubContext Hub, LiveStream Stream)
         Build(int alreadyPresent, StreamStatus status = StreamStatus.Live)
     {
-        var participants = new FakeParticipantRepository();
+        var participants = new TrackingParticipantRepository();
         for (var i = 0; i < alreadyPresent; i++)
         {
             participants.Rows.Add(Participant(Guid.NewGuid()));
@@ -201,7 +161,7 @@ public sealed class StreamJoinLeaveTests
         {
             Id = StreamId,
             SessionId = SessionId,
-            ClassroomId = Guid.NewGuid(),
+            ClassroomId = ClassroomId,
             TeacherId = Guid.NewGuid(),
             Status = status,
             StreamKey = "key",
@@ -220,6 +180,8 @@ public sealed class StreamJoinLeaveTests
             recordingEgress: null!,
             settings: null!,
             mediaSettings: null!,
+            // Everyone these tests join as is a member; the refusals are StreamJoinAuthorizationTests'.
+            Classrooms,
             new RecordingLogger<StreamService>());
 
         return (service, participants, hub, stream);

@@ -551,3 +551,93 @@ public sealed class FakeStreamRepository : IStreamRepository
         return Task.FromResult(1);
     }
 }
+
+/// <summary>
+/// Stands in for ClassroomService's roster (test-plan G-02).
+///
+/// **It starts refusing everybody, and every test that wants to be let in says so.** The obvious
+/// double here answers "yes" by default so the existing tests keep passing untouched — and that is
+/// the shape this suite has now been bitten by three times: a fake stream repository that accepted
+/// two rows for one session, a user stub that compared case-insensitively, a hub context that threw
+/// its argument away. A permissive default would make every one of the twenty-odd tests that call
+/// `GetStreamBySessionIdAsync` pass whether or not the check exists at all.
+/// </summary>
+public sealed class FakeClassroomInternalClient : IClassroomInternalClient
+{
+    private readonly Dictionary<(Guid Classroom, Guid User), ClassroomAccess> _answers = new();
+
+    /// <summary>Every question asked, so a test can prove the check was reached before a write.</summary>
+    public List<(Guid ClassroomId, Guid UserId)> Asked { get; } = new();
+
+    /// <summary>Set when ClassroomService cannot be reached; the real client turns this into "no".</summary>
+    public bool Unreachable { get; set; }
+
+    public FakeClassroomInternalClient Member(Guid classroomId, Guid userId)
+    {
+        _answers[(classroomId, userId)] = new ClassroomAccess(IsMember: true, IsTeacher: false);
+        return this;
+    }
+
+    public FakeClassroomInternalClient Teacher(Guid classroomId, Guid userId)
+    {
+        _answers[(classroomId, userId)] = new ClassroomAccess(IsMember: true, IsTeacher: true);
+        return this;
+    }
+
+    public Task<ClassroomAccess> GetAccessAsync(Guid classroomId, Guid userId, CancellationToken ct = default)
+    {
+        Asked.Add((classroomId, userId));
+        return Task.FromResult(Unreachable
+            ? ClassroomAccess.None
+            : _answers.GetValueOrDefault((classroomId, userId), ClassroomAccess.None));
+    }
+}
+
+    /// <summary>
+/// In-memory participant rows. Shares its list with the stream entity, so "what is in the table"
+/// and "what this request loaded" are the same thing unless a test deliberately separates them —
+/// which is how the stale-read defect in StreamJoinLeaveTests is reproduced.
+///
+/// Lived inside that file until StreamJoinAuthorizationTests needed the same thing to prove that a
+/// refused join writes NO row. Promoted rather than copied: a second copy is how two doubles for
+/// one port end up disagreeing about what the port does.
+/// </summary>
+public sealed class TrackingParticipantRepository : IParticipantRepository
+{
+    public readonly List<StreamParticipant> Rows = [];
+    public int SaveCalls { get; private set; }
+
+    public Task AddAsync(StreamParticipant entity, CancellationToken ct = default)
+    {
+        Rows.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Rows.RemoveAll(row => row.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> CountInStreamAsync(Guid streamId, CancellationToken ct = default)
+        => Task.FromResult(Rows.Count(row => row.StreamId == streamId));
+
+    public Task<StreamParticipant?> GetBySessionAndUserAsync(
+        Guid sessionId, Guid userId, CancellationToken ct = default)
+        => Task.FromResult(Rows.FirstOrDefault(row => row.UserId == userId));
+
+    public Task<bool> IsUserInStreamAsync(Guid streamId, Guid userId, CancellationToken ct = default)
+        => Task.FromResult(Rows.Any(row => row.StreamId == streamId && row.UserId == userId));
+
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+    {
+        SaveCalls++;
+        return Task.FromResult(1);
+    }
+
+    public Task<StreamParticipant?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(Rows.FirstOrDefault(row => row.Id == id));
+
+    public Task UpdateAsync(StreamParticipant entity, CancellationToken ct = default)
+        => Task.CompletedTask;
+}
