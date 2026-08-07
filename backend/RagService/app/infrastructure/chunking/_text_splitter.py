@@ -6,9 +6,41 @@ from dataclasses import dataclass
 from app.application.services.token_counter import TokenCounter
 from app.domain.extraction.text_block import TextBlock, TextBlockSource
 
-# Sentence boundary: end punctuation followed by whitespace. Deterministic and
-# offline — good enough for chunking (not linguistic-grade segmentation).
-_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+# Sentence-ending punctuation, followed by whitespace. Deterministic and offline — good enough
+# for chunking, not linguistic-grade segmentation.
+#
+# **Not only the ASCII three.** This was `[.!?]`, which is every terminator English uses and
+# none of the ones Arabic adds — and Arabic is the platform's second language. Arabic prose does
+# borrow the Latin full stop, so the failure was partial and therefore invisible: statements
+# split, questions did not. "ما هو التعلم العميق؟" is how a lecture asks a question, and four
+# such sentences in a row came back as one.
+#
+# What that costs is not obvious from here, so it is written down: `SemanticChunker` embeds each
+# sentence and puts a chunk boundary where meaning shifts. Handed a single "sentence" it takes
+# the `len(sentences) == 1` path, never calls the embedder, and falls through to the token-window
+# packer — so semantic chunking silently becomes structural chunking, and
+# `semantic_breakpoint_percentile` has no effect at all. Nothing errors and the chunks look fine.
+#
+# ؟ U+061F Arabic question mark, ۔ U+06D4 Arabic full stop (also Urdu/Persian), … U+2026
+# ellipsis. The ideographic and fullwidth marks cost one character each and are here so the next
+# script does not have to rediscover this; Arabic is the one covered by tests, because it is the
+# one the product ships.
+_TERMINATORS = ".!?؟۔…。！？"
+
+
+def _boundary_pattern(terminators: str) -> re.Pattern[str]:
+    """A "one of these, then whitespace" pattern, with every character taken literally.
+
+    The escaping is the whole reason this is a function. Inside a character class the current
+    terminators are already literal, so `re.escape` changes nothing today — but a later addition
+    of `-`, `]` or `^` would turn the class into a RANGE or a negation, and the result would still
+    compile and still split text, just not the text anyone intended. Extracted so a test can hold
+    that property instead of leaving it as an assumption about characters nobody has added yet.
+    """
+    return re.compile(rf"(?<=[{re.escape(terminators)}])\s+")
+
+
+_SENTENCE_RE = _boundary_pattern(_TERMINATORS)
 
 # Atom join separator; also used when recounting a candidate chunk's tokens.
 _JOIN = " "

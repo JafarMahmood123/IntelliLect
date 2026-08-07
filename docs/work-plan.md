@@ -2948,4 +2948,41 @@ Not forgotten; blocked on the environment.
       `qwen3-embedding` retrieval embedder handles Arabic. If not: schema migration
       (dim change) **and** re-embedding the whole corpus. The drift embedder needs no
       change; STT is already multilingual.
+
+      **The pipeline half is DONE and it was broken (test-plan F-27..F-31).** "Does the
+      embedder handle Arabic" is a question about a model, and it is not the only question:
+      the code *in front of* the embedder is ours, and it was English-only.
+
+      `_SENTENCE_RE` was `(?<=[.!?])\s+` — every terminator English uses and none of the
+      ones Arabic adds. Arabic borrows the Latin full stop, so statements split correctly
+      and only questions failed: `؟` (U+061F) and the Arabic full stop `۔` (U+06D4) were
+      invisible. Measured before fixing — four Arabic questions came back as **one**
+      sentence; three sentences ending in `۔` came back as **one**.
+
+      A partial failure is the hard kind, and this one had a second layer. `SemanticChunker`
+      embeds each sentence and puts a boundary where meaning shifts; handed a single
+      "sentence" it takes the `len(sentences) == 1` shortcut, **never calls the embedder at
+      all**, and falls through to the token-window packer. So for Arabic the semantic tier
+      silently became the structural tier and `semantic_breakpoint_percentile` did nothing —
+      no error, no warning, and chunks that look entirely reasonable until somebody asks why
+      retrieval is worse in Arabic than in English. Educational material is the worst case
+      for it: "ما هو التعلم العميق؟" is how a lecture opens a topic.
+
+      **Every chunking test in the suite is written in English**, which is why nothing could
+      see it. The new file asserts the consequence rather than the regex —
+      `embed_documents_calls == 0` is what the defect actually looked like.
+
+      Also checked and clean: the `.txt` extractor decodes UTF-8 first (Arabic survives; the
+      cp1252 fallback is for non-UTF-8 only), and `estimate_tokens` is a whitespace word
+      count, which Arabic is. Nothing else in either Python service assumes Latin.
+
+      **Mutation-checked (§7.8), 8 mutations, all 8 killed** — including reverting to
+      ASCII-only, dropping either Arabic terminator, admitting a comma, and disabling the
+      breakpoint emission. One survived first: removing `re.escape` from the character class
+      is a no-op against the current list, so the pattern builder was extracted and given a
+      test that adding `-` must not create the range `[!-?]`.
+
+      **What this does NOT settle:** whether `qwen3-embedding` retrieves well in Arabic.
+      That still needs the model. The point is that it was never the only blocker, and the
+      other one could be fixed from here.
 - [ ] **P4 Run everything authored in §7–§10** and fill in the numbers.

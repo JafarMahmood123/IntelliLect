@@ -235,6 +235,17 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 | F-24 | A merged trailing runt does not duplicate the overlap atoms it shares with its predecessor | Unit | P1 | ✓ |
 | F-25 | An unrecognised `CHUNKING_STRATEGY` falls back to the offline chunker rather than one needing a live model | Unit | P1 | ✓ |
 | F-26 | An empty page produces no chunk and no embedding call; a one-sentence slide skips the model entirely | Unit | P1 | ✓ |
+| F-27 | **Sentence boundaries are found in Arabic, not only in English** — `؟` and `۔` end a sentence | Unit | P0 | ✓ (defect found: `[.!?]` only) |
+| F-28 | The semantic tier actually **runs** for Arabic prose — the embedder is consulted and a topic shift produces a breakpoint | Unit | P0 | ✓ (defect found: it was silently inert) |
+| F-29 | Every character listed as a terminator splits, and nothing unlisted does — including `،` and `؛`, which are not sentence ends | Unit | P1 | ✓ |
+| F-30 | A terminator is taken literally, never as a character range — adding `-` to the list must not turn it into `[!-?]` | Unit | P1 | ✓ |
+| F-31 | Arabic text survives the pipeline intact; a decimal point still does not split | Unit | P1 | ✓ |
+
+**F-27/F-28 are the container-free half of P3.** That item is parked on "does the retrieval
+embedder handle Arabic", which is a question about a model — but the pipeline *in front of* the
+embedder is ours, and it did not. The failure was partial, which is what hid it: Arabic borrows
+the Latin full stop, so statements split and questions did not. Every existing chunking test is
+written in English, so nothing could see it.
 
 **Note on F-06.** There is no min-score cutoff in the code, and the ✓ this row carried was
 wrong. Grounding is done at the prompt instead: `AnswerService` does not call the model at all
