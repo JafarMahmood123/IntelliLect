@@ -117,7 +117,11 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | C-01 | Each legal transition applies: Pending→Active, Pending→Rejected, Active→Deactivated, Deactivated→Active | Unit | P0 | ✓ |
-| C-02 | Illegal transitions are refused (e.g. Rejected→Deactivated, Active→Active via Accept) | Unit | P0 | partial |
+| C-02 | Illegal transitions are refused (e.g. Rejected→Deactivated, Active→Active via Accept) | Unit | P0 | ✓ (`UserStatusTransitionMatrixTests`; the hand-written lists covered 13 of 16 combinations and the plan's own example, Rejected→Deactivated, was one of the three missing) |
+| C-15 | **All sixteen** combinations of status × action behave as declared, driven from the enums rather than a list | Unit | P0 | ✓ |
+| C-16 | The bulk path agrees with the single path on every one of the sixteen — a bulk endpoint more permissive than the single one lets fifty clicks do what one cannot | Unit | P0 | ✓ |
+| C-17 | Sessions end exactly when the DESTINATION is Rejected or Deactivated, never on approve or reactivate | Unit | P0 | ✓ |
+| C-18 | Adding a `UserStatus` or `UserStatusAction` fails the suite until its rules are decided — otherwise `IsValidSource`'s `_ => false` refuses it silently everywhere | Unit | P1 | ✓ |
 | C-03 | **Bulk**: a mixed batch returns a per-item result — successes are applied, failures named | Unit | P0 | new |
 | C-04 | **Bulk**: one invalid ID does not roll back the other 199 | Unit | P0 | new |
 | C-05 | **Bulk**: authorization is evaluated per user, not once for the batch | Unit | P0 | new |

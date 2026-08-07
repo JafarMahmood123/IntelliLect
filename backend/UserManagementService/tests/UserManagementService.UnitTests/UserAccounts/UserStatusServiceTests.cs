@@ -128,48 +128,11 @@ public class UserStatusServiceTests
         Assert.Empty(bus.Published);
     }
 
-    [Theory]
-    [InlineData(UserStatus.Rejected, "Accept")]     // cannot accept a rejected account
-    [InlineData(UserStatus.Pending, "Deactivate")]  // cannot deactivate an account not yet active
-    [InlineData(UserStatus.Pending, "Reactivate")]  // cannot reactivate an account that was never deactivated
-    [InlineData(UserStatus.Active, "Reject")]       // cannot reject an already-active account
-    [InlineData(UserStatus.Deactivated, "Accept")]  // cannot accept a deactivated account (use reactivate)
-    public async Task ChangeStatus_WithInvalidTransition_ThrowsAndDoesNotChange(UserStatus current, string action)
-    {
-        // Alternate path 5ج.
-        var user = UserWith(current, ActiveToken());
-        var (repo, bus) = Fakes(user);
-        var sut = CreateSut(repo, bus);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => sut.ChangeStatusAsync(user.Id, action, SuperAdminId));
-
-        Assert.Equal(current, user.Status);
-        Assert.False(user.RefreshTokens.Single().IsRevoked);
-        Assert.Equal(0, repo.SaveChangesCallCount);
-        Assert.Empty(bus.Published);
-    }
-
-    [Theory]
-    [InlineData(UserStatus.Active, "Accept")]         // already active
-    [InlineData(UserStatus.Active, "Reactivate")]     // already active
-    [InlineData(UserStatus.Deactivated, "Deactivate")]// already deactivated
-    [InlineData(UserStatus.Rejected, "Reject")]       // already rejected
-    public async Task ChangeStatus_WhenAlreadyInRequestedState_IsNoOp(UserStatus current, string action)
-    {
-        // Alternate path 5د: no change, no notification, no save.
-        var user = UserWith(current, ActiveToken());
-        var (repo, bus) = Fakes(user);
-        var sut = CreateSut(repo, bus);
-
-        var result = await sut.ChangeStatusAsync(user.Id, action, SuperAdminId);
-
-        Assert.Equal(current, user.Status);
-        Assert.Equal(current.ToString(), result.Status);
-        Assert.False(user.RefreshTokens.Single().IsRevoked);
-        Assert.Equal(0, repo.SaveChangesCallCount);
-        Assert.Empty(bus.Published);
-    }
+    // Alternate paths 5ج (invalid transition) and 5د (already in the requested state) used to be
+    // two hand-written InlineData lists here. They covered thirteen of the sixteen combinations
+    // the enums allow and looked complete. `UserStatusTransitionMatrixTests` now drives all
+    // sixteen from the enums themselves; keeping a second, shorter spelling of the same rule
+    // beside it is how the two eventually disagree.
 
     [Fact]
     public async Task ChangeStatus_WithUnknownAction_ThrowsArgument()

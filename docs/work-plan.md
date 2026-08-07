@@ -1825,6 +1825,38 @@ Ranked by value:
       *count*, not only the word.
 
       **UserManagementService 217 → 235.**
+
+      **AND A FOURTH TIME, on the other service in this project's oldest file (test-plan C-02,
+      C-15..C-18).** C-02 — "illegal transitions are refused" — had been sitting at `partial`
+      since the plan was written, and the reason turns out to be exactly the failure mode this
+      whole exercise keeps rediscovering. `UserStatus` has four members and `UserStatusAction`
+      has four, so there are sixteen combinations. They were tested from three hand-written
+      `InlineData` lists covering **thirteen**. The three nobody listed were `Rejected →
+      Deactivate`, `Rejected → Reactivate` and `Deactivated → Reject` — and **the first is the
+      example the test-plan row itself names in its own text.** A hand-written list looks
+      complete because the cases in it are the cases somebody thought of.
+
+      No defect: all sixteen already behave correctly. `UserStatusTransitionMatrixTests` now
+      drives the whole matrix from the enums, three ways — the single-account path, the bulk path,
+      and session revocation — with a declared outcome per cell rather than one recomputed from
+      the service's own rules, since a test that recomputes the implementation cannot disagree
+      with it.
+
+      The case that makes it a rule rather than a longer list: **adding a fifth `UserStatus` or a
+      fifth action fails the suite until somebody decides its rules.** `IsValidSource` ends in
+      `_ => false`, so a new member would be silently refused in every transition, everywhere, and
+      nothing would say so.
+
+      The two superseded `InlineData` theories were deleted rather than left beside the matrix.
+      §11.7 spent two surviving mutations learning that a rule written twice eventually disagrees
+      with itself; the two spellings worth keeping are the single and bulk paths, and those now
+      disagree loudly by construction.
+
+      **Mutation-checked, 6 mutations, all killed — and one of them measures the gap directly.**
+      Making `Deactivate` accept a rejected account is caught now; run with everything *except*
+      the new matrix and it **passes 226 of 226**. That is what `partial` was worth.
+
+      **UserManagementService 235 → 275.**
 - [~] **11.8 Migration tests — the containerless half is DONE**, and it is the half that
       catches the failure that actually happens. Test-plan Area T.
 
