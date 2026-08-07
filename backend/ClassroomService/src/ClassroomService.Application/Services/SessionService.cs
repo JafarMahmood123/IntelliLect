@@ -9,6 +9,7 @@ public class SessionService : ISessionService
 {
     private readonly ISessionRepository _sessionRepository;
     private readonly IClassroomRepository _classroomRepository;
+    private readonly IMembershipRepository _membershipRepository;
     private readonly IStreamingInternalClient _streamingClient;
     private readonly ISessionTerminationService _termination;
     private readonly IUnitOfWork _unitOfWork;
@@ -16,24 +17,49 @@ public class SessionService : ISessionService
     public SessionService(
         ISessionRepository sessionRepository,
         IClassroomRepository classroomRepository,
+        IMembershipRepository membershipRepository,
         IStreamingInternalClient streamingClient,
         ISessionTerminationService termination,
         IUnitOfWork unitOfWork)
     {
         _sessionRepository = sessionRepository;
         _classroomRepository = classroomRepository;
+        _membershipRepository = membershipRepository;
         _streamingClient = streamingClient;
         _termination = termination;
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default)
+    /// <summary>
+    /// The classroom's timetable, for its own members.
+    ///
+    /// This took no caller at all and returned any classroom's sessions to any authenticated user —
+    /// titles, descriptions and schedule, addressable by a classroom id, which appears in every URL
+    /// a student uses. Every sibling read on this surface (files, recordings, summaries, Q&amp;A) is
+    /// member-gated; this one was written before them and nothing noticed it had been left out.
+    /// </summary>
+    public async Task<IEnumerable<Session>> GetSessionsByClassroomAsync(
+        Guid classroomId, Guid requestingUserId, CancellationToken ct = default)
     {
+        await ClassroomAccess.EnsureMemberAsync(
+            _classroomRepository, _membershipRepository, classroomId, requestingUserId, ct);
+
         return await _sessionRepository.GetByClassroomIdAsync(classroomId, ct);
     }
 
-    public async Task<Session> CreateSessionAsync(Guid classroomId, CreateSessionRequest request, CancellationToken ct = default)
+    /// <summary>
+    /// Schedules a session in a classroom the caller owns.
+    ///
+    /// The route carried <c>[Authorize(Roles = "Teacher")]</c> and nothing else, so any teacher in
+    /// the platform could put a session on any other teacher's timetable — visible to that
+    /// classroom's students, and startable, since <see cref="StartSessionAsync"/> had the same hole.
+    /// A role says what kind of user someone is, never whose classroom this is.
+    /// </summary>
+    public async Task<Session> CreateSessionAsync(
+        Guid classroomId, Guid requestingUserId, CreateSessionRequest request, CancellationToken ct = default)
     {
+        await ClassroomAccess.EnsureTeacherAsync(_classroomRepository, classroomId, requestingUserId, ct);
+
         var session = new Session
         {
             Id = Guid.NewGuid(),
@@ -52,7 +78,23 @@ public class SessionService : ISessionService
         return session;
     }
 
-    public async Task StartSessionAsync(Guid sessionId, CancellationToken ct = default)
+    /// <summary>
+    /// Takes a scheduled session live: the row flips to <c>Live</c> and StreamingService opens the
+    /// media room. Only the owning teacher may do it.
+    ///
+    /// This was the worst of the three. It took a bare <c>sessionId</c> — no classroom, no caller —
+    /// while its route is <c>/api/classrooms/{classroomId}/sessions/{sessionId}/start</c>, so the
+    /// classroom in the URL was decorative and never bound. Any teacher could start any session in
+    /// the platform by id: the class goes live, the room opens, recording begins if the session was
+    /// configured for it, and the teacher who actually owns it later gets "Only scheduled sessions
+    /// can be started" with nothing saying who did it.
+    ///
+    /// The scoping is <see cref="EndSessionAsync"/>'s, deliberately: a session addressed under the
+    /// wrong classroom is 404 rather than 403, so the route cannot be used to probe for sessions
+    /// elsewhere. The ownership check follows it, so both refusals look the same from outside.
+    /// </summary>
+    public async Task StartSessionAsync(
+        Guid classroomId, Guid sessionId, Guid requestingUserId, CancellationToken ct = default)
     {
         // Start Distributed boundary via Unit of Work
         await _unitOfWork.BeginTransactionAsync(ct);
@@ -60,13 +102,14 @@ public class SessionService : ISessionService
         try
         {
             var session = await _sessionRepository.GetByIdAsync(sessionId, ct);
-            if (session == null) throw new KeyNotFoundException("Session not found.");
+            if (session is null || session.ClassroomId != classroomId)
+                throw new KeyNotFoundException("Session not found.");
+
+            var classroom = await ClassroomAccess.EnsureTeacherAsync(
+                _classroomRepository, classroomId, requestingUserId, ct);
 
             if (session.Status != SessionStatus.Scheduled)
                 throw new ConflictException("Only scheduled sessions can be started.");
-
-            var classroom = await _classroomRepository.GetByIdAsync(session.ClassroomId, ct);
-            if (classroom == null) throw new KeyNotFoundException("Associated classroom not found.");
 
             // Local State Change
             session.Status = SessionStatus.Live;

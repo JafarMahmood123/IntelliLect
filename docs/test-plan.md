@@ -98,19 +98,36 @@ no concurrency at all — one capital letter — and `StubUserRepository` compar
 
 ## 4. Area B — Authorization (cross-cutting)
 
-**The largest hole in the suite.** Services are tested; the guards in front of them are
-not. Every case here is a template applied per endpoint, not a one-off.
+**The largest hole in the suite**, and the last of it to close was not the guards in front of the
+services — it was the checks that were supposed to be *inside* them. Three rules now cover the
+containerless half, and each was written after the previous one turned out to answer a narrower
+question than it appeared to:
+
+1. every controller requires authentication (B-01);
+2. every state-changing action decides authorization somewhere explicit (B-02);
+3. every classroom-scoped service method is told **who is asking** (B-23) — because a method handed
+   a `classroomId` and no caller cannot refuse anything, whatever the two rules above say about the
+   controller in front of it. Five endpoints passed 1 and 2 and were open.
+
+What still needs a host is the *runtime* evidence: the actual 401/403 over HTTP, and the IDOR sweep
+across every `{id}` route param. Every case here is a template applied per endpoint, not a one-off.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | B-01 | Anonymous request to any `[Authorize]` route → 401 | Integration | P0 | ✓ (unit rule) — every controller either requires authentication or is on a named, reasoned exemption list; the list is checked for stale and unnecessary entries in both directions |
 | B-02 | Student calling a `[Authorize(Roles="Teacher")]` route → 403 (upload, publish quiz, close quiz, extend, change teacher) | Integration | P0 | ✓ (unit rule) — every state-changing action decides authorization somewhere explicit: a role attribute, or a `Controller.Action` entry naming the service that checks it |
 | B-03 | Teacher calling a super-admin route → 403 | Integration | P0 | gap |
-| B-04 | Non-member of a classroom cannot read its files, quizzes, recordings, summaries or Q&A | Integration | P0 | gap |
-| B-05 | Teacher of classroom X cannot act on classroom Y | Integration | P0 | gap |
+| B-04 | Non-member of a classroom cannot read its files, quizzes, recordings, summaries or Q&A | Integration **+ Unit** | P0 | ✓ (unit, **three defects found & fixed**) — quizzes, recordings, summaries and Q&A were already member-gated; the **session list**, the **file list** and the **roster** took no caller at all. Proving the resulting 403 over HTTP is still integration work |
+| B-05 | Teacher of classroom X cannot act on classroom Y | Integration **+ Unit** | P0 | ✓ (unit, **two defects found & fixed**) — scheduling and starting a session rested on `[Authorize(Roles = "Teacher")]`, which proves the caller is *a* teacher and never that the classroom is theirs |
 | B-06 | Student cannot read another student's answers, marks or submission state | Integration | P0 | gap |
 | B-22 | The classroom's teacher cannot take part in their own quiz — including when also enrolled as a student | Unit | P0 | ✓ (defect found & fixed) |
-| B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration | P0 | gap |
+| B-23 | Every classroom-scoped method on a browser-facing application service receives the caller — a rule over the assembly, with the exemption list checked in both directions | Unit | P0 | ✓ (**five defects found & fixed**; the exemption list is empty and stays visible) |
+| B-24 | A non-member cannot list a classroom's sessions, its files or its roster; an enrolled student and the teacher both can | Unit | P0 | ✓ (defects found & fixed — the roster returns full names) |
+| B-25 | A teacher cannot schedule or start a session in a classroom they do not own, and a student cannot in one they belong to | Unit | P0 | ✓ (defects found & fixed) |
+| B-29 | Ownership is decided **before** session status, so a refusal never discloses that a class is running right now | Unit | P0 | ✓ |
+| B-30 | A session addressed under a classroom the caller *does* own, but which is not the session's, is 404 rather than 403 | Unit | P0 | ✓ (the first version of this test could not fail; see §7.1c) |
+| B-31 | "Member" and "owner" are each defined once — no service re-implements them | Unit | P1 | ✓ (five byte-identical private copies, now one) |
+| B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration **+ Unit** | P0 | partial — the *sweep* needs a running host, but the question it asks is now a rule (B-23): a method handed a `classroomId` and no caller cannot refuse anything. `StartSessionAsync` never even bound the classroom in its own route |
 | B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
 | B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |
 | B-10 | Internal routes are not reachable through nginx from outside | Integration **+ Unit** | P0 | ✓ (unit: `NginxRouteTableTests` resolves every `[Route]` against `nginx.conf` the way nginx does). The e2e half — `tests/e2e/test_internal_surface_contract.py`, 55 tests over 18 routes — is still authored-unrun, and by its own note probes in-network, so it tests the guard and never the route table |
@@ -119,9 +136,9 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | B-17 | The not-through-the-gateway exemption list is checked in both directions — the entry still names a real route, and that route is still unreachable | Unit | P1 | ✓ (one entry: the LiveKit webhook, delivered to a host-published port) |
 | B-11 | Role change takes effect on the next token, and an in-flight old token cannot exceed its new rights on sensitive routes | Integration | P1 | gap |
 | B-14 | Client route guards: a disallowed role is redirected, not shown the page; matching is exact (no substring, no case-insensitive) and an empty allow-list admits nobody | Frontend | P1 | ✓ |
-| B-15 | Logout clears both tokens AND the persisted store copy, even when the server-side revocation fails | Frontend | P0 | ✓ |
-| B-16 | **Several requests expiring together share ONE refresh** — the backend rotates refresh tokens, so a refresh per request signs the user out despite the refresh succeeding | Frontend | P0 | ✓ (defect found & fixed) |
-| B-17 | A 401 refresh retries the original request with the new token; a non-401 never triggers a refresh | Frontend | P0 | ✓ |
+| B-26 | Logout clears both tokens AND the persisted store copy, even when the server-side revocation fails | Frontend | P0 | ✓ |
+| B-27 | **Several requests expiring together share ONE refresh** — the backend rotates refresh tokens, so a refresh per request signs the user out despite the refresh succeeding | Frontend | P0 | ✓ (defect found & fixed) |
+| B-28 | A 401 refresh retries the original request with the new token; a non-401 never triggers a refresh | Frontend | P0 | ✓ |
 | B-18 | A failed **login** is exempt from refresh — a wrong password must not redirect the user away from the form | Frontend | P0 | ✓ |
 | B-19 | The `_retry` guard prevents an infinite refresh loop when the retried request also 401s | Frontend | P0 | ✓ |
 | B-20 | A rejected refresh clears both tokens *and* `auth-storage`, then redirects to `/login` | Frontend | P0 | ✓ |

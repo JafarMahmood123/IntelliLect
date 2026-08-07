@@ -16,7 +16,9 @@ public interface IClassroomFileService
     /// </summary>
     Task<ClassroomFileResponse> UploadFileAsync(Guid classroomId, Guid uploaderId, Stream fileStream, string fileName, string contentType, CancellationToken ct = default);
     Task DeleteFileAsync(Guid fileId, Guid uploaderId, CancellationToken ct = default);
-    Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(Guid classroomId, CancellationToken ct = default);
+    /// <summary>The material list, for this classroom's own members. 404 unknown classroom, 403 non-member.</summary>
+    Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(
+        Guid classroomId, Guid requestingUserId, CancellationToken ct = default);
 
     /// <summary>
     /// Opens a classroom material file for download by a member, streamed through the API (and

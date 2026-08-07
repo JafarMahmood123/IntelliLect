@@ -259,7 +259,20 @@ public sealed class FakeSessionRepository : ISessionRepository
     /// reads the session list to title and date its rows.</summary>
     public Task<IEnumerable<Session>> GetByClassroomIdAsync(Guid classroomId, CancellationToken ct = default)
         => Task.FromResult(_store.Values.Where(s => s.ClassroomId == classroomId).AsEnumerable());
-    public Task AddAsync(Session session, CancellationToken ct = default) => throw new NotImplementedException();
+    /// <summary>
+    /// Real, because scheduling a session writes through this port. It threw until
+    /// <c>ClassroomTenancyTests</c> needed to prove the difference between a session that was
+    /// refused and one that was never attempted — a double that throws makes those two identical.
+    /// </summary>
+    public Task AddAsync(Session session, CancellationToken ct = default)
+    {
+        _store[session.Id] = session;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>What is actually in the table, so a refused write can be shown to have written nothing.</summary>
+    public IReadOnlyCollection<Session> All => _store.Values;
+
     public Task<(List<AdminSessionResponse> Items, int TotalCount)> GetAdminSessionsPagedAsync(
         int page, int pageSize, string? search, SessionStatus? status, Guid? classroomId, CancellationToken ct = default)
         => throw new NotImplementedException();
@@ -279,6 +292,17 @@ public sealed class RecordingStreamingClient : IStreamingInternalClient
         return Task.FromResult(_endResult);
     }
 
+    /// <summary>Whether the media room was opened, and for which session.</summary>
+    /// <remarks>
+    /// It threw until ClassroomTenancyTests needed to prove that a refused start opens no room.
+    /// A double that throws answers "was the room opened?" with a different exception rather than
+    /// with a fact, so the refusal and the crash would have been indistinguishable.
+    /// </remarks>
+    public Guid? LastCreatedSessionId { get; private set; }
+
     public Task<bool> CreateStreamAsync(Guid sessionId, Guid classroomId, Guid teacherId, StudentParticipationMode participationMode, bool recordingEnabled, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    {
+        LastCreatedSessionId = sessionId;
+        return Task.FromResult(true);
+    }
 }

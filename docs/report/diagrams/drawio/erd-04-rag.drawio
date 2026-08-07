@@ -1,0 +1,174 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="RagService ERD">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1030" height="960" as="geometry" />
+        </mxCell>
+
+        <mxCell id="doc" value="documents" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="400" height="442" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="40" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="doc">
+          <mxGeometry y="68" width="400" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c0" value="•  classroom_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="78" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c1" value="•  file_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="106" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c2" value="•  s3_key : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="134" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c3" value="•  file_name : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="162" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c4" value="•  content_type : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="190" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c5" value="•  size_bytes : bigint" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="218" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c6" value="•  content_hash : varchar  «dedup»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="246" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c7" value="•  status : enum" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="274" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c8" value="•  attempts : int" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="302" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c9" value="    last_error : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="330" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c10" value="    processing_started_at : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="358" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c11" value="•  created_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="386" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="doc_c12" value="•  updated_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="doc">
+          <mxGeometry y="414" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk" value="chunks" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="580" y="60" width="400" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="40" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="chunk">
+          <mxGeometry y="68" width="400" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c0" value="•  document_id : uuid  «FK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="78" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c1" value="•  classroom_id : uuid" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="106" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c2" value="•  chunk_index : int" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="134" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c3" value="•  text : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="162" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c4" value="•  token_count : int" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="190" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c5" value="    chunk_metadata : jsonb" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="218" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c6" value="    source : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="246" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c7" value="•  embedding : halfvec(3072)  «HNSW»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="274" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chunk_c8" value="•  created_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chunk">
+          <mxGeometry y="302" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run" value="summary_runs" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="560" width="400" height="302" as="geometry" />
+        </mxCell>
+        <mxCell id="run_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="40" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="run">
+          <mxGeometry y="68" width="400" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c0" value="•  session_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="78" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c1" value="•  classroom_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="106" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c2" value="•  status : enum" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="134" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c3" value="•  attempts : int" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="162" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c4" value="    last_error : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="190" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c5" value="    next_attempt_at : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="218" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c6" value="    started_at : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="246" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="run_c7" value="    completed_at : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="run">
+          <mxGeometry y="274" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox" value="outbox_messages" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="580" y="560" width="400" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_pk" value="•  id : bigint  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="40" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="outbox">
+          <mxGeometry y="68" width="400" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c0" value="•  message_id : uuid" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="78" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c1" value="•  exchange : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="106" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c2" value="•  message_type : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="134" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c3" value="•  payload : jsonb" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="162" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c4" value="    correlation_id : uuid" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="190" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c5" value="•  attempts : int" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="218" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c6" value="    last_error : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="246" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c7" value="    published_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="274" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="outbox_c8" value="•  created_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="outbox">
+          <mxGeometry y="302" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="جدولان مستقلّان: لا يرتبطان بالمستندات ولا ببعضهما بمفتاح خارجي" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;dashed=1;fontSize=14;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="500" width="920" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" style="edgeStyle=entityRelationEdgeStyle;html=1;rounded=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=1;exitY=0.3;entryX=0;entryY=0.3" edge="1" parent="1" source="doc" target="chunk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

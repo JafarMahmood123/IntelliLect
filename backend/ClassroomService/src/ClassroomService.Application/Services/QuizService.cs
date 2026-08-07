@@ -1447,19 +1447,13 @@ public sealed class QuizService : IQuizService
         }
     }
 
-    private async Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
-    {
-        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
-            ?? throw new KeyNotFoundException("Classroom not found.");
-
-        var isMember = classroom.TeacherId == userId
-            || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct);
-
-        if (!isMember)
-        {
-            throw new ForbiddenAccessException("You are not a member of this classroom.");
-        }
-    }
+    /// <summary>
+    /// Delegates to <see cref="ClassroomAccess.EnsureMemberAsync"/>. This was a private copy of
+    /// that rule, identical to the four others in this service layer; see the reason there.
+    /// </summary>
+    private Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
+        => ClassroomAccess.EnsureMemberAsync(
+            _classroomRepository, _membershipRepository, classroomId, userId, ct);
 
     /// <summary>
     /// Membership is not enough to ANSWER: the answerer must be an enrolled student.

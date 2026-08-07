@@ -237,19 +237,13 @@ public sealed class ClassroomSummaryService : IClassroomSummaryService
     /// The SAME membership rule as recordings: the classroom's teacher OR an enrolled student may
     /// view its summaries. Missing classroom -> 404; non-member -> 403.
     /// </summary>
-    private async Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
-    {
-        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
-            ?? throw new KeyNotFoundException("Classroom not found.");
-
-        var isMember = classroom.TeacherId == userId
-            || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct);
-
-        if (!isMember)
-        {
-            throw new ForbiddenAccessException("You are not a member of this classroom.");
-        }
-    }
+    /// <summary>
+    /// Delegates to <see cref="ClassroomAccess.EnsureMemberAsync"/>. This was a private copy of
+    /// that rule, identical to the four others in this service layer; see the reason there.
+    /// </summary>
+    private Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
+        => ClassroomAccess.EnsureMemberAsync(
+            _classroomRepository, _membershipRepository, classroomId, userId, ct);
 
     // Metadata only — never exposes MdS3Key/PdfS3Key/URL (download URL is minted on demand) or the
     // Error detail.

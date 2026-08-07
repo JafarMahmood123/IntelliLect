@@ -152,6 +152,7 @@ public class TeacherEndSessionTests
         => new(
             sessions,
             new SingleClassroomRepository(classroom),
+            new FakeMembershipRepository(),
             streaming,
             SessionTerminationTestFactory.Create(
                 sessions, streaming, knowledge, summaries: summaries, eventBus: eventBus),

@@ -186,8 +186,23 @@ public sealed class ClassroomFileService : IClassroomFileService
         }
     }
 
-    public async Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(Guid classroomId, CancellationToken ct)
+    /// <summary>
+    /// The classroom's material list, for its own members.
+    ///
+    /// It took no caller, so any authenticated user could list any classroom's files by id. The two
+    /// methods immediately below — indexing status and download — both gate on membership first,
+    /// which is what made this one easy to miss: the bytes were protected and the catalogue naming
+    /// them was not. <c>ClassroomFileResponse</c> carries the S3 key as well as the file name.
+    ///
+    /// A missing classroom used to map an empty list (200 with nothing in it). It is now 404, in
+    /// line with every other read here — and the distinction only ever reached someone who is
+    /// already a member.
+    /// </summary>
+    public async Task<IEnumerable<ClassroomFileResponse>> GetClassroomFilesAsync(
+        Guid classroomId, Guid requestingUserId, CancellationToken ct)
     {
+        await EnsureMemberAsync(classroomId, requestingUserId, ct);
+
         var classroom = await _classroomRepository.GetWithDetailsAsync(classroomId, ct);
         return _mapper.Map<IEnumerable<ClassroomFileResponse>>(classroom?.Files ?? new List<ClassroomFile>());
     }
@@ -239,17 +254,11 @@ public sealed class ClassroomFileService : IClassroomFileService
     /// Reuses the platform's membership rule: the classroom's teacher OR an enrolled student is a
     /// member. Missing classroom -> 404; non-member -> 403.
     /// </summary>
-    private async Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
-    {
-        var classroom = await _classroomRepository.GetByIdAsync(classroomId, ct)
-            ?? throw new KeyNotFoundException("Classroom not found.");
-
-        var isMember = classroom.TeacherId == userId
-            || await _membershipRepository.IsEnrolledAsync(classroomId, userId, ct);
-
-        if (!isMember)
-        {
-            throw new ForbiddenAccessException("You are not a member of this classroom.");
-        }
-    }
+    /// <summary>
+    /// Delegates to <see cref="ClassroomAccess.EnsureMemberAsync"/>. This was a private copy of
+    /// that rule, identical to the four others in this service layer; see the reason there.
+    /// </summary>
+    private Task EnsureMemberAsync(Guid classroomId, Guid userId, CancellationToken ct)
+        => ClassroomAccess.EnsureMemberAsync(
+            _classroomRepository, _membershipRepository, classroomId, userId, ct);
 }

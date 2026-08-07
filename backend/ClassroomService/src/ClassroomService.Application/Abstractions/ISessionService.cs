@@ -5,9 +5,20 @@ namespace ClassroomService.Application.Abstractions;
 
 public interface ISessionService
 {
-    Task<IEnumerable<Session>> GetSessionsByClassroomAsync(Guid classroomId, CancellationToken ct = default);
-    Task<Session> CreateSessionAsync(Guid classroomId, CreateSessionRequest request, CancellationToken ct = default);
-    Task StartSessionAsync(Guid sessionId, CancellationToken ct = default);
+    /// <summary>The classroom's timetable, for its own members. 404 unknown classroom, 403 non-member.</summary>
+    Task<IEnumerable<Session>> GetSessionsByClassroomAsync(
+        Guid classroomId, Guid requestingUserId, CancellationToken ct = default);
+
+    /// <summary>Schedules a session. Only the classroom's own teacher may — the Teacher role is not enough.</summary>
+    Task<Session> CreateSessionAsync(
+        Guid classroomId, Guid requestingUserId, CreateSessionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Takes a scheduled session live. Only the classroom's own teacher may; a session addressed
+    /// under the wrong classroom is 404, so the route cannot be used to probe for other sessions.
+    /// </summary>
+    Task StartSessionAsync(
+        Guid classroomId, Guid sessionId, Guid requestingUserId, CancellationToken ct = default);
 
     /// <summary>
     /// Ends a live session on the teacher's request: the students are removed from the room and

@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 14:01 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 16:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -35,14 +35,14 @@ without an attribute does not.
 | Suite | Tests | Status | Command |
 |---|---|---|---|
 | UserManagementService | 324 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
-| ClassroomService | 488 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
+| ClassroomService | 512 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
 | StreamingService | 204 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,317** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,341** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -78,7 +78,7 @@ that selection waits two minutes and then fails.
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
 | UserManagementService | 51.4% | 36.3% | measured 2026-08-07 (1012 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| ClassroomService | 80.3% | 73.9% | measured 2026-08-07 (1217 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| ClassroomService | 80.5% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 74.9% | 43.8% | measured 2026-08-07 (662 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -97,7 +97,7 @@ that selection waits two minutes and then fails.
 | UserManagementService | Presentation | 0.0% |
 | UserManagementService | Api | 100.0% |
 | ClassroomService | Domain | 100.0% |
-| ClassroomService | Application | 97.8% |
+| ClassroomService | Application | 97.9% |
 | ClassroomService | Infrastructure | 75.1% |
 | ClassroomService | Presentation | 25.0% |
 | StreamingService | Domain | 100.0% |
@@ -271,15 +271,24 @@ found by writing a test, not by a user.
 | 41 | **Two live streams for one session, with nothing to stop it.** `SessionStartedConsumer` guards a redelivery with `ExistsAsync` then `AddAsync` — two calls — and `Streams.SessionId` carried **no index at all**, unique or otherwise. At-least-once delivery means the message arrives twice; two concurrent invocations both pass the check before either insert. The consumer's own comment names the consequence: "every later lookup picks one arbitrarily", so students join one row while recording state and participant count attach to the other, permanently and silently | found by a test FAILING under load, twice — see below |
 | 42 | `FakeStreamRepository` accepted two rows for one session, so the suite could not tell an idempotent consumer from one that usually wins the race. **A double more permissive than the database turns a real defect into a flake** — and this file already carried a comment about an earlier flake here that accused the product wrongly. This time the accusation was correct | L-01 |
 | 40 | **Sentence splitting was English-only, and it made the semantic chunker inert in Arabic.** `_SENTENCE_RE` was `[.!?]` — none of Arabic's terminators. Arabic borrows the Latin full stop, so statements split and questions did not: four Arabic questions came back as **one** sentence. `SemanticChunker` then takes its `len(sentences) == 1` shortcut, **never calls the embedder**, and falls through to the token-window packer — so the semantic tier silently became the structural tier and `semantic_breakpoint_percentile` did nothing. Every chunking test in the suite is written in English | F-27, F-28 |
+| 49 | **Any teacher could start any session in the platform, from its id alone.** `StartSessionAsync(sessionId, ct)` took no caller *and no classroom* — its route is `/api/classrooms/{classroomId}/sessions/{sessionId}/start`, and the action never bound the classroom, so the id in the URL was decorative and nothing cross-checked that the session belonged to it. `[Authorize(Roles = "Teacher")]` was the whole check. The class goes live, the media room opens, recording begins if configured; the teacher who owns it later gets "Only scheduled sessions can be started" with nothing naming who did it | B-25, B-30 |
+| 50 | **Any teacher could schedule a session in any other teacher's classroom**, visible to that classroom's students. Same shape, same route family, same role attribute standing in for a tenancy check | B-25 |
+| 51 | **Any authenticated user could read any classroom's roster by id** — and `MemberResponse` carries each student's full name, so a personal-data disclosure rather than a metadata one. `RemoveStudentAsync` next door checks ownership *before* the membership lookup precisely so a classroom id cannot be used to probe who is enrolled; the listing answered the question outright | B-24 |
+| 52 | **Any authenticated user could list any classroom's material by id** — file names and S3 keys. The two methods immediately below it, indexing status and download, both gate on membership first: the bytes were protected and the catalogue naming them was not. This endpoint is the worked example §11.2's own rule used for "a GET can be left to a membership check in the service layer" | B-24 |
+| 53 | **Any authenticated user could read any classroom's timetable by id** — session titles, descriptions and times. `SessionService` had no service-level tests at all, and `EndSessionAsync` — the one method on it that is written correctly, scoped and ownership-checked — sits directly beneath the three that were not | B-24 |
+| 54 | **The same membership rule written out five times**, byte-identical, in `QuizService`, `ClassroomFileService`, `ClassroomQaService`, `ClassroomRecordingService` and `ClassroomSummaryService`. Not a defect yet, which is the point: the next reader to change it changes the copy in front of them and the other four go on enforcing the old rule with nothing reporting the disagreement. §11.7 spent two surviving mutations learning that with *two* copies of the quiz deadline | B-31 |
 | 39 | **The account audit trail recorded intent, not outcome.** C-09's records were written inside the decision loop, before the transaction that makes them true — and the batch is atomic, so a bulk approve that timed out on its commit wrote fifty Information lines saying fifty accounts had been approved, approved **none** of them, and wrote nothing at all to say it had failed. The log exists to answer "was this person's account deactivated, by whom, and when"; after a rolled-back batch it answered yes when the truth was no | C-11 work, from reading two passing tests together |
 
 ## 9. Mutation testing
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 278 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 291 mutations across the project so far.
 
-Nine survived, and each one meant a test was passing for the wrong reason:
+Twelve survived, and each one meant a test was passing for the wrong reason. (This said "nine"
+until it was counted against the table below, which had thirteen rows by then — the count was
+edited by hand while the rows were appended. It is counted now. The thirteenth row is in the table
+because it is the most instructive entry here and **not** because it survived; it says so.)
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -294,6 +303,7 @@ Nine survived, and each one meant a test was passing for the wrong reason:
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 | Removing the unique-index modelling from `FakeStreamRepository` | Honest, and recorded rather than engineered around. Once `ConsumeAsync` was made to publish **sequentially** — which is what a redelivery actually is — the second consume returns at `ExistsAsync` and never reaches `AddAsync`, so the double's constraint is not exercised there. It exists so the fake cannot be more permissive than the schema; the concurrent case has its own file, with its own constrained repository |
 | Removing the `\b` anchor from the TRX reader's counter lookup | **An honest survivor, and the comment claiming otherwise was the thing that changed.** The anchor guards `executed="` against matching inside `notExecuted="` — and it cannot, because the counter is spelled with a capital E, so no attribute order collides. Recorded in the test that was written to kill it. Two neighbouring mutations did earn their keep: one exposed a "test" asserting `61 - 59 == 2`, a tautology exercising no product code at all |
+| Dropping the classroom scoping from `StartSessionAsync` | **The test could not fail.** "A session started under the wrong classroom is 404" asked with an *invented* classroom id — and an unknown classroom is 404 from the ownership check too, so both the fixed and the broken code answered the same. Rewritten to ask as the *other* teacher, under a real classroom that is genuinely theirs, for a session that is not: the probe the 404 exists to defeat, and the one that was not being made |
 | Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
 
 One "mutation" turned out never to have applied (attribute order in the source differed), which
@@ -304,7 +314,7 @@ test that works.
 
 | Gap | Reason |
 |---|---|
-| Runtime 401/403 assertions, cross-tenant reads, the IDOR sweep | Need a running host and real data (test-plan B-04…B-07) |
+| Runtime 401/403 assertions, and the IDOR sweep over every `{id}` route param | Need a running host and real data. The cross-tenant *decisions* are no longer in this row: B-04/B-05 are covered at the unit level and found five open endpoints, and B-07's question — can this method refuse at all — is now a rule over the service layer (B-23) |
 | Integration suites (§8.2–8.6), migrations (§11.8), concurrency races (§11.7) | Need containers |
 | Browser-level E2E (§11.12) | Needs Playwright; one journey would cover the §4/§5/§6 seams |
 | Email verification of a registered address (A-10) | **The feature does not exist.** Registration lands in `Pending` and an administrator approves it, which is the stronger gate — but nothing proves the address belongs to the registrant, and the approving administrator gets no signal either way |

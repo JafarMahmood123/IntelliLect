@@ -20,7 +20,7 @@ public class SessionsController : ApiBaseController
     [HttpGet]
     public async Task<IActionResult> GetSessions(Guid classroomId, CancellationToken ct)
     {
-        var sessions = await _sessionService.GetSessionsByClassroomAsync(classroomId, ct);
+        var sessions = await _sessionService.GetSessionsByClassroomAsync(classroomId, UserId, ct);
         return Ok(sessions);
     }
 
@@ -30,15 +30,15 @@ public class SessionsController : ApiBaseController
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var session = await _sessionService.CreateSessionAsync(classroomId, request, ct);
+        var session = await _sessionService.CreateSessionAsync(classroomId, UserId, request, ct);
         return CreatedAtAction(nameof(GetSessions), new { classroomId }, session);
     }
 
     [HttpPost("{sessionId:guid}/start")]
     [Authorize(Roles = "Teacher")]
-    public async Task<IActionResult> StartSession(Guid sessionId, CancellationToken ct)
+    public async Task<IActionResult> StartSession(Guid classroomId, Guid sessionId, CancellationToken ct)
     {
-        await _sessionService.StartSessionAsync(sessionId, ct);
+        await _sessionService.StartSessionAsync(classroomId, sessionId, UserId, ct);
         return NoContent();
     }
 

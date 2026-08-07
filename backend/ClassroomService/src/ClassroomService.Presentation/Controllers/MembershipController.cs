@@ -26,7 +26,7 @@ public sealed class MembershipController : ApiBaseController
     [HttpGet]
     public async Task<IActionResult> GetMembers(Guid classroomId, CancellationToken ct)
     {
-        var response = await _membershipService.GetClassroomMembersAsync(classroomId, ct);
+        var response = await _membershipService.GetClassroomMembersAsync(classroomId, UserId, ct);
         return Ok(response);
     }
 

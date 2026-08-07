@@ -60,8 +60,26 @@ public sealed class MembershipService : IMembershipService
         await _membershipRepository.SaveChangesAsync(ct);
     }
 
-    public async Task<IEnumerable<MemberResponse>> GetClassroomMembersAsync(Guid classroomId, CancellationToken ct)
+    /// <summary>
+    /// The classroom's roster, for its own members.
+    ///
+    /// It took no caller, so any authenticated user could read any classroom's roster by id — and
+    /// <c>MemberResponse</c> carries each student's full name, so this was a personal-data
+    /// disclosure rather than a metadata one. <see cref="RemoveStudentAsync"/> next door checks
+    /// ownership before it even looks a membership up, precisely so a classroom id cannot be used
+    /// to probe who is enrolled; the listing answered the same question outright.
+    ///
+    /// Gated on membership rather than on ownership, matching the other classroom reads: a student
+    /// seeing their own classmates is ordinary, and the alternative reading — teacher-only — is a
+    /// product decision this does not make on its own. Nothing in the front-end calls this route
+    /// today; the super-admin roster view goes through UMS.
+    /// </summary>
+    public async Task<IEnumerable<MemberResponse>> GetClassroomMembersAsync(
+        Guid classroomId, Guid requestingUserId, CancellationToken ct)
     {
+        await ClassroomAccess.EnsureMemberAsync(
+            _classroomRepository, _membershipRepository, classroomId, requestingUserId, ct);
+
         var memberships = await _membershipRepository.GetMembersWithDetailsAsync(classroomId, ct);
 
         return _mapper.Map<IEnumerable<MemberResponse>>(memberships);

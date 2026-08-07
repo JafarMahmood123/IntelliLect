@@ -52,7 +52,7 @@ public sealed class ClassroomFilesController : ApiBaseController
     [HttpGet]
     public async Task<IActionResult> GetFiles(Guid classroomId, CancellationToken ct)
     {
-        var response = await _fileService.GetClassroomFilesAsync(classroomId, ct);
+        var response = await _fileService.GetClassroomFilesAsync(classroomId, UserId, ct);
         return Ok(response);
     }
 

@@ -222,7 +222,7 @@ public sealed class MembershipServiceTests
         await h.Service.EnrollStudentAsync(ClassroomId, StudentId, default);
         await h.Service.EnrollStudentAsync(otherClassroom, otherStudent, default);
 
-        var members = await h.Service.GetClassroomMembersAsync(ClassroomId, default);
+        var members = await h.Service.GetClassroomMembersAsync(ClassroomId, TeacherId, default);
 
         var row = Assert.Single(members);
         Assert.Equal(StudentId, row.StudentId);
@@ -234,6 +234,6 @@ public sealed class MembershipServiceTests
         // A classroom with nobody in it yet is the normal state on the day it is created.
         var h = Build();
 
-        Assert.Empty(await h.Service.GetClassroomMembersAsync(ClassroomId, default));
+        Assert.Empty(await h.Service.GetClassroomMembersAsync(ClassroomId, TeacherId, default));
     }
 }

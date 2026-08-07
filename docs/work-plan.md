@@ -1652,6 +1652,111 @@ across three concurrent test hosts.
 
 StreamingService 189 → 204 tests.
 
+### 7.2b The classroom id in the URL *was* the access control (B-04, B-05, B-07, B-23..B-31) — **DONE; five open doors**
+
+Area B has been the plan's largest stated hole from the start, and §11.2 closed the half that
+reflection can see: every controller requires authentication, and every state-changing action
+decides authorization *somewhere explicit*. Both rules pass today. **Five endpoints passed them and
+were wide open anyway**, because neither rule asks the question that matters once you are through
+the door — *which* classroom, and *who* is asking.
+
+Two blind spots, and each produced its own defects.
+
+**A role is not a tenancy check.** `[Authorize(Roles = "Teacher")]` proves the caller is *a*
+teacher. It never says whose classroom this is.
+
+- `POST /api/classrooms/{classroomId}/sessions` — `CreateSessionAsync(classroomId, request, ct)`.
+  No caller. **Any teacher in the platform could put a session on any other teacher's timetable**,
+  visible to that classroom's students.
+- `POST /api/classrooms/{classroomId}/sessions/{sessionId}/start` — `StartSessionAsync(sessionId, ct)`.
+  No caller, **and no classroom**: the action did not bind the `classroomId` its own route
+  declares, so the id in the URL was decorative and nothing cross-checked that the session belonged
+  to it. Any teacher could start any session in the platform from its id alone. The class goes
+  live, StreamingService opens the media room, recording begins if the session was configured for
+  it — and the teacher who actually owns it later gets *"Only scheduled sessions can be started"*
+  with nothing anywhere naming who did it.
+
+**A GET was excused on an assumption.** §11.2's own rule carries the comment *"a GET can be left to
+a membership check in the service layer — a student reading their own classroom's files is
+legitimate, and only the service knows whether they are enrolled."* That is correct reasoning about
+where the check belongs and it was never a statement that the check exists. It named the file
+listing as its example.
+
+- `GET /api/classrooms/{classroomId}/files` — `GetClassroomFilesAsync(classroomId, ct)`. No caller.
+  **Any authenticated user could list any classroom's material by id**, file names and S3 keys. The
+  two methods immediately below it — indexing status and download — both gate on membership first,
+  which is exactly what made this easy to miss: the bytes were protected and the catalogue naming
+  them was not.
+- `GET /api/classrooms/{classroomId}/members` — `GetClassroomMembersAsync(classroomId, ct)`. No
+  caller, and `MemberResponse` carries each student's **full name**, so this was a personal-data
+  disclosure rather than a metadata one. `RemoveStudentAsync` next door checks ownership *before* it
+  looks a membership up, precisely so a classroom id cannot be used to probe who is enrolled (§7.2);
+  the listing answered the same question outright. Nothing in the front-end calls this route — the
+  super-admin roster view goes through UMS — which is presumably why it was never noticed.
+- `GET /api/classrooms/{classroomId}/sessions` — `GetSessionsByClassroomAsync(classroomId, ct)`. No
+  caller. Any authenticated user could read any classroom's timetable: titles, descriptions, times.
+
+**`SessionService` had no service-level tests at all.** `EndSessionAsync` is the fourth method on it
+and is written correctly — scoped to the classroom, 404 rather than 403 for a session addressed
+under the wrong one, ownership checked — because it was added during the session-termination work
+and tested then (`TeacherEndSessionTests`). The other three predate it. The correct one was sitting
+directly beneath the three that were not.
+
+**The rule, so this class cannot come back.** `ClassroomTenancyTests` asks the third question:
+**every method on a browser-facing application service that takes a `classroomId` also takes the
+caller.** A method handed a classroom id and no caller cannot be scoping anything, whatever the
+controller in front of it declares. The service list is *derived from the controllers* — their
+constructor parameters — rather than written down, so a new browser-facing controller pulls its
+services under the rule by existing; a hand-written list is exactly what a new endpoint would not be
+on. Internal controllers are excluded: their caller is another service holding the shared secret,
+which is `InternalSecretGuardTests`'s rule. The exemption list is **empty**, checked in both
+directions, and kept so that an argument for an exception has somewhere to go other than a silently
+missing parameter.
+
+**And the same rule written five times.** `QuizService`, `ClassroomFileService`, `ClassroomQaService`,
+`ClassroomRecordingService` and `ClassroomSummaryService` each carried a private
+`EnsureMemberAsync`. All five were **byte-identical**, which is the good case and not a safe one:
+the next reader to change the rule — to count an admin, say, or to stop treating a missing classroom
+as 404 — changes the copy in front of them and the other four keep enforcing the old one, silently.
+§11.7 spent two surviving mutations learning that with *two* copies of the quiz deadline. This was
+the same thing five times over, and it now exists once, in `ClassroomAccess`, alongside the
+`EnsureTeacherAsync` the five copies could not express and the two session routes needed. It takes
+its repositories as arguments rather than being injected, so adopting it cost no constructor change.
+A test reads the service sources and fails if any of them spells the rule out again.
+
+**Mutation-checked (§7.8), 13 mutations, all killed — but one first survived and one would not
+compile.**
+
+- **M5 survived**: dropping `session.ClassroomId != classroomId` from the start path. The test that
+  should have caught it asked with an *invented* classroom id, and an unknown classroom is 404 from
+  the ownership check too — so it passed either way and proved nothing about the scoping. Rewritten
+  to ask as the *other* teacher, under a real classroom that is genuinely theirs, for a session that
+  is not. That is the probe the 404 exists to defeat, and it was not being made.
+- **M11 would not compile** as first written (a new interface method with no implementation), which
+  is not a mutation this suite can be asked about. Re-expressed as a default interface method, which
+  compiles and is the real shape of the failure — the next endpoint, added without a caller. Killed.
+
+The other eleven: each of the five missing checks removed one at a time; the status check moved back
+in front of the ownership check (a stranger would otherwise be told a class is running right now);
+the shared member rule forgetting enrolled students; the shared teacher rule admitting any member;
+one service re-inlining its own copy; and both exemption-list directions.
+
+**Not changed, and worth stating.** `GET /api/classrooms` and `GET /api/classrooms/{id}` take no
+caller deliberately: they are the catalogue a student browses to enrol, and `ClassroomResponse`
+carries counts rather than content. `QuizzesController` was already uniformly correct — twenty of its
+twenty-one actions pass the caller, and the twenty-first is `GetLimits`, which is not scoped to a
+classroom at all. From the §4 and §6 work.
+
+**Behaviour change to know about at deployment.** A teacher opening another teacher's classroom URL
+now gets 403 where they previously got 200. No front-end path does that — the discovery page reads
+only the catalogue — but a bookmarked or shared link will.
+
+**Three pre-existing duplicate row ids fixed** while adding rows: `B-15`, `B-16` and `B-17` were each
+used twice, once by a Unit nginx row and once by a Frontend auth row. Second occurrences renumbered
+to `B-26`..`B-28`, as with `L-10` → `L-19`.
+
+**ClassroomService 488 → 512 tests.**
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already
@@ -2332,8 +2437,16 @@ Ranked by value:
         actually exercised. Re-run correctly, it fails as it should. Worth recording, because
         a mutation that silently does not apply looks exactly like a test that passes.
 
+      **B-04 through B-07 turned out not to need real data after all — see §7.2b.** The line
+      below was written when this item closed, and it was an assumption about the blocker rather
+      than the blocker. Proving a *runtime* 403 does need a host; asking whether the decision can
+      be made at all does not, because a service method handed a `classroomId` and no caller
+      cannot refuse anything. Five endpoints were in exactly that state, all of them passing both
+      rules above. One of them — the file listing — is the worked example this very item's own
+      comment used for "a GET can be left to a membership check in the service layer".
+
       Still open here and genuinely container-bound: the runtime 401/403 assertions themselves,
-      and B-04 through B-07 (cross-tenant reads, the IDOR sweep), which need real data.
+      and the full IDOR sweep over every `{id}` route param, which needs real data.
 
       Original note: I found no test asserting that a
       student hitting a teacher-only route gets 403, or that a non-member of a classroom

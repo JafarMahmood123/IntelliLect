@@ -1999,3 +1999,44 @@
 \noindent وقد بُيّن مسار الإشعار من لحظة نشره إلى لحظة تسليمه في الشكل~\ref{fig:flow-04}.
 
 ويحقّق عزل هذه المسؤولية في خدمة مستهلِكة فكَّ الارتباط الزمني، إذ لا تنتظر الخدمة الناشرة نتيجة الإرسال. ويؤدّي تعطّل خادم البريد عندئذٍ إلى تأخير وصول الإشعارات دون تعطيل تسجيل الدخول أو التسجيل أو الانضمام إلى فصل.
+
+\subsubsection{تدفّق استيعاب المستندات وفهرستها}
+\label{subsubsec:flow-ingestion}
+
+يبيّن الشكل~\ref{fig:arch-02} مراحل خط أنابيب الاستيعاب، وتُعالَج جميعها بشكل غير متزامن في الخلفية تفادياً لتعطيل رفع الملفّ بانتظار المعالجة الثقيلة.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02-rag-pipeline.png}
+  \caption{تدفّق استيعاب المستندات وفهرستها في خدمة المعرفة.}
+  \label{fig:arch-02}
+\end{figure}
+
+% CH2-REF: originally ended "والكلفة (القسم~\ref{subsec:text-extraction-ocr})." — restore with chapter 2.
+\noindent واعتُمد عامل معالجة محدود التزامن، ممّا يتيح التحكّم في استهلاك الموارد ويمنع استنزاف الجهاز عند معالجة عدّة ملفّات معاً. وصُمّمت المعالجة خاملة التكرار (\en{Idempotent})، فلا تُعاد فهرسة الملفّ نفسه دون تغيّر في محتواه، مع دعم إعادة الفهرسة عند تغيّره. ويُطبَّق التعرّف الضوئي (\en{OCR}) على الصفحات الممسوحة والصور الحاملة للنص فقط، موازنةً بين الدقة والكلفة.
+
+\subsubsection{تدفّق الاسترجاع والإجابة}
+\label{subsubsec:flow-retrieval}
+
+يبيّن الشكل~\ref{fig:arch-02b} مسار الإجابة عن سؤال: تضمين السؤال، ثمّ البحث الدلالي المقصور على الفصل، ثمّ بناء السياق ضمن حدّ الرموز المتاح، ثمّ توليد الإجابة مؤصَّلةً في المقاطع المسترجَعة.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02b-rag-retrieval.png}
+  \caption{تدفّق الاسترجاع وتوليد الإجابة في خدمة المعرفة.}
+  \label{fig:arch-02b}
+\end{figure}
+
+\subsubsection{تدفّق توليد ملخّص الجلسة}
+\label{subsubsec:flow-summary}
+
+يبيّن الشكل~\ref{fig:arch-03b} مسار توليد ملخّص الجلسة بعد انتهائها.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-03b-session-summary.png}
+  \caption{تدفّق توليد ملخّص الجلسة في خدمة المعرفة.}
+  \label{fig:arch-03b}
+\end{figure}
+
+\noindent ويفصل هذا التدفّق بين التوليد والإعلان: فالمحاولة الفاشلة لا تنشر حدثاً ما دامت هناك محاولات باقية. ولولا هذا الفصل لانتقلت حالة الملخّص في واجهة الفصل من «قيد التوليد» إلى «فشل» ثمّ إلى «متاح» عند نجاح محاولة لاحقة، وهو تسلسل يظهر للمستخدم على أنّه خلل وإن كانت النتيجة النهائية صحيحة.

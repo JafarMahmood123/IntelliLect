@@ -1,0 +1,65 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="RagService Components">
+    <mxGraphModel dx="1100" dy="750" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1060" height="580" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svc" value="خدمة المعرفة" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+          <mxGeometry x="50" y="50" width="420" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="طبقة العرض&lt;br&gt;FastAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="100" width="350" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="المهامّ الأربع&lt;br&gt;الاستيعاب · الاسترجاع · التلخيص · إعادة التضمين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="175" width="350" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="المنافذ&lt;br&gt;استخراج · تضمين · توليد · تخزين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="265" width="350" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="المحوِّلات&lt;br&gt;طبقة البنية التحتية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="355" width="350" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" value="عامل الاستيعاب&lt;br&gt;معالجة غير متزامنة محدودة التزامن" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;dashed=1;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="450" width="350" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pg" value="قاعدة بيانات الخدمة&lt;br&gt;PostgreSQL + pgvector" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="770" y="55" width="270" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="mq" value="ناقل الرسائل&lt;br&gt;RabbitMQ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="770" y="170" width="270" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="مخزن الملفّات&lt;br&gt;MinIO / S3" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="770" y="275" width="270" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" value="مزوّد النماذج&lt;br&gt;تضمين وتوليد" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="770" y="390" width="270" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="ocr" value="محرّك التعرّف الضوئي&lt;br&gt;OCR" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="770" y="490" width="270" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="k1" value="SQL · بحث دلالي" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.08;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k2" value="أحداث عبر صندوق الصادر" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.3;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="mq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k3" value="قراءة الملفّات" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k4" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.72;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="llm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="k5" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.92;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="ocr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -138,11 +138,16 @@ public sealed class PublicRouteAuthorizationTests
     [Fact]
     public void Every_state_changing_action_decides_authorization_somewhere_explicit()
     {
-        // A GET can be left to a membership check in the service layer — a student reading their
-        // own classroom's files is legitimate, and only the service knows whether they are
-        // enrolled. A POST/PUT/DELETE is different: "who may do this at all" has to be answered,
-        // and an action that answers it nowhere is how "students can delete classroom materials"
-        // ships.
+        // A GET is left to a membership check in the service layer — a student reading their own
+        // classroom's files is legitimate, and only the service knows whether they are enrolled.
+        // A POST/PUT/DELETE is different: "who may do this at all" has to be answered, and an
+        // action that answers it nowhere is how "students can delete classroom materials" ships.
+        //
+        // What this rule CANNOT see, and what a comment here once claimed as fact: whether that
+        // service-layer check exists, and whether a named role is sufficient. The file listing was
+        // this rule's own worked example of a GET safely left to the service, and it had no such
+        // check; two session mutations named `Teacher` and were reachable by any teacher in the
+        // platform. `ClassroomTenancyTests` is the rule for that half.
         var undecided = Controllers()
             .Where(c => !Exempt.ContainsKey(c.Name))
             .SelectMany(c => Actions(c).Select(a => (Controller: c, Action: a)))
