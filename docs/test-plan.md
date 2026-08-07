@@ -99,7 +99,10 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | B-07 | IDOR sweep: substituting another tenant's GUID into every `{id}` route param is refused, and returns 403/404 without confirming existence | Integration | P0 | gap |
 | B-08 | `/api/internal/*` with a missing `X-Internal-Secret` → 401 | Unit | P0 | ✓ (filter + conformance rule, ClassroomService & StreamingService) |
 | B-09 | `/api/internal/*` with a wrong secret → 401 | Unit | P0 | ✓ |
-| B-10 | Internal routes are not reachable through nginx from outside | Integration | P0 | authored, unrun — `tests/e2e/test_internal_surface_contract.py`, 55 tests over 18 routes; probes in-network so it tests the guard rather than nginx's route table |
+| B-10 | Internal routes are not reachable through nginx from outside | Integration **+ Unit** | P0 | ✓ (unit: `NginxRouteTableTests` resolves every `[Route]` against `nginx.conf` the way nginx does). The e2e half — `tests/e2e/test_internal_surface_contract.py`, 55 tests over 18 routes — is still authored-unrun, and by its own note probes in-network, so it tests the guard and never the route table |
+| B-15 | An internal controller added to the service behind nginx's `/api/` catch-all is caught — today's safety is placement, not policy, and it is one file away from being public | Unit | P0 | ✓ |
+| B-16 | Every PUBLIC route reaches the service that hosts it; a misrouted one 404s from a service that never owned the endpoint and logs nothing at the one that does | Unit | P1 | ✓ |
+| B-17 | The not-through-the-gateway exemption list is checked in both directions — the entry still names a real route, and that route is still unreachable | Unit | P1 | ✓ (one entry: the LiveKit webhook, delivered to a host-published port) |
 | B-11 | Role change takes effect on the next token, and an in-flight old token cannot exceed its new rights on sensitive routes | Integration | P1 | gap |
 | B-14 | Client route guards: a disallowed role is redirected, not shown the page; matching is exact (no substring, no case-insensitive) and an empty allow-list admits nobody | Frontend | P1 | ✓ |
 | B-15 | Logout clears both tokens AND the persisted store copy, even when the server-side revocation fails | Frontend | P0 | ✓ |

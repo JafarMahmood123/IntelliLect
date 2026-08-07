@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 08:06 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 08:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 291 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 450 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| ClassroomService | 462 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 381 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,223** | |
+| **Total** | **2,235** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -228,7 +228,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 162 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 169 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 

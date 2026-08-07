@@ -1120,6 +1120,57 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.13 The gateway's route table (B-10) — **DONE; the safety was placement, not policy**
+
+B-08 and B-09 prove an `/api/internal` route refuses a caller without the shared secret. B-10 is
+the layer in front: those routes should not be reachable from outside at all, so the secret is the
+second lock rather than the only one.
+
+Its coverage was `tests/e2e/test_internal_surface_contract.py` — 55 tests over 18 routes, authored
+and never run, and by its own note probing **in-network**. That is a deliberate choice and a good
+one for what it tests, but it means the suite exercises the guard and **nothing at all exercises
+the route table**.
+
+The route table is where the interesting failure lives, because of one line:
+
+```
+location /api/ { proxy_pass http://user-service-proxy/api/; }
+```
+
+A prefix catch-all. Everything under `/api/` that no more specific location claims goes to
+UserManagementService. Today that is safe — and safe **by accident of placement**: all six internal
+controllers happen to live in ClassroomService and StreamingService, reached only through
+`/api/classrooms` and `/api/streams`, so `/api/internal/...` from outside lands on UMS and 404s.
+Nothing states that as a rule. **An internal controller added to UserManagementService — one file,
+no other change — is public the moment it compiles.**
+
+So `NginxRouteTableTests` reads `nginx.conf` and every controller's `[Route]` across all three
+services, resolves each path the way nginx resolves it (longest matching prefix, not first
+written), and asks where it would land. The mutation that adds an internal controller to UMS is in
+the set below, because a rule that only passes on today's arrangement is not yet a rule.
+
+The converse is checked too: every PUBLIC route must reach the service that hosts it. A misrouted
+one fails in a way nobody attributes to nginx — the browser gets a 404 from a service that never
+owned the endpoint, and the service that does owns it logs nothing. That rule needs one exemption,
+and writing it down was worth the exercise on its own: `api/webhooks/livekit` is hosted by
+StreamingService and is NOT reachable through the gateway, because livekit-server runs with host
+networking and delivers to a host-published port instead. The exemption is checked in both
+directions, so it fails if the route disappears or if it is ever wired through nginx after all.
+
+Levelled as Unit alongside the Integration row rather than replacing it. Both artefacts are files
+this repository owns; reading them proves the property for every deployment built from them, which
+is the argument E-07 and §11.11 both made. The e2e half still has its own job — the guard itself,
+against a running stack — and stays open.
+
+**Mutation-checked, 7 mutations, all killed** — an internal controller added to the catch-all
+service, nginx proxying `/api/internal` to the service that hosts it, a public route misrouted, the
+exempted route deleted, first-match resolution instead of longest-match (which would report the
+opposite of the truth for `/api/classrooms`), and both readers reduced to empty sets.
+
+**ClassroomService 450 → 462.**
+
+---
+
 ### 7.12 Upload limit consistency (E-07) — **DONE; a comment that asked to be a test**
 
 One upload limit, three copies, and only one of them can read the others. The size a teacher may
