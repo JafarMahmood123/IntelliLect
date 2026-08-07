@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using ClassroomService.Application.Abstractions;
 using Microsoft.Extensions.Logging;
+using ClassroomService.Application.Common;
 
 namespace ClassroomService.Infrastructure.Services;
 
@@ -26,7 +27,7 @@ public sealed class StreamingQuizNotifier : IQuizNotifier
                 new { QuizId = quizId, State = state },
                 ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (DownstreamFailure.ShouldDegrade(ex, ct))
         {
             // Best-effort by design. The quiz is already committed, and every client re-reads state
             // when it next asks — so a missed push costs a delayed UI update, never correctness.

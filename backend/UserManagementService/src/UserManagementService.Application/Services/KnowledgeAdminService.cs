@@ -1,5 +1,6 @@
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.DTOs.Knowledge;
+using UserManagementService.Application.Common;
 
 namespace UserManagementService.Application.KnowledgeAdministration;
 
@@ -44,7 +45,7 @@ public sealed class KnowledgeAdminService : IKnowledgeAdminService
                 var statuses = await _knowledgeClient.GetStatusBatchAsync(fileIds, ct);
                 statusByFile = statuses.ToDictionary(s => s.FileId);
             }
-            catch (Exception)
+            catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
             {
                 // 3أ: indexing status is temporarily unavailable; still show the files.
                 indexingUnavailable = true;
@@ -84,7 +85,7 @@ public sealed class KnowledgeAdminService : IKnowledgeAdminService
             var files = await _classroomClient.GetFilesByIdsAsync(fileIds, ct);
             filesById = files.ToDictionary(f => f.FileId);
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             // Registry enrichment is best-effort here; the denormalized name/size cover the gap.
         }
@@ -123,7 +124,7 @@ public sealed class KnowledgeAdminService : IKnowledgeAdminService
         {
             file = (await _classroomClient.GetFilesByIdsAsync(new[] { fileId }, ct)).FirstOrDefault();
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             // best-effort
         }
@@ -186,7 +187,7 @@ public sealed class KnowledgeAdminService : IKnowledgeAdminService
             var names = await _classroomClient.GetClassroomNamesAsync(ids, ct);
             return names.ToDictionary(n => n.Id, n => n.Name);
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             return new Dictionary<Guid, string>();
         }

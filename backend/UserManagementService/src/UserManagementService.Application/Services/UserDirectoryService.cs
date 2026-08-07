@@ -54,7 +54,7 @@ public sealed class UserDirectoryService : IUserDirectoryService
             var classrooms = await _classroomClient.GetUserClassroomsAsync(userId, ct);
             return new UserDetailResponse(profile, classrooms.Teaching, classrooms.Enrolled, MembershipsUnavailable: false);
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             // Cross-service call failed after its own retries; degrade gracefully (7ب).
             return new UserDetailResponse(

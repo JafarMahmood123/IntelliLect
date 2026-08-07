@@ -358,7 +358,12 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | L-09 | The retry detection itself is verified in both directions, so a MassTransit rename fails loudly instead of matching nothing | Unit | P1 | ✓ |
 | L-10 | A database failure inside a consumer faults the message rather than being swallowed — without this the retry policy never runs | Unit | P0 | ✓ (recording, summary, session-started) |
 | L-05 | Recording-ready and summary-ready consumers tolerate arriving out of order | Unit | P1 | ✓ |
-| L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | partial |
+| L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | ✓ (`DownstreamDegradationTests`, `StreamingInternalClientTests`; the degradation paths were only ever tested with `HttpRequestException`, which is the one case that is unambiguous) |
+| L-10 | A downstream TIMEOUT degrades — and it arrives as `TaskCanceledException`, the same type an abandoned caller produces | Unit | P0 | ✓ |
+| L-11 | **A caller who has gone propagates instead of being swallowed** — otherwise the request keeps calling other services to finish an answer nobody will read | Unit | P0 | ✓ |
+| L-12 | The degradation flag is not raised against healthy services by ordinary browser navigation — it is the signal an operator uses to find a real outage | Unit | P1 | ✓ |
+| L-13 | A cancelled caller is not reported as StreamingService refusing the call, which would record a session as having failed to start a stream nobody refused | Unit | P0 | ✓ |
+| L-14 | Best-effort quiz broadcasts still swallow a genuine downstream failure — guarding cancellation must not make an endpoint fail because a notification did | Unit | P1 | ✓ |
 
 ## 15. Area M — Configuration, migrations & deployment (work-plan §14)
 

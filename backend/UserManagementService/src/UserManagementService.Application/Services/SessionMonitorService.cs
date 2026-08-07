@@ -66,7 +66,7 @@ public sealed class SessionMonitorService : ISessionMonitorService
         {
             snapshots = await _streamingClient.GetLiveStreamsAsync(ct);
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             realtimeUnavailable = true;
         }
@@ -75,7 +75,7 @@ public sealed class SessionMonitorService : ISessionMonitorService
         {
             assistantSessions = await _assistantClient.GetActiveSessionIdsAsync(ct);
         }
-        catch (Exception)
+        catch (Exception failure) when (DownstreamFailure.ShouldDegrade(failure, ct))
         {
             realtimeUnavailable = true;
         }

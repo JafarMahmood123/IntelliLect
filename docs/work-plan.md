@@ -1120,6 +1120,59 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.10c Downstream degradation (L-06) — **DONE, and it was quietly cancelling the wrong thing**
+
+L-06 — "an internal HTTP call timing out degrades the caller gracefully rather than cascading" —
+sat at `partial`. The preconditions were all in place: every internal client binds a timeout
+through `InternalServiceOptions` (range-checked, defaulted, validated at startup), and every
+best-effort call is wrapped so one unreachable service degrades one panel of an admin page
+instead of failing the request. What was missing was that **the degradation paths were only ever
+tested with `HttpRequestException`** — the one failure that is unambiguous.
+
+The two that matter arrive as the *same exception type as each other*:
+
+* a downstream **timeout** is `TaskCanceledException` with the caller's token untouched, and
+  must degrade — that is the case the row is named after;
+* a **caller who has gone** (closed tab, gateway timeout, shutdown) is
+  `OperationCanceledException` with the token cancelled, and must propagate.
+
+`catch (Exception)` swallowed both, in nine places across two services.
+
+**DEFECT: an abandoned request kept working, and lied about why.** In UMS the admin dashboards
+fan out to three or four services. When the caller cancelled, the first call's cancellation was
+caught, the flag was set, and the method carried on calling the *remaining* services to finish an
+answer nobody would read. It then returned 200 with `RealtimeUnavailable` / `IndexingUnavailable`
+raised against services that were perfectly healthy — writing false positives into the one signal
+an operator would use to spot a real outage. And because the exception never escaped, these
+requests never reached `GlobalExceptionHandler`, so the 499 accounting added in §11.7's cycle
+never saw the abandonment it was built to record. The two changes had been cancelling each other
+out.
+
+**DEFECT, and the more expensive one: in ClassroomService the same swallow produced a wrong
+answer, not just wasted work.** `StreamingInternalClient` reports trouble by returning `false`.
+A teacher whose browser gave up mid-request was therefore indistinguishable from StreamingService
+refusing the call, and the session was recorded as having failed to start a stream that nobody
+refused.
+
+The rule is one line and lives in one place per service, because it is asked from nine —
+`DownstreamFailure.ShouldDegrade(exception, ct)`. The ambiguous case (a timeout *and* an
+abandonment at once) resolves toward the caller deliberately: building an answer for somebody
+who is not there is the worse mistake, and the cost of the other choice is one real timeout
+logged as an abandonment.
+
+Deliberately left alone: `StreamingQuizNotifier` still swallows genuine downstream failures. The
+quiz is already committed and every client re-reads state on its next request, so a missed push
+costs a delayed UI update and never correctness — and there is a test pinning that, because the
+obvious over-correction here is to make an endpoint fail because a notification did.
+
+**Mutation-checked, 7 mutations, all killed** — including both halves of the predicate dropped
+separately. Dropping the token half is the version most people would write, and it turns every
+real downstream timeout into a failed page.
+
+**UserManagementService 275 → 284, ClassroomService 433 → 440.**
+
+---
+
 ### 7.10b Retry policies (L-04) — **DONE, and two consumers had none at all**
 
 Idempotency answers "what does a second delivery do". This is the other half: **is there a

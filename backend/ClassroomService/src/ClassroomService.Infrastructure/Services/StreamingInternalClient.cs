@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using ClassroomService.Application.Abstractions;
 using ClassroomService.Domain.Enums;
 using Microsoft.Extensions.Logging;
+using ClassroomService.Application.Common;
 
 namespace ClassroomService.Infrastructure.Services;
 
@@ -25,7 +26,7 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
 
             return response.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (DownstreamFailure.ShouldDegrade(ex, ct))
         {
             _logger.LogError(ex, "Failed to reach Streaming Service for Session {SessionId}", sessionId);
             return false;
@@ -43,7 +44,7 @@ public sealed class StreamingInternalClient : IStreamingInternalClient
 
             return response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (DownstreamFailure.ShouldDegrade(ex, ct))
         {
             _logger.LogError(ex, "Failed to end Streaming room for Session {SessionId}", sessionId);
             return false;

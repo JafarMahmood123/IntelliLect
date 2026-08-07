@@ -95,6 +95,49 @@ public class SessionMonitorServiceTests
     }
 
     [Fact]
+    public async Task GetLiveSessions_WhenStreamingTimesOut_DegradesRatherThanFailing()
+    {
+        // L-06 as written. HttpClient reports its own timeout as TaskCanceledException, which is
+        // the same type the caller's cancellation produces — so the two cases below are told
+        // apart only by whose token was cancelled, and the existing HttpRequestException tests
+        // exercise neither of them.
+        var teacher = Teacher("Grace", "Hopper");
+        var session = Session("Live lecture", teacher.Id, "Live");
+        var client = new FakeSessionClassroomClient(SessionPage(session));
+        var streaming = new FakeStreamingClient(throws: new TaskCanceledException("timed out"));
+        var assistant = new FakeAssistantClient(Array.Empty<Guid>());
+        var sut = CreateSut(client, streaming, assistant, new FakeSessionUserRepository(teacher));
+
+        var result = await sut.GetLiveSessionsAsync();
+
+        Assert.True(result.RealtimeUnavailable);
+        Assert.Single(result.Items);
+    }
+
+    [Fact]
+    public async Task GetLiveSessions_WhenTheCallerHasGone_StopsInsteadOfFinishingTheAnswer()
+    {
+        // The defect. A cancelled caller was swallowed exactly like an outage: the request kept
+        // going, called the remaining services to finish a response nobody would read, and
+        // returned 200 with RealtimeUnavailable raised against services that were perfectly
+        // healthy — writing false positives into the one flag an operator would use to spot a
+        // real one. It also meant these requests never reached GlobalExceptionHandler, so the
+        // 499 accounting added there never saw the abandonment it was built to record.
+        var teacher = Teacher("Grace", "Hopper");
+        var session = Session("Live lecture", teacher.Id, "Live");
+        var client = new FakeSessionClassroomClient(SessionPage(session));
+        var streaming = new FakeStreamingClient(throws: new OperationCanceledException());
+        var assistant = new FakeAssistantClient(Array.Empty<Guid>());
+        var sut = CreateSut(client, streaming, assistant, new FakeSessionUserRepository(teacher));
+
+        using var source = new CancellationTokenSource();
+        source.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => sut.GetLiveSessionsAsync(source.Token));
+    }
+
+    [Fact]
     public async Task GetLiveSessions_OnlyRequestsLiveSessions()
     {
         var client = new FakeSessionClassroomClient(SessionPage());
