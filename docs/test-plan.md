@@ -499,7 +499,9 @@ in ClassroomService.
 | Q-11 | A stopped MinIO degrades rather than hangs — the request fails inside its budget | Integration | P0 | gap (needs containers) |
 | Q-12 | A stopped Postgres surfaces as 503 from `/health` and not as a hung request | Integration | P0 | gap (needs containers) |
 | Q-13 | A slow or absent model provider degrades the assistant to "no feedback" without stalling the session | Integration | P1 | gap (needs containers) |
-| Q-14 | The .NET equivalent of Q-01 — a `Section__Key` that binds to no options property | Unit | P1 | **not covered.** .NET's binder ignores unknown keys just as silently, but settings are read through a mix of options classes and direct `configuration["A:B"]` lookups; a static rule over that gave false positives on every service. |
+| Q-14 | The .NET equivalent of Q-01 — a `Section__Key` that binds to no options property | Unit | P1 | ✓ (`DotNetSettingsBindingTests`; the false positives came from knowing only one of the four ways .NET reaches a setting — all four are recognised now, and the rule reports zero over the 54 settings compose passes) |
+| Q-15 | The check is per SERVICE, not global — two services bind a `StreamingService` section with a `TimeoutSeconds`, so "does anything read it" is satisfied by the wrong one | Unit | P1 | ✓ |
+| Q-16 | Only production source counts; a test that names a setting must not satisfy the rule on the service's behalf | Unit | P1 | ✓ |
 
 ## 20. Area R — Results reporting (work-plan §10.5)
 

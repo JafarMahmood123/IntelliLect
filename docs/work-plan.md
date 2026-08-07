@@ -1120,6 +1120,56 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.16 The .NET half of the settings-binding rule (Q-14) — **DONE; it was closed for the wrong reason**
+
+Q-01 does this for the Python services and it is the highest-value rule in the suite: it found
+`RAG_BASE_URL` bound to nothing after a rename, which meant the live assistant had never retrieved
+a word of course material in the deployed stack and every idea degraded to "no feedback", with
+nothing failing anywhere. **.NET's binder is exactly as quiet** — an environment variable naming a
+section or property that does not exist is ignored in silence, the options object keeps its
+default, and the service starts.
+
+Q-14 was recorded as "not covered — a static rule gave false positives on every service", and that
+was true of the rule that had been tried. .NET reaches a setting four different ways, and a rule
+that knows one flags the other three:
+
+  * `configuration["Section:Key"]`, one string;
+  * `Required(configuration, "Section:Key")` — the path as an ARGUMENT, not a subscript, which is
+    how all four composition roots read their required values;
+  * `GetSection("Section")` then `settings["Key"]`, in two places;
+  * an options class with `SectionName = "Section"` whose PROPERTY is named `Key` — and for
+    `Egress__S3__AccessKey`, a property named `S3` whose type declares `AccessKey`.
+  * plus `GetConnectionString("Database")`, which is `ConnectionStrings:Database` under a
+    dedicated API that a rule knowing only the general one cannot see.
+
+Recognising all of them reports **zero** across the 54 settings the compose files pass — which is
+what makes it a rule rather than a list of exceptions.
+
+**Two things it got wrong first, both found by a mutation surviving, and both worth more than the
+rule itself.**
+
+The first version asked "does ANYTHING read this?". Renaming UserManagementService's
+`TimeoutSeconds` — reproducing the exact historical defect, where StreamingService's timeout was
+hard-coded at 5s while compose supplied a value nothing read — sailed straight through, because
+**ClassroomService also binds a `StreamingService` section with a `TimeoutSeconds`**. So the check
+is now per service: compose blocks are attributed to the service they configure, and only that
+service's source counts.
+
+That still passed. The reason was worse: the rule was reading **test** sources too, and
+UserManagementService's own `InternalServiceOptionsTests` builds an in-memory configuration
+containing `"StreamingService:TimeoutSeconds"`. The test was vouching for the production code. Only
+`src/` counts now.
+
+**Mutation-checked, 7 mutations, 6 killed.** The survivor is honest and recorded: restricting the
+prefix walk to the first split changes nothing, because every setting in the repository today has
+its section boundary after the first segment. The generality is insurance against a
+`GetSection("Egress:S3")` appearing later, and removing it would risk a false alarm — which is the
+failure mode that got this row abandoned in the first place.
+
+**ClassroomService 464 → 471.**
+
+---
+
 ### 7.15 RTL that actually flips (M-10) — **DONE; 91 utilities that ignore the document direction**
 
 M-10 asks that "RTL layout renders without overflow on the main pages". The obvious test is to

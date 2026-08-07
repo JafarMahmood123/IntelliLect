@@ -24,6 +24,20 @@
 \usepackage{array}      % >{...} column specifiers and \arraybackslash
 \usepackage{longtable}
 \usepackage{graphicx}
+\usepackage{float}      % [H] — pin a figure exactly where it is written
+
+% Float placement. LaTeX's defaults are tuned for text with occasional figures;
+% this report runs 80 figures over 175 pages, and in figure-dense sections the
+% defaults reject a second float on a page and flush both onto a figure-only
+% page, separating a diagram from the subsection that discusses it.
+% Raising the fractions keeps figures with their text. No package needed.
+\renewcommand{\topfraction}{0.9}        % max page fraction for top floats (was .7)
+\renewcommand{\bottomfraction}{0.7}     % ...for bottom floats (was .3)
+\renewcommand{\textfraction}{0.1}       % min page fraction that must be text (was .2)
+\renewcommand{\floatpagefraction}{0.8}  % a float page must be this full (was .5)
+\setcounter{topnumber}{3}               % max floats at top of a page (was 2)
+\setcounter{totalnumber}{4}             % max floats on a page (was 3)
+
 \usepackage{titlesec}
 \usepackage{caption}
 \usepackage{setspace}

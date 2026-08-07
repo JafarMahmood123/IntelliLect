@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 08:57 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 09:24 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 291 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 464 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| ClassroomService | 471 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 373 in 40 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,246** | |
+| **Total** | **2,253** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -231,7 +231,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 183 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 190 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 
@@ -243,6 +243,7 @@ Six survived, and each one meant a test was passing for the wrong reason:
 | Removing the teacher check on quiz submission | A teacher is not normally enrolled, so the enrolment check refused them anyway — until one enrols |
 | Removing `[Authorize(Roles = "Teacher")]` from `ClassroomsController.Delete` | The exemption list was keyed on action name; an entry meant for recordings was covering it |
 | Removing a `TimeoutSeconds` from compose | The rule's file map was keyed on `path.name`, and six compose files share one name — five services were never checked |
+| Renaming a `TimeoutSeconds` property out of UserManagementService's options | Twice. First the settings rule asked "does ANYTHING read this?", and ClassroomService binds the same section with the same property name, so the wrong service vouched for it. Then it still passed, because the rule was reading TEST sources — UMS's own options test builds a config containing that exact key, so the test was vouching for the production code |
 | Removing the drawer's `rtl:-translate-x-full`, and the toggle knob's anchor | The RTL rule listed only utilities that HAVE a logical counterpart, so `translate-x` — which has none — was excluded, and the two defects the rule had just prompted fixes for were the two it could not see. The anchoring case then survived a second time because it was scoped per file rather than per className expression |
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 

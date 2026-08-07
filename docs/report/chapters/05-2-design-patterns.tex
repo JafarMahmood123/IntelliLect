@@ -38,9 +38,11 @@
 
 يعتمد هذا النمط على تعريف عائلة من الخوارزميات وجعلها قابلة للاستبدال عبر واجهة موحدة، بحيث يمكن للمستدعي استخدام أي منها دون معرفة تفاصيل تنفيذها. يوضح الشكل~\ref{fig:pattern-03} هذا النمط.
 
-\begin{figure}[htbp]
+% [H], not [htbp]: pinned directly under the paragraph that introduces it,
+% rather than allowed to float to the next page.
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.75\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-03-strategy.png}
+  \includegraphics[width=0.6\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-03-strategy.png}
   \caption{نمط الاستراتيجية: واجهة واحدة وثلاثة تحقيقات متكافئة، والمستدعي لا يعرف إلّا الواجهة.}
   \label{fig:pattern-03}
 \end{figure}
