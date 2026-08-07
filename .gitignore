@@ -116,3 +116,12 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+#############################################
+# Test-result artifacts (docs/testing-results.md §2)
+#############################################
+# Read by backend/tests/e2e/collect_results.py to generate the inventory table.
+# Produced by a run, never committed — a checked-in count is the transcription
+# problem again, one directory further away.
+test-results.xml
+*.trx

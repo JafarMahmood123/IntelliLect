@@ -20,11 +20,19 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from support.results import REPO, all_coverage, coverage_table, latency_table, layer_table
+from support.results import (
+    REPO,
+    all_coverage,
+    coverage_table,
+    inventory_table,
+    latency_table,
+    layer_table,
+)
 
 TARGET = REPO / "docs/testing-results.md"
 
 BLOCKS = {
+    "inventory": inventory_table,
     "coverage": lambda: coverage_table(all_coverage()),
     "layers": layer_table,
     "latency": latency_table,

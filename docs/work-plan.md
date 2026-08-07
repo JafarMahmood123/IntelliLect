@@ -2034,6 +2034,42 @@ cd tests/e2e && ./run-in-network.sh -m latency
       longer exists. **This project's own artifacts were exactly that when the collector first
       ran** — three commits out of date, and they would have been quoted as current.
 
+      **10.5b — §2 was still typed by hand, under a document whose first line says nothing is.**
+      The test inventory was the one table the collector did not fill. Four cycles of updating it
+      by hand produced a wrong number that only the coverage generator caught, which is the
+      transcription failure above, happening, in the document written to prevent it.
+
+      The stated reason for leaving it was that parsing counts "would mean running every suite
+      from the collector". It does not — for the same reason the coverage blocks do not run
+      anything. **Suites already write result artifacts**; they just were not being asked to.
+      `dotnet test --logger trx`, `pytest --junitxml`, and `vitest --reporter=junit` are all
+      command-line flags, so no project configuration changed — which matters, because
+      `frontend_coverage` records the principle that a collector reads what the project produces
+      rather than altering the project to be easier to read.
+
+      Staleness bites harder here than for coverage: a count goes wrong the moment somebody adds
+      a **test**, so freshness is measured against `tests/` as well as `src/`.
+
+      Two design decisions worth stating, because both lower a published number:
+
+      - **The count is what ran.** The cross-service row reports its `-m offline` subset. The
+        other 76 tests are authored and have never executed; adding them in would assert they
+        pass.
+      - **The total refuses to exist while any row is withheld**, rather than summing what is
+        readable. A silent under-count is the same defect as an over-count, and it looks exactly
+        like a real number.
+
+      Together those moved the published total from a hand-typed **2,306** to a generated
+      **2,248** — the drop is entirely the E2E tests that have never run.
+
+      **Mutation-checked (§7.8), 13 mutations, 12 killed.** The survivor is recorded in the test
+      that was supposed to kill it: a `\b` anchor in the TRX reader guards `executed="` against
+      matching inside `notExecuted="`, and it cannot, because the counter is spelled with a
+      capital E. The comment claiming otherwise was corrected rather than the test contorted.
+      Two mutations also improved the code they attacked — one exposed a "test" asserting
+      `61 - 59 == 2`, a tautology exercising no product code at all, and forced the TRX parse to
+      be extracted so it could be driven with a real file.
+
       **The measured numbers, fresh (2026-08-06), and they change the story §0.2 tells.**
 
       | Component | Line | vs §0.2 baseline |

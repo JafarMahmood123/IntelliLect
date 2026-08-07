@@ -248,3 +248,226 @@ def layer_table(services: tuple[str, ...] = DOTNET_SERVICES) -> str:
     return "\n".join(
         [header, *(f"| {r.component} | {r.layer} | {r.line_rate * 100:.1f}% |" for r in rows)]
     )
+
+
+# --- how many tests there are, which was the last number still typed by hand ----------
+
+
+@dataclass(frozen=True)
+class Suite:
+    """One suite's result, and whether it can be believed.
+
+    The same two failure modes the module docstring names, applied to the number this document
+    was still transcribing. The staleness half is sharper here than it is for coverage: a count
+    goes wrong the moment somebody adds a test, which is the single most common change anyone
+    makes to this repository.
+    """
+
+    name: str
+    how: str
+    passed: int | None = None
+    skipped: int = 0
+    failed: int = 0
+    artifact: Path | None = None
+    ran_at: datetime | None = None
+    newest_source_at: datetime | None = None
+    note: str = ""
+
+    @property
+    def stale(self) -> bool:
+        if self.ran_at is None or self.newest_source_at is None:
+            return False
+        return self.ran_at < self.newest_source_at
+
+    @property
+    def quotable(self) -> bool:
+        """Whether this row's number may be added into the total."""
+        return self.passed is not None and not self.stale and self.failed == 0
+
+    def row(self) -> str:
+        if self.passed is None:
+            return f"| {self.name} | — | not run | `{self.how}` |"
+
+        if self.failed:
+            # Louder than staleness. A suite with failures has a count, and quoting it as though
+            # it were a clean run is the one thing a results table must never do.
+            return (
+                f"| {self.name} | — | **{self.failed} FAILING** — fix before quoting "
+                f"(ran {self.ran_at:%Y-%m-%d}) | `{self.how}` |"
+            )
+
+        if self.stale:
+            return (
+                f"| {self.name} | — | **stale — re-run before quoting** "
+                f"(ran {self.ran_at:%Y-%m-%d}, tests or code changed "
+                f"{self.newest_source_at:%Y-%m-%d}) | `{self.how}` |"
+            )
+
+        count = f"{self.passed}"
+        if self.skipped:
+            count += f" (+{self.skipped} skipped)"
+        note = f" {self.note}" if self.note else ""
+        return f"| {self.name} | {count} | passed {self.ran_at:%Y-%m-%d}{note} | `{self.how}` |"
+
+
+def _junit_suite(
+    name: str, how: str, artifact: Path, source_at: datetime | None, note: str = ""
+) -> Suite:
+    """Reads the JUnit XML that pytest and vitest both write."""
+    if not artifact.exists():
+        return Suite(name=name, how=how, newest_source_at=source_at, note=note)
+
+    root = ElementTree.parse(artifact).getroot()
+    suites = list(root.iter("testsuite"))
+    total = sum(int(s.get("tests", 0)) for s in suites)
+    skipped = sum(int(s.get("skipped", 0)) for s in suites)
+    failed = sum(int(s.get("failures", 0)) + int(s.get("errors", 0)) for s in suites)
+
+    # pytest stamps the suite; vitest stamps each file. Either way the RUN's own time is used
+    # rather than the file's mtime, for the reason dotnet_coverage gives.
+    stamps = [s.get("timestamp") for s in suites if s.get("timestamp")]
+    ran_at = (
+        max(datetime.fromisoformat(stamp) for stamp in stamps).astimezone(UTC)
+        if stamps
+        else datetime.fromtimestamp(artifact.stat().st_mtime, UTC)
+    )
+
+    return Suite(
+        name=name,
+        how=how,
+        passed=total - skipped - failed,
+        skipped=skipped,
+        failed=failed,
+        artifact=artifact,
+        ran_at=ran_at,
+        newest_source_at=source_at,
+        note=note,
+    )
+
+
+def _trx_suite(name: str, how: str, artifact: Path, source_at: datetime | None) -> Suite:
+    """Reads the TRX that `dotnet test --logger trx` writes.
+
+    Takes the path rather than finding it, so a test can drive it with a known file. The first
+    version did the lookup itself and its "test" asserted `61 - 59 == 2` against a literal — a
+    tautology that exercised no code at all, which a surviving mutation duly pointed out.
+    """
+    if not artifact.exists():
+        return Suite(name=name, how=how, newest_source_at=source_at)
+
+    text = artifact.read_text(encoding="utf-8")
+    counters = re.search(r"<Counters\b([^>]*)/>", text)
+    finished = re.search(r'<Times\b[^>]*finish="([^"]+)"', text)
+    if counters is None:
+        return Suite(name=name, how=how, newest_source_at=source_at)
+
+    def attribute(key: str) -> int:
+        found = re.search(rf'\b{key}="(\d+)"', counters.group(1))
+        return int(found.group(1)) if found else 0
+
+    return Suite(
+        name=name,
+        how=how,
+        passed=attribute("passed"),
+        # A TRX has no "skipped" attribute; what did not run is total minus executed.
+        skipped=attribute("total") - attribute("executed"),
+        failed=attribute("failed") + attribute("error"),
+        artifact=artifact,
+        ran_at=(
+            datetime.fromisoformat(finished.group(1)).astimezone(UTC)
+            if finished
+            else datetime.fromtimestamp(artifact.stat().st_mtime, UTC)
+        ),
+        newest_source_at=source_at,
+    )
+
+
+def dotnet_suite(service: str) -> Suite:
+    """Newest TRX under the service's test project.
+
+    Source freshness spans `src` AND `tests`, unlike coverage: adding a test file changes the
+    count without touching a line of production code, and that is precisely the edit this row
+    exists to keep up with.
+    """
+    how = f"cd backend/{service} && dotnet test {service}.slnx --logger trx"
+    tests_root = BACKEND / service / "tests"
+    artifact = _newest(list(tests_root.rglob("*.trx"))) if tests_root.exists() else None
+    source_at = _newest_mtime(BACKEND / service, ("*.cs",))
+
+    if artifact is None:
+        return Suite(name=service, how=how, newest_source_at=source_at)
+
+    return _trx_suite(service, how, artifact, source_at)
+
+
+def python_suite(service: str) -> Suite:
+    return _junit_suite(
+        name=service,
+        how=f"cd backend/{service} && .venv/bin/python -m pytest --junitxml=test-results.xml",
+        artifact=BACKEND / service / "test-results.xml",
+        source_at=_newest_mtime(BACKEND / service, ("*.py",)),
+    )
+
+
+def frontend_suite() -> Suite:
+    return _junit_suite(
+        name="front-end-web",
+        how="cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml",
+        artifact=REPO / "front-end-web/test-results.xml",
+        source_at=_newest_mtime(REPO / "front-end-web/src", ("*.ts", "*.tsx")),
+    )
+
+
+def e2e_suite() -> Suite:
+    """The cross-service suite, counted by what actually RAN.
+
+    Only the `-m offline` subset can run here, and this row reports that subset rather than the
+    full collection. The distinction is the point: the rest of the suite is authored and has
+    never executed, and a table that added it to the others would be claiming those tests pass.
+    They may; nothing has asked them.
+    """
+    return _junit_suite(
+        name="Cross-service E2E (offline subset)",
+        how="cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml",
+        artifact=BACKEND / "tests/e2e/test-results.xml",
+        source_at=_newest_mtime(BACKEND / "tests/e2e", ("*.py",)),
+        note="— the rest of the suite needs the platform; see below",
+    )
+
+
+def all_suites() -> list[Suite]:
+    return [
+        *(dotnet_suite(service) for service in DOTNET_SERVICES),
+        *(python_suite(service) for service in PYTHON_SERVICES),
+        frontend_suite(),
+        e2e_suite(),
+    ]
+
+
+def inventory_table(suites: list[Suite] | None = None) -> str:
+    """§2, generated — the last table in this document that was still typed by hand.
+
+    The total is the part worth being careful about. Summing whichever rows happen to be
+    readable produces a smaller number that looks exactly like a real one, so a total is only
+    printed when every row can be quoted; otherwise it says how many are missing and why. A
+    report that under-counts silently is the same failure as one that over-counts.
+    """
+    rows = all_suites() if suites is None else suites
+    header = "| Suite | Tests | Status | Command |\n|---|---|---|---|"
+    lines = [header, *(suite.row() for suite in rows)]
+
+    withheld = [suite for suite in rows if not suite.quotable]
+    if withheld:
+        lines.append(
+            f"| **Total** | — | **incomplete — {len(withheld)} of {len(rows)} suites withheld "
+            f"({', '.join(suite.name for suite in withheld)})** | |"
+        )
+    else:
+        total = sum(suite.passed or 0 for suite in rows)
+        skipped = sum(suite.skipped for suite in rows)
+        lines.append(
+            f"| **Total** | **{total:,}** | all {len(rows)} suites passing"
+            f"{f', {skipped} skipped' if skipped else ''} | |"
+        )
+
+    return "\n".join(lines)

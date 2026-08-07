@@ -543,9 +543,28 @@ The document: **[testing-results.md](testing-results.md)**, filled by
 | R-10 | The results document still contains every block the collector fills | Unit | P1 | ✓ |
 | R-11 | Every module that needs nothing running carries the `offline` marker, or is a named exception with a reason (both directions) | Unit | P0 | ✓ |
 
-**Not covered:** test counts are still transcribed into §2 of the document by hand. Parsing them
-would mean running every suite from the collector, which turns reading the file into a two-minute
-operation; the commands are stated instead.
+| R-12 | A count older than the tests it counts is **withheld**, showing both dates — staleness for §2, where it bites harder than for coverage | Unit | P0 | ✓ |
+| R-13 | Equal timestamps count as current, not stale (R-04's analogue; added because a mutation asked for it) | Unit | P1 | ✓ |
+| R-14 | A suite with failures is reported as **failing**, never as a count — a passed figure from a red run is the one thing a results table must not print | Unit | P0 | ✓ |
+| R-15 | The total is the sum only when **every** row can be quoted; otherwise it is withheld and names what is missing | Unit | P0 | ✓ |
+| R-16 | Skips are shown beside the count, never folded into it | Unit | P1 | ✓ |
+| R-17 | A missing artifact reads as "not run", never as zero tests passing | Unit | P0 | ✓ |
+| R-18 | The JUnit reader totals **every** `<testsuite>` — vitest writes one per file, so reading the first would report 15 of 373 | Unit | P0 | ✓ |
+| R-19 | The TRX reader takes skips as `total - executed` (TRX has no skipped attribute), counts `error` as failure, and does not depend on attribute order | Unit | P0 | ✓ |
+| R-20 | Every suite the document reports has a reader, and the cross-service row counts only the subset that can run here | Unit | P0 | ✓ |
+| R-21 | The command printed beside each row is one that actually writes the artifact | Unit | P1 | ✓ |
+
+**§2 is generated now.** It was the last table in the document still typed by hand, while the
+document's own first line claims nothing in it is transcribed. Four cycles of hand-updating
+produced one wrong number that only the coverage generator caught. It reads TRX and JUnit files —
+which every runner already knows how to write, so no project configuration changed — under the
+same staleness rule as coverage.
+
+Two consequences, both deliberate: the cross-service row reports its `-m offline` subset rather
+than the full collection, because the other 76 tests are authored and have never executed; and the
+total refuses to be a number while any row is withheld, since a silent under-count is the same
+defect as an over-count. The published total moved from a hand-typed **2,306** to a generated
+**2,248** for exactly that reason.
 
 ## 21. Area S — Concurrency & interleaving (work-plan §11.7)
 

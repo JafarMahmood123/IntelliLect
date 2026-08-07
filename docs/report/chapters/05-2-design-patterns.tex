@@ -97,10 +97,13 @@
 
 يعالج نمط صندوق الصادر المعامل مشكلة تنشأ كلما وجب أن يصحب تغييرَ الحالة في قاعدة البيانات نشرُ رسالة على ناقل الرسائل (\en{Message Bus})، إذ إن القاعدة والناقل نظامان منفصلان لا تشملهما معاملة واحدة. فلو نُشرت الرسالة قبل إيداع المعاملة لأمكن أن تُلغى المعاملة بعد النشر، فيصل المستهلك إعلام بعمل لم يقع؛ ولو نُشرت بعد الإيداع لأمكن أن يتعطل الناقل في تلك اللحظة، فيقع العمل دون أن يعلم به أحد. ويحل النمط ذلك بإلغاء النشر المباشر: تُدرَج الرسالة صفاً في جدول ضمن قاعدة الخدمة نفسها وضمن المعاملة نفسها التي تغير الحالة، فإما أن تنجح الكتابتان معاً أو تفشلا معاً. ثم يقرأ عامل ترحيل مستقل الرسائل غير المرحّلة وينشرها على الناقل ويعلّمها مرحّلة، فيصير تعطل الناقل تأخيراً في التسليم لا ضياعاً له. يعرض الشكل~\ref{fig:pattern-07} هذا النمط.
 
-\begin{figure}[htbp]
+% [H]: pinned directly under the paragraph that introduces it.
+\begin{figure}[H]
   \centering
-  % 2.08:1 — full width is only ~32% of the text block, so it places inline.
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-07-transactional-outbox.png}
+  % 2.08:1, and only ~2.5in is free below the introducing paragraph on its page
+  % (figure 61 takes the top of that page). \textwidth needs 3.25in and 0.7
+  % needs 2.6in — both overflow and [H] then pushes to the next page. 0.6 fits.
+  \includegraphics[width=0.6\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-07-transactional-outbox.png}
   \caption{نمط صندوق الصادر المعامل: تُكتَب الرسالة ضمن معاملة العمل، ثمّ يُرحّلها عامل مستقلّ.}
   \label{fig:pattern-07}
 \end{figure}

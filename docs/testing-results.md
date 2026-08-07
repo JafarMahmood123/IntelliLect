@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 10:35 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 11:54 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -31,17 +31,34 @@ without an attribute does not.
 
 ## 2. Test inventory
 
-| Suite | Tests | Command |
-|---|---|---|
-| UserManagementService | 299 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 488 | `dotnet test ClassroomService/tests/*/*.csproj` |
-| StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
-| EmailService | 59 | `dotnet test EmailService/tests/*/*.csproj` |
-| RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
-| LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
-| front-end-web | 373 in 40 files | `cd front-end-web && npx vitest run` |
-| Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,306** | |
+<!-- generated:inventory -->
+| Suite | Tests | Status | Command |
+|---|---|---|---|
+| UserManagementService | 299 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
+| ClassroomService | 488 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
+| StreamingService | 173 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
+| EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
+| RagService | 384 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
+| LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
+| front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
+| Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
+| **Total** | **2,248** | all 8 suites passing, 16 skipped | |
+<!-- /generated:inventory -->
+
+**This table was the last thing in the document still typed by hand**, while line 4 claimed
+nothing here is transcribed. Four cycles of updating it by hand produced one wrong number that
+only the coverage generator caught, so it now reads the same kind of artifact every other block
+does — a TRX or JUnit file each runner already knows how to write — with the same rule attached:
+a result older than the tests it counts is **withheld**, never quoted.
+
+Two things follow from that, both deliberate:
+
+- **The count is what RAN.** The cross-service row reports its `-m offline` subset, not the full
+  collection. The remaining 76 tests are authored and have never executed; adding them to the
+  others would be claiming they pass.
+- **The total refuses to be a number when any row is withheld.** Summing whichever rows happen to
+  be readable gives a smaller figure that looks exactly like a real one, and a report that
+  under-counts silently has the same defect as one that over-counts.
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -251,9 +268,9 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 220 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 233 mutations across the project so far.
 
-Seven survived, and each one meant a test was passing for the wrong reason:
+Eight survived, and each one meant a test was passing for the wrong reason:
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -266,6 +283,7 @@ Seven survived, and each one meant a test was passing for the wrong reason:
 | Renaming a `TimeoutSeconds` property out of UserManagementService's options | Twice. First the settings rule asked "does ANYTHING read this?", and ClassroomService binds the same section with the same property name, so the wrong service vouched for it. Then it still passed, because the rule was reading TEST sources — UMS's own options test builds a config containing that exact key, so the test was vouching for the production code |
 | Removing the drawer's `rtl:-translate-x-full`, and the toggle knob's anchor | The RTL rule listed only utilities that HAVE a logical counterpart, so `translate-x` — which has none — was excluded, and the two defects the rule had just prompted fixes for were the two it could not see. The anchoring case then survived a second time because it was scoped per file rather than per className expression |
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
+| Removing the `\b` anchor from the TRX reader's counter lookup | **An honest survivor, and the comment claiming otherwise was the thing that changed.** The anchor guards `executed="` against matching inside `notExecuted="` — and it cannot, because the counter is spelled with a capital E, so no attribute order collides. Recorded in the test that was written to kill it. Two neighbouring mutations did earn their keep: one exposed a "test" asserting `61 - 59 == 2`, a tautology exercising no product code at all |
 | Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
 
 One "mutation" turned out never to have applied (attribute order in the source differed), which
