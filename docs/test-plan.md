@@ -146,6 +146,10 @@ across every `{id}` route param. Every case here is a template applied per endpo
 | B-21 | Error messages prefer the server's `detail`, then a validation message, then the generic title; whitespace counts as blank | Frontend | P1 | ✓ |
 | B-12 | The internal guard **fails closed**: an unconfigured secret refuses every call rather than admitting all of them | Unit | P0 | ✓ |
 | B-13 | Every controller serving `api/internal` carries the guard — a rule over the assembly, so a new one cannot ship without it | Unit | P0 | ✓ |
+| B-33 | The same rule for the two **Python** services: every mounted route is secret-guarded or on a reasoned exemption list, checked over the running app rather than the source | Unit | P0 | ✓ (no defect; the guard was a habit repeated per endpoint with nothing watching it) |
+| B-34 | The Python guards **fail closed** when no secret is configured — §7b's finding, on the two services where it was only ever a reading of the code | Unit | P0 | ✓ |
+| B-35 | No route either Python service serves is reachable through nginx — the half `NginxRouteTableTests` cannot see, since it reads `[Route]` attributes from .NET assemblies | Unit | P0 | ✓ |
+| B-36 | The gateway rule can see an exposure: adding an upstream **and** a location for a Python service fails it | Unit | P0 | ✓ (the first version of this mutation was killed for the wrong reason; see §7.13b) |
 
 ## 5. Area C — User administration & bulk accept/reject (work-plan §2)
 

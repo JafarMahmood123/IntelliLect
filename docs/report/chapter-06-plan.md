@@ -1,7 +1,9 @@
 # Chapter 4 (Implementation & Testing) — Restructuring Plan
 
-Working document. Nothing in `chapters/06-implementation-and-testing.tex` has been
-changed yet. Review this, mark the decisions at the end, and I'll apply it in one pass.
+**STATUS: APPLIED.** The rewrite is in `chapters/06-implementation-and-testing.tex`
+(602 → 428 lines) and the PDF builds clean at 144 pages. This document is kept as the
+record of what was decided and why. The only item still open is D4 (the Interceptor
+pattern) plus the unrelated naming question in §6.
 
 Source file: `chapters/06-implementation-and-testing.tex` — 602 lines, 9 sections.
 Chapter number in the built PDF is **4** (chapters 2 and 3 are excluded from the build).

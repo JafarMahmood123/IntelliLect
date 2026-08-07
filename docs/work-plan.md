@@ -2009,6 +2009,72 @@ losing its second factor; the policy losing its role; the admin surface losing i
 
 **UserManagementService 324 → 343 tests.**
 
+### 7.13b The route table's Python half (B-33..B-36) — **DONE; no defect, and that is the finding**
+
+Five cycles of sweeping the same class found something every time, so the two Python services were
+worth looking at properly rather than assuming. **They are clean**, and the useful part is *why*,
+because it is not the same reason as the .NET services.
+
+- **Retrieval is scoped.** `ChunkRepository.search` carries
+  `.where(ChunkModel.classroom_id == classroom_id)` with `# mandatory scope` against it. F-07's
+  concern — "search never returns another classroom's chunks" — is answered in the query itself.
+- **Every router is guarded.** Eight in RagService, four in LiveAssistantService, each with
+  `dependencies=[Depends(require_internal_secret)]`, and `main.py` mounts every one of them.
+- **Both guards fail closed**: `if not expected or x_internal_secret != expected`. This is the
+  §7b defect written correctly — the .NET version compared the header to a missing setting and let
+  the request through.
+- **Neither service holds a user token at all**, so the tenancy question that produced §7.2b, §7.4d
+  and §7.4e does not arise here: the caller is another service, and the secret is the whole answer.
+
+**What was missing is the rule, and two of them.**
+
+The guard was a habit repeated per endpoint — a `dependencies=` per router and a "requires the
+secret" test per endpoint. That is precisely the shape ClassroomService had before §11.2: correct
+today, with nothing anywhere that would notice the one that forgot. Written now over the **mounted
+app** rather than over the source, because `dependencies=` on an `APIRouter` only protects the
+routes actually included from it — a router mounted twice, or a route added to `app` directly,
+carries no such guarantee and reads identically in the file.
+
+**And `NginxRouteTableTests` cannot see these services at all.** It resolves `[Route]` attributes
+from the three .NET assemblies; the Python services are outside its reach. What protects them is
+that nginx declares no `location` and no `upstream` for either, so everything they serve falls into
+`location /api/` and lands on UserManagementService, which answers 404. Safety by placement, exactly
+as B-15 says of the .NET internal controllers — and one `location` block away from ending.
+
+**Worth stating plainly: RagService serves `/api/search` and `/api/answer`.** Both are
+internal-only and both carry the secret, but neither *looks* internal, and the thing standing
+between them and the internet is the absence of an nginx location. Renaming them under
+`/api/internal/` would be a coordinated contract change across two .NET callers and would protect
+them by convention rather than by anything. The rule is the protection; the naming is noted here so
+that a future `location /api/search` is recognised as the change it would be.
+
+**The vacuum guard earned its keep on the first run, twice.**
+
+- `[r for r in app.routes if isinstance(r, APIRoute)]` returned **nothing**. FastAPI 0.141 wraps
+  each `include_router` in an `_IncludedRouter` that holds the original router rather than copying
+  its routes up, so the obvious query sees zero routes and every rule above it passes. The guard
+  said "Only found 0 routes" instead.
+- The exemption list was written with three entries and RagService serves two — `/health/ready` does
+  not exist. The both-directions check rejected it immediately. An exemption list is only worth
+  having if a wrong entry is louder than a missing one.
+
+**Mutation-checked (§7.8), 11 mutations, all killed — but two were first killed for the wrong
+reason.** M7 and M8 added an nginx `location` for a Python service pointing at an upstream that was
+never declared, and both died on "proxies to an upstream it never declares" rather than on the
+hostname check the rule is actually about. That is the same class as a mutation that silently does
+not apply: a green kill proving something other than what it claims. Re-expressed as a single edit
+declaring the upstream **and** adding the location — what somebody wiring this up would really write
+— so the hostname check is the only thing left to notice it. Killed on that.
+
+The other nine: each of four routers shipping without its guard, both guards flipped to fail open,
+an invented exemption, an exemption naming a guarded route, and the route walk no longer descending
+into included routers.
+
+**Duplicated across both services, following `test_migration_conformance.py`.** They share no test
+library and no virtualenv; a rule only one of them runs is a rule half the surface has.
+
+**RagService 397 → 407, LiveAssistantService 381 → 391.**
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

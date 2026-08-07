@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 18:37 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 19:06 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -38,11 +38,11 @@ without an attribute does not.
 | ClassroomService | 522 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
 | StreamingService | 252 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
-| RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
-| LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
+| RagService | 407 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
+| LiveAssistantService | 391 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,418** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,438** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -81,8 +81,8 @@ that selection waits two minutes and then fails.
 | ClassroomService | 81.3% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 78.1% | 43.8% | measured 2026-08-07 (686 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
-| LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
+| RagService | 83.6% | 69.2% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
+| LiveAssistantService | 87.9% | 75.0% | measured 2026-08-07 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | front-end-web | 41.4% | 79.5% | measured 2026-08-07 (14863 lines) | `cd front-end-web && npm run test:coverage` |
 <!-- /generated:coverage -->
 
@@ -292,13 +292,14 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 334 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 345 mutations across the project so far.
 
-Thirteen survived, and each one meant a test was passing for the wrong reason. (This said "nine"
-until it was counted against the table below, which had thirteen rows by then — the count was
-edited by hand while the rows were appended. It is counted now, and the count is checked against
-the table whenever a row is added. One row is present because it is the most instructive entry here
-and **not** because it survived; it says so.)
+Fourteen of the fifteen rows below survived, or were killed for a reason other than the one the
+test claimed. Each meant something was passing — or failing — for the wrong reason. (This count
+said "nine" against a table of thirteen until it was checked; it had been edited by hand while rows
+were appended. It is checked against the table whenever a row is added now. The fifteenth row is
+here because it is the most instructive entry in the table and **not** because it survived; it says
+so.)
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -313,6 +314,7 @@ and **not** because it survived; it says so.)
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 | Removing the unique-index modelling from `FakeStreamRepository` | Honest, and recorded rather than engineered around. Once `ConsumeAsync` was made to publish **sequentially** — which is what a redelivery actually is — the second consume returns at `ExistsAsync` and never reaches `AddAsync`, so the double's constraint is not exercised there. It exists so the fake cannot be more permissive than the schema; the concurrent case has its own file, with its own constrained repository |
 | Removing the `\b` anchor from the TRX reader's counter lookup | **An honest survivor, and the comment claiming otherwise was the thing that changed.** The anchor guards `executed="` against matching inside `notExecuted="` — and it cannot, because the counter is spelled with a capital E, so no attribute order collides. Recorded in the test that was written to kill it. Two neighbouring mutations did earn their keep: one exposed a "test" asserting `61 - 59 == 2`, a tautology exercising no product code at all |
+| Adding an nginx `location` for a Python service, pointing at an upstream that was never declared | **Killed for the wrong reason**, which is the same class as a mutation that never applies. Both nginx mutations died on "proxies to an upstream it never declares" rather than on the hostname check the rule exists for, so the green kill proved something other than what it claimed. Re-expressed as a single edit declaring the upstream **and** adding the location — what somebody wiring this up would really write |
 | Answering `IsMember: true` for an unknown classroom on the internal membership route | The service's "returns null for a classroom that does not exist" was tested; the **controller's translation of that null into a 404** was not. So the fail-OPEN direction went unchecked on the one route whose answer decides entry to a live lecture — and a stream naming a deleted classroom is precisely when it fires |
 | Dropping the classroom scoping from `StartSessionAsync` | **The test could not fail.** "A session started under the wrong classroom is 404" asked with an *invented* classroom id — and an unknown classroom is 404 from the ownership check too, so both the fixed and the broken code answered the same. Rewritten to ask as the *other* teacher, under a real classroom that is genuinely theirs, for a session that is not: the probe the 404 exists to defeat, and the one that was not being made |
 | Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
