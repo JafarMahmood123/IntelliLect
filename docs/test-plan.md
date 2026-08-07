@@ -179,7 +179,10 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-23 | The gap between the two is bounded above as well as below — nginx buffers the body, so its limit is a memory bound and not "as large as possible" | Unit | P1 | ✓ |
 | E-24 | nginx's binary size suffixes are read the way nginx reads them (`k` = 1024), so the rule cannot fail on a correct config | Unit | P1 | ✓ |
 | E-25 | Every content type and extension accepted at upload is one RagService can extract — since §7.5b, drift means a file that uploads cleanly and then fails indexing | Unit | P0 | ✓ (read from `_support.py`, never copied) |
-| E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | P2 | not built |
+| E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | ~~P2~~ **P1** | ✓ (there was no limit at all; `get_bytes` reads the whole object into memory and nothing had ever asked how big it was) |
+| E-26 | The refusal happens BEFORE the download — a check after it has already spent exactly the memory it exists to protect | Unit | P1 | ✓ (asserted on the storage fake's call count, not on the status) |
+| E-27 | An object exactly at the limit is still ingested — a cap that refuses the largest legitimate file is a defect of its own | Unit | P1 | ✓ |
+| E-28 | RagService's cap is never below ClassroomService's upload limit, asserted from **both** sides, because either service can be the one that moves | Unit | P0 | ✓ |
 | E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | ✓ |
 | E-10 | Frontend pre-flight rejects an over-size file before the request starts | Frontend | P2 | ✓ |
 | E-11 | `SizeBytes` is recorded correctly and rendered human-readably in the teacher's file list | Frontend | P1 | ✓ |
@@ -319,7 +322,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | I-18 | Extension granted while the sweeper is closing the quiz — pin the winner | Integration | P1 | gap |
 | I-19 | A student cannot see correct answers before the quiz closes (`IsCorrect` nullable in `MyAnswerDto` — verify it is actually null pre-close) | Integration | P0 | ✓ |
 | I-20 | A student cannot INFER correctness from their own totals while a quiz is open — tracking score, available marks and class average all exclude open quizzes | Unit | P0 | ✓ |
-| I-20 | `RespondentCount`/`SubmittedCount` are accurate under concurrent answering | Integration | P1 | partial |
+| I-30 | `RespondentCount`/`SubmittedCount` are accurate under concurrent answering | Integration | P1 | partial |
 | I-21 | Generated draft goes through the identical validation and publish path as a hand-written one | Unit | P0 | ✓ |
 | I-22 | Generation is authorized *before* the model is called | Unit | P1 | ✓ |
 | I-23 | A malformed model response fails generation without persisting a broken draft | Unit | P0 | ✓ |

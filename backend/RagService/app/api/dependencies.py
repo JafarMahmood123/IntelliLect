@@ -537,6 +537,7 @@ def build_ingestion_worker() -> IngestionWorker:
                     max_attempts=settings.ingest_max_attempts,
                     retry_base_seconds=settings.ingest_retry_base_seconds,
                     retry_max_seconds=settings.ingest_retry_max_seconds,
+                    max_document_bytes=settings.max_document_bytes,
                 )
                 result = await service.ingest(job)
                 await session.commit()

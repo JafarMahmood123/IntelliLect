@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 08:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 08:32 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 291 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 462 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| ClassroomService | 464 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
-| RagService | 381 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
+| RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,235** | |
+| **Total** | **2,240** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -64,7 +64,7 @@ that selection waits two minutes and then fails.
 | ClassroomService | 80.0% | 73.9% | measured 2026-08-07 (1213 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 73.6% | 43.8% | measured 2026-08-07 (656 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 97.6% | 93.8% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| RagService | 83.2% | 68.9% | measured 2026-08-07 (3946 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
+| RagService | 83.2% | 69.0% | measured 2026-08-07 (3957 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | front-end-web | 41.4% | 79.5% | measured 2026-08-06 (14868 lines) | `cd front-end-web && npm run test:coverage` |
 <!-- /generated:coverage -->
@@ -213,6 +213,7 @@ found by writing a test, not by a user.
 | 20 | **A client that timed out and hung up was logged as a 500 server error** — one manufactured error per abandoned request, arriving in bursts behind every retry, in the log somebody reads to find the real failure | S-14 exception-handler tests |
 | 22 | **ClassroomService's recording consumer and StreamingService's only consumer were registered with no retry policy** — one attempt, then an error queue nobody watches. A lecture already recorded in MinIO stays permanently invisible; a class that has just started gets no stream row while everyone is in the room | L-04 consumer-retry rules |
 | 23 | ClassroomService's solution file still pointed at the pre-`src/` layout and omitted its tests, and StreamingService's sat inside `src/` — so two of the coverage commands printed in this document did not run at all | noticed while regenerating this table |
+| 32 | **RagService had no size limit on ingestion at all** — `get_bytes` reads the whole object into memory in one call, and ingestion takes an `s3_key`, so nothing on that side had ever asked how big it was. ClassroomService's 50 MB upload cap does not reach it | E-08 |
 | 30 | **There was no audit record of any account status change** — approving, rejecting and deactivating accounts is the most privileged operation in the product and `UserStatusService` had no logger, while ClassroomService logged every recording download | C-09 |
 | 31 | The early self-target return skipped the audit — a super admin attempting to change their own status is the line the log most needs, and the shortcut that saved a query was the one path that lost it | C-20 |
 | 28 | **An abandoned request kept working and blamed healthy services** — a cancelled caller was swallowed like an outage, so UMS carried on calling the remaining services and returned 200 with the "downstream unavailable" flag raised. It also stopped these requests reaching the 499 accounting added for exactly this | L-06 |
@@ -228,7 +229,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 169 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 175 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 

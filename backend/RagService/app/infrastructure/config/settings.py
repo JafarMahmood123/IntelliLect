@@ -98,6 +98,22 @@ class Settings(BaseSettings):
     ingest_queue_max: int = 100  # bounded in-process job queue size
     embed_batch_size: int = 32  # chunk texts per embed_documents call
 
+    # Largest object this service will pull out of storage, in bytes (test-plan E-08).
+    #
+    # There was no cap at all. `get_bytes` does `response["Body"].read()` — the whole object into
+    # memory in one go — and ingestion takes an `s3_key` rather than an upload, so nothing on this
+    # side had ever checked how big the thing on the end of that key is. ClassroomService's 50 MB
+    # upload limit is enforced at the door it owns; this service is reached through a different
+    # door (the internal ingest route, and re-index sweeps over keys already in the bucket) and
+    # inherited none of it.
+    #
+    # 64 MB: comfortably above ClassroomService's 50 MB per-file limit, so nothing that legitimately
+    # entered the product is refused here, and equal to nginx's client_max_body_size — the largest
+    # request that can reach the platform at all. A ClassroomService test asserts the first of those
+    # two relationships, because a cap below the upload limit would accept a file at the door and
+    # then refuse to index it, which is the worst of both.
+    max_document_bytes: int = 64 * 1024 * 1024
+
     # --- Super-admin knowledge-base management ---
     admin_list_default_page_size: int = 20
     admin_list_max_page_size: int = 100

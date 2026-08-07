@@ -90,6 +90,7 @@ class IngestionService:
         max_attempts: int = 3,
         retry_base_seconds: float = 2.0,
         retry_max_seconds: float = 30.0,
+        max_document_bytes: int = 64 * 1024 * 1024,
     ) -> None:
         self._storage = file_storage
         self._extractor = extractor
@@ -103,6 +104,7 @@ class IngestionService:
         self._max_attempts = max(1, max_attempts)
         self._retry_base = retry_base_seconds
         self._retry_max = retry_max_seconds
+        self._max_document_bytes = max_document_bytes
 
     async def ingest(self, job: IngestionJob) -> IngestionResult:
         # Bind correlation ids (file_id + a generated run id) for every log emitted
@@ -134,6 +136,21 @@ class IngestionService:
         logger.info("claimed", extra={"attempt": attempts})
         with metrics.track_inflight(), metrics.ingestion_timer():
             try:
+                # Size FIRST, and separately, because get_bytes reads the whole object into
+                # memory in one call — a check after it has already cost what it was meant to
+                # prevent. One extra HEAD against seconds of extraction and embedding.
+                #
+                # ClassroomService caps uploads at 50 MB on the door it owns. This service is
+                # reached through a different one: ingestion takes an s3_key, and re-index sweeps
+                # walk keys already in the bucket, so nothing here had ever asked how big the
+                # object on the end of that key is.
+                size = await self._storage.get_size(job.s3_key)
+                if size > self._max_document_bytes:
+                    raise PermanentIngestionError(
+                        f"{job.file_name!r} is {size} bytes, above the {self._max_document_bytes}-byte "
+                        "ingestion limit. Nothing was downloaded."
+                    )
+
                 file_bytes = await self._storage.get_bytes(job.s3_key)
                 content_hash = hashlib.sha256(file_bytes).hexdigest()
 

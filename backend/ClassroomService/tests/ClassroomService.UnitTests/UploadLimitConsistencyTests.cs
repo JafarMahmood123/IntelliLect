@@ -141,6 +141,35 @@ public sealed class UploadLimitConsistencyTests
         Assert.True(RagServiceConstants("_EXTENSIONS").Count >= 6);
     }
 
+    [Fact]
+    public void RagService_will_ingest_anything_this_service_will_accept()
+    {
+        // The third copy of the same number, and the one whose drift is worst in a specific way.
+        // RagService caps what it will pull out of storage (E-08). If that cap ever falls below
+        // what this service accepts at upload, a teacher's file is taken at the door, stored,
+        // and then refused for indexing — so it exists, is listed, and can never be searched.
+        // Neither service reports anything wrong, because each did exactly what it was told.
+        //
+        // Asserted from BOTH sides: RagService's own suite checks the same relationship against
+        // ClassroomService's 50 MB. Two rules, because either service can be the one that moves.
+        var accepted = new UploadOptions().MaxFileSizeBytes;
+
+        Assert.True(
+            RagServiceMaxDocumentBytes() >= accepted,
+            $"RagService will ingest at most {RagServiceMaxDocumentBytes()} bytes but this service "
+            + $"accepts up to {accepted}. Files in between upload successfully and can never be "
+            + "indexed. Raise max_document_bytes in RagService/app/infrastructure/config/settings.py.");
+    }
+
+    [Fact]
+    public void The_RagService_limit_was_actually_read()
+    {
+        // Read from another language's source, so the reader is the fragile part. Zero would make
+        // the rule above fail loudly rather than silently — but a regex that matched some other
+        // number would not, and this is what says which.
+        Assert.InRange(RagServiceMaxDocumentBytes(), 1024L * 1024, 1024L * 1024 * 1024);
+    }
+
     // --- helpers ---------------------------------------------------------------------------
 
     private static long NginxBodyLimitBytes()
@@ -185,4 +214,20 @@ public sealed class UploadLimitConsistencyTests
 
         return values;
     }
+
+    /// <summary>Reads `max_document_bytes` from RagService's settings, arithmetic and all.</summary>
+    private static long RagServiceMaxDocumentBytes()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            BackendRoot, "RagService", "app", "infrastructure", "config", "settings.py"));
+
+        var match = Regex.Match(source, @"max_document_bytes:\s*int\s*=\s*([0-9 *]+)");
+        Assert.True(match.Success, "max_document_bytes not found in RagService settings.py");
+
+        // The value is written as a product (64 * 1024 * 1024) so it stays readable there.
+        return match.Groups[1].Value
+            .Split('*', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Aggregate(1L, (product, factor) => product * long.Parse(factor));
+    }
+
 }

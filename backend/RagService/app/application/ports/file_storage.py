@@ -15,3 +15,13 @@ class FileStorage(ABC):
     async def get_bytes(self, s3_key: str) -> bytes:
         """Return the object's bytes, or raise if it cannot be fetched."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_size(self, s3_key: str) -> int:
+        """Return the object's size in bytes WITHOUT fetching its contents.
+
+        Separate from `get_bytes` because the point is to decide whether to fetch at all.
+        `get_bytes` reads the whole object into memory in one call, so a size check that
+        happens after it has already cost exactly what it was meant to prevent.
+        """
+        raise NotImplementedError

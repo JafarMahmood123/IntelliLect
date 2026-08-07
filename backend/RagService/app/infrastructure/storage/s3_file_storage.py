@@ -41,6 +41,15 @@ class S3FileStorage(FileStorage):
     async def get_bytes(self, s3_key: str) -> bytes:
         return await asyncio.to_thread(self._download, s3_key)
 
+    async def get_size(self, s3_key: str) -> int:
+        return await asyncio.to_thread(self._head, s3_key)
+
+    def _head(self, s3_key: str) -> int:
+        """HEAD rather than GET: the whole point is to not pay for the body."""
+        client = self._get_client()
+        response = client.head_object(Bucket=self._bucket, Key=s3_key)
+        return int(response["ContentLength"])
+
     def _download(self, s3_key: str) -> bytes:
         client = self._get_client()
         response = client.get_object(Bucket=self._bucket, Key=s3_key)

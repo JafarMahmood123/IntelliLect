@@ -61,6 +61,7 @@ def build_ingestion_service(
         max_attempts=max_attempts,
         retry_base_seconds=retry_base,
         retry_max_seconds=retry_max,
+        max_document_bytes=settings.max_document_bytes,
     )
 
 
@@ -117,9 +118,18 @@ class FakeClock:
 class FakeFileStorage(FileStorage):
     """Maps s3_key -> bytes. `put` lets a test change the content (re-index)."""
 
-    def __init__(self, mapping: dict[str, bytes] | None = None) -> None:
+    def __init__(
+        self,
+        mapping: dict[str, bytes] | None = None,
+        sizes: dict[str, int] | None = None,
+    ) -> None:
         self._mapping: dict[str, bytes] = dict(mapping or {})
+        # Sizes are overridable so a test can present a huge object without allocating one.
+        # An object nobody overrode reports its real length, so the size check cannot pass
+        # by reporting zero for everything.
+        self._sizes: dict[str, int] = dict(sizes or {})
         self.calls = 0
+        self.size_calls = 0
 
     def put(self, s3_key: str, data: bytes) -> None:
         self._mapping[s3_key] = data
@@ -127,6 +137,12 @@ class FakeFileStorage(FileStorage):
     async def get_bytes(self, s3_key: str) -> bytes:
         self.calls += 1
         return self._mapping[s3_key]
+
+    async def get_size(self, s3_key: str) -> int:
+        self.size_calls += 1
+        if s3_key in self._sizes:
+            return self._sizes[s3_key]
+        return len(self._mapping[s3_key])
 
 
 class FakeEmbeddingProvider(EmbeddingProvider):

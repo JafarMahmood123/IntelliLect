@@ -215,3 +215,73 @@ async def test_a_document_that_yields_no_text_is_failed_not_marked_indexed() -> 
     # And nothing was written: no empty replace, so a previously-indexed version of this
     # document is not wiped out by a re-upload that turned out to be unreadable.
     assert chunks.replace_calls == 0
+
+
+async def test_an_oversized_object_is_refused_without_being_downloaded() -> None:
+    """The size cap, and the half that makes it worth having (test-plan E-08).
+
+    There was no cap at all. `get_bytes` is `response["Body"].read()` — the whole object into
+    memory in one call — and ingestion takes an `s3_key` rather than an upload, so nothing on
+    this side had ever asked how big the thing on the end of that key is. ClassroomService's
+    50 MB limit is enforced at the door it owns; this service is reached through a different
+    one (the internal ingest route, and re-index sweeps over keys already in the bucket).
+
+    The assertion that matters is `storage.calls == 0`. A check placed after the download would
+    pass a test that only looked at the status, while having already spent exactly the memory it
+    exists to protect.
+    """
+    job = IngestionJob(uuid4(), uuid4(), S3_KEY, "enormous.pdf", "application/pdf")
+    storage = FakeFileStorage({S3_KEY: make_pdf_bytes(1)}, sizes={S3_KEY: 512 * 1024 * 1024})
+    embedder = FakeEmbeddingProvider(DIM)
+    documents = InMemoryDocumentRepository()
+    chunks = InMemoryChunkRepository()
+    _seed_pending(documents, job)
+    service = build_ingestion_service(
+        storage=storage, embedder=embedder, documents=documents, chunks=chunks,
+        clock=FakeClock(),
+    )
+
+    outcome = await service.ingest(job)
+
+    assert outcome.status == DocumentStatus.FAILED
+    assert storage.calls == 0, "the object was downloaded despite being over the limit"
+    assert storage.size_calls == 1
+
+    # Permanent: the object will not shrink, so retrying only delays telling somebody.
+    assert outcome.retry is False
+    assert outcome.attempts == 1
+    stored = await documents.get_by_file_id(job.file_id)
+    assert "above the" in stored.last_error
+
+
+async def test_a_document_at_the_limit_is_still_ingested() -> None:
+    """The other direction. A cap that refuses the largest legitimate file is a defect of its own,
+    and the boundary is the only place that distinction lives."""
+    job = _job()
+    body = make_pdf_bytes(1)
+    limit = Settings().max_document_bytes
+    storage = FakeFileStorage({S3_KEY: body}, sizes={S3_KEY: limit})
+    embedder = FakeEmbeddingProvider(DIM)
+    documents = InMemoryDocumentRepository()
+    chunks = InMemoryChunkRepository()
+    _seed_pending(documents, job)
+    service = build_ingestion_service(
+        storage=storage, embedder=embedder, documents=documents, chunks=chunks,
+        clock=FakeClock(),
+    )
+
+    outcome = await service.ingest(job)
+
+    assert outcome.status == DocumentStatus.DONE
+    assert storage.calls == 1
+
+
+async def test_the_limit_covers_the_whole_platforms_largest_upload() -> None:
+    """RagService's cap must not sit below the size ClassroomService will accept.
+
+    A cap below the upload limit is the worst of both: the teacher's file is accepted at the
+    door, stored, and then refused for indexing — so it exists, is listed, and can never be
+    searched. 50 MB is ClassroomService's per-file limit; a ClassroomService test asserts the
+    same relationship from its side, so the two cannot drift apart in one direction only.
+    """
+    assert Settings().max_document_bytes >= 50 * 1024 * 1024

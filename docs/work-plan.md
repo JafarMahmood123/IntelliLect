@@ -1120,6 +1120,53 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.14 A size limit on ingestion (E-08) — **DONE; there was no limit at all**
+
+E-08 was rewritten once already, when the original wording turned out to describe an endpoint that
+does not exist: RagService has no upload route, `ingest_document` takes an `s3_key` and fetches the
+object itself. The replacement — "ingestion of an object larger than the configured limit is
+refused before extraction" — sat at `not built`, P2.
+
+**There was no configured limit.** `S3FileStorage.get_bytes` is `response["Body"].read()`: the
+entire object into memory in one call, with nothing anywhere bounding it. ClassroomService caps
+uploads at 50 MB on the door it owns, and this service is reached through a different one — the
+internal ingest route takes an arbitrary key, and re-index sweeps walk keys already in the bucket.
+None of that inherited the limit, and nothing on this side had ever asked how big the object on the
+end of the key is. Raised to P1: an unbounded read into memory in a service whose whole job is to
+read files is not a P2 concern.
+
+The fix is `max_document_bytes` (64 MB — above ClassroomService's 50 MB per-file limit so nothing
+legitimate is refused, and equal to nginx's `client_max_body_size`, the largest request that can
+reach the platform at all), and a check that runs **before** the download. That ordering is the
+whole point and it is what the test asserts: `FileStorage` gained `get_size`, a HEAD rather than a
+GET, and the case asserts the storage fake's `calls == 0` rather than the resulting status. A guard
+placed after `get_bytes` passes a status-only test while having already spent exactly the memory it
+exists to protect — and it is the version somebody writes when the check is added as an
+afterthought.
+
+Permanent rather than transient: the object will not shrink, so retrying only delays telling
+somebody. And the boundary is tested from the other side too, because a cap that refuses the
+largest legitimate file is a defect of its own.
+
+**The cross-service relationship is asserted from both ends.** RagService's suite checks its cap
+against ClassroomService's 50 MB; `UploadLimitConsistencyTests` checks the same relationship from
+ClassroomService, reading `settings.py`. Two rules rather than one because either service can be
+the one that moves, and a cap below the upload limit is the worst of both outcomes: the teacher's
+file is accepted at the door, stored, and then refused for indexing — so it exists, is listed, and
+can never be searched, with neither service reporting anything wrong because each did what it was
+told.
+
+**Mutation-checked, 6 mutations, all killed** — the check removed, the check moved after the
+download, the boundary made exclusive, the failure made retryable, and the cap dropped below the
+upload limit (caught from **both** sides, which is the reason for writing it twice).
+
+Also fixed: a duplicate **I-20** — the concurrency row and the answer-inference row shared a number,
+the same collision A-17..A-20 had. Renumbered to I-30.
+
+**RagService 381 → 384, ClassroomService 462 → 464.**
+
+---
+
 ### 7.13 The gateway's route table (B-10) — **DONE; the safety was placement, not policy**
 
 B-08 and B-09 prove an `/api/internal` route refuses a caller without the shared secret. B-10 is
