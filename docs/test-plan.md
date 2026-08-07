@@ -172,7 +172,10 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-20 | Bytes with no recognisable signature always proceed — sniffing can refuse a file, never accept one it otherwise would not | Unit | P0 | ✓ |
 | E-21 | A corrupt file of the RIGHT format stays a `CorruptFileError`, not an "unsupported format" — "broken file" and "wrong file" mean different things to whoever reads the status | Unit | P1 | ✓ |
 | E-22 | A legacy `.doc`/`.ppt` (OLE2) is named as such rather than reported as a damaged package | Unit | P2 | ✓ |
-| E-07 | **nginx `client_max_body_size` is ≥ the app limit** — otherwise nginx rejects first with unparseable HTML | Integration | P0 | new |
+| E-07 | **nginx `client_max_body_size` is ≥ the app limit** — otherwise nginx rejects first with unparseable HTML | ~~Integration~~ **Unit** | P0 | ✓ (`UploadLimitConsistencyTests`; listed as Integration, but both numbers are in files this repo owns — reading them is stronger than exercising one upload, and runs anywhere) |
+| E-23 | The gap between the two is bounded above as well as below — nginx buffers the body, so its limit is a memory bound and not "as large as possible" | Unit | P1 | ✓ |
+| E-24 | nginx's binary size suffixes are read the way nginx reads them (`k` = 1024), so the rule cannot fail on a correct config | Unit | P1 | ✓ |
+| E-25 | Every content type and extension accepted at upload is one RagService can extract — since §7.5b, drift means a file that uploads cleanly and then fails indexing | Unit | P0 | ✓ (read from `_support.py`, never copied) |
 | E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | P2 | not built |
 | E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | ✓ |
 | E-10 | Frontend pre-flight rejects an over-size file before the request starts | Frontend | P2 | ✓ |

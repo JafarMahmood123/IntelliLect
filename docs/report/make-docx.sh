@@ -46,14 +46,38 @@ labels = dict(re.findall(r'\\newlabel\{([^}]+)\}\{\{([^}]*)\}', aux))
 def sub(m):
     return labels.get(m.group(1), m.group(1))
 
+def number_captions(text):
+    """Bake 'الشكل N–' / 'الجدول N–' into each caption.
+
+    Pandoc writes captions with no number but resolves \\ref to its own
+    chapter-relative count, so left alone the body says 5.2 and the caption
+    below the figure says nothing. Both sides get LaTeX's number instead.
+    """
+    def fix(env, word):
+        def repl(m):
+            block = m.group(0)
+            lab = re.search(r'\\label\{([^}]+)\}', block)
+            if not lab:
+                return block
+            num = labels.get(lab.group(1))
+            if not num:
+                return block
+            return block.replace(r'\caption{', '\\caption{%s %s– ' % (word, num), 1)
+        return lambda t: re.sub(r'\\begin\{%s\}.*?\\end\{%s\}' % (env, env),
+                                repl, t, flags=re.S)
+    text = fix('figure', 'الشكل')(text)
+    text = fix('table', 'الجدول')(text)
+    return text
+
 n = 0
 for f in list(work.rglob('*.tex')):
     t = f.read_text(encoding='utf-8')
-    t2 = re.sub(r'\\ref\{([^}]+)\}', sub, t)
+    t2 = number_captions(re.sub(r'\\ref\{([^}]+)\}', sub, t))
     if t2 != t:
         f.write_text(t2, encoding='utf-8')
         n += 1
-print(f'  resolved cross-references in {n} files ({len(labels)} labels known)')
+print(f'  resolved cross-references and numbered captions in {n} files '
+      f'({len(labels)} labels known)')
 PY
 
 # --- 2. reference.docx with RTL as the document default ---------------------
@@ -91,11 +115,15 @@ print('  reference.docx patched for RTL')
 PY
 
 # --- 3. convert --------------------------------------------------------------
-pandoc "$WORK/$SRC" \
-  -o "$OUT" \
-  --reference-doc="$REF" \
-  --resource-path="$DIR:$DIR/figures:$WORK:$WORK/figures" \
-  --standalone \
-  --toc
+# Run from $WORK. pandoc resolves \input relative to the CURRENT DIRECTORY, not
+# to the input file and not via --resource-path; started from $DIR it silently
+# reads the original unpatched chapters and the substitutions above do nothing.
+OUT_ABS="$DIR/$OUT"
+( cd "$WORK" && pandoc "$SRC" \
+    -o "$OUT_ABS" \
+    --reference-doc="$REF" \
+    --resource-path=".:figures" \
+    --standalone \
+    --toc )
 
 printf 'wrote %s (%s)\n' "$OUT" "$(du -h "$OUT" | cut -f1)"

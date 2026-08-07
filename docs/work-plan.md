@@ -1120,6 +1120,52 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.12 Upload limit consistency (E-07) — **DONE; a comment that asked to be a test**
+
+One upload limit, three copies, and only one of them can read the others. The size a teacher may
+upload is enforced by the resource filter before the body is read, by the file service on the
+exact file length, and by nginx's `client_max_body_size` at the gateway. The first two come from
+`Uploads:MaxFileSizeBytes`. **nginx cannot read that setting** — `IUploadSettings`' own comment
+says as much — and nginx is the one that acts first.
+
+So the failure is one-directional and completely silent. Let nginx's number fall below the
+application's and enforcement moves back to the proxy: the upload is refused before it reaches any
+service, with a bare HTML 413 the frontend cannot parse. The teacher sees a broken page rather
+than "this file is too large", and nothing points at nginx — no service logged anything, because
+none was asked.
+
+`nginx.conf` already carried the warning: *"Raising the app limit past this line silently moves
+enforcement back to nginx — change both."* A comment cannot fail a build.
+
+**Listed as Integration; it does not need to be.** Both numbers live in files this repository owns.
+Reading them is stronger than exercising one upload against a running stack — an upload test
+proves the limit was right on the machine that ran it, and this proves it for every deployment
+built from these files. Same argument §11.11 made for the contrast tests, and the row is
+re-levelled rather than left claiming it needs containers.
+
+Bounded in both directions, which is the part that is easy to get wrong: nginx buffers the request
+body before proxying, so its limit is also a memory bound. The gap wants to be enough for
+multipart framing and no more — large enough that the application always wins, small enough that
+the proxy is still a backstop. And nginx's suffixes are binary (`k` = 1024), read the way nginx
+reads them, because a rule that fires on a correct config is a rule somebody deletes.
+
+**The same shape, in the same file, for the allow-list.** `UploadOptions` says it mirrors
+RagService's extractor types and asks that the two be kept in step. Since §7.5b that drift is no
+longer merely wasteful: the extractor router refuses bytes it does not recognise, so a type
+accepted at upload and unknown to the extractor now uploads cleanly and then **fails indexing** —
+which a teacher experiences as a file that never becomes searchable. The list is read from
+`_support.py`, never copied, with a vacuum guard because a table that silently reads nothing would
+find nothing missing from nothing and pass forever.
+
+**Mutation-checked, 8 mutations, all killed** — nginx below the app limit, the app limit above
+nginx, nginx raised absurdly high, an unextractable type and an unextractable extension added to
+the allow-list, the binary suffixes read as decimal, RagService quietly dropping a type the
+uploader still accepts, and the extractor constants read as an empty set.
+
+**ClassroomService 440 → 450.**
+
+---
+
 ### 7.11 Audit trail on account status (C-09) — **DONE, and there was no audit of any kind**
 
 C-09 asks for "one audit record per user, not one per batch". It was marked `new`, and the reason
