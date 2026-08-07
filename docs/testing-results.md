@@ -36,12 +36,12 @@ without an attribute does not.
 | UserManagementService | 291 | `dotnet test UserManagementService/tests/*/*.csproj` |
 | ClassroomService | 471 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
-| EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
+| EmailService | 59 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 373 in 40 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,253** | |
+| **Total** | **2,281** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -63,7 +63,7 @@ that selection waits two minutes and then fails.
 | UserManagementService | 50.7% | 36.0% | measured 2026-08-07 (1005 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 80.0% | 73.9% | measured 2026-08-07 (1213 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 73.6% | 43.8% | measured 2026-08-07 (656 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| EmailService | 97.6% | 93.8% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| EmailService | 100.0% | 94.4% | measured 2026-08-07 (176 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3957 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | front-end-web | 41.4% | 79.5% | measured 2026-08-07 (14863 lines) | `cd front-end-web && npm run test:coverage` |
@@ -88,7 +88,7 @@ that selection waits two minutes and then fails.
 | StreamingService | Infrastructure | 81.2% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
-| EmailService | Infrastructure | 97.6% |
+| EmailService | Infrastructure | 100.0% |
 <!-- /generated:layers -->
 
 **The headline moves for reasons that have nothing to do with testing, and this project has a
@@ -106,6 +106,16 @@ execution, not verification. What those tests actually assert is narrow and deli
 every consumer is registered with a definition and that the definition configures a retry. The
 DI wiring around it is now merely *run*. A reader who takes 97.6% as "EmailService is almost
 fully verified" has been misled by a number this document produced, which is why it says so here.
+
+**And the follow-up, which is the only place a headline in this document has been *earned* by
+closing the gap it was hiding.** The 2.4% that EmailService was missing was `SmtpEmailSender` —
+the one class in the service that talks to anything outside it, and the one nothing tested.
+N-10 tested it against a loopback SMTP server, found three defects, and took the figure to
+**100.0%**. That is a different event from the L-04 jump above, and worth naming as such: the
+number moved because code became verified, not because more code became executed. It is also
+the reason the branch figure moved only 93.8% → 94.4% while the line figure moved to 100 —
+`SmtpEmailSender` has almost no branching in it, which is exactly why "100% line" is still not
+a claim that the service is correct.
 
 **It happened again in this cycle, in the other direction.** Testing `GlobalExceptionHandler`
 required the test project to reference the Api assembly, which pulled it and Presentation into the
@@ -130,10 +140,15 @@ and `InternalSecretGuardTests` are.
 ### Against the stated exit criterion
 
 Test-plan exit criterion 2 is "per-service line coverage ≥ 85% after the agreed exclusions".
-On the headline, **one of seven components meets it** (LiveAssistantService, 87.2%; RagService is
-close at 83.0%). On the Application+Domain reading above, ClassroomService and EmailService meet
-it comfortably and UserManagementService and StreamingService do not. Either way it is not met
-across the board, and the report should say so rather than average it away.
+On the headline, **two of seven components meet it** (EmailService, 100.0%; LiveAssistantService,
+87.2%; RagService is close at 83.2%). On the Application+Domain reading above, ClassroomService
+meets it comfortably too, and UserManagementService and StreamingService do not. Either way it is
+not met across the board, and the report should say so rather than average it away.
+
+EmailService is the one that should be read with the least suspicion, and only because of what it
+is: five consumers, a template factory and an SMTP client, with nothing that needs a database or a
+broker to exercise. It is not evidence that the other six could reach the same figure by trying
+harder.
 
 ## 4. Latency (work-plan §9)
 
@@ -226,14 +241,16 @@ found by writing a test, not by a user.
 | 24 | `FakeStreamRepository` kept a plain `List<T>` while the in-memory transport delivers concurrently, so one run in six failed in a way that read as a product bug in the idempotency check | L-04 work; a flake that accuses the code under test |
 | 21 | **Every unexpected failure handed its exception message to the caller** — Npgsql messages carry the SQL, the table and the constraint; a configuration failure carries the connection string it tried | S-14 exception-handler tests |
 | 19 | **Nothing limited password guessing anywhere in the system** — no lockout in `AuthService`, no ASP.NET rate limiter, no `limit_req` in nginx. The reset endpoint and the 2FA challenge were both capped; the front door was not | A-07 lockout tests |
+| 35 | **EmailService's required-credential guard was dead code** — the sender threw on a null `AppPassword`, and `appsettings.json` shipped `""` for it. An empty string is not null, so a deployment that forgot the environment variable started cleanly, answered `/health` with "ok", bound all five queues, and lost every email it was handed: three retries each, then the error queue. The repository's own `Required()` helper states the rule this missed, and was applied to the broker credentials in the same file | N-13 |
+| 36 | A malformed `SmtpPort` silently became 587 via `int.TryParse(...) ? parsed : 587`, and MailKit's 120-second default timeout was never overridden — one black-holed SMTP host held a consumer for six minutes per message across its retries | N-13, N-14 |
 
 ## 9. Mutation testing
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 190 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 200 mutations across the project so far.
 
-Six survived, and each one meant a test was passing for the wrong reason:
+Seven survived, and each one meant a test was passing for the wrong reason:
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -246,6 +263,7 @@ Six survived, and each one meant a test was passing for the wrong reason:
 | Renaming a `TimeoutSeconds` property out of UserManagementService's options | Twice. First the settings rule asked "does ANYTHING read this?", and ClassroomService binds the same section with the same property name, so the wrong service vouched for it. Then it still passed, because the rule was reading TEST sources — UMS's own options test builds a config containing that exact key, so the test was vouching for the production code |
 | Removing the drawer's `rtl:-translate-x-full`, and the toggle knob's anchor | The RTL rule listed only utilities that HAVE a logical counterpart, so `translate-x` — which has none — was excluded, and the two defects the rule had just prompted fixes for were the two it could not see. The anchoring case then survived a second time because it was scoped per file rather than per className expression |
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
+| Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
 
 One "mutation" turned out never to have applied (attribute order in the source differed), which
 is worth recording on its own: a patch that silently does not apply is indistinguishable from a
@@ -261,6 +279,7 @@ test that works.
 | Email verification of a registered address (A-10) | **The feature does not exist.** Registration lands in `Pending` and an administrator approves it, which is the stronger gate — but nothing proves the address belongs to the registrant, and the approving administrator gets no signal either way |
 | Performance, stress, breaking point (§10.2–10.3) | k6 not installed |
 | Behaviour under a stopped dependency (§10.4 runtime half) | Needs containers |
-| The .NET equivalent of the settings-binding rule | .NET's binder ignores unknown keys just as silently, but settings are read through a mix of options classes and direct `configuration["A:B"]` lookups; a static rule over that produced false positives on every service |
+| ~~The .NET equivalent of the settings-binding rule~~ | **Closed (Q-14).** Left here struck through because the stated reason — "a static rule produced false positives on every service" — was true of the rule that had been tried and was the wrong conclusion to draw from it. Recognising all five ways .NET reaches a setting reports zero across the 54 the compose files pass |
+| SMTP delivery to a real mail provider | N-10 covers the transport against a loopback server, which is where the protocol lives. Whether Gmail accepts the message, and what it does with it, is Gmail's behaviour and not ours |
 | Penetration testing | Out of scope; dependency scanning (§11.13) is the cheap partial substitute |
 | Load beyond a single host | Everything runs on one machine, so §9–§10 numbers are directional, not capacity planning |

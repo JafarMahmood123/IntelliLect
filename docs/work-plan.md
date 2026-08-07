@@ -815,14 +815,17 @@ Target applies per service, measured after the §0.3 exclusions.
       before-paragraph splitting, a duplicated runt merge, an unchecked vector count, a
       permissive dimension probe, a second concurrent sweep, the 409 reverted to 202, an
       un-normalised strategy name, and an oversized span emitted whole.
-- [x] **7.6 EmailService — DONE.** The service that had **zero** tests now has 28, in a
+- [x] **7.6 EmailService — DONE.** The service that had **zero** tests now has 59, in a
       new `EmailService.UnitTests` project. Consumers are driven through MassTransit's
-      in-memory harness (a real publish and consume, no broker, no SMTP), templates are
-      tested directly. **72.9%** line coverage measured with the shared
-      `backend/coverlet.runsettings`; everything with logic in it — the body factory and
-      all five consumers — is at 100%. The remainder is `SmtpEmailSender` (needs a real
-      SMTP server), the composition root, and the consumer definitions, which only execute
-      against a live bus.
+      in-memory harness (a real publish and consume, no broker), templates are
+      tested directly, and the SMTP transport against a loopback server. **100.0%** line
+      coverage measured with the shared `backend/coverlet.runsettings` (94.4% branch) —
+      the only component in the platform at that figure, and one of two that meet the
+      test-plan's ≥85% exit criterion on the headline.
+
+      Its last gap is closed. This entry used to end "the remainder is `SmtpEmailSender`
+      (needs a real SMTP server)". It does need one, and a container is not what that
+      means — see **§7.6b**.
 
       Writing them turned up two defects, both fixed here:
 
@@ -848,6 +851,62 @@ Target applies per service, measured after the §0.3 exclusions.
       **Mutation-checked (§7.8).** Adding an undefended consumer makes the retry rule fail
       and name it; the rule is not passing by vacuum, and a second test asserts the
       reflection finds five consumers so a broken query cannot make it green.
+- [x] **7.6b SMTP transport — DONE (test-plan N-10..N-14).** The last untested code in the
+      platform, and the row that had sat at *"not covered — needs a real or fake SMTP
+      server"* since the plan was written.
+
+      It does need one. A container is not what that means: `FakeSmtpServer` is a
+      `TcpListener` on a loopback port with a self-signed certificate, and the half that
+      matters is the client's. What runs is the production send path over a real socket —
+      MailKit's genuine `SmtpClient`, a genuine TLS handshake, a genuine SASL exchange,
+      DATA and all. The server records what actually arrived, in what order, and whether
+      it arrived encrypted. A mocked `ISmtpClient` can prove `ConnectAsync` was called
+      with the configured port; it cannot notice a configuration in which the password
+      crosses the wire before the tunnel does.
+
+      Writing it turned up **three defects, all in how the settings were read**, and all
+      the same shape — a wrong or missing value produces a *running* service rather than a
+      stopped one:
+
+      - **The required-credential guard was dead code.** The sender read
+        `settings["AppPassword"] ?? throw`, and `appsettings.json`, two directories away,
+        shipped `"AppPassword": ""`. An empty string is not null, so the guard could never
+        fire. A deployment that forgot `EmailSettings__AppPassword` started cleanly,
+        answered `/health` with "ok", bound all five queues, and failed every single send:
+        three retries each, then the error queue. The repository's own `Required()` helper
+        already states the rule this missed — *"Treats empty as missing: a blank password
+        is not a configured one"* — and it was applied to the broker credentials in the
+        same file and not to these.
+      - **A malformed port silently became 587.** `int.TryParse(...) ? parsed : 587` meant
+        a deployment aiming at 465 with a stray character got 587 and a STARTTLS
+        negotiation against a server expecting TLS from the first byte — a handshake error
+        naming neither the port nor the setting.
+      - **MailKit's 120-second default timeout was never overridden.** One black-holed SMTP
+        host held a consumer for two minutes per attempt and six per message once the
+        three-attempt retry policy had finished with it. Five consumers share this sender.
+
+      Fixed by binding `EmailSettings` and validating it **at startup**, the way every
+      other settings block in the platform already did (§14.4) — this was the last one that
+      did not, and it is the one holding a credential. Transport security became
+      configurable at the same time, but deliberately over a two-value enum
+      (`StartTls`, `SslOnConnect`) rather than MailKit's `SecureSocketOptions`: that enum
+      also offers `None` and the two `WhenAvailable` variants, every one of which can put
+      this service's password on the wire in the clear.
+
+      **Mutation-checked (§7.8), 9 mutations, all 9 killed** — but one of them only after
+      the test double was fixed, and that is the finding worth keeping. Swapping `StartTls`
+      for `StartTlsWhenAvailable` **survived**: the fake server withheld AUTH until the
+      connection was encrypted, the way a careful server does, so a client that had
+      silently downgraded failed anyway for want of a mechanism. The test was passing for
+      the server's reason instead of the client's. The server now offers AUTH PLAIN in the
+      clear — what a misconfigured or hostile one does — and the mutation is caught. Under
+      it, MailKit **completes the send in plaintext with no exception at all**, which is
+      the concrete argument for the restricted enum above.
+
+      Coverage **72.9% → 100.0%** line, 94.4% branch. `EmailSettings` itself contributes
+      nothing to that denominator: it is all auto-properties, which the shared
+      `coverlet.runsettings` skips by design. Its behaviour is covered by the eleven
+      startup-validation cases.
 - [x] **7.7 Frontend — DONE.** 28 suites at the start of this work, **38** now, 346 tests. Coverage
       **31.4% → 41.4%**. New suites for §2 (bulk selection), §3 (feedback severity and the
       correction span), §5 (notifications), §6 (ranking), plus the locale-parity rule (§7.9).

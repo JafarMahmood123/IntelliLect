@@ -419,7 +419,17 @@ silently.
 | N-07 | A null name produces an email rather than an exception | Unit | P1 | ✓ |
 | N-08 | A failed send faults the message (publishes `Fault<T>`) instead of being swallowed | Unit | P0 | ✓ |
 | N-09 | **Every** consumer in the assembly has a retry policy — a rule, not a list, so a new consumer cannot ship without one | Unit | P0 | ✓ |
-| N-10 | SMTP transport itself (connect, STARTTLS, auth) | Integration | P1 | not covered — needs a real or fake SMTP server, see §17 |
+| N-10 | SMTP transport itself (connect, STARTTLS, auth) | Unit | P1 | ✓ (defect found: the required-credential guard was dead code) |
+| N-11 | Nothing carrying a credential crosses the wire before the connection is encrypted | Unit | P0 | ✓ |
+| N-12 | A server that will not offer STARTTLS gets no password — and the refusal is the **client's**, not a side effect of the server withholding a mechanism | Unit | P0 | ✓ (defect found: `StartTlsWhenAvailable` completes the send in the clear) |
+| N-13 | Missing, blank or malformed SMTP settings refuse **startup**, rather than failing on the first email | Unit | P0 | ✓ (defect found: `""` in appsettings.json defeated the `?? throw`; a bad port silently became 587) |
+| N-14 | A black-holed SMTP host gives up on the configured timeout, not MailKit's 120-second default | Unit | P1 | ✓ (defect found) |
+
+**N-10 was re-levelled from Integration to Unit**, and that is the whole finding behind the row.
+It had sat at "not covered — needs a real or fake SMTP server" on the assumption that a server
+means a container. It does not: a `TcpListener` on loopback and a self-signed certificate are a
+server, and the half that matters is the client's. What runs is the production send path over a
+real socket, negotiating a real TLS handshake — see `FakeSmtpServer`.
 
 ## 17. Area O — Latency budgets (work-plan §9)
 
@@ -614,9 +624,10 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 **Exit** — before the work in [work-plan.md](work-plan.md) is called done:
 
 1. Every **P0** case above exists and passes.
-2. Per-service line coverage ≥ 85% after the agreed exclusions. **Currently met by one of
-   seven components on the headline** — see [testing-results.md](testing-results.md) §3, which
-   also explains why the headline is the wrong number to judge it on.
+2. Per-service line coverage ≥ 85% after the agreed exclusions. **Currently met by two of
+   seven components on the headline** (EmailService, LiveAssistantService) — see
+   [testing-results.md](testing-results.md) §3, which also explains why the headline is the
+   wrong number to judge it on.
 3. Mutation spot-check passes on quiz scoring and the auth path — the two places where
    a test that never fails would be most dangerous.
 4. No P0 case is marked "not implemented" without a written reason here.

@@ -1,6 +1,8 @@
 using EmailService.Application.Abstractions;
+using EmailService.Infrastructure.Configuration;
 using EmailService.Infrastructure.Consumers;
 using EmailService.Infrastructure.Services;
+using MailKit.Net.Smtp;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +14,32 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IEmailBodyFactory, EmailBodyFactory>();
+
+        // Bound and VALIDATED AT STARTUP, like every other settings block in the platform. This
+        // one was the exception, and it was the one holding a credential: the SMTP settings were
+        // read by string index on each send, guarded with `?? throw`, and defeated by the empty
+        // strings appsettings.json supplied for them. The service came up healthy with no
+        // password and lost every email it was handed.
+        services
+            .AddOptions<EmailSettings>()
+            .Bind(configuration.GetSection(EmailSettings.SectionName))
+            .ValidateDataAnnotations()
+            // Named rather than left to the annotation's "The AppPassword field is required",
+            // because the person reading this message is looking at a compose file, not a class.
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.SenderEmail),
+                "EmailSettings:SenderEmail must be set (env: EmailSettings__SenderEmail). It is "
+                + "both the From address and the SMTP username.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.AppPassword),
+                "EmailSettings:AppPassword must be set (env: EmailSettings__AppPassword), or "
+                + "every message this service consumes will fail to send and be discarded after "
+                + "its retries.")
+            .ValidateOnStart();
+
+        // A fresh client per send: MailKit's SmtpClient holds one connection and is not safe to
+        // share across concurrent consumers.
+        services.AddSingleton<Func<ISmtpClient>>(_ => () => new SmtpClient());
         services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         // Read EAGERLY, before MassTransit is configured. The Required() calls used to sit inside
