@@ -41,5 +41,19 @@ public sealed class StreamingDbContext : DbContext
         modelBuilder.Entity<LiveStream>()
             .HasIndex(stream => stream.SessionId)
             .IsUnique();
+
+        // One row per person per stream. Same shape as the index above and rather easier to reach:
+        // `JoinStreamAsync` checks `Participants.Any(p => p.UserId == userId)` and then inserts,
+        // and joining is not a rare event. A LiveKit reconnection re-joins, a second browser tab
+        // joins, a retried request joins — none of which is unusual in a lecture on a poor link,
+        // which is the situation the reconnection work exists for.
+        //
+        // What it corrupts is the number the teacher is looking at. A duplicate row inflates the
+        // roster and the participant count; `LeaveStreamAsync` then deletes ONE row, so the person
+        // leaves and their ghost stays for the rest of the session. `ToggleHandRaiseAsync` picks
+        // one of the two arbitrarily, so a raised hand can appear to be ignored.
+        modelBuilder.Entity<StreamParticipant>()
+            .HasIndex(participant => new { participant.StreamId, participant.UserId })
+            .IsUnique();
     }
 }

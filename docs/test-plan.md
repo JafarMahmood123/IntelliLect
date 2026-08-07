@@ -419,6 +419,20 @@ loaded machine and was right both times.
 | L-10 | A database failure inside a consumer faults the message rather than being swallowed — without this the retry policy never runs | Unit | P0 | ✓ (recording, summary, session-started) |
 | L-05 | Recording-ready and summary-ready consumers tolerate arriving out of order | Unit | P1 | ✓ |
 | L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | ✓ (`DownstreamDegradationTests`, `StreamingInternalClientTests`; the degradation paths were only ever tested with `HttpRequestException`, which is the one case that is unambiguous) |
+| L-20 | One participant row per person per stream, enforced by the database — a reconnect, a second tab or a retried join must not add a second | Unit | P0 | ✓ (defect found: no constraint; the easiest of the three to reach) |
+| L-21 | The same person can be in two different streams, and two people in one — uniqueness is per (stream, person) | Unit | P1 | ✓ |
+| L-22 | The participant count broadcast to the class is **counted**, not derived from a collection read before the write | Unit | P0 | ✓ (defect found: `Participants.Count + 1`) |
+| L-23 | The count includes people who arrived since this request started, and the last person leaving announces zero | Unit | P0 | ✓ |
+| L-24 | Joining twice adds nothing and announces nothing; joining a stream that is not live is refused | Unit | P1 | ✓ |
+
+**L-20..L-24 close the sweep §7.4b started.** Three check-then-act guards with no constraint
+behind them: session→stream, email→account, and this one. RagService and LiveAssistantService
+were already defended (`documents.file_id`, `summary_runs.session_id`,
+`session_transcripts.session_id` as a primary key, `uq_transcript_segment_order`), as was
+ClassroomService. **Neither join nor leave had a service-level test at all**, and the hub
+double discarded the count it was handed — so nothing could have failed on the count being
+wrong, and it was wrong.
+
 | L-19 | A downstream TIMEOUT degrades — and it arrives as `TaskCanceledException`, the same type an abandoned caller produces | Unit | P0 | ✓ |
 | L-11 | **A caller who has gone propagates instead of being swallowed** — otherwise the request keeps calling other services to finish an answer nobody will read | Unit | P0 | ✓ |
 | L-12 | The degradation flag is not raised against healthy services by ordinary browser navigation — it is the signal an operator uses to find a real outage | Unit | P1 | ✓ |

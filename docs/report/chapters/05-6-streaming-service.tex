@@ -1,16 +1,17 @@
 % Content for Chapter 5, Section 5.6 — pulled in by chapters/05-system-design.tex
 \subsection{مكوّنات الخدمة}
 
-تضمّ طبقة التطبيق في هذه الخدمة خدمةً واحدة، ويقع معظم التعقيد في طبقة البنية التحتية. ويعود ذلك إلى أنّ التسجيل عملية يقودها نظام خارجي (\en{LiveKit Egress}) يُجيب لاحقًا عبر إشعار غير مضمون الوصول. ويعرض الشكل~\ref{fig:comp-03} هذه المكوّنات.
+تضمّ طبقة التطبيق في هذه الخدمة خدمة واحدة، ويقع معظم التعقيد في طبقة البنية التحتية، لأن التسجيل عملية يقودها نظام خارجي يُجيب لاحقاً بإشعار غير مضمون الوصول. ويعرض الشكل~\ref{fig:comp-03} مكوّنات الخدمة وروابطها الخارجية.
 
 \begin{figure}[htbp]
   \centering
+  % 2.20:1 — full width is ~30% of the text block, so it places inline.
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/comp-03-streaming.png}
-  \caption{مخطط المكوّنات التفصيلي لخدمة البث.}
+  \caption{مخطط مكوّنات خدمة البث.}
   \label{fig:comp-03}
 \end{figure}
 
-ويصل مسار الوسائط (\en{WebRTC}) المتصفّحَ بخادم \en{LiveKit} مباشرةً دون المرور بالخدمة. وتقتصر مهمّة الخدمة على إصدار رمز انضمام محدود الصلاحيات يحدّد إمكانية نشر الصوت والصورة لصاحبه. ويمنع هذا الفصل تحوّل الخدمة إلى عنق زجاجة عند ارتفاع عدد المشاركين.
+ولا تمرّ الوسائط بالخدمة؛ إذ يتّصل المتصفّح بخادم \en{LiveKit} مباشرة عبر \en{WebRTC}، وتقتصر مهمّة الخدمة على إصدار رمز انضمام محدود الصلاحيات يحدّد ما يُسمح لصاحبه بنشره من صوت وصورة. ويمنع هذا الفصل تحوّل الخدمة إلى عنق زجاجة عند ارتفاع عدد المشاركين.
 
 \subsection{نموذج البيانات}
 
@@ -18,9 +19,8 @@
 
 \begin{figure}[htbp]
   \centering
+  % Width to be re-checked when the draw.io export replaces this PNG.
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/erd-03-streaming.png}
   \caption{مخطط الكيانات والعلاقات لخدمة البث.}
   \label{fig:erd-03}
 \end{figure}
-
-ويُبيَّن تدفّق تسجيل الجلسة، وما اعتُمد فيه من حجزٍ ومُصالِحٍ دوريّ لمعالجة التبعية لنظام خارجي، في القسم~\ref{subsubsec:flow-recording}.

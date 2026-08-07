@@ -211,7 +211,7 @@ public sealed class StreamSessionUniquenessTests
         await harness.Bus.Publish(new SessionStartedMessage(SessionId, ClassroomId, TeacherId));
         await WaitForConsumed(harness, 2);
 
-        Assert.True(await harness.Published.Any<Fault<SessionStartedMessage>>());
+        await AssertFaultedAsync(harness);
     }
 
     [Fact]
@@ -232,7 +232,11 @@ public sealed class StreamSessionUniquenessTests
 
         Assert.Equal(1, streams.Count(SessionId));
         Assert.Equal(1, streams.SaveCalls);
-        Assert.False(await harness.Published.Any<Fault<SessionStartedMessage>>());
+        // Synchronous, deliberately. `await ...Any<T>()` WAITS for the inactivity timeout before
+        // it can answer "no", so a raised timeout turns every absence assertion into a stall —
+        // 8s of suite became 1m42s. The consume has already been awaited above, so anything that
+        // was going to be published has been.
+        Assert.Empty(harness.Published.Select<Fault<SessionStartedMessage>>());
     }
 
     [Fact]
@@ -253,7 +257,11 @@ public sealed class StreamSessionUniquenessTests
 
         Assert.Equal(1, streams.Count(SessionId));
         Assert.Equal(1, streams.Count(other));
-        Assert.False(await harness.Published.Any<Fault<SessionStartedMessage>>());
+        // Synchronous, deliberately. `await ...Any<T>()` WAITS for the inactivity timeout before
+        // it can answer "no", so a raised timeout turns every absence assertion into a stall —
+        // 8s of suite became 1m42s. The consume has already been awaited above, so anything that
+        // was going to be published has been.
+        Assert.Empty(harness.Published.Select<Fault<SessionStartedMessage>>());
     }
 
     // --- helpers -------------------------------------------------------------------------------
@@ -264,6 +272,26 @@ public sealed class StreamSessionUniquenessTests
             .AddLogging()
             .AddMassTransitTestHarness(x => x.AddConsumer<SessionStartedConsumer>())
             .BuildServiceProvider(true);
+
+    /// <summary>
+    /// Waits (bounded) for a fault, polling rather than raising the harness's inactivity timeout.
+    ///
+    /// `await harness.Published.Any&lt;T&gt;()` uses that timeout, which defaults to 3 seconds and
+    /// is a wall-clock budget — too short on a machine running several test hosts, which is what a
+    /// mutation sweep leaves it doing. Raising it globally is not the answer: the harness charges
+    /// the same budget on every disposal, and setting it to 20s took this suite from 8 seconds to
+    /// 1m43. Polling costs nothing when the fault arrives promptly, which is almost always.
+    /// </summary>
+    private static async Task AssertFaultedAsync(ITestHarness harness)
+    {
+        for (var attempt = 0; attempt < 600; attempt++)
+        {
+            if (harness.Published.Select<Fault<SessionStartedMessage>>().Any()) return;
+            await Task.Delay(10);
+        }
+
+        Assert.Fail("no Fault<SessionStartedMessage> was published");
+    }
 
     /// <summary>
     /// Bounded wait on the HARNESS rather than on the repository, so a test that should fail

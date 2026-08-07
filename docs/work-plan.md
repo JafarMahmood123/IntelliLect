@@ -1601,6 +1601,57 @@ changes nothing now that the entity normalises on write, and that is covered fro
 
 UserManagementService 299 → 324 tests.
 
+### 7.4c One participant per person, and a count that is counted (L-20..L-24) — **DONE; the sweep closes**
+
+The third and last instance of §7.4b's class, and the easiest of the three to reach. The other two
+need a broker redelivery or a double-clicked button; this one needs a lecture on a poor
+connection — the situation the reconnection work in P1 exists for.
+
+    var isAlreadyJoined = stream.Participants.Any(p => p.UserId == userId);
+    if (!isAlreadyJoined) { await _participantRepository.AddAsync(...); }
+
+`Participants` carried `HasKey("Id")` and a plain index on `StreamId`. A LiveKit reconnection
+re-joins, a second browser tab joins, a retried request joins — and what it corrupts is the number
+on the teacher's screen. A duplicate inflates the roster; `LeaveStreamAsync` deletes one row, so
+the person leaves and their ghost stays for the rest of the session; `ToggleHandRaiseAsync`
+resolves to one of the two arbitrarily, so a raised hand can appear to be ignored.
+
+**The sweep is now complete.** Three services had the defect —
+session→stream (§7.4b), email→account (§7.1b), and this. RagService and LiveAssistantService were
+already defended (`documents.file_id`, `summary_runs.session_id`, `session_transcripts.session_id`
+as a primary key, `uq_transcript_segment_order`), as was ClassroomService. Worth stating: the two
+Python services were written with this in mind, and their repositories say so in comments.
+
+**A second defect in the same two methods, which a constraint does not fix.** Both broadcasts
+derived the participant count arithmetically from the collection loaded at the top of the
+request — `Participants.Count + 1` on join, `- 1` on leave. Two people joining at once both read
+the same starting figure and both announce it plus one, so the class is told there are fewer people
+present than there are, and nothing recomputes it until somebody else joins or leaves. The leave
+path's `Math.Max(0, ...)` was guarding against a negative number that only stale arithmetic can
+produce. Replaced with `CountInStreamAsync`, counted after the write.
+
+**Neither method had a service-level test at all** — `StreamServiceRecordingToggleTests` passes
+`participantRepository: null!` — and `RecordingStreamHubContext.NotifyParticipantCountAsync`
+**discarded its argument**. A double that drops a value cannot fail on the value being wrong. That
+is the third double-vs-reality finding in three cycles, after the fake stream repository accepting
+two rows and the user stub comparing case-insensitively.
+
+**Mutation-checked (§7.8), 6 mutations, 4 killed at first.** Both survivors were the migration's
+own contents — `unique: true` flipped, and the `Down` losing the index it replaces —
+because `HasPendingModelChanges` compares the model to the SNAPSHOT and never to the migration
+body. I had written that guard for the two sibling indexes this week and not for this one; it is
+there now, and both mutations die.
+
+**And the flake came back, in a different test.** `A_repository_failure_faults_the_message...`
+failed under mutation-sweep load. `await harness.Published.Any<T>()` waits on MassTransit's
+inactivity timeout, which defaults to 3 seconds of WALL CLOCK. Raising it globally to 20s worked
+and cost the suite **8 seconds → 1m43**, because the harness charges the same budget on every
+disposal. Reverted; the expected fault is polled for instead, and the two *absence* assertions
+were switched to the synchronous form, which never needed to wait at all. Back to 8s, and green
+across three concurrent test hosts.
+
+StreamingService 189 → 204 tests.
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

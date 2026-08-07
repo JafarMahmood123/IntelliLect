@@ -246,8 +246,12 @@ public sealed class StreamService : IStreamService
 
             await _participantRepository.SaveChangesAsync(ct);
 
-            // Increment count for the broadcast
-            await _hubContext.NotifyParticipantCountAsync(sessionId, stream.Participants.Count + 1);
+            // Counted after the write, not derived from the collection loaded before it. Two
+            // people joining at once both saw the same starting number and both announced it plus
+            // one, so the class was told there were fewer people present than there were — and
+            // nothing recomputed it until somebody else joined or left.
+            await _hubContext.NotifyParticipantCountAsync(
+                sessionId, await _participantRepository.CountInStreamAsync(stream.Id, ct));
         }
     }
 
@@ -262,8 +266,10 @@ public sealed class StreamService : IStreamService
             await _participantRepository.DeleteAsync(participant.Id, ct);
             await _participantRepository.SaveChangesAsync(ct);
 
-            // Notify all clients that count decreased
-            await _hubContext.NotifyParticipantCountAsync(sessionId, Math.Max(0, stream.Participants.Count - 1));
+            // Same correction as the join path. `Math.Max(0, ...)` was guarding against a negative
+            // number that arithmetic on a stale read can produce and a real count cannot.
+            await _hubContext.NotifyParticipantCountAsync(
+                sessionId, await _participantRepository.CountInStreamAsync(stream.Id, ct));
         }
     }
 

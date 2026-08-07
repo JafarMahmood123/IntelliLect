@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 13:21 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 14:01 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -36,13 +36,13 @@ without an attribute does not.
 |---|---|---|---|
 | UserManagementService | 324 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
 | ClassroomService | 488 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
-| StreamingService | 189 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
+| StreamingService | 204 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,302** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,317** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -79,7 +79,7 @@ that selection waits two minutes and then fails.
 |---|---|---|---|---|
 | UserManagementService | 51.4% | 36.3% | measured 2026-08-07 (1012 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 80.3% | 73.9% | measured 2026-08-07 (1217 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| StreamingService | 73.7% | 43.8% | measured 2026-08-07 (659 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| StreamingService | 74.9% | 43.8% | measured 2026-08-07 (662 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -102,7 +102,7 @@ that selection waits two minutes and then fails.
 | ClassroomService | Presentation | 25.0% |
 | StreamingService | Domain | 100.0% |
 | StreamingService | Application | 58.9% |
-| StreamingService | Infrastructure | 81.3% |
+| StreamingService | Infrastructure | 83.1% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
 | EmailService | Infrastructure | 100.0% |
@@ -262,6 +262,9 @@ found by writing a test, not by a user.
 | 36 | A malformed `SmtpPort` silently became 587 via `int.TryParse(...) ? parsed : 587`, and MailKit's 120-second default timeout was never overridden — one black-holed SMTP host held a consumer for six minutes per message across its retries | N-13, N-14 |
 | 37 | **A fourth upload limit that nobody had counted.** `IUploadSettings` documented three copies of the one configured value; the multipart reader applies a fourth during model binding — `FormOptions.MultipartBodyLengthLimit`, a framework default of 128 MB derived from nothing. Raise the limit past it and a file in between passes the Content-Length guard and Kestrel's, is buffered in full, and dies in model binding as a **500 "An unexpected error occurred"** instead of the typed 413 the other guards produce. Safe today only because 50 MB is under 128 MB | E-03, E-30 |
 | 38 | `UploadSizeLimitFilter` — the code answering E-03, a P0 — had **no test executing a single line of it**, and neither did the `[ServiceFilter]` wiring that makes it run at all. Deleting one line of `Program.cs` turns every upload into a 500, and `Program.cs` is excluded from coverage | E-03, E-31 |
+| 46 | **Two participant rows for one person in a live lecture** — `JoinStreamAsync` checks `Participants.Any(...)` then inserts, and `Participants` had no constraint. The easiest of the three instances to reach: a LiveKit reconnect re-joins, a second tab joins, a retried request joins. It inflates the roster and the count the teacher is watching; `LeaveStreamAsync` deletes one row so the person leaves and their ghost stays; `ToggleHandRaiseAsync` resolves to one of the two arbitrarily | L-20 |
+| 47 | **The participant count was arithmetic on a stale read** — `Participants.Count + 1` on join, `- 1` on leave, against a collection loaded at the top of the request. Two people joining at once both announce the same number and the class is told there are fewer people present than there are, with nothing to correct it until the next join or leave. A unique index does not fix this; the count has to be counted | L-22, L-23 |
+| 48 | Neither join nor leave had a service-level test, and `RecordingStreamHubContext.NotifyParticipantCountAsync` **discarded its argument**. A double that drops a value cannot fail on the value being wrong — the third double-vs-reality finding in three cycles | L-22 |
 | 43 | **Two accounts for one email address, and no race required.** `u.Email == email` is an exact, case-SENSITIVE comparison in Postgres, so `Jafar@x.com` and `jafar@x.com` were two accounts — one capital letter, no concurrency. The owner then signs in only when their capitalisation matches, a password reset for the other spelling finds nobody and (correctly, per A-13) answers as though it sent a code, and an administrator approves one row while the person signs in to the other and is told they are pending | A-34, A-35 |
 | 44 | **`Users` had no unique index at all** — `HasKey("Id")` and an FK index on `RoleId`. `RegisterAsync` asks "is this taken?" then inserts, and a double-clicked Register button is two requests. Same class as defect 41, found by sweeping for it; ClassroomService was clean | A-38, A-40 |
 | 45 | `StubUserRepository.FindByEmail` compared with `StringComparison.OrdinalIgnoreCase` while production compared exactly. **The double agreed with the assumption instead of with the database**, so `Registration_refuses_an_email_that_already_exists` passed throughout. The second instance of this meta-defect in two cycles, from the opposite direction to defect 42 | A-34 |
@@ -274,7 +277,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 266 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 278 mutations across the project so far.
 
 Nine survived, and each one meant a test was passing for the wrong reason:
 

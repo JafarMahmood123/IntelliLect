@@ -9,6 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <!-- Drives the REAL repository and the REAL schema. A fake has no unique index, and
+         "the constraint exists and bites" is the claim ParticipantUniquenessTests makes.
+         Same precedent as ClassroomService's QuizRepositoryTests. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <!-- Pinned above what EF drags in: 2.1.11 bundles a vulnerable SQLite
+         (GHSA-2m69-gcr7-jv3q). Test-only — this database never ships. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />

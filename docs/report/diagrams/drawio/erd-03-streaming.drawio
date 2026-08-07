@@ -1,0 +1,174 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="StreamingService ERD">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1050" pageHeight="1120" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="980" height="1090" as="geometry" />
+        </mxCell>
+
+        <mxCell id="stream" value="live_streams" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="380" height="442" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="40" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="stream">
+          <mxGeometry y="68" width="380" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c0" value="•  session_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="78" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c1" value="•  classroom_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="106" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c2" value="•  teacher_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="134" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c3" value="•  stream_key : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="162" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c4" value="•  status : enum (Planned, Live)" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="190" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c5" value="    egress_id : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="218" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c6" value="•  recording_state : enum" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="246" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c7" value="•  recording_ready_published : bool" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="274" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c8" value="    started_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="302" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c9" value="    ended_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="330" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c10" value="•  participation_mode : enum" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="358" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c11" value="•  students_can_publish_audio : bool" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="386" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="stream_c12" value="•  students_can_publish_video : bool" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="stream">
+          <mxGeometry y="414" width="380" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="participants" value="stream_participants" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="560" y="60" width="360" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="participants">
+          <mxGeometry y="40" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="participants">
+          <mxGeometry y="68" width="360" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_c0" value="•  stream_id : uuid  «FK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="participants">
+          <mxGeometry y="78" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_c1" value="•  user_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="participants">
+          <mxGeometry y="106" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_c2" value="•  is_hand_raised : bool" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="participants">
+          <mxGeometry y="134" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="participants_c3" value="•  joined_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="participants">
+          <mxGeometry y="162" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat" value="stream_chat_messages" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="560" y="300" width="360" height="218" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="40" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="chat">
+          <mxGeometry y="68" width="360" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_c0" value="•  stream_id : uuid  «FK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="78" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_c1" value="•  user_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="106" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_c2" value="•  user_name : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="134" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_c3" value="•  message : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="162" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="chat_c4" value="•  sent_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="chat">
+          <mxGeometry y="190" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions" value="stream_questions" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="560" y="570" width="360" height="302" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="40" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="questions">
+          <mxGeometry y="68" width="360" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c0" value="•  stream_id : uuid  «FK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="78" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c1" value="•  user_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="106" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c2" value="•  user_name : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="134" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c3" value="•  question_text : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="162" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c4" value="    answer_text : text" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="190" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c5" value="•  is_answered : bool" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="218" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c6" value="•  asked_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="246" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="questions_c7" value="    answered_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="questions">
+          <mxGeometry y="274" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions" value="stream_reactions" style="swimlane;html=1;childLayout=stackLayout;horizontal=1;startSize=40;horizontalStack=0;resizeParent=0;collapsible=0;marginBottom=0;fillColor=#F2F2F2;strokeColor=#000000;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="560" y="880" width="360" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_pk" value="•  id : uuid  «PK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="reactions">
+          <mxGeometry y="40" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_div" value="" style="line;strokeWidth=1;html=1;strokeColor=#000000" vertex="1" parent="reactions">
+          <mxGeometry y="68" width="360" height="10" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_c0" value="•  stream_id : uuid  «FK»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="reactions">
+          <mxGeometry y="78" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_c1" value="•  user_id : uuid  «external»" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="reactions">
+          <mxGeometry y="106" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_c2" value="•  emoji : varchar" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="reactions">
+          <mxGeometry y="134" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="reactions_c3" value="•  sent_at_utc : timestamptz" style="text;html=1;align=right;spacingRight=10;fontSize=14;fillColor=none;strokeColor=none" vertex="1" parent="reactions">
+          <mxGeometry y="162" width="360" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=entityRelationEdgeStyle;html=1;rounded=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=1;exitY=0.15;entryX=0;entryY=0.5" edge="1" parent="1" source="stream" target="participants">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=entityRelationEdgeStyle;html=1;rounded=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=1;exitY=0.4;entryX=0;entryY=0.5" edge="1" parent="1" source="stream" target="chat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=entityRelationEdgeStyle;html=1;rounded=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=1;exitY=0.65;entryX=0;entryY=0.5" edge="1" parent="1" source="stream" target="questions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=entityRelationEdgeStyle;html=1;rounded=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=1;exitY=0.9;entryX=0;entryY=0.5" edge="1" parent="1" source="stream" target="reactions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

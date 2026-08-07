@@ -220,7 +220,22 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
     }
 
     public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised) => Task.CompletedTask;
-    public Task NotifyParticipantCountAsync(Guid sessionId, int count) => Task.CompletedTask;
+
+    /// <summary>
+    /// Every participant count the class was told, in order.
+    ///
+    /// This used to discard its argument, which is why nothing noticed that both broadcasts did
+    /// arithmetic on a collection loaded before the write rather than counting. A double that
+    /// drops a value cannot fail on the value being wrong.
+    /// </summary>
+    public List<(Guid SessionId, int Count)> ParticipantCounts { get; } = new();
+
+    public Task NotifyParticipantCountAsync(Guid sessionId, int count)
+    {
+        ParticipantCounts.Add((sessionId, count));
+        return Task.CompletedTask;
+    }
+
     public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message) => Task.CompletedTask;
     public Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji) => Task.CompletedTask;
 }

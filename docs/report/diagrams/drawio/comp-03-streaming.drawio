@@ -1,0 +1,74 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="StreamingService Components">
+    <mxGraphModel dx="1100" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1050" height="560" as="geometry" />
+        </mxCell>
+
+        <mxCell id="browser" value="المتصفّح" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svc" value="خدمة البث" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+          <mxGeometry x="330" y="60" width="360" height="440" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="طبقة العرض&lt;br&gt;ASP.NET Core Web API · SignalR" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="365" y="110" width="290" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="طبقة التطبيق&lt;br&gt;دورة حياة الغرفة والمشاركين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="365" y="195" width="290" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="إدارة التسجيل&lt;br&gt;حجز · معالجة الإشعار · مُصالِح دوريّ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="365" y="280" width="290" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="طبقة البنية التحتية&lt;br&gt;Entity Framework · عميل LiveKit" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="365" y="375" width="290" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pg" value="قاعدة بيانات الخدمة&lt;br&gt;PostgreSQL" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="55" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="mq" value="ناقل الرسائل&lt;br&gt;RabbitMQ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="165" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="lk" value="خادم LiveKit&lt;br&gt;SFU + Egress" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="275" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="مخزن الملفّات&lt;br&gt;MinIO / S3" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="790" y="420" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="HTTPS · SignalR" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.5;entryX=0;entryY=0.12" edge="1" parent="1" source="browser" target="svc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="WebRTC — الوسائط لا تمرّ بالخدمة" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=0.5;exitY=1;entryX=0.5;entryY=1" edge="1" parent="1" source="browser" target="lk">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="540" />
+              <mxPoint x="910" y="540" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="s3e" value="SQL" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.08;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="أحداث (AMQP)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.32;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="mq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="رمز انضمام · إدارة الغرف (HTTP)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.55;entryX=0;entryY=0.3" edge="1" parent="1" source="svc" target="lk">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="إشعار التسجيل (Webhook)" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=0;exitY=0.75;entryX=1;entryY=0.78" edge="1" parent="1" source="lk" target="svc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s7" value="تسجيل MP4" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=0.5;exitY=1;entryX=0.5;entryY=0" edge="1" parent="1" source="lk" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

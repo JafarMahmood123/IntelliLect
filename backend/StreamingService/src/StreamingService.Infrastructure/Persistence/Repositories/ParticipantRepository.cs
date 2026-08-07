@@ -24,4 +24,9 @@ public sealed class ParticipantRepository : GenericRepository<StreamParticipant>
         return await _streamingContext.Participants
             .AnyAsync(p => p.StreamId == streamId && p.UserId == userId, ct);
     }
+
+    public async Task<int> CountInStreamAsync(Guid streamId, CancellationToken ct)
+    {
+        return await _streamingContext.Participants.CountAsync(p => p.StreamId == streamId, ct);
+    }
 }

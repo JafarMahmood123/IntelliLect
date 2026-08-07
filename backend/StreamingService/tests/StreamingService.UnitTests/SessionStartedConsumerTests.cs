@@ -32,6 +32,26 @@ public sealed class SessionStartedConsumerTests
             .AddMassTransitTestHarness(x => x.AddConsumer<SessionStartedConsumer>())
             .BuildServiceProvider(true);
 
+    /// <summary>
+    /// Waits (bounded) for a fault, polling rather than raising the harness's inactivity timeout.
+    ///
+    /// `await harness.Published.Any&lt;T&gt;()` uses that timeout, which defaults to 3 seconds and
+    /// is a wall-clock budget — too short on a machine running several test hosts, which is what a
+    /// mutation sweep leaves it doing. Raising it globally is not the answer: the harness charges
+    /// the same budget on every disposal, and setting it to 20s took this suite from 8 seconds to
+    /// 1m43. Polling costs nothing when the fault arrives promptly, which is almost always.
+    /// </summary>
+    private static async Task AssertFaultedAsync(ITestHarness harness)
+    {
+        for (var attempt = 0; attempt < 600; attempt++)
+        {
+            if (harness.Published.Select<Fault<SessionStartedMessage>>().Any()) return;
+            await Task.Delay(10);
+        }
+
+        Assert.Fail("no Fault<SessionStartedMessage> was published");
+    }
+
     private static SessionStartedMessage Message() => new(SessionId, ClassroomId, TeacherId);
 
     /// <summary>
@@ -170,6 +190,6 @@ public sealed class SessionStartedConsumerTests
 
         await harness.Bus.Publish(Message());
 
-        Assert.True(await harness.Published.Any<Fault<SessionStartedMessage>>());
+        await AssertFaultedAsync(harness);
     }
 }
