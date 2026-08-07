@@ -49,6 +49,20 @@ test classes today.
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | A-01 | Registration creates the account in `Pending`, never `Active` | Unit | P0 | ✓ |
+| A-34 | Two addresses differing only in case or padding are **one** account — registration refuses the second | Unit | P0 | ✓ (defect found: the comparison was case-sensitive, so no race was needed) |
+| A-35 | Logging in does not depend on how the address was typed | Unit | P0 | ✓ (defect found) |
+| A-36 | The stored address is canonical, so the constraint can enforce identity on it | Unit | P0 | ✓ |
+| A-37 | Lowercasing does not depend on the server's locale — `ToLower()` maps `I`→`ı` under tr-TR | Unit | P1 | ✓ |
+| A-38 | A unique index on `Users.Email`, declared in the model and created by a migration that **canonicalises existing rows first** | Unit | P0 | ✓ (defect found: no unique index existed at all) |
+| A-39 | The REAL repository finds an account however the address was typed, against a real provider | Unit | P0 | ✓ |
+| A-40 | The database refuses a second account for the same address — including one differing only in case — while two different people can both register | Unit | P0 | ✓ |
+
+**A-34..A-40 came from sweeping for the class §7.4b found in StreamingService**: a check-then-act
+guard with no constraint behind it. ClassroomService was clean. UserManagementService had no
+unique index anywhere, and its check-then-act is `RegisterAsync`. The case-sensitivity half needs
+no concurrency at all — one capital letter — and `StubUserRepository` compared with
+`OrdinalIgnoreCase`, so every test agreed with the assumption rather than with the database.
+
 | A-02 | Login is refused while `Pending`; the status message sits BEHIND the credential check, so it is not an enumeration oracle | Unit | P0 | ✓ |
 | A-03 | Login is refused when `Rejected` or `Deactivated` | Unit | P0 | ✓ |
 | A-04 | Correct credentials on an `Active` account issue a token carrying the right role claims | Unit | P0 | ✓ |

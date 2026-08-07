@@ -9,6 +9,14 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <!-- Drives the REAL UserRepository against a real EF provider. Same precedent as
+         ClassroomService's QuizRepositoryTests: a fake has no change tracker and no
+         constraints, so it cannot see either. Version matched to the EF Core pin below —
+         a newer Sqlite drags Relational up and NuGet reports the pin as a downgrade. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <!-- Pinned above what EF drags in: 2.1.11 bundles a vulnerable SQLite
+         (GHSA-2m69-gcr7-jv3q). Test-only — this database never ships. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <!-- Pinned to match Infrastructure's. MigrationConformanceTests compares the model against

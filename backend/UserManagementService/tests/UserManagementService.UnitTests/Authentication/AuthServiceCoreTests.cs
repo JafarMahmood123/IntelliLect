@@ -5,6 +5,7 @@ using UserManagementService.Application.Authentication;
 using UserManagementService.Application.DTOs;
 using UserManagementService.Application.DTOs.Auth;
 using UserManagementService.Domain.Entities;
+using UserManagementService.Domain.Policies;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -82,6 +83,57 @@ public sealed class AuthServiceCoreTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => harness.Sut.RegisterAsync(RegisterRequest(harness.StudentRole.Id)));
         Assert.Empty(harness.Users.Added);
+    }
+
+    [Fact]
+    public async Task Registration_refuses_an_email_that_differs_only_in_case()
+    {
+        // The user-visible half of the defect, and it needs no concurrency at all. The seeded
+        // account is `amina@intellilect.io`; this asks to register `AMINA@IntelliLect.IO`.
+        //
+        // Before the fix that was a second account: the real query compared exactly, so the
+        // existence check found nothing. The owner could then sign in only when their
+        // capitalisation matched the row the query happened to return, a reset for the other
+        // spelling silently found nobody, and an administrator approved one of the two.
+        var harness = new Harness();
+        harness.Users.Seed(ActiveUser(harness.StudentRole));
+
+        var shouted = new RegisterRequest(
+            "amina", Email.ToUpperInvariant(), "Amina", "Test", harness.StudentRole.Id, Password);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => harness.Sut.RegisterAsync(shouted));
+        Assert.Empty(harness.Users.Added);
+    }
+
+    [Fact]
+    public async Task A_registered_address_is_stored_in_its_canonical_form()
+    {
+        // The other half. The constraint that now backs this check can only enforce identity on
+        // the value actually stored, so a mixed-case row would slip past a unique index and
+        // become unreachable to every lookup, all of which normalise what they are given.
+        var harness = new Harness();
+
+        await harness.Sut.RegisterAsync(new RegisterRequest(
+            "amina", "  AMINA@IntelliLect.IO ", "Amina", "Test", harness.StudentRole.Id, Password));
+
+        var added = Assert.Single(harness.Users.Added);
+        Assert.Equal("amina@intellilect.io", added.Email);
+    }
+
+    [Fact]
+    public async Task Logging_in_does_not_depend_on_how_the_address_was_typed()
+    {
+        // What the person actually experiences. Typing the address with different capitalisation
+        // than at registration used to be "invalid credentials" for an account that exists — the
+        // one failure a user has no way to diagnose or work around.
+        var harness = new Harness();
+        harness.Users.Seed(ActiveUser(harness.StudentRole));
+
+        var result = await harness.Sut.LoginAsync(
+            new LoginRequest(Email.ToUpperInvariant(), Password), default);
+
+        Assert.NotNull(result);
     }
 
     [Fact]
@@ -391,9 +443,24 @@ internal sealed class SeedableUserRepository : IUserRepository
 
     public void Seed(User user) => _users.Add(user);
 
+    /// <summary>
+    /// Mirrors the real repository: normalise the argument, then compare EXACTLY — because the
+    /// stored value is canonical and Postgres compares strings exactly.
+    ///
+    /// This used `StringComparison.OrdinalIgnoreCase`, which is how everyone assumed the system
+    /// behaved. The real query was `u.Email == email`, case-sensitive, so `Jafar@x.com` and
+    /// `jafar@x.com` were two accounts in production and one account in every test.
+    /// `Registration_refuses_an_email_that_already_exists` passed the whole time.
+    ///
+    /// The same lesson as `FakeStreamRepository` one cycle earlier, from the other direction: a
+    /// double that is more FORGIVING than the database hides a defect exactly as effectively as
+    /// one that is more permissive.
+    /// </summary>
     public Task<User?> FindByEmail(string email, CancellationToken ct = default)
-        => Task.FromResult(_users.FirstOrDefault(u =>
-            string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)));
+    {
+        var canonical = EmailIdentity.Normalize(email);
+        return Task.FromResult(_users.FirstOrDefault(u => u.Email == canonical));
+    }
 
     public Task<User?> FindByRefreshToken(string token, CancellationToken ct)
         => Task.FromResult(_users.FirstOrDefault(u => u.RefreshTokens.Any(t => t.Token == token)));

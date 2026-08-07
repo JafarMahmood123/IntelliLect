@@ -3,6 +3,7 @@ using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Users;
 using UserManagementService.Domain.Entities;
+using UserManagementService.Domain.Policies;
 
 namespace UserManagementService.Infrastructure.Persistence.Repositories;
 
@@ -15,8 +16,20 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct) =>
         await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, ct);
 
-    public async Task<User?> FindByEmail(string email, CancellationToken ct) =>
-        await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email, ct);
+    /// <summary>
+    /// Looks up by the CANONICAL address, so the caller's capitalisation cannot decide whether an
+    /// account is found.
+    ///
+    /// Normalised here rather than at the six call sites — registration, login, the reset request,
+    /// the 2FA path, admin creation — because one of them will eventually be added without it, and
+    /// the symptom is a person who cannot sign in to an account that exists.
+    /// </summary>
+    public async Task<User?> FindByEmail(string email, CancellationToken ct)
+    {
+        var canonical = EmailIdentity.Normalize(email);
+        return await _context.Users.Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Email == canonical, ct);
+    }
 
     public async Task<User?> GetByIdWithRefreshTokensAsync(Guid id, CancellationToken ct = default) =>
         await _context.Users

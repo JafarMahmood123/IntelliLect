@@ -1,0 +1,60 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="ClassroomService Components">
+    <mxGraphModel dx="1100" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1050" pageHeight="560" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1000" height="520" as="geometry" />
+        </mxCell>
+
+        <mxCell id="svc" value="خدمة الفصول الدراسية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+          <mxGeometry x="50" y="50" width="420" height="440" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l1" value="طبقة العرض&lt;br&gt;ASP.NET Core Web API" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="100" width="350" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="خدمات التطبيق&lt;br&gt;الفصول · الجلسات · الاختبارات · الملفات · المخرجات" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="185" width="350" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="مهام خلفية دورية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;dashed=1;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="285" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="طبقة البنية التحتية&lt;br&gt;Entity Framework · صندوق الصادر · مخزن الملفّات · عملاء HTTP" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="85" y="380" width="350" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pg" value="قاعدة بيانات الخدمة&lt;br&gt;PostgreSQL" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="670" y="55" width="280" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="mq" value="ناقل الرسائل&lt;br&gt;RabbitMQ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="670" y="170" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="مخزن الملفّات&lt;br&gt;MinIO / S3" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="670" y="285" width="280" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="others" value="الخدمات الأخرى" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="670" y="400" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="SQL" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.1;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="أحداث عبر صندوق الصادر" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.35;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="mq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="روابط موقّعة محدودة المدّة" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.62;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="نداءات داخلية فوق HTTP" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;fontSize=14;exitX=1;exitY=0.88;entryX=0;entryY=0.5" edge="1" parent="1" source="svc" target="others">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=0.5;exitY=0;entryX=0.25;entryY=1" edge="1" parent="1" source="l3" target="l2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

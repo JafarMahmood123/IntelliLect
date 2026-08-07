@@ -1550,6 +1550,57 @@ query needs anyway.
 **Mutation-checked, 6 mutations, all killed** — including collapsing the per-account records into
 one per batch, and putting the email back into the line.
 
+### 7.1b One account per address (A-34..A-40) — **DONE; the same class as §7.4b, swept for**
+
+§7.4b found a check-then-act guard with no database constraint behind it. That is a *class*, not
+an incident, so the next step was to look for the rest of it. ClassroomService was clean —
+recording, summary and three quiz composites all carry unique indexes. **UserManagementService had
+none at all**, and its check-then-act is in the registration path:
+
+    var existingUser = await _userRepository.FindByEmail(request.Email, ct);
+    if (existingUser != null) throw ...;
+    await _userRepository.AddAsync(user, ct);
+
+Two defects with one root, and the second is the one that would have been noticed first.
+
+**The comparison was case-sensitive.** `u.Email == email` is exact in Postgres, so
+`Jafar@example.com` and `jafar@example.com` were two accounts. No race, no timing, no double
+click — one capital letter. Every consequence follows from every lookup sharing that comparison:
+the owner signs in only when their capitalisation matches; a password reset for the other spelling
+finds nobody and, correctly per A-13, answers as though it had sent a code, so nothing explains
+why it never arrives; an administrator approves one row while the person signs in to the other and
+is told indefinitely that their account is pending.
+
+**And nothing stopped two identical registrations.** `Users` carried `HasKey("Id")` and an FK
+index on `RoleId`. A double-clicked Register button is two requests, both find nothing, both
+insert. `SuperAdminService` creates administrators by the same pattern.
+
+The two are one fix: normalise so the stored value is canonical, then let the database enforce
+identity on it. A unique index over values that have not been canonicalised enforces nothing
+useful, and canonicalising without the index leaves the race open. Normalisation sits on the
+`User.Email` **setter** and inside `FindByEmail` — the write and read chokepoints — rather than at
+the six call sites, because the seventh will not remember. Migration `AddUniqueIndexOnUserEmail`
+backfills `lower(btrim(...))` **before** creating the index; EF does not generate that, and
+without it a mixed-case row survives the migration and becomes unreachable to every lookup.
+
+**`StubUserRepository` compared with `StringComparison.OrdinalIgnoreCase`.** Production compared
+exactly. The double agreed with what everybody assumed the system did, so
+`Registration_refuses_an_email_that_already_exists` passed the entire time — this is the second
+instance of that meta-defect in two cycles, and the mirror image of §7.4b's: there the fake was
+more *permissive* than the schema, here it was more *forgiving*. Either way the double, not the
+product, was deciding what the test could see.
+
+**Mutation-checked (§7.8), 9 mutations, 8 killed.** One survivor was worth more than the rest:
+removing the normalisation from `UserRepository.FindByEmail` **survived the whole suite**, because
+nothing executed that method — every service test drives the stub. That gap is now closed by
+`UserRepositoryEmailTests`, which runs the real repository against a real provider (SQLite in
+memory, following ClassroomService's `QuizRepositoryTests`). It compares text case-sensitively
+just as Postgres does, and it enforces the unique index — so the constraint is *exercised* rather
+than merely declared. The remaining survivor is honest: reverting the stub to `OrdinalIgnoreCase`
+changes nothing now that the entity normalises on write, and that is covered from the other side.
+
+UserManagementService 299 → 324 tests.
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

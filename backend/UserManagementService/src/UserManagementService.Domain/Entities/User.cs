@@ -6,7 +6,25 @@ public sealed class User
 {
     public Guid Id { get; set; }
     public string UserName { get; set; }
-    public string Email { get; set; }
+
+    /// <summary>
+    /// Normalised on the way in, so the stored value IS the canonical one.
+    ///
+    /// The setter rather than the callers, because there are several ways a User comes into
+    /// existence — self-registration through AutoMapper, an administrator creating another
+    /// administrator, the seeder — and a rule that has to be remembered at each of them is a rule
+    /// that will be missed at the next one. EF materialises through this setter too, which is
+    /// harmless: a row read back is already canonical.
+    ///
+    /// See <see cref="EmailIdentity"/> for why case matters and what it cost.
+    /// </summary>
+    public string Email
+    {
+        get => _email;
+        set => _email = EmailIdentity.Normalize(value);
+    }
+
+    private string _email = string.Empty;
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public string PasswordHash { get; set; }
