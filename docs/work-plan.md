@@ -1938,6 +1938,77 @@ day somebody first uses it.
 
 **StreamingService 230 → 252 tests.**
 
+### 7.1c The super-admin surface could be deactivated out of existence (B-03, B-32, C-26..C-30) — **DONE**
+
+UserManagementService owns the accounts, the roles and the whole super-admin surface, and it was the
+one .NET service with **no authorization rule of any kind** — ClassroomService has had one since
+§11.2, StreamingService has the internal-secret half. Writing that rule is what this item was for.
+Reading the service to write it is what found the defect.
+
+**`SuperAdminService.DeactivateAdminAsync` refuses a super-admin target.** Its repository query is
+`Where(user => user.Role.Name == RoleName.Admin)`, so passing a super admin's id there is a 404.
+That filter is deliberate: admin lifecycle is not for super admins.
+
+**`UserStatusService` reaches the same accounts through a different door and had no filter at all.**
+`PUT /api/super-admin/users/{id}/status` and its bulk sibling check the transition and the actor,
+and never once look at who the target is.
+
+Everything needed for that to be terminal is already in place:
+
+- `Deactivate` requires `Active`, and the seeded super admin is Active.
+- The self-target guard stops one super admin disabling themselves — but with **two**, A disables B
+  and B disables A, and neither call is a self-target.
+- Deactivation revokes refresh tokens, so it takes effect immediately rather than at expiry.
+- **Nothing creates a super admin.** `CreateAdminAsync` mints an *Admin*; the role is only ever
+  assigned by `DatabaseSeeder`, which runs against an empty database.
+- `SearchUsers` does not exclude them, so their ids are in the directory the button lives on.
+
+So: no super admin can sign in, no route can appoint one, and the only recovery is editing the
+database by hand. The bulk path is the easier way to arrive there by accident — "select all,
+deactivate" over a directory that lists super admins alongside everyone else.
+
+Fixed with a `ProtectedTarget` outcome in the shared `Decide`, so both entry points get it from one
+place — the property §11.7 established for this service and the reason the bulk path cannot quietly
+accept what the single path refuses. Refused **per account** on the bulk path, like every other
+outcome there: a batch that failed wholesale because one row was protected would teach an operator
+to deselect until it works. Audited at Warning like every other refusal (§7.11b), because an attempt
+on a super admin is the single most interesting line that log could carry.
+
+**The rule is drawn on every action, not on the dangerous one.** "This route does not manage super
+admins" leaves nothing open; "deactivation is risky" leaves `Reject`, which is refused today only by
+the transition matrix — a matrix somebody could reasonably widen for an unrelated reason.
+
+**The authorization rule itself, and the thing it is really about.** All four controllers are gated
+and every anonymous action is meant to be, so there is no defect in the routing. What there is, is a
+**default**: `AuthController` carries no class-level `[Authorize]`, correctly — six of its eight
+actions are how you obtain a token in the first place — but that makes it the one controller in the
+service whose default is *open*, with `Logout` opting in by itself. The next action added to that
+file is anonymous unless somebody remembers. The anonymous surface is now a list with a reason per
+entry, checked in both directions, plus a stronger statement worth more than the list: **every
+anonymous action is on `AuthController`**. One outside it is not an exception to reason about, it is
+a mistake.
+
+**B-03 closed at the unit level, and the interesting half was not the attribute.** The super-admin
+surface is gated by the `SuperAdminTwoFactor` *policy* rather than `[Authorize(Roles = "SuperAdmin")]`
+— the difference being that the policy also requires the second factor to have been cleared *in this
+session*, which is the whole point of §2's staged login. Two things are pinned beyond the attribute:
+no action inside the controller may carry its own `[Authorize]` (which would replace the policy for
+that action rather than add to it), and the policy still requires the role **and** the claim. That
+last one is checked against `DependencyInjection.cs`'s source because the policy's *name* lives in
+Application and its *requirements* in Infrastructure — nothing in the type system connects them, so
+a policy quietly reduced to `RequireRole` would leave every attribute in the service still pointing
+at it and still passing.
+
+**Mutation-checked (§7.8), 14 mutations, all killed on the first pass:** the protection removed;
+keyed on `Admin` instead; moved behind the transition check so a no-op answers first; the refusal
+unaudited; the bulk path reporting it as a success; the single path swallowing it; the admin
+lifecycle query no longer filtering by role; a new anonymous action on `AuthController`; the
+super-admin policy replaced by a role attribute; an action inside it naming its own role; the policy
+losing its second factor; the policy losing its role; the admin surface losing its role; and
+`Logout` losing its `[Authorize]`.
+
+**UserManagementService 324 → 343 tests.**
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

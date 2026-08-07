@@ -116,7 +116,8 @@ across every `{id}` route param. Every case here is a template applied per endpo
 | --- | --- | --- | --- | --- |
 | B-01 | Anonymous request to any `[Authorize]` route → 401 | Integration | P0 | ✓ (unit rule) — every controller either requires authentication or is on a named, reasoned exemption list; the list is checked for stale and unnecessary entries in both directions |
 | B-02 | Student calling a `[Authorize(Roles="Teacher")]` route → 403 (upload, publish quiz, close quiz, extend, change teacher) | Integration | P0 | ✓ (unit rule) — every state-changing action decides authorization somewhere explicit: a role attribute, or a `Controller.Action` entry naming the service that checks it |
-| B-03 | Teacher calling a super-admin route → 403 | Integration | P0 | gap |
+| B-03 | Teacher calling a super-admin route → 403 | Integration **+ Unit** | P0 | ✓ (unit) — the super-admin surface is gated by the `SuperAdminTwoFactor` **policy** rather than a role attribute, no action inside it overrides that, and the policy is pinned to require the role **and** the second factor (they live in different assemblies, so nothing in the type system connects them) |
+| B-32 | Every UMS action requires a token or is on a reasoned anonymous list, checked in both directions — and every anonymous action is on `AuthController`, the one controller whose default is open | Unit | P0 | ✓ (no defect; the default was the finding) |
 | B-04 | Non-member of a classroom cannot read its files, quizzes, recordings, summaries or Q&A | Integration **+ Unit** | P0 | ✓ (unit, **three defects found & fixed**) — quizzes, recordings, summaries and Q&A were already member-gated; the **session list**, the **file list** and the **roster** took no caller at all. Proving the resulting 403 over HTTP is still integration work |
 | B-05 | Teacher of classroom X cannot act on classroom Y | Integration **+ Unit** | P0 | ✓ (unit, **two defects found & fixed**) — scheduling and starting a session rested on `[Authorize(Roles = "Teacher")]`, which proves the caller is *a* teacher and never that the classroom is theirs |
 | B-06 | Student cannot read another student's answers, marks or submission state | Integration | P0 | gap |
@@ -172,6 +173,11 @@ across every `{id}` route param. Every case here is a template applied per endpo
 | C-23 | The audit records what **happened**, not what was attempted — nothing is claimed until the commit returns | Unit | P0 | ✓ (defect found: a rolled-back batch logged every account as approved and logged no failure) |
 | C-24 | A commit that fails leaves a record of its own, naming the accounts by id and carrying the exception | Unit | P0 | ✓ |
 | C-25 | A refusal is **not** deferred behind the commit — it is final when decided and survives a batch that fails | Unit | P1 | ✓ |
+| C-26 | A super admin's account cannot be changed from the user directory — **no action**, not merely the dangerous one | Unit | P0 | ✓ (defect found & fixed) |
+| C-27 | Two super admins cannot deactivate each other; the self-target guard does not cover it, and nothing can appoint a replacement | Unit | P0 | ✓ (defect found & fixed) |
+| C-28 | A bulk selection containing a super admin refuses that row and applies to everybody else | Unit | P0 | ✓ |
+| C-29 | The refusal is audited at Warning like every other refusal, naming actor, target and outcome | Unit | P1 | ✓ |
+| C-30 | Admins and everyone else are still changeable from the directory — the rule is drawn on the super-admin role, not on "privileged" | Unit | P0 | ✓ |
 
 **C-10 and C-11 were the last two rows marked `new`, and both were already covered** — the markers
 were stale, corrected here against the real test names rather than re-tested. Reading them

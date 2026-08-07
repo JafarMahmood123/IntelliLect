@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 18:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 18:37 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -34,7 +34,7 @@ without an attribute does not.
 <!-- generated:inventory -->
 | Suite | Tests | Status | Command |
 |---|---|---|---|
-| UserManagementService | 324 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
+| UserManagementService | 343 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
 | ClassroomService | 522 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
 | StreamingService | 252 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
@@ -42,7 +42,7 @@ without an attribute does not.
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,399** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,418** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -77,7 +77,7 @@ that selection waits two minutes and then fails.
 <!-- generated:coverage -->
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
-| UserManagementService | 51.4% | 36.3% | measured 2026-08-07 (1012 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| UserManagementService | 51.8% | 36.9% | measured 2026-08-07 (1022 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 81.3% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 78.1% | 43.8% | measured 2026-08-07 (686 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
@@ -92,7 +92,7 @@ that selection waits two minutes and then fails.
 | Service | Layer | Line |
 |---|---|---|
 | UserManagementService | Domain | 84.9% |
-| UserManagementService | Application | 68.3% |
+| UserManagementService | Application | 69.0% |
 | UserManagementService | Infrastructure | 34.5% |
 | UserManagementService | Presentation | 0.0% |
 | UserManagementService | Api | 100.0% |
@@ -271,6 +271,7 @@ found by writing a test, not by a user.
 | 41 | **Two live streams for one session, with nothing to stop it.** `SessionStartedConsumer` guards a redelivery with `ExistsAsync` then `AddAsync` — two calls — and `Streams.SessionId` carried **no index at all**, unique or otherwise. At-least-once delivery means the message arrives twice; two concurrent invocations both pass the check before either insert. The consumer's own comment names the consequence: "every later lookup picks one arbitrarily", so students join one row while recording state and participant count attach to the other, permanently and silently | found by a test FAILING under load, twice — see below |
 | 42 | `FakeStreamRepository` accepted two rows for one session, so the suite could not tell an idempotent consumer from one that usually wins the race. **A double more permissive than the database turns a real defect into a flake** — and this file already carried a comment about an earlier flake here that accused the product wrongly. This time the accusation was correct | L-01 |
 | 40 | **Sentence splitting was English-only, and it made the semantic chunker inert in Arabic.** `_SENTENCE_RE` was `[.!?]` — none of Arabic's terminators. Arabic borrows the Latin full stop, so statements split and questions did not: four Arabic questions came back as **one** sentence. `SemanticChunker` then takes its `len(sentences) == 1` shortcut, **never calls the embedder**, and falls through to the token-window packer — so the semantic tier silently became the structural tier and `semantic_breakpoint_percentile` did nothing. Every chunking test in the suite is written in English | F-27, F-28 |
+| 63 | **The super-admin surface could be deactivated out of existence, with no way back.** `SuperAdminService.DeactivateAdminAsync` refuses a super-admin target — its query filters to `Role.Name == Admin` — but `UserStatusService`, behind `PUT /api/super-admin/users/{id}/status` and its bulk sibling, reached the same accounts and never looked at who the target was. The self-target guard covers one super admin; with two, A disables B and B disables A. Deactivation revokes sessions immediately, nothing in the platform can appoint a replacement (`CreateAdminAsync` mints an **Admin**), and the directory lists super admins alongside everyone else — so "select all, deactivate" gets there by accident. Recovery is editing the database by hand | C-26, C-27 |
 | 59 | **Any authenticated account could post chat into any live lecture**, from its session id. The three write paths on `InteractionService` took a `userId` and never consulted it, and a chat message is broadcast to everyone in the room with the sender's display name against it, while the class is running. Reactions and questions the same | G-44 |
 | 60 | **Any authenticated account could read any lecture's entire chat history and question list** — both read methods took no caller at all | G-45 |
 | 61 | **Any authenticated connection could subscribe to any session's SignalR broadcast group** — the live feed of every message, reaction, hand-raise and participant count. `StreamHub.JoinStreamRoom` was one `AddToGroupAsync` call and nothing else, and a hub method has no controller, filter or attribute in front of it that ever sees the session id | G-46 |
@@ -291,7 +292,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 320 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 334 mutations across the project so far.
 
 Thirteen survived, and each one meant a test was passing for the wrong reason. (This said "nine"
 until it was counted against the table below, which had thirteen rows by then — the count was

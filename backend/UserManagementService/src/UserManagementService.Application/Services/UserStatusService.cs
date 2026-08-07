@@ -81,6 +81,11 @@ public sealed class UserStatusService : IUserStatusService
                 throw new InvalidOperationException(
                     $"Cannot {parsedAction} an account that is currently '{user!.Status}'.");
 
+            // A super admin's account is not managed from here — see ChangeOutcome.ProtectedTarget.
+            case ChangeOutcome.ProtectedTarget:
+                throw new InvalidOperationException(
+                    "A super administrator's account cannot be changed from the user directory.");
+
             // Alternate path 5د: the account is already in the requested state — a no-op. Nothing
             // is changed, no notification is sent, and the current profile is returned as-is.
             case ChangeOutcome.NoOp:
@@ -280,6 +285,17 @@ public sealed class UserStatusService : IUserStatusService
         NotFound,
         SelfTarget,
         InvalidTransition,
+
+        /// <summary>
+        /// The target is a super admin, and this route does not manage super admins.
+        ///
+        /// `SuperAdminService.DeactivateAdminAsync` already refuses one — its repository query is
+        /// `Where(user => user.Role.Name == RoleName.Admin)`, so a super-admin id there is a 404.
+        /// This route reached the same accounts through a different door and had no such filter,
+        /// which is the whole of the finding: somebody decided admin lifecycle should not touch
+        /// super admins, and the generic route never heard about it.
+        /// </summary>
+        ProtectedTarget,
     }
 
     /// <summary>
@@ -300,6 +316,16 @@ public sealed class UserStatusService : IUserStatusService
         if (user is null)
         {
             return ChangeOutcome.NotFound;
+        }
+
+        // A super admin's status is not changeable here. There is deliberately no route that
+        // creates one — `CreateAdminAsync` mints an Admin — so a deactivated super admin cannot be
+        // replaced, and with two of them present neither deactivation is a self-target: A disables
+        // B, B disables A, and the platform has no super-admin surface left short of opening the
+        // database by hand. Deactivation also revokes sessions, so it takes effect at once.
+        if (user.Role?.Name == RoleName.SuperAdmin)
+        {
+            return ChangeOutcome.ProtectedTarget;
         }
 
         var target = TargetStatus(action);
@@ -347,6 +373,13 @@ public sealed class UserStatusService : IUserStatusService
         ChangeOutcome.InvalidTransition =>
             new BulkUserStatusItem(userId, false, user!.Status.ToString(),
                 $"Cannot {action} an account that is currently '{user.Status}'."),
+
+        // Refused per account, like every other outcome here: a selection that happens to include a
+        // super admin still applies to everyone else in it. The bulk path is the easier way to do
+        // this by accident — "select all, deactivate" over a directory that lists super admins.
+        ChangeOutcome.ProtectedTarget =>
+            new BulkUserStatusItem(userId, false, user!.Status.ToString(),
+                "A super administrator's account cannot be changed from the user directory."),
 
         _ => new BulkUserStatusItem(userId, false, null, "Unknown outcome."),
     };
