@@ -198,7 +198,7 @@ const FocusedCapture = ({
 
       {/* Capped at three: past that the tiles either shrink to unrecognisable or eat the slide.
           A lecture recording is about the material; the faces are context. */}
-      <div className="pointer-events-none absolute bottom-2 right-2 flex gap-1.5">
+      <div className="pointer-events-none absolute bottom-2 end-2 flex gap-1.5">
         {tiles.slice(0, 3).map((t) => (
           <div key={tileKey(t)} className="aspect-video w-28 shrink-0 opacity-95">
             <StageTile trackRef={t} />

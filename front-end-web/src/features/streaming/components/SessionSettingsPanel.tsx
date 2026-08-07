@@ -230,9 +230,14 @@ const ToggleRow = ({ icon, label, description, enabled, disabled, onToggle }: To
         enabled ? 'bg-violet-600' : 'bg-slate-700'
       }`}
     >
+      {/* Anchored with `start-0.5` rather than left unanchored: without a horizontal anchor the
+          knob sits at its static position, which is the RIGHT edge of the track under `dir="rtl"`,
+          and the translate below then pushes it further right and off the track entirely.
+          `translate-x` is physical and has no logical form, so the travel is spelled per
+          direction. */}
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          enabled ? 'translate-x-[22px]' : 'translate-x-0.5'
+        className={`absolute top-0.5 start-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          enabled ? 'translate-x-5 rtl:-translate-x-5' : 'translate-x-0'
         }`}
       />
     </button>

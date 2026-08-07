@@ -87,7 +87,7 @@ export const LoginForm = () => {
         />
 
         <div className="relative">
-          <div className="absolute right-0 top-0 flex h-6 items-center">
+          <div className="absolute end-0 top-0 flex h-6 items-center">
             <Link 
               to="/forgot-password" 
               tabIndex={-1}

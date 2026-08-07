@@ -151,7 +151,7 @@ export const CreateSessionDrawer = ({
             </label>
             <div className="relative">
               <CalendarIcon
-                className="absolute left-4 top-3 z-10 text-slate-400"
+                className="absolute start-4 top-3 z-10 text-slate-400"
                 size={18}
               />
               <DatePicker
@@ -165,7 +165,7 @@ export const CreateSessionDrawer = ({
                 dateFormat="MMMM d, yyyy h:mm aa"
                 minDate={new Date()}
                 calendarClassName="dark-datepicker"
-                className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 py-2.5 pl-11 pr-4 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 py-2.5 ps-11 pe-4 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
                 placeholderText="Select date and time"
               />
             </div>

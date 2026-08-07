@@ -289,14 +289,14 @@ export const UsersDirectoryPage = () => {
             <div className="relative">
               <Search
                 size={18}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
                 type="text"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder={t('users.search.placeholder')}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
               />
             </div>
           </div>
@@ -366,12 +366,12 @@ export const UsersDirectoryPage = () => {
             <div className="relative">
               <ArrowUpDown
                 size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOption)}
-                className={`${selectClasses} pl-10`}
+                className={`${selectClasses} ps-10`}
               >
                 <option value="joined-desc">{t('users.sortOptions.joinedDesc')}</option>
                 <option value="joined-asc">{t('users.sortOptions.joinedAsc')}</option>
@@ -459,7 +459,7 @@ export const UsersDirectoryPage = () => {
           />
 
           <div className="overflow-hidden rounded-lg border bg-white shadow dark:border-gray-800 dark:bg-gray-900">
-            <table className="w-full table-fixed text-left text-sm">
+            <table className="w-full table-fixed text-start text-sm">
               <colgroup>
                 <col style={{ width: '5%' }} />
                 <col style={{ width: '19%' }} />

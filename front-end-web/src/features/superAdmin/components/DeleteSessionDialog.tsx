@@ -100,7 +100,7 @@ export const DeleteSessionDialog = ({
     <div className="flex items-center gap-2 text-sm">
       <span className="text-slate-400">{icon}</span>
       <span className="text-slate-700 dark:text-slate-200">{label}</span>
-      <span className="ml-auto inline-flex items-center gap-1">
+      <span className="ms-auto inline-flex items-center gap-1">
         {note ? (
           <span className="text-xs text-amber-600 dark:text-amber-400">{note}</span>
         ) : present ? (
@@ -166,7 +166,7 @@ export const DeleteSessionDialog = ({
                   <span className="text-slate-700 dark:text-slate-200">
                     {t('sessions.delete.outputs.storage')}
                   </span>
-                  <span className="ml-auto font-semibold text-slate-800 dark:text-slate-100">
+                  <span className="ms-auto font-semibold text-slate-800 dark:text-slate-100">
                     {formatBytes(impact.storageBytes)}
                   </span>
                 </div>

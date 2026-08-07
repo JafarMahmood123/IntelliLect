@@ -35,7 +35,7 @@ export const SidebarMenu = ({ sections, onOpen }: Props) => (
         key={section.id}
         type="button"
         onClick={() => onOpen(section.id)}
-        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:border-violet-500 ${
+        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-start outline-none transition-colors focus-visible:border-violet-500 ${
           section.badge
             ? 'border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/15'
             : 'border-white/5 bg-white/5 hover:border-violet-500/30 hover:bg-white/10'

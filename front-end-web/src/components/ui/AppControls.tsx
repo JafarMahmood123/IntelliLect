@@ -12,7 +12,7 @@ export const AppControls = () => {
   return (
     <div
       dir="ltr"
-      className="fixed top-4 right-4 z-50 flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-md dark:border-slate-800 dark:bg-slate-900"
+      className="fixed top-4 end-4 z-50 flex items-center rounded-full border border-slate-200 bg-white p-1 shadow-md dark:border-slate-800 dark:bg-slate-900"
     >
       <LanguageToggle />
 

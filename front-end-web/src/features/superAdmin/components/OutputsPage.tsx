@@ -95,13 +95,13 @@ export const OutputsPage = () => {
             {t('outputs.searchLabel')}
           </label>
           <div className="relative">
-            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={18} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder={t('outputs.searchPlaceholder')}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export const OutputsPage = () => {
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border bg-white shadow dark:border-gray-800 dark:bg-gray-900">
-            <table className="w-full table-fixed text-left text-sm">
+            <table className="w-full table-fixed text-start text-sm">
               <colgroup>
                 <col style={{ width: '13%' }} />
                 <col style={{ width: '25%' }} />

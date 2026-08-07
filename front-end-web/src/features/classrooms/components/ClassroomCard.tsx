@@ -30,7 +30,7 @@ export const ClassroomCard = ({ classroom, onClick }: ClassroomCardProps) => {
           <FileText size={16} />
           <span className="text-xs font-medium">{classroom.fileCount} Files</span>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-slate-400">
+        <div className="ms-auto flex items-center gap-1.5 text-slate-400">
           <Calendar size={14} />
           <span className="text-[10px] uppercase tracking-wider">{formattedDate}</span>
         </div>

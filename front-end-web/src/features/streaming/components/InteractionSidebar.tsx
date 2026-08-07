@@ -187,8 +187,8 @@ export const InteractionSidebar = () => {
                     <div
                       className={`max-w-[92%] rounded-2xl p-3 shadow-sm ${
                         isMe
-                          ? 'rounded-tr-none bg-violet-600 text-white'
-                          : 'rounded-tl-none border border-white/5 bg-slate-800 text-slate-200'
+                          ? 'rounded-se-none bg-violet-600 text-white'
+                          : 'rounded-ss-none border border-white/5 bg-slate-800 text-slate-200'
                       }`}
                     >
                       <p className="break-words text-sm leading-tight">{m.message}</p>
@@ -218,7 +218,7 @@ export const InteractionSidebar = () => {
     //
     // shrink-0 because a fixed width is not a guaranteed one: the aside is a flex child, so
     // without it a long unbroken string in a message could squeeze the whole drawer narrower.
-    <aside className="z-20 flex h-full w-80 shrink-0 flex-col overflow-hidden border-l border-white/10 bg-slate-900 shadow-2xl xl:w-96 2xl:w-[28rem]">
+    <aside className="z-20 flex h-full w-80 shrink-0 flex-col overflow-hidden border-s border-white/10 bg-slate-900 shadow-2xl xl:w-96 2xl:w-[28rem]">
       {current ? (
         <>
           <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/5 bg-slate-950/50 p-2">

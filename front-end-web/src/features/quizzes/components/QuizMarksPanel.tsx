@@ -94,7 +94,7 @@ export const QuizMarksPanel = ({ classroomId, isTeacher }: Props) => {
           key={session.id}
           type="button"
           onClick={() => setOpenSessionId(session.id)}
-          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-violet-400 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-violet-500"
+          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-start transition-colors hover:border-violet-400 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-violet-500"
         >
           <div className="min-w-0">
             <h4 className="truncate font-bold text-slate-900 dark:text-white">{session.title}</h4>

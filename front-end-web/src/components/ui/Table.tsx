@@ -44,7 +44,7 @@ export const Table = <T,>({
     .filter(Boolean)
     .join(' ');
 
-  const resolvedTableClassName = ['min-w-full text-left text-sm', tableClassName]
+  const resolvedTableClassName = ['min-w-full text-start text-sm', tableClassName]
     .filter(Boolean)
     .join(' ');
 

@@ -190,7 +190,7 @@ const SummaryRow = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 ltr:sm:ml-auto rtl:sm:mr-auto">
+      <div className="flex flex-wrap items-center gap-3 ltr:sm:ms-auto rtl:sm:me-auto">
         {summary.status === 'Available' && (
           <>
             <button

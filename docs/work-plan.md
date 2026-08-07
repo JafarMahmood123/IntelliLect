@@ -1120,6 +1120,60 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.15 RTL that actually flips (M-10) — **DONE; 91 utilities that ignore the document direction**
+
+M-10 asks that "RTL layout renders without overflow on the main pages". The obvious test is to
+render and measure, and it is not available: jsdom has no layout engine, so every width it reports
+is zero. A browser could measure it — and a browser assertion tells you the pixels were right on
+the machine that ran it, for the pages somebody remembered to open.
+
+**The cause is not in the pixels.** Tailwind's physical utilities — `ml-*`, `pl-*`, `left-*`,
+`text-left`, `border-l`, `rounded-tl-*` — do not flip when the document direction does. Their
+logical counterparts do. So an RTL layout bug is written down in source, and can be read there.
+
+The app sets `document.documentElement.dir = 'rtl'` for Arabic and had **91** physical directional
+utilities across 38 files. The clearest was a pair repeated eleven times: a search icon at `left-3`
+inside an input padded `pl-10`. In Arabic the text starts on the right, the padding stays on the
+left, and **the icon sits on top of the first characters the user types** — on the super-admin
+search boxes, the knowledge base, the sessions monitor, the classroom directory. `text-left`
+appeared 23 times, so table headers stayed left-aligned in Arabic.
+
+Two places had already been patched **by hand** — a `ltr:right-4 rtl:left-4` on the feedback panel
+and an `isRtl ? … : …` ternary in the toast provider. That is what a problem looks like when it is
+known but not systematised: somebody hits it, fixes the one they can see, and the other 89 stay.
+Both collapse to a single logical utility, and the ternary took a now-dead `useTranslation` call
+with it.
+
+Two more found while converting, both of which a pure find-and-replace would have missed:
+
+* **The drawer never leaves the screen in RTL.** It is anchored to the trailing edge and hidden
+  with `translate-x-full` — off the *right*. Under `dir="rtl"` it needs to hide off the left.
+  `translate-x` is physical and Tailwind has no logical form for it, so the closed position is
+  now spelled per direction.
+* **The settings toggle knob leaves its track.** It was absolutely positioned with no horizontal
+  anchor, so it sat at its static position — the right edge under RTL — and the travel pushed it
+  further right, off the switch entirely.
+
+Deliberately left physical, each named with a reason and checked in both directions:
+`SummaryPreview`'s markdown is inside `dir="ltr"` and English-only by design, and `Toolbox` uses
+`left-1/2` with `-translate-x-1/2`, which is the horizontal CENTRING idiom rather than a
+directional edge — `start-1/2` would break it, because translate does not flip.
+
+**Mutation-checked, 8 mutations. Two survived the first version of the rule, and both were the
+same omission:** `translate-x` is absent from the physical list because it has no logical
+counterpart, which left exactly the two defects above unguarded — the rule could not see the
+fixes it had just prompted. Two more cases now cover it. The second of those had to be scoped to
+the enclosing **className expression** rather than the file: a file-wide check passes as soon as
+any element in it is anchored, which is almost always, and the mutation walked straight through
+the first attempt.
+
+Re-levelled P2 → P1. A search field whose icon covers the user's text is not cosmetic in the
+product's second language.
+
+**front-end-web 367 → 373 in 40 files.**
+
+---
+
 ### 7.14 A size limit on ingestion (E-08) — **DONE; there was no limit at all**
 
 E-08 was rewritten once already, when the original wording turned out to describe an endpoint that

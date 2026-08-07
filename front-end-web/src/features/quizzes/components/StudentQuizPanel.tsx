@@ -170,7 +170,7 @@ const StudentQuizForm = ({
                   type="button"
                   disabled={locked}
                   onClick={() => choose(question.id, option.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
+                  className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-start text-xs transition-colors disabled:opacity-50 ${
                     isChosen
                       ? 'border-violet-500/50 bg-violet-500/15 text-slate-100'
                       : 'border-white/5 bg-slate-900/40 text-slate-300'

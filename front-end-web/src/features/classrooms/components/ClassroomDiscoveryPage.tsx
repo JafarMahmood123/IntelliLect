@@ -66,7 +66,7 @@ export const ClassroomDiscoveryPage = () => {
             {availableClassrooms.map((classroom) => (
               <div key={classroom.id} className="relative group">
                 <ClassroomCard classroom={classroom} onClick={() => {}} />
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-4 end-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     isLoading={enrollMutation.isPending && enrollMutation.variables === classroom.id}
                     onClick={() => handleEnroll(classroom.id, classroom.name)}

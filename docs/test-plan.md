@@ -391,7 +391,11 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | M-07 | An embedding-dimension change migrates the pgvector column and forces re-embedding rather than silently mismatching | Integration | P0 | gap |
 | M-08 | Health endpoints report unhealthy when a dependency is down (not a blind 200) | Integration | P1 | partial |
 | M-09 | en and ar locale files have identical key sets **and matching placeholders**, allowing for Arabic's six plural categories | Frontend | P1 | ✓ |
-| M-10 | RTL layout renders without overflow on the main pages | Frontend | P2 | partial |
+| M-10 | RTL layout renders without overflow on the main pages | Frontend | ~~P2~~ **P1** | ✓ (`logicalProperties.test.ts`; the app had **91** physical directional utilities while setting `dir="rtl"` for Arabic) |
+| M-11 | Every directional utility has a logical form, so spacing and absolute chrome flip with the document | Frontend | P1 | ✓ |
+| M-12 | `translate-x` — physical, with no logical form — is spelled for both directions wherever it carries travel | Frontend | P1 | ✓ |
+| M-13 | Anything moved with `translate-x` is also anchored horizontally, checked per className expression rather than per file | Frontend | P1 | ✓ |
+| M-14 | The exemption list is checked in both directions, and the premise (`dir` really flips) is asserted rather than assumed | Frontend | P1 | ✓ |
 | M-11 | Every downstream `/api/internal` client binds its OWN section — a client wired to the wrong one is caught | Unit | P0 | ✓ |
 | M-12 | A missing internal secret or base URL refuses startup with a message naming the key to set and the env var it must match | Unit | P0 | ✓ (defect found: LiveAssistant & RagService secrets were never configured in UMS) |
 | M-13 | A timeout `HttpClient` would reject (zero or negative) is refused at startup rather than crashing the host | Unit | P1 | ✓ |

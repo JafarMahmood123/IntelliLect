@@ -59,7 +59,7 @@ export const ConfirmationModal = ({
       />
       
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md transform overflow-hidden rounded-xl bg-white text-left align-middle shadow-xl transition-all dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+      <div className="relative w-full max-w-md transform overflow-hidden rounded-xl bg-white text-start align-middle shadow-xl transition-all dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${iconBgs[variant]}`}>

@@ -208,7 +208,7 @@ const Score = ({
   total: number;
   percentage: number;
 }) => (
-  <div className="shrink-0 text-right">
+  <div className="shrink-0 text-end">
     <p className="text-sm font-bold text-slate-900 dark:text-white">
       {value}
       <span className="text-slate-400">/{total}</span>

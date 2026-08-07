@@ -109,7 +109,7 @@ export const TeacherFeedbackPanel = () => {
   return (
     <section
       aria-label={t('feedback.title')}
-      className="pointer-events-auto absolute top-4 z-40 flex w-80 max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur ltr:right-4 rtl:left-4"
+      className="pointer-events-auto absolute top-4 z-40 flex w-80 max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur end-4"
     >
       <div className="flex items-center justify-between gap-2 border-b border-white/5 bg-slate-950/60 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">

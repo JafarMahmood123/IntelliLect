@@ -171,8 +171,8 @@ export const ClassroomFileList = ({ classroomId, isTeacher }: ClassroomFileListP
     {
       key: 'actions',
       header: 'Actions',
-      headerClassName: 'text-right',
-      cellClassName: 'text-right',
+      headerClassName: 'text-end',
+      cellClassName: 'text-end',
       render: (file) => (
         <div className="flex justify-end gap-2">
           {/* Streams through the API/gateway (auth + blob) — the browser never touches the raw

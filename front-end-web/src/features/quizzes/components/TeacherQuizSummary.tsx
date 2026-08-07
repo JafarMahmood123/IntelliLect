@@ -129,7 +129,7 @@ const StudentRow = ({
         type="button"
         disabled={!hasAnswers}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 p-2.5 text-left disabled:cursor-default"
+        className="flex w-full items-center gap-3 p-2.5 text-start disabled:cursor-default"
       >
         <span className="w-5 shrink-0 text-center text-[11px] font-bold text-slate-500">
           {rank === 0 ? <Trophy size={13} className="mx-auto text-amber-400" /> : rank + 1}
@@ -152,7 +152,7 @@ const StudentRow = ({
           {student.score}
           <span className="text-slate-500">/{student.totalPointsAvailable}</span>
         </span>
-        <span className="w-9 shrink-0 text-right text-[11px] font-bold text-violet-400">
+        <span className="w-9 shrink-0 text-end text-[11px] font-bold text-violet-400">
           {student.percentage}%
         </span>
       </button>
@@ -257,7 +257,7 @@ const OptionBar = ({
           style={{ width: `${share}%` }}
         />
       </span>
-      <span className="w-6 shrink-0 text-right text-slate-500">{option.selectedCount}</span>
+      <span className="w-6 shrink-0 text-end text-slate-500">{option.selectedCount}</span>
     </div>
   );
 };

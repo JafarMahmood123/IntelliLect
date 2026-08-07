@@ -69,7 +69,7 @@ export const QuizTimeControls = ({ quiz, onExtend, busy }: Props) => {
           <button
             type="button"
             onClick={() => setPickingStudents((v) => !v)}
-            className="flex w-full items-center gap-1.5 border-t border-white/5 pt-2 text-left text-[11px] font-medium text-violet-300"
+            className="flex w-full items-center gap-1.5 border-t border-white/5 pt-2 text-start text-[11px] font-medium text-violet-300"
           >
             {pickingStudents ? (
               <ChevronDown size={12} className="shrink-0" />
@@ -132,7 +132,7 @@ const StudentRow = ({
   <button
     type="button"
     onClick={onToggle}
-    className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] transition-colors ${
+    className={`flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-start text-[11px] transition-colors ${
       selected
         ? 'border-violet-500/50 bg-violet-500/15 text-slate-100'
         : 'border-white/5 bg-slate-900/40 text-slate-300'

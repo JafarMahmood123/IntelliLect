@@ -25,7 +25,9 @@
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-02-ports-adapters.png}
+  % 1.13:1, so at \textwidth it is ~60% of the text block and floats away from
+  % its own subsection. Same reason as the figure in 5.2.1.
+  \includegraphics[width=0.6\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-02-ports-adapters.png}
   \caption{نمط المنافذ والمحوِّلات: المنفذ يُعرَّف في طبقة التطبيق، والمحوِّل يحقّقه في طبقة البنية التحتية.}
   \label{fig:pattern-02}
 \end{figure}
@@ -34,16 +36,16 @@
 
 \subsection{الاستراتيجية (\en{Strategy})}
 
-يعتمد هذا النمط على تعريف عائلة من الخوارزميات وجعلها قابلة للاستبدال عبر واجهة موحدة، بحيث يمكن للمستدعي استخدام أي منها دون معرفة تفاصيل تنفيذها. يوضح الشكل~\ref{fig:pattern-03} استراتيجيات تحويل الكلام إلى نص (\en{STT}).
+يعتمد هذا النمط على تعريف عائلة من الخوارزميات وجعلها قابلة للاستبدال عبر واجهة موحدة، بحيث يمكن للمستدعي استخدام أي منها دون معرفة تفاصيل تنفيذها. يوضح الشكل~\ref{fig:pattern-03} هذا النمط.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-03-strategy.png}
-  \caption{نمط الاستراتيجية: منفذٌ واحد وثلاثة تحقيقات متكافئة، والمستدعي لا يعرف إلّا المنفذ.}
+  \includegraphics[width=0.75\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-03-strategy.png}
+  \caption{نمط الاستراتيجية: واجهة واحدة وثلاثة تحقيقات متكافئة، والمستدعي لا يعرف إلّا الواجهة.}
   \label{fig:pattern-03}
 \end{figure}
 
-استُخدم هذا النمط في المواضع التي تتطلب مفاضلة بين بدائل تقنية؛ مثل اختيار نموذج التضمين (\en{Embedding}) أو محرك تحويل الكلام. بفضل هذا النمط، أمكننا الانتقال من النماذج المحلية إلى المستضافة (مثل \en{Gemini}) أو العكس عبر تغيير بسيط في الإعدادات، دون تعديل شيفرة منطق العمل الأساسية.
+استُخدم هذا النمط في المواضع التي تتطلب مفاضلة بين بدائل تقنية؛ مثل اختيار نموذج التضمين (\en{Embedding}) أو محرك تحويل الكلام. بفضل هذا النمط، أمكننا الانتقال من النماذج المحلية إلى المستضافة (مثل \en{Gemini}) أو العكس عبر تغيير بسيط في الإعدادات.
 
 \subsection{المصنع (\en{Factory})}
 

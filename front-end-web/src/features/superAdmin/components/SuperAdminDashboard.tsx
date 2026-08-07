@@ -213,7 +213,7 @@ export const SuperAdminDashboard = () => {
   const renderTable = (admins: AdminQueryResult[]) => {
     return (
       <div className="overflow-hidden rounded-lg border bg-white shadow dark:border-gray-800 dark:bg-gray-900">
-        <table className="w-full table-fixed text-left text-sm">
+        <table className="w-full table-fixed text-start text-sm">
           <colgroup>
             <col style={{ width: '24%' }} />
             <col style={{ width: '24%' }} />
@@ -418,14 +418,14 @@ export const SuperAdminDashboard = () => {
                   <div className="relative">
                     <Search
                       size={16}
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <select
                       value={searchField}
                       onChange={(event) =>
                         handleSearchFieldChange(event.target.value as SearchField)
                       }
-                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     >
                       <option value="userName">{t('dashboard.searchFields.userName')}</option>
                       <option value="email">{t('dashboard.searchFields.email')}</option>
@@ -463,7 +463,7 @@ export const SuperAdminDashboard = () => {
                     <div className="relative">
                       <Search
                         size={18}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
                       />
                       <input
                         type="text"
@@ -472,7 +472,7 @@ export const SuperAdminDashboard = () => {
                           handleSearchTextChange(event.target.value)
                         }
                         placeholder={t(getSearchPlaceholder(searchField))}
-                        className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        className="w-full rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
                     </div>
                   )}
@@ -488,12 +488,12 @@ export const SuperAdminDashboard = () => {
                   <div className="relative">
                     <ArrowUpDown
                       size={16}
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <select
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as SortOption)}
-                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     >
                       <option value="joined-desc">{t('dashboard.sortOptions.joinedDesc')}</option>
                       <option value="joined-asc">{t('dashboard.sortOptions.joinedAsc')}</option>
@@ -519,14 +519,14 @@ export const SuperAdminDashboard = () => {
                   <div className="relative">
                     <Layers3
                       size={16}
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <select
                       value={groupBy}
                       onChange={(event) =>
                         setGroupBy(event.target.value as GroupOption)
                       }
-                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                      className="w-full appearance-none rounded-lg border border-slate-200 bg-white py-2.5 ps-10 pe-4 text-sm text-slate-900 outline-none transition-colors focus:border-violet-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     >
                       <option value="none">{t('dashboard.groupOptions.none')}</option>
                       <option value="status" disabled={hasActiveSearch}>

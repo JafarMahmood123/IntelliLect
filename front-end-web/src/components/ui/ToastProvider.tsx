@@ -125,7 +125,6 @@ const ToastItem = ({ toast, onClose }: ToastItemProps) => {
 };
 
 export const ToastProvider = ({ children }: ToastProviderProps) => {
-  const { i18n } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const closeToast = useCallback((id: string) => {
@@ -160,17 +159,13 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
     [showToast, closeToast, clearToasts],
   );
 
-  const isRtl = i18n.dir() === 'rtl';
-
   return (
     <ToastContext.Provider value={value}>
       {children}
 
-      <div
-        className={`fixed top-6 z-[200] flex w-full max-w-sm flex-col gap-3 px-4 sm:px-0 ${
-          isRtl ? 'left-0 sm:left-6' : 'right-0 sm:right-6'
-        }`}
-      >
+      {/* `end-*` rather than a direction conditional: the toast stack belongs on the
+          trailing edge in both directions, and saying so once is what makes that true. */}
+      <div className="fixed top-6 end-0 z-[200] flex w-full max-w-sm flex-col gap-3 px-4 sm:end-6 sm:px-0">
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onClose={closeToast} />
         ))}

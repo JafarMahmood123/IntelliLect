@@ -81,7 +81,7 @@ const StudentPicker = ({
                   setOpen(false);
                   setTerm('');
                 }}
-                className="flex w-full flex-col items-start px-4 py-2 text-left text-sm hover:bg-violet-50 dark:hover:bg-violet-950/20"
+                className="flex w-full flex-col items-start px-4 py-2 text-start text-sm hover:bg-violet-50 dark:hover:bg-violet-950/20"
               >
                 <span className="font-medium text-slate-800 dark:text-slate-200">
                   {student.firstName} {student.lastName}

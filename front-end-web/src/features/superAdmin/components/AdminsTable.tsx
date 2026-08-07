@@ -37,7 +37,7 @@ export const AdminsTable = ({
   return (
     <div className="bg-white dark:bg-gray-900 border dark:border-gray-800 rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-full text-start text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
             <tr>
               <th className="p-4 font-semibold text-slate-700 dark:text-slate-200">
@@ -52,7 +52,7 @@ export const AdminsTable = ({
               <th className="p-4 font-semibold text-slate-700 dark:text-slate-200">
                 Joined
               </th>
-              <th className="p-4 text-right font-semibold text-slate-700 dark:text-slate-200">
+              <th className="p-4 text-end font-semibold text-slate-700 dark:text-slate-200">
                 Actions
               </th>
             </tr>
@@ -98,7 +98,7 @@ export const AdminsTable = ({
                       {new Date(admin.createdAtUtc).toLocaleDateString()}
                     </td>
 
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-end">
                       <Button
                         type="button"
                         variant="ghost"

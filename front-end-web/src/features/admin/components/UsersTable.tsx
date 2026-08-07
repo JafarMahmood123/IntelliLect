@@ -81,7 +81,7 @@ export const UsersTable = ({
       key: 'name',
       header: t('table.name'),
       headerClassName: 'w-[20%] text-center',
-      cellClassName: 'text-left',
+      cellClassName: 'text-start',
       render: (user) => (
         <div>
           <div className="truncate font-medium text-slate-900 dark:text-slate-100">
@@ -97,7 +97,7 @@ export const UsersTable = ({
       key: 'email',
       header: t('table.email'),
       headerClassName: 'w-[22%] text-center',
-      cellClassName: 'text-left',
+      cellClassName: 'text-start',
       render: (user) => (
         <div className="truncate text-slate-600 dark:text-slate-400">
           {user.email}

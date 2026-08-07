@@ -130,7 +130,7 @@ const RecordingRow = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 ltr:sm:ml-auto rtl:sm:mr-auto">
+      <div className="flex items-center gap-3 ltr:sm:ms-auto rtl:sm:me-auto">
         {recording.status === 'Available' && (
           <SecureDownloadButton
             onDownload={() =>

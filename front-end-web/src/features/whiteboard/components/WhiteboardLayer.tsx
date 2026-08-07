@@ -182,7 +182,7 @@ const HideToggle = ({ hidden, onClick }: { hidden: boolean; onClick: () => void 
   <button
     type="button"
     onClick={onClick}
-    className="pointer-events-auto absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition-colors hover:bg-slate-800"
+    className="pointer-events-auto absolute bottom-3 end-3 flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-900/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 backdrop-blur transition-colors hover:bg-slate-800"
   >
     {hidden ? <Eye size={14} /> : <EyeOff size={14} />}
     {hidden ? "Show teacher's notes" : 'Hide notes'}

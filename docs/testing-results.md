@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 08:32 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 08:57 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -39,9 +39,9 @@ without an attribute does not.
 | EmailService | 31 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
-| front-end-web | 367 in 39 files | `cd front-end-web && npx vitest run` |
+| front-end-web | 373 in 40 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,240** | |
+| **Total** | **2,246** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -66,7 +66,7 @@ that selection waits two minutes and then fails.
 | EmailService | 97.6% | 93.8% | measured 2026-08-06 (168 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3957 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
-| front-end-web | 41.4% | 79.5% | measured 2026-08-06 (14868 lines) | `cd front-end-web && npm run test:coverage` |
+| front-end-web | 41.4% | 79.5% | measured 2026-08-07 (14863 lines) | `cd front-end-web && npm run test:coverage` |
 <!-- /generated:coverage -->
 
 ### Read the layer, not the headline
@@ -213,6 +213,8 @@ found by writing a test, not by a user.
 | 20 | **A client that timed out and hung up was logged as a 500 server error** — one manufactured error per abandoned request, arriving in bursts behind every retry, in the log somebody reads to find the real failure | S-14 exception-handler tests |
 | 22 | **ClassroomService's recording consumer and StreamingService's only consumer were registered with no retry policy** — one attempt, then an error queue nobody watches. A lecture already recorded in MinIO stays permanently invisible; a class that has just started gets no stream row while everyone is in the room | L-04 consumer-retry rules |
 | 23 | ClassroomService's solution file still pointed at the pre-`src/` layout and omitted its tests, and StreamingService's sat inside `src/` — so two of the coverage commands printed in this document did not run at all | noticed while regenerating this table |
+| 33 | **91 physical directional utilities in an app that flips to `dir="rtl"` for Arabic** — a search icon at `left-3` inside an input padded `pl-10` sits on top of the first characters an Arabic user types, on four super-admin pages | M-10 |
+| 34 | The drawer hides off the right edge in both directions, so in RTL it never leaves the screen; the settings toggle knob was unanchored and travelled off its own track | M-12, M-13 |
 | 32 | **RagService had no size limit on ingestion at all** — `get_bytes` reads the whole object into memory in one call, and ingestion takes an `s3_key`, so nothing on that side had ever asked how big it was. ClassroomService's 50 MB upload cap does not reach it | E-08 |
 | 30 | **There was no audit record of any account status change** — approving, rejecting and deactivating accounts is the most privileged operation in the product and `UserStatusService` had no logger, while ClassroomService logged every recording download | C-09 |
 | 31 | The early self-target return skipped the audit — a super admin attempting to change their own status is the line the log most needs, and the shortcut that saved a query was the one path that lost it | C-20 |
@@ -229,7 +231,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 175 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 183 mutations across the project so far.
 
 Six survived, and each one meant a test was passing for the wrong reason:
 
@@ -241,6 +243,7 @@ Six survived, and each one meant a test was passing for the wrong reason:
 | Removing the teacher check on quiz submission | A teacher is not normally enrolled, so the enrolment check refused them anyway — until one enrols |
 | Removing `[Authorize(Roles = "Teacher")]` from `ClassroomsController.Delete` | The exemption list was keyed on action name; an entry meant for recordings was covering it |
 | Removing a `TimeoutSeconds` from compose | The rule's file map was keyed on `path.name`, and six compose files share one name — five services were never checked |
+| Removing the drawer's `rtl:-translate-x-full`, and the toggle knob's anchor | The RTL rule listed only utilities that HAVE a logical counterpart, so `translate-x` — which has none — was excluded, and the two defects the rule had just prompted fixes for were the two it could not see. The anchoring case then survived a second time because it was scoped per file rather than per className expression |
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
 
 One "mutation" turned out never to have applied (attribute order in the source differed), which

@@ -39,7 +39,7 @@ export const StudentQuizSummary = ({ classroomId, sessionId }: Props) => {
         <p className="mt-0.5 text-lg font-bold text-slate-100">
           {data.score}
           <span className="text-sm text-slate-500">/{data.totalPointsAvailable}</span>
-          <span className="ml-2 text-sm font-bold text-violet-400">{data.percentage}%</span>
+          <span className="ms-2 text-sm font-bold text-violet-400">{data.percentage}%</span>
         </p>
       </div>
 
@@ -75,7 +75,7 @@ const QuizRow = ({ quiz }: { quiz: MyQuizScore }) => {
         type="button"
         disabled={!reviewable}
         onClick={() => setOpen((v) => !v)}
-        className="w-full p-3 text-left disabled:cursor-default"
+        className="w-full p-3 text-start disabled:cursor-default"
       >
         <div className="flex items-start justify-between gap-2">
           <p className="flex min-w-0 items-center gap-1 text-xs font-medium text-slate-200">
@@ -180,7 +180,7 @@ const QuestionReview = ({ question, index }: { question: MyQuestionReview; index
               ) : chosen ? (
                 <X size={12} className="shrink-0" />
               ) : (
-                <Circle size={8} className="ml-0.5 mr-0.5 shrink-0 text-slate-600" />
+                <Circle size={8} className="ms-0.5 me-0.5 shrink-0 text-slate-600" />
               )}
               <span className="min-w-0 flex-1">{option.text}</span>
               {chosen && (

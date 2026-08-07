@@ -63,8 +63,10 @@ export const Drawer = ({
       />
 
       <div
-        className={`absolute inset-y-0 right-0 w-full ${widthClassName} flex flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:border-slate-800 dark:bg-slate-950 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`absolute inset-y-0 end-0 w-full ${widthClassName} flex flex-col border-s border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-in-out dark:border-slate-800 dark:bg-slate-950 ${
+          // translate-x is physical and has no logical form, so the closed position is
+          // spelled per direction: off the right edge in LTR, off the left edge in RTL.
+          isOpen ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full'
         }`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
