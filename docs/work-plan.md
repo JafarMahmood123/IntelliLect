@@ -1120,6 +1120,55 @@ a mismatch (which would refuse every real `.txt`), and both halves of the empty-
 
 ---
 
+### 7.11 Audit trail on account status (C-09) — **DONE, and there was no audit of any kind**
+
+C-09 asks for "one audit record per user, not one per batch". It was marked `new`, and the reason
+turned out to be that there was no record at all: **`UserStatusService` had no logger.**
+
+Approving, rejecting and deactivating accounts is the most privileged operation in the product —
+it decides who may sign in to the system — and it wrote nothing anywhere. The comparison that
+makes it plain is inside this repository: ClassroomService writes an "Audit accountability: who
+downloaded which file, when" line for every recording anyone opens. Reading a lecture recording
+was accounted for; deactivating somebody's account was not.
+
+The per-user half of the row is the part with teeth. "A super admin changed 50 accounts" cannot
+answer the only question an audit trail is ever asked — *was this person's account deactivated,
+by whom, and when* — so a batch that writes one line is, for anyone trying to find out, the same
+as writing none.
+
+**A defect the tests surfaced while being written: the one path that skipped the record was the
+most interesting one.** `ChangeStatusAsync` checks self-targeting before the query, to save a
+round trip, and returns straight out — never reaching `Decide` and so never reaching the audit
+call. A super admin attempting to change their own status is the single line this log most needs
+to contain, and it was the one the shortcut lost. Recorded at the early return as well.
+
+Decisions worth stating: a no-op writes nothing, because it is what a retried request looks like
+and a whole retried page of them would bury the changes that did happen. A refusal writes a
+Warning, because a run of them is somebody attempting what they may not. Accounts are named by
+id and never by email — A-24's rule applied to a different sink, and the id is what any follow-up
+query needs anyway.
+
+**Mutation-checked, 6 mutations, all killed** — including collapsing the per-account records into
+one per batch, and putting the email back into the line.
+
+**The rest of Area C was stale rather than missing.** C-03..C-08, C-12, C-13 and C-14 were all
+still marked `new` while being covered — the bulk service suite, `UserStatusRetryTests`, and two
+frontend bulk suites that already assert select-all-covers-only-this-page, the confirm-dialog
+count matching what is sent, and per-row failure reasons staying on screen with the failed rows
+selected for retry. Same sweep over Area E: E-01, E-04, E-05 and the unit halves of E-02 and E-12
+are covered by `ClassroomFileUploadLimitsTests`. Corrected against the actual test names rather
+than assumed, the way A-16 and I-06 were.
+
+**Still genuinely open and worth doing next: E-07** — nginx's `client_max_body_size` is hard-coded
+at 64m in `nginx.conf` and nothing checks it against `IUploadSettings.MaxFileSizeBytes`. The
+interface's own comment says nginx "is the only copy that cannot read this setting", which is
+exactly the shape a file-reading rule should pin. It is listed as Integration; it does not need to
+be.
+
+**UserManagementService 284 → 291.**
+
+---
+
 ### 7.10c Downstream degradation (L-06) — **DONE, and it was quietly cancelling the wrong thing**
 
 L-06 — "an internal HTTP call timing out degrades the caller gracefully rather than cascading" —

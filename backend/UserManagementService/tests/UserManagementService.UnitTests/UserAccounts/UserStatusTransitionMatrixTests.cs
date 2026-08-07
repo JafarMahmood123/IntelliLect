@@ -1,6 +1,7 @@
 using UserManagementService.Application.Common.Users;
 using UserManagementService.Application.UserAccounts;
 using UserManagementService.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UserManagementService.UnitTests.UserAccounts;
 
@@ -107,7 +108,7 @@ public sealed class UserStatusTransitionMatrixTests
         var user = UserWith(from, ActiveToken());
         var repo = new FakeStatusUserRepository(user);
         var bus = new RecordingStatusEventBus();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         if (expected is Outcome.Refused)
         {
@@ -156,7 +157,7 @@ public sealed class UserStatusTransitionMatrixTests
         var user = UserWith(from, ActiveToken());
         var repo = new FakeStatusUserRepository(user);
         var bus = new RecordingStatusEventBus();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         var result = await sut.ChangeStatusBulkAsync([user.Id], action.ToString(), SuperAdminId);
 
@@ -202,7 +203,7 @@ public sealed class UserStatusTransitionMatrixTests
         var token = ActiveToken();
         var user = UserWith(from, token);
         var repo = new FakeStatusUserRepository(user);
-        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create());
+        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         try
         {

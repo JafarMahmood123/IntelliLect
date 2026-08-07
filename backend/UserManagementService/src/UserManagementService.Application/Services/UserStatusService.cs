@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Abstractions;
 using UserManagementService.Application.Common;
@@ -20,12 +21,18 @@ public sealed class UserStatusService : IUserStatusService
     private readonly IUserRepository _userRepository;
     private readonly IEventBus _eventBus;
     private readonly IMapper _mapper;
+    private readonly ILogger<UserStatusService> _logger;
 
-    public UserStatusService(IUserRepository userRepository, IEventBus eventBus, IMapper mapper)
+    public UserStatusService(
+        IUserRepository userRepository,
+        IEventBus eventBus,
+        IMapper mapper,
+        ILogger<UserStatusService> logger)
     {
         _userRepository = userRepository;
         _eventBus = eventBus;
         _mapper = mapper;
+        _logger = logger;
     }
 
     public async Task<UserResponse> ChangeStatusAsync(
@@ -40,6 +47,11 @@ public sealed class UserStatusService : IUserStatusService
         // Checked before the query as well as inside Decide, so the round trip is not spent.
         if (userId == requestingSuperAdminId)
         {
+            // Recorded HERE as well, because this early return is the one path that never
+            // reaches Decide — and a super admin trying to change their own status is the single
+            // most interesting line this log could contain. The shortcut that saves a query was
+            // also skipping the record.
+            RecordAudit(userId, requestingSuperAdminId, parsedAction, ChangeOutcome.SelfTarget, null);
             throw new InvalidOperationException("You cannot change the status of your own account.");
         }
 
@@ -48,6 +60,11 @@ public sealed class UserStatusService : IUserStatusService
         var user = await _userRepository.GetByIdWithRefreshTokensAsync(userId, ct);
 
         var outcome = Decide(userId, user, parsedAction, requestingSuperAdminId);
+
+        if (outcome is not ChangeOutcome.Changed)
+        {
+            RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user?.Status);
+        }
 
         switch (outcome)
         {
@@ -69,6 +86,8 @@ public sealed class UserStatusService : IUserStatusService
             case ChangeOutcome.NoOp:
                 return _mapper.Map<UserResponse>(user!);
         }
+
+        RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user!.Status);
 
         // Step 7: notify the owner. Published through the transactional outbox, so it is
         // committed atomically with the status change and delivered asynchronously — a later
@@ -136,6 +155,11 @@ public sealed class UserStatusService : IUserStatusService
                 changedCount++;
             }
 
+            // One record per ACCOUNT, never one for the batch. "A super admin changed 50
+            // accounts" cannot answer the only question an audit trail is ever asked — was this
+            // person's account deactivated, by whom, and when.
+            RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user?.Status);
+
             results.Add(ToItem(userId, user, parsedAction, outcome));
         }
 
@@ -146,6 +170,49 @@ public sealed class UserStatusService : IUserStatusService
         }
 
         return BulkUserStatusResult.From(results);
+    }
+
+    /// <summary>
+    /// Writes the audit line for one account.
+    ///
+    /// This is the most privileged operation in the product — a super admin deciding who may
+    /// sign in at all — and until now it wrote nothing anywhere. ClassroomService logs a line
+    /// for every recording someone downloads; approving, rejecting and deactivating accounts
+    /// left no record of who did it, to whom, or when. There is nothing to consult after the
+    /// fact, and nothing to notice a super admin quietly deactivating an account.
+    ///
+    /// Accounts are identified by id, never by email or name. A log file is not a place to
+    /// accumulate a roster of who is registered here (the same rule A-24 applied to the reset
+    /// code), and the id is what any follow-up query needs anyway.
+    ///
+    /// A no-op writes nothing: it is what a retried request looks like, and recording it would
+    /// bury the changes that did happen under repeats of the ones that did not. A refusal is
+    /// recorded at Warning — a run of them is somebody trying to do something they may not.
+    /// </summary>
+    private void RecordAudit(
+        Guid userId,
+        Guid requestingSuperAdminId,
+        UserStatusAction action,
+        ChangeOutcome outcome,
+        UserStatus? resultingStatus)
+    {
+        switch (outcome)
+        {
+            case ChangeOutcome.Changed:
+                _logger.LogInformation(
+                    "Audit: super admin {ActorId} applied {Action} to account {UserId}; now {Status}.",
+                    requestingSuperAdminId, action, userId, resultingStatus);
+                break;
+
+            case ChangeOutcome.NoOp:
+                break;
+
+            default:
+                _logger.LogWarning(
+                    "Audit: super admin {ActorId} was refused {Action} on account {UserId} ({Outcome}).",
+                    requestingSuperAdminId, action, userId, outcome);
+                break;
+        }
     }
 
     // --- the shared decision, used by both paths ---------------------------------

@@ -4,6 +4,7 @@ using UserManagementService.Application.Common.Users;
 using UserManagementService.Application.DTOs.User;
 using UserManagementService.Application.UserAccounts;
 using UserManagementService.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UserManagementService.UnitTests.UserAccounts;
 
@@ -42,7 +43,7 @@ public sealed class UserStatusRetryTests
         var repo = Repo(Pending(), Pending(), Pending());
         repo.FailNextSave(new TimeoutException("the database took too long"));
         var bus = new RecordingStatusEventBus();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await Assert.ThrowsAsync<TimeoutException>(
             () => sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId));
@@ -64,7 +65,7 @@ public sealed class UserStatusRetryTests
         var bus = new RecordingStatusEventBus();
         repo.FailNextSave(new TimeoutException("the database took too long"));
         repo.PublishedSoFar = () => bus.Published.Count;
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await Assert.ThrowsAsync<TimeoutException>(
             () => sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId));
@@ -82,7 +83,7 @@ public sealed class UserStatusRetryTests
         var bus = new RecordingStatusEventBus();
         repo.FailNextSave(new TimeoutException("the database took too long"));
         repo.RollBackOutbox = () => bus.Published.Clear();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await Assert.ThrowsAsync<TimeoutException>(
             () => sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId));
@@ -104,7 +105,7 @@ public sealed class UserStatusRetryTests
         // exist, and would make the button unusable.
         var repo = Repo(Pending(), Pending());
         var bus = new RecordingStatusEventBus();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId);
         var retry = await sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId);
@@ -125,7 +126,7 @@ public sealed class UserStatusRetryTests
         var stillWaiting = Pending();
         var repo = Repo(alreadyDone, stillWaiting);
         var bus = new RecordingStatusEventBus();
-        var sut = new UserStatusService(repo, bus, TestMapper.Create());
+        var sut = new UserStatusService(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await sut.ChangeStatusBulkAsync(new[] { alreadyDone.Id }, "Accept", SuperAdminId);
         bus.Published.Clear();
@@ -148,7 +149,7 @@ public sealed class UserStatusRetryTests
         var user = Pending(ActiveToken(), ActiveToken());
         var repo = Repo(user);
         repo.FailNextSave(new TimeoutException("the database took too long"));
-        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create());
+        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         await Assert.ThrowsAsync<TimeoutException>(
             () => sut.ChangeStatusBulkAsync(repo.Ids, "Reject", SuperAdminId));
@@ -165,7 +166,7 @@ public sealed class UserStatusRetryTests
         // It also matters for the racing retry below: a write issued for a batch that changes
         // nothing would still roll User.Version and could still lose a concurrency check.
         var repo = Repo(Approved(), Approved(), Approved());
-        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create());
+        var sut = new UserStatusService(repo, new RecordingStatusEventBus(), TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
         var result = await sut.ChangeStatusBulkAsync(repo.Ids, "Accept", SuperAdminId);
 

@@ -122,18 +122,22 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | C-16 | The bulk path agrees with the single path on every one of the sixteen — a bulk endpoint more permissive than the single one lets fifty clicks do what one cannot | Unit | P0 | ✓ |
 | C-17 | Sessions end exactly when the DESTINATION is Rejected or Deactivated, never on approve or reactivate | Unit | P0 | ✓ |
 | C-18 | Adding a `UserStatus` or `UserStatusAction` fails the suite until its rules are decided — otherwise `IsValidSource`'s `_ => false` refuses it silently everywhere | Unit | P1 | ✓ |
-| C-03 | **Bulk**: a mixed batch returns a per-item result — successes are applied, failures named | Unit | P0 | new |
-| C-04 | **Bulk**: one invalid ID does not roll back the other 199 | Unit | P0 | new |
-| C-05 | **Bulk**: authorization is evaluated per user, not once for the batch | Unit | P0 | new |
-| C-06 | **Bulk**: replaying the same batch (retry after timeout) is idempotent — no second status change, no second email | Unit | P0 | new |
-| C-07 | **Bulk**: a batch over the configured cap is refused with a clear error | Unit | P1 | new |
-| C-08 | **Bulk**: an empty selection is refused, not treated as "all" | Unit | P0 | new |
-| C-09 | **Bulk**: one audit record per user, not one per batch | Unit | P1 | new |
+| C-03 | **Bulk**: a mixed batch returns a per-item result — successes are applied, failures named | Unit | P0 | ✓ (`Bulk_MixedBatch_AppliesTheValidOnesAndNamesTheFailures`) |
+| C-04 | **Bulk**: one invalid ID does not roll back the other 199 | Unit | P0 | ✓ |
+| C-05 | **Bulk**: authorization is evaluated per user, not once for the batch | Unit | P0 | ✓ (`Bulk_SelfTargeting_FailsOnlyThatAccount`) |
+| C-06 | **Bulk**: replaying the same batch (retry after timeout) is idempotent — no second status change, no second email | Unit | P0 | ✓ (`UserStatusRetryTests`, S-14) |
+| C-07 | **Bulk**: a batch over the configured cap is refused with a clear error | Unit | P1 | ✓ |
+| C-08 | **Bulk**: an empty selection is refused, not treated as "all" | Unit | P0 | ✓ |
+| C-09 | **Bulk**: one audit record per user, not one per batch | Unit | P1 | ✓ (`UserStatusAuditTests`; there was no audit record of any kind — the service had no logger) |
+| C-19 | A refusal is recorded, and at Warning — a run of them is somebody attempting what they may not | Unit | P1 | ✓ |
+| C-20 | The early self-target return records too; the shortcut that saves a query was skipping the audit | Unit | P1 | ✓ |
+| C-21 | A no-op records nothing — a retried page of them would bury the changes that did happen | Unit | P1 | ✓ |
+| C-22 | Accounts are identified by id, never by email or name (A-24's rule, different sink) | Unit | P0 | ✓ |
 | C-10 | **Bulk**: N users produce N notifications, dispatched without blocking the response | Integration | P1 | new |
 | C-11 | **Bulk**: a notification failure does not roll back an already-applied status change | Integration | P0 | new |
-| C-12 | Accepting an already-active user is a no-op, not an error and not a re-notify | Unit | P0 | new |
-| C-13 | UI: select-all-on-page selects only the page; the count in the confirm dialog matches what is sent | Frontend | P1 | new |
-| C-14 | UI: partial failure is surfaced per row, not as a single generic error | Frontend | P1 | new |
+| C-12 | Accepting an already-active user is a no-op, not an error and not a re-notify | Unit | P0 | ✓ (`Bulk_AlreadyInTargetState_IsASuccessfulNoOp_WithNoSecondNotification`, and C-15's matrix) |
+| C-13 | UI: select-all-on-page selects only the page; the count in the confirm dialog matches what is sent | Frontend | P1 | ✓ (`AdminDashboard.bulk.test.tsx`, `UsersDirectoryPage.bulk.test.tsx`) |
+| C-14 | UI: partial failure is surfaced per row, not as a single generic error | Frontend | P1 | ✓ (both suites: the reason stays on screen and the failed rows stay selected for retry) |
 
 ## 6. Area D — Classrooms & membership
 
@@ -156,11 +160,11 @@ not. Every case here is a template applied per endpoint, not a one-off.
 
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
-| E-01 | A file at exactly the configured limit is accepted | Unit | P0 | new |
-| E-02 | One byte over the limit is refused with a typed error, not a raw 413 page | Integration | P0 | new |
+| E-01 | A file at exactly the configured limit is accepted | Unit | P0 | ✓ (`ClassroomFileUploadLimitsTests`) |
+| E-02 | One byte over the limit is refused with a typed error, not a raw 413 page | Integration | P0 | ✓ (unit half: `One_byte_over_the_maximum_is_refused`); the typed error as seen over HTTP still needs a host |
 | E-03 | Over-size is refused on `Content-Length`, before the body is buffered | Integration | P0 | new |
-| E-04 | A zero-byte file is refused | Unit | P1 | new |
-| E-05 | A disallowed content type is refused even when under the size limit | Unit | P0 | new |
+| E-04 | A zero-byte file is refused | Unit | P1 | ✓ |
+| E-05 | A disallowed content type is refused even when under the size limit | Unit | P0 | ✓ (plus: content-type parameters do not defeat the allow list, and extension is an ALTERNATIVE signal, not an addition) |
 | E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | ✓ (`test_format_mismatch.py`, full 4×5 matrix; three of twelve pairs did not crash — they succeeded, which is worse) |
 | E-17 | **An image sent as `application/pdf` is refused, not extracted as an empty document** — PyMuPDF opens it and `filetype="pdf"` does not stop it | Unit | P0 | ✓ |
 | E-18 | **A binary renamed `.txt` is refused, not decoded into paragraphs of noise and embedded** — the NUL-byte guard misses a NUL-free PDF | Unit | P0 | ✓ |
@@ -175,7 +179,7 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-11 | `SizeBytes` is recorded correctly and rendered human-readably in the teacher's file list | Frontend | P1 | ✓ |
 | E-15 | A failed limits fetch degrades to server-side enforcement, not a blocked upload button | Frontend | P1 | ✓ |
 | E-16 | The `accept` attribute narrows the picker, and the JS guard still refuses when it is bypassed | Frontend | P2 | ✓ |
-| E-12 | A rejected upload leaves no orphaned S3 object and no DB row | Integration | P0 | gap |
+| E-12 | A rejected upload leaves no orphaned S3 object and no DB row | Integration | P0 | ✓ (unit: `Rejected_upload_writes_no_storage_object_and_no_row`); the real-MinIO half still needs containers |
 | E-13 | Indexing status transitions are observable and terminal on failure (never stuck "in progress" forever) | Unit | P1 | ✓ |
 | E-14 | Upload succeeds but indexing fails → the file is still listed, flagged as unindexed | Integration | P1 | ✓ (unit) |
 

@@ -3,6 +3,7 @@ using IntelliLect.Contracts.Messages;
 using UserManagementService.Application.Common.Users;
 using UserManagementService.Application.UserAccounts;
 using UserManagementService.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UserManagementService.UnitTests.UserAccounts;
 
@@ -230,7 +231,7 @@ public class UserStatusBulkServiceTests
     // ----- helpers -------------------------------------------------------------
 
     private static UserStatusService CreateSut(FakeStatusUserRepository repo, RecordingStatusEventBus bus)
-        => new(repo, bus, TestMapper.Create());
+        => new(repo, bus, TestMapper.Create(), NullLogger<UserStatusService>.Instance);
 
     private static UserManagementService.Application.DTOs.User.BulkUserStatusItem Item(
         UserManagementService.Application.DTOs.User.BulkUserStatusResult result, Guid userId)

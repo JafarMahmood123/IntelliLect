@@ -9,7 +9,10 @@
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-01-database-per-service.png}
+  % Four boxes do not need the full text width, and at \textwidth the figure is
+  % over half the text block, so it cannot share a page and floats away from
+  % its own subsection.
+  \includegraphics[width=0.55\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-01-database-per-service.png}
   \caption{نمط قاعدة بيانات لكل خدمة: تملك كل خدمة قاعدة بيانات خاصة بها.}
   \label{fig:pattern-01}
 \end{figure}

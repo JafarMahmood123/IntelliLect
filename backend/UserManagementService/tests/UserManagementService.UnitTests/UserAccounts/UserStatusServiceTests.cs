@@ -5,6 +5,7 @@ using UserManagementService.Application.Common;
 using UserManagementService.Application.Common.Users;
 using UserManagementService.Application.UserAccounts;
 using UserManagementService.Domain.Entities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace UserManagementService.UnitTests.UserAccounts;
 
@@ -147,7 +148,7 @@ public class UserStatusServiceTests
     // ----- helpers -------------------------------------------------------------
 
     private static UserStatusService CreateSut(FakeStatusUserRepository repo, RecordingStatusEventBus bus)
-        => new(repo, bus, BuildMapper());
+        => new(repo, bus, BuildMapper(), NullLogger<UserStatusService>.Instance);
 
     private static (FakeStatusUserRepository repo, RecordingStatusEventBus bus) Fakes(User? user)
         => (new FakeStatusUserRepository(user), new RecordingStatusEventBus());
