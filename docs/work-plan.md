@@ -1504,6 +1504,42 @@ query needs anyway.
 **Mutation-checked, 6 mutations, all killed** — including collapsing the per-account records into
 one per batch, and putting the email back into the line.
 
+### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
+
+C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already
+covered** — `Bulk_NotifiesOncePerChangedAccount_InOneTransaction` for one, and the five cases in
+`UserStatusRetryTests` for the other. Stale markers, corrected against the real test names rather
+than re-tested, the same sweep §7.11 already ran over the rest of Area C.
+
+**Reading the two of them together is what found the defect**, and neither could have found it
+alone. They are both true, and §7.11's audit was written in the wrong place relative to them:
+
+- `A_batch_that_fails_to_commit_leaves_no_account_approved` — the batch is one transaction, so a
+  failed commit leaves every account exactly as it was;
+- `RecordAudit` ran **inside the decision loop**, before the transaction that makes it true.
+
+So a bulk approve of fifty registrations that timed out on its commit wrote fifty Information
+lines saying fifty accounts had been approved, approved **none** of them, and wrote nothing at all
+to say it had failed. Each line was indistinguishable from a real one.
+
+That is the worst direction for this particular log to be wrong in. §7.11 exists because deciding
+who may sign in is the most privileged thing anyone does here, and the question the log is asked
+is *was this person's account deactivated, by whom, and when*. After a rolled-back batch it
+answered **yes** when the truth was **no** — and an operator who has just seen the request fail
+has no way to tell which of the two the log is describing.
+
+Fixed by holding the `Changed` records until the commit returns, and recording a failure of its
+own — at Error, carrying the exception, naming the accounts by id — when it does not. **Refusals
+stay exactly where they were**, deliberately: nothing about a refusal depends on a transaction, it
+is as true when the rest of the batch fails, and a super admin being refused is the thing this log
+most needs to keep. Deferring everything would have thrown those away along with the false claims.
+
+**Mutation-checked (§7.8), 10 mutations, all 10 killed** — including putting each record back
+inside the loop on both paths, deferring the refusals too, dropping the exception from the failure
+line, and putting the email into it.
+
+UserManagementService 291 → 299 tests.
+
 **The rest of Area C was stale rather than missing.** C-03..C-08, C-12, C-13 and C-14 were all
 still marked `new` while being covered — the bulk service suite, `UserStatusRetryTests`, and two
 frontend bulk suites that already assert select-all-covers-only-this-page, the confirm-dialog

@@ -136,8 +136,16 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | C-20 | The early self-target return records too; the shortcut that saves a query was skipping the audit | Unit | P1 | ✓ |
 | C-21 | A no-op records nothing — a retried page of them would bury the changes that did happen | Unit | P1 | ✓ |
 | C-22 | Accounts are identified by id, never by email or name (A-24's rule, different sink) | Unit | P0 | ✓ |
-| C-10 | **Bulk**: N users produce N notifications, dispatched without blocking the response | Integration | P1 | new |
-| C-11 | **Bulk**: a notification failure does not roll back an already-applied status change | Integration | P0 | new |
+| C-10 | **Bulk**: N users produce N notifications, dispatched without blocking the response | Unit | P1 | ✓ (`Bulk_NotifiesOncePerChangedAccount_InOneTransaction`; the outbox is what makes "without blocking" true — the publish stages a row, the broker is never on the request path) |
+| C-11 | **Bulk**: a notification failure does not roll back an already-applied status change | Unit | P0 | ✓ (`UserStatusRetryTests`, five cases: the batch is one transaction, so the notification commits *with* the change and a later delivery failure cannot undo it) |
+| C-23 | The audit records what **happened**, not what was attempted — nothing is claimed until the commit returns | Unit | P0 | ✓ (defect found: a rolled-back batch logged every account as approved and logged no failure) |
+| C-24 | A commit that fails leaves a record of its own, naming the accounts by id and carrying the exception | Unit | P0 | ✓ |
+| C-25 | A refusal is **not** deferred behind the commit — it is final when decided and survives a batch that fails | Unit | P1 | ✓ |
+
+**C-10 and C-11 were the last two rows marked `new`, and both were already covered** — the markers
+were stale, corrected here against the real test names rather than re-tested. Reading them
+together is what turned up C-23: both were true, and the audit added in C-09 was written in the
+wrong place relative to them.
 | C-12 | Accepting an already-active user is a no-op, not an error and not a re-notify | Unit | P0 | ✓ (`Bulk_AlreadyInTargetState_IsASuccessfulNoOp_WithNoSecondNotification`, and C-15's matrix) |
 | C-13 | UI: select-all-on-page selects only the page; the count in the confirm dialog matches what is sent | Frontend | P1 | ✓ (`AdminDashboard.bulk.test.tsx`, `UsersDirectoryPage.bulk.test.tsx`) |
 | C-14 | UI: partial failure is surfaced per row, not as a single generic error | Frontend | P1 | ✓ (both suites: the reason stays on screen and the failed rows stay selected for retry) |

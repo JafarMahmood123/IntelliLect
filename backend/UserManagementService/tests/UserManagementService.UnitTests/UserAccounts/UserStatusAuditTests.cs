@@ -178,17 +178,23 @@ public sealed class UserStatusAuditTests
         return user;
     }
 
-    /// <summary>Keeps level and rendered text, because both halves of the rule are about them.</summary>
-    private sealed class AuditLog : ILogger<UserStatusService>
-    {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+}
 
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel level) => true;
+/// <summary>
+/// Keeps level and rendered text, because both halves of the rule are about them.
+///
+/// Top-level rather than nested so `UserStatusAuditOutcomeTests` shares it: one double for one
+/// sink, so a change to what the audit records cannot be half-adopted by one of the two files.
+/// </summary>
+internal sealed class AuditLog : ILogger<UserStatusService>
+{
+    public List<(LogLevel Level, string Message, Exception? Error)> Entries { get; } = [];
 
-        public void Log<TState>(
-            LogLevel level, EventId id, TState state, Exception? error,
-            Func<TState, Exception?, string> formatter)
-            => Entries.Add((level, formatter(state, error)));
-    }
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(LogLevel level) => true;
+
+    public void Log<TState>(
+        LogLevel level, EventId id, TState state, Exception? error,
+        Func<TState, Exception?, string> formatter)
+        => Entries.Add((level, formatter(state, error), error));
 }

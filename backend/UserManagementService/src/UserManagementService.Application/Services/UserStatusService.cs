@@ -87,14 +87,15 @@ public sealed class UserStatusService : IUserStatusService
                 return _mapper.Map<UserResponse>(user!);
         }
 
-        RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user!.Status);
-
         // Step 7: notify the owner. Published through the transactional outbox, so it is
         // committed atomically with the status change and delivered asynchronously — a later
         // send failure (7أ) never rolls back or blocks the status change.
         await PublishStatusChangedAsync(user!, ct);
 
-        await _userRepository.SaveChangesAsync(ct);
+        await CommitAsync([userId], requestingSuperAdminId, parsedAction, ct);
+
+        // Recorded AFTER the commit, never before it. See CommitAsync.
+        RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user!.Status);
 
         return _mapper.Map<UserResponse>(user!);
     }
@@ -140,7 +141,7 @@ public sealed class UserStatusService : IUserStatusService
         var usersById = users.ToDictionary(u => u.Id);
 
         var results = new List<BulkUserStatusItem>(distinctIds.Count);
-        var changedCount = 0;
+        var changed = new List<(Guid Id, UserStatus Status)>();
 
         foreach (var userId in distinctIds)
         {
@@ -152,24 +153,75 @@ public sealed class UserStatusService : IUserStatusService
             if (outcome is ChangeOutcome.Changed)
             {
                 await PublishStatusChangedAsync(user!, ct);
-                changedCount++;
+                // Held back until the commit succeeds, rather than written here. See CommitAsync.
+                changed.Add((userId, user!.Status));
             }
-
-            // One record per ACCOUNT, never one for the batch. "A super admin changed 50
-            // accounts" cannot answer the only question an audit trail is ever asked — was this
-            // person's account deactivated, by whom, and when.
-            RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user?.Status);
+            else
+            {
+                // Refusals and no-ops are recorded immediately, because they are already final:
+                // nothing about them depends on a transaction that has not happened yet, and a
+                // refusal is exactly as true when the rest of the batch fails to commit.
+                RecordAudit(userId, requestingSuperAdminId, parsedAction, outcome, user?.Status);
+            }
 
             results.Add(ToItem(userId, user, parsedAction, outcome));
         }
 
         // Skipped when nothing changed, so a batch of pure no-ops writes nothing.
-        if (changedCount > 0)
+        if (changed.Count > 0)
         {
-            await _userRepository.SaveChangesAsync(ct);
+            await CommitAsync([.. changed.Select(c => c.Id)], requestingSuperAdminId, parsedAction, ct);
+
+            // One record per ACCOUNT, never one for the batch. "A super admin changed 50
+            // accounts" cannot answer the only question an audit trail is ever asked — was this
+            // person's account deactivated, by whom, and when.
+            foreach (var (id, status) in changed)
+            {
+                RecordAudit(id, requestingSuperAdminId, parsedAction, ChangeOutcome.Changed, status);
+            }
         }
 
         return BulkUserStatusResult.From(results);
+    }
+
+    /// <summary>
+    /// Commits the batch, and makes sure the audit trail describes what HAPPENED rather than what
+    /// was attempted.
+    ///
+    /// The audit lines used to be written inside the decision loop, before the transaction that
+    /// makes them true. `UserStatusRetryTests` proves the batch is atomic — a failed commit leaves
+    /// every account exactly as it was — so the two facts together meant that a bulk approve which
+    /// timed out on its commit wrote fifty lines saying fifty accounts had been approved, while
+    /// approving none of them, and wrote nothing at all to say it had failed.
+    ///
+    /// That is the worst direction for this particular log to be wrong in. It exists to answer
+    /// "was this person's account deactivated, by whom, and when", and after a rolled-back batch
+    /// it answered yes when the truth was no — with an Information line indistinguishable from the
+    /// fifty successful ones on either side of it.
+    ///
+    /// So: nothing is claimed until the commit returns, and a commit that throws leaves a record of
+    /// its own. The accounts are named by id, like every other line here, because an operator
+    /// reconciling a failed batch needs to know exactly which ones to look at.
+    /// </summary>
+    private async Task CommitAsync(
+        IReadOnlyList<Guid> changedIds,
+        Guid requestingSuperAdminId,
+        UserStatusAction action,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _userRepository.SaveChangesAsync(ct);
+        }
+        catch (Exception failure)
+        {
+            _logger.LogError(
+                failure,
+                "Audit: super admin {ActorId} attempted {Action} on {Count} account(s) {UserIds} "
+                + "and NOTHING was committed.",
+                requestingSuperAdminId, action, changedIds.Count, changedIds);
+            throw;
+        }
     }
 
     /// <summary>
