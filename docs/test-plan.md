@@ -161,7 +161,13 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | E-03 | Over-size is refused on `Content-Length`, before the body is buffered | Integration | P0 | new |
 | E-04 | A zero-byte file is refused | Unit | P1 | new |
 | E-05 | A disallowed content type is refused even when under the size limit | Unit | P0 | new |
-| E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | partial |
+| E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | ✓ (`test_format_mismatch.py`, full 4×5 matrix; three of twelve pairs did not crash — they succeeded, which is worse) |
+| E-17 | **An image sent as `application/pdf` is refused, not extracted as an empty document** — PyMuPDF opens it and `filetype="pdf"` does not stop it | Unit | P0 | ✓ |
+| E-18 | **A binary renamed `.txt` is refused, not decoded into paragraphs of noise and embedded** — the NUL-byte guard misses a NUL-free PDF | Unit | P0 | ✓ |
+| E-19 | A document that yields no chunks is FAILED, never marked indexed with nothing behind it | Unit | P0 | ✓ |
+| E-20 | Bytes with no recognisable signature always proceed — sniffing can refuse a file, never accept one it otherwise would not | Unit | P0 | ✓ |
+| E-21 | A corrupt file of the RIGHT format stays a `CorruptFileError`, not an "unsupported format" — "broken file" and "wrong file" mean different things to whoever reads the status | Unit | P1 | ✓ |
+| E-22 | A legacy `.doc`/`.ppt` (OLE2) is named as such rather than reported as a damaged package | Unit | P2 | ✓ |
 | E-07 | **nginx `client_max_body_size` is ≥ the app limit** — otherwise nginx rejects first with unparseable HTML | Integration | P0 | new |
 | E-08 | ~~RAG ingest enforces the same limit~~ — **void**: `ingest_document` takes an `s3_key` and fetches the object itself; there is no upload endpoint there. Replaced by: ingestion of an object larger than the configured limit is refused before extraction | Unit | P2 | not built |
 | E-09 | The limit reaches the browser as configuration; the UI never hardcodes it | Frontend | P1 | ✓ |

@@ -169,3 +169,49 @@ async def test_changed_hash_reindexes_and_replaces_chunks() -> None:
     assert all(chunk.text != "old" for chunk, _ in new_chunks)  # replaced, not appended
     stored = await documents.get_by_file_id(job.file_id)
     assert stored.content_hash != old_hash
+
+
+async def test_a_document_that_yields_no_text_is_failed_not_marked_indexed() -> None:
+    """A false success is worse than the failure it hides (test-plan E-06, E-13).
+
+    Nothing stopped an empty extraction before this: zero chunks, zero embeddings, an
+    atomic replace with an empty list, and Done. The teacher's file list then showed the
+    document as indexed, the assistant could never retrieve a word of it, and no status,
+    log or error said why. A FAILED row gets looked at; a DONE row with nothing behind it
+    does not.
+
+    Driven with a blank text file because that is the reachable case that has nothing to do
+    with mislabelling — a scanned PDF with OCR unavailable produces the same nothing, and so
+    did an image sent as application/pdf before the router learned to sniff.
+    """
+    job = IngestionJob(uuid4(), uuid4(), "classroom/blank.txt", "blank.txt", "text/plain")
+    storage = FakeFileStorage({"classroom/blank.txt": b"   \n\n\t\n"})
+    embedder = FakeEmbeddingProvider(DIM)
+    documents = InMemoryDocumentRepository()
+    chunks = InMemoryChunkRepository()
+    _seed_pending(documents, job)
+    service = build_ingestion_service(
+        storage=storage, embedder=embedder, documents=documents, chunks=chunks,
+        clock=FakeClock(),
+    )
+
+    outcome = await service.ingest(job)
+
+    assert outcome.status == DocumentStatus.FAILED
+    # Permanent, so it is not retried: the same bytes yield the same nothing, and retrying
+    # only delays telling somebody. One attempt, straight to Failed.
+    assert outcome.retry is False
+    assert outcome.attempts == 1
+    assert documents.status_history[job.file_id] == [
+        DocumentStatus.PENDING,
+        DocumentStatus.PROCESSING,
+        DocumentStatus.FAILED,
+    ]
+
+    stored = await documents.get_by_file_id(job.file_id)
+    assert stored.last_error is not None
+    assert "nothing to index" in stored.last_error
+
+    # And nothing was written: no empty replace, so a previously-indexed version of this
+    # document is not wiped out by a re-upload that turned out to be unreadable.
+    assert chunks.replace_calls == 0

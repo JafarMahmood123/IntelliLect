@@ -1059,6 +1059,67 @@ correct rather than duplicate. A genuine duplicate needs the send to succeed and
 be lost, and costs one repeated email. Making that exact means a dedup store keyed on
 message id: permanent infrastructure against a rare, harmless annoyance.
 
+### 7.5b Format mismatch (E-06) — **DONE, and two of the three failures were silent**
+
+E-06 asks that a file which is not what it claims to be is "refused by the extractor rather
+than crashing it". It sat at `partial`, and the reason is that the interesting half was never
+the crash.
+
+Running all four extractors against every other format's bytes gave **three** answers rather
+than two. Nine of the twelve pairs already raised `CorruptFileError` — the parsers object, the
+router reports it, nothing is indexed. **Three did not, and none of the three crashed.**
+
+**DEFECT: an image sent as `application/pdf` extracted as an empty document.** PyMuPDF opens
+images as documents and `filetype="pdf"` does not prevent it. Extraction reported success with
+zero blocks, and — see below — the document was then marked Done. A teacher saw an indexed file
+the assistant could never retrieve a word from, with no error, no failed status and nothing in
+the logs to look at.
+
+**DEFECT: a PDF renamed `.txt` was decoded into eighteen paragraphs of cp1252 replacement
+characters, chunked, embedded and indexed.** That is worse than the first, because the damage
+is not confined to the document: noise in the vector index competes with real material for
+every question that classroom asks afterwards, and the symptom is "the assistant got worse"
+with nothing pointing at a cause. `TxtExtractor`'s docstring promised exactly the opposite —
+"an uploaded binary renamed to .txt surfaces as a clear error rather than as a document full of
+garbage" — and its guard is a NUL-byte check, which a small uncompressed PDF sails past. A
+stated guarantee that does not hold is the most expensive kind of comment.
+
+Third, and milder: `PdfExtractor` given DOCX or PPTX bytes extracts the text successfully but
+records `source_format="pdf"`, so the PDF-only OCR path then runs over a document that is not a
+PDF.
+
+**The fix is at the router, because that is where "what format is this" is already decided.**
+`sniff_format` reads the file's own signature — magic numbers, plus a look inside the zip to
+tell DOCX from PPTX from XLSX, since all three start with the same four bytes — and the router
+refuses when the bytes contradict the extractor dispatch chose. Both inputs it had before are
+hearsay: the content type comes from the browser guessing off the extension, and the extension
+comes from whoever named the file.
+
+**The rule that keeps it safe: only a RECOGNISED signature counts.** Plain text and Markdown
+have none, so `sniff_format` returns None for every legitimate `.txt` in the system and an
+unknown result always proceeds. This can refuse a file; it can never accept one that would
+otherwise have been refused.
+
+A side benefit worth naming: a legacy `.doc` or `.ppt` is an OLE2 container, and python-docx
+reports it as a damaged package — "could not open" for a file that opens perfectly in Word. It
+is now named, and the fix is Save As.
+
+**DEFECT: a document that yielded no chunks was marked Done.** Found while tracing where the
+empty PDF ended up. Nothing guarded it: zero chunks, zero embeddings, an atomic replace with an
+empty list, `_mark_done`. Reachable well beyond the mislabelling case — a scanned PDF with OCR
+unavailable, a genuinely blank file. Now a `PermanentIngestionError`, so the row goes to Failed
+with a message naming the likely cause, and is not retried, since the same bytes will produce
+the same nothing. It also stops an unreadable re-upload wiping the chunks of the version that
+was working.
+
+**Mutation-checked, 7 mutations, all killed** — including making the sniffer recognise nothing,
+removing the router check, collapsing DOCX and PPTX into "zip", treating an unknown signature as
+a mismatch (which would refuse every real `.txt`), and both halves of the empty-document guard.
+
+**RagService 351 → 381.**
+
+---
+
 ### 7.10b Retry policies (L-04) — **DONE, and two consumers had none at all**
 
 Idempotency answers "what does a second delivery do". This is the other half: **is there a

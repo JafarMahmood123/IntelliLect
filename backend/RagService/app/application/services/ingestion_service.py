@@ -13,7 +13,10 @@ from app.application.ports.extractor import Extractor
 from app.application.ports.file_storage import FileStorage
 from app.application.ports.ocr_processor import OcrProcessor
 from app.application.services.clock import Clock, SystemClock
-from app.application.services.ingestion_errors import is_transient
+from app.application.services.ingestion_errors import (
+    PermanentIngestionError,
+    is_transient,
+)
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.document import Document
 from app.domain.enums.document_status import DocumentStatus
@@ -168,6 +171,28 @@ class IngestionService:
                 with metrics.stage_timer("chunk"):
                     chunks = await self._chunker.chunk(result, claimed.id, job.classroom_id)
                 logger.info("chunked", extra={"chunks": len(chunks)})
+
+                # A document that yields nothing must not be recorded as indexed.
+                #
+                # Without this the run continues happily: zero embeddings, an atomic replace
+                # with an empty list, and Done. The teacher's file list then shows the file as
+                # indexed, the assistant can never retrieve a word of it, and nothing anywhere
+                # says why — a false success is worse than the failure it hides, because the
+                # failure at least gets looked at.
+                #
+                # Reachable in more ways than the obvious one: a scanned PDF with OCR
+                # unavailable, a file that is genuinely blank, and (before the router learned
+                # to sniff) an image sent as application/pdf, which PyMuPDF opens as a
+                # zero-page document without complaint.
+                #
+                # Permanent, not transient: the same bytes will produce the same nothing, so
+                # retrying only delays telling somebody.
+                if not chunks:
+                    raise PermanentIngestionError(
+                        f"No text could be extracted from {job.file_name!r}, so there is "
+                        "nothing to index. If it is a scanned document it needs OCR; "
+                        "otherwise check the file opens and is not empty."
+                    )
 
                 with metrics.stage_timer("embed"):
                     embeddings = await self._embed(chunks)
