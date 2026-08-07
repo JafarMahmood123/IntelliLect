@@ -186,6 +186,12 @@ public sealed class ConsumerRetryPolicyTests
                 ["Jwt:SecretKey"] = "a-signing-key-of-at-least-thirty-two-chars",
                 ["RabbitMq:Username"] = "guest",
                 ["RabbitMq:Password"] = "guest",
+                // Required since §14b, and this test found that out by failing: it builds the real
+                // container, so every setting the composition root insists on has to be here.
+                // That is the point of the insistence — a missing media credential is now a
+                // startup failure naming the key rather than a token signed with a public default.
+                ["LiveKit:ApiKey"] = "test-api-key",
+                ["LiveKit:ApiSecret"] = "test-api-secret",
             })
             .Build();
 }

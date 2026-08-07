@@ -500,11 +500,15 @@ wrong, and it was wrong.
 | M-12 | `translate-x` — physical, with no logical form — is spelled for both directions wherever it carries travel | Frontend | P1 | ✓ |
 | M-13 | Anything moved with `translate-x` is also anchored horizontally, checked per className expression rather than per file | Frontend | P1 | ✓ |
 | M-14 | The exemption list is checked in both directions, and the premise (`dir` really flips) is asserted rather than assumed | Frontend | P1 | ✓ |
-| M-11 | Every downstream `/api/internal` client binds its OWN section — a client wired to the wrong one is caught | Unit | P0 | ✓ |
-| M-12 | A missing internal secret or base URL refuses startup with a message naming the key to set and the env var it must match | Unit | P0 | ✓ (defect found: LiveAssistant & RagService secrets were never configured in UMS) |
-| M-13 | A timeout `HttpClient` would reject (zero or negative) is refused at startup rather than crashing the host | Unit | P1 | ✓ |
-| M-14 | Each internal client is built with its configured base address, timeout, and the `X-Internal-Secret` header | Unit | P0 | ✓ |
+| M-20 | Every downstream `/api/internal` client binds its OWN section — a client wired to the wrong one is caught | Unit | P0 | ✓ |
+| M-21 | A missing internal secret or base URL refuses startup with a message naming the key to set and the env var it must match | Unit | P0 | ✓ (defect found: LiveAssistant & RagService secrets were never configured in UMS) |
+| M-22 | A timeout `HttpClient` would reject (zero or negative) is refused at startup rather than crashing the host | Unit | P1 | ✓ |
+| M-23 | Each internal client is built with its configured base address, timeout, and the `X-Internal-Secret` header | Unit | P0 | ✓ |
 | M-15 | Dependency vulnerability scan across .NET, npm and Python — no known-vulnerable package ships | Tooling | P0 | ✓ (22 found, 20 fixed; the 2 remaining are documented as not-applicable — see work-plan §11.13) |
+| M-16 | **No tracked settings file carries a value under a secret-shaped key** — keyed on the setting's NAME, because the entropy heuristic that guards `.env.example` scored a real Gmail app password as a placeholder | Unit | P0 | ✓ (defect found & fixed) |
+| M-17 | No `appsettings.Development.json` is tracked — `.gitignore` has said so for a long time, and ignoring a path does not untrack a file committed before the rule | Unit | P0 | ✓ (defect found & fixed) |
+| M-18 | StreamingService refuses to start without its JWT, broker **and media** credentials, naming the key and the env var — §7.4 removed the fallbacks here and nothing pinned it | Unit | P0 | ✓ (defect found & fixed) |
+| M-19 | The committed settings supply no media credential to fall back on, so a reinstated check cannot be quietly satisfied by the literal returning | Unit | P0 | ✓ |
 
 ## 16. Area N — Email delivery (work-plan §7.6)
 

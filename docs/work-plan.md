@@ -2075,6 +2075,70 @@ library and no virtualenv; a rule only one of them runs is a rule half the surfa
 
 **RagService 397 → 407, LiveAssistantService 381 → 391.**
 
+### 14b The credentials that were still in the repository (M-16..M-19) — **DONE, except the two steps that are not mine**
+
+The oldest open item in this plan, flagged in most commit messages since it was found and never
+actioned. Doing the half that does not need a decision, and stating the half that does.
+
+**Defect: `LiveKit:ApiKey` and `ApiSecret` failed open to a publicly-known secret.**
+`appsettings.json` shipped `"devkey"` and `"super_secret_livekit_key_for_development"` — LiveKit's
+**published** development defaults, in their own documentation as well as in this repository. So a
+service started without `LiveKit__ApiSecret` did not fail; it signed join tokens with a secret
+anybody can look up. A join token is entry to the media room rather than a step towards it (§7.4d),
+so that is an open door with a documented key, not a degraded configuration.
+
+This is exactly the finding §7.4 made about `Jwt:SecretKey` **in this same service**, and it was
+missed because that pass was reading the Jwt section. Both keys now go through the existing
+`Required(...)` helper, blank in the committed file. Every compose file already sets them with
+`:?`, so nothing that runs today changes; a bare `dotnet run` without them now fails naming the key.
+
+**The live Gmail app password was in a tracked file that `.gitignore` says should not be tracked.**
+`.gitignore` has carried `appsettings.Development.json` for a long time, and
+`UserManagementService.Api/appsettings.Development.json` was tracked anyway — ignoring a path does
+not untrack a file committed before the rule. Its sibling in EmailService is correctly untracked,
+which is why the count in earlier notes ("TWO files") was wrong: one file, plus a copy on disk that
+was never in the repository. `git rm --cached`; the file stays on disk and local `dotnet run` is
+unaffected. Four services have one of these and none of them belongs in the repository.
+
+**The rule, and why the existing one could not have caught it.** §10.4's
+`The_template_carries_no_real_looking_secret` guards `.env.example` with an entropy heuristic:
+sixteen characters or more, mixed case, has a digit, no separators. **A Gmail app password is
+sixteen lowercase letters** — no digit, no capital — so the heuristic scored the one real credential
+in this repository as a placeholder. The new rule is keyed on the setting's **name** instead: any
+key matching password/secret/apikey/token/credential must be blank in a tracked settings file,
+whatever the value looks like. No guessing, and it is the convention every service already follows.
+Plus a second rule that no `appsettings.Development.json` is tracked at all.
+
+**Mutation-checked (§7.8), 9 mutations. Three survived, and two of those were real gaps.**
+
+- **M3 and M4 survived**: removing the new media-credential checks changed nothing. The only test
+  that builds this container supplies every key, and **no test in StreamingService ever asked what
+  happens without one** — so §7.4's JWT fix here was never pinned either. UserManagementService has
+  had `RequiredSettingsTests` since §7.9; this service now does too, over the JWT, broker and media
+  credentials, missing and blank.
+- **M8 did not survive; it never ran.** Replacing the `git ls-files` exit-code assertion with a
+  silent empty return changed nothing because git works, so the mutated branch was unreachable. The
+  third time this has happened, and the same lesson: a mutation that cannot execute proves nothing.
+  Re-expressed as the failure it is about — git run somewhere that is not a repository — and killed.
+
+**What is still open, and is not mine to do.**
+
+1. **Rotate the Gmail app password.** It is live, it has been in this repository's history since the
+   first commit that carried it, and untracking the file does not change that. Revoke it in the
+   Google account and issue a new one; `SMTP_APP_PASSWORD` in `backend/.env` is the only place the
+   new value belongs.
+2. **Decide about the history.** The old value is still reachable in every clone. Purging it means
+   rewriting history (`git filter-repo`, or BFG) and force-pushing, which invalidates every existing
+   clone and every open branch. On a project with one contributor that is cheap; it is still a
+   decision, and rotation makes it optional rather than urgent — an old value that no longer works
+   is an embarrassment rather than an exposure.
+
+Also fixed while adding rows: `M-11` through `M-14` were each used twice — an RTL row and an
+internal-client row. Second occurrences renumbered to `M-20`..`M-23`, as with `B-15`..`B-17` and
+`L-10`.
+
+**ClassroomService 522 → 526, StreamingService 252 → 264.**
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

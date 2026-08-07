@@ -133,6 +133,19 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IStreamRepository, StreamRepository>();
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
+        // Required, never defaulted — the same finding as `Jwt:SecretKey` above, in the same
+        // service, and missed by §7.4 because that pass was reading the Jwt section.
+        //
+        // `appsettings.json` shipped `ApiKey = "devkey"` and
+        // `ApiSecret = "super_secret_livekit_key_for_development"`. Those are LiveKit's published
+        // development defaults, so a `dotnet run` without `LiveKit__ApiSecret` did not fail — it
+        // signed join tokens with a secret that is in this repository AND in LiveKit's own
+        // documentation. A join token IS entry to the media room (§7.4d), so anyone who knew the
+        // room name could mint one for any lecture. Every compose file already sets both with
+        // `:?`, so nothing that runs today changes.
+        Required(configuration, $"{LiveKitSettings.SectionName}:ApiKey");
+        Required(configuration, $"{LiveKitSettings.SectionName}:ApiSecret");
+
         services.Configure<LiveKitSettings>(configuration.GetSection(LiveKitSettings.SectionName));
         services.AddSingleton<IStreamSettings>(sp =>
             sp.GetRequiredService<IOptions<LiveKitSettings>>().Value);
