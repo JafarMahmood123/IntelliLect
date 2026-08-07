@@ -15,6 +15,7 @@ public sealed class InteractionService : IInteractionService
     private readonly IParticipantRepository _participantRepository;
     private readonly IStreamRepository _streamRepository;
     private readonly IStreamHubContext _hubContext;
+    private readonly IClassroomInternalClient _classrooms;
     private readonly ILogger<InteractionService> _logger;
 
     public InteractionService(
@@ -24,6 +25,7 @@ public sealed class InteractionService : IInteractionService
         IParticipantRepository participantRepository,
         IStreamRepository streamRepository,
         IStreamHubContext hubContext,
+        IClassroomInternalClient classrooms,
         ILogger<InteractionService> logger)
     {
         _chatRepository = chatRepository;
@@ -32,7 +34,50 @@ public sealed class InteractionService : IInteractionService
         _participantRepository = participantRepository;
         _streamRepository = streamRepository;
         _hubContext = hubContext;
+        _classrooms = classrooms;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Refuses anyone who does not belong in this lecture.
+    ///
+    /// Two ways to belong, and the cheap one is checked first. **A participant row** means this
+    /// person joined the room, and since §7.4d a row can only be created by someone who passed the
+    /// membership check — so the common case costs a local read and no remote call, which matters
+    /// because chat is the hot path here. **Membership of the classroom** is the fallback, for the
+    /// window before the join lands: the browser opens its SignalR connection and fetches the chat
+    /// history in effects that do not wait for `POST /join`, so requiring the row alone would be a
+    /// race that fails intermittently for legitimate users.
+    ///
+    /// Both are sufficient and neither is a weaker answer than the other. The remote call fails
+    /// closed — see <see cref="IClassroomInternalClient"/>.
+    /// </summary>
+    private async Task EnsureInRoomAsync(LiveStream stream, Guid userId, string what, CancellationToken ct)
+    {
+        if (await _participantRepository.IsUserInStreamAsync(stream.Id, userId, ct))
+        {
+            return;
+        }
+
+        if ((await _classrooms.GetAccessAsync(stream.ClassroomId, userId, ct)).IsMember)
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            "Refused {What} for session {SessionId}: user {UserId} is neither in the room nor a "
+            + "member of classroom {ClassroomId}.",
+            what, stream.SessionId, userId, stream.ClassroomId);
+
+        throw new ForbiddenAccessException("You are not a member of this classroom.");
+    }
+
+    public async Task EnsureCanWatchAsync(Guid sessionId, Guid userId, CancellationToken ct = default)
+    {
+        var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct)
+            ?? throw new KeyNotFoundException("Stream not found.");
+
+        await EnsureInRoomAsync(stream, userId, "the live broadcast group", ct);
     }
 
     public async Task SendChatMessageAsync(Guid sessionId, Guid userId, string userName, string message, CancellationToken ct)
@@ -45,6 +90,8 @@ public sealed class InteractionService : IInteractionService
                 sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
         }
+
+        await EnsureInRoomAsync(stream, userId, "chat", ct);
 
         if (string.IsNullOrWhiteSpace(message))
             throw new ArgumentException("Message cannot be empty.");
@@ -79,6 +126,8 @@ public sealed class InteractionService : IInteractionService
             throw new InvalidOperationException("Stream is not active.");
         }
 
+        await EnsureInRoomAsync(stream, userId, "a reaction", ct);
+
         if (string.IsNullOrWhiteSpace(emoji))
             throw new ArgumentException("Emoji cannot be empty.");
 
@@ -110,6 +159,8 @@ public sealed class InteractionService : IInteractionService
                 sessionId, userId);
             throw new InvalidOperationException("Stream is not active.");
         }
+
+        await EnsureInRoomAsync(stream, userId, "a question", ct);
 
         if (string.IsNullOrWhiteSpace(questionText))
             throw new ArgumentException("Question text cannot be empty.");
@@ -185,7 +236,14 @@ public sealed class InteractionService : IInteractionService
         await _hubContext.NotifyHandRaisedAsync(sessionId, userId, isRaised);
     }
 
-    public async Task<PagedResult<ChatMessageResponse>> GetChatHistoryPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
+    /// <summary>
+    /// The lecture's chat, for people who belong in it.
+    ///
+    /// This took no caller at all, so any authenticated user could read any lecture's entire chat
+    /// history from its session id — every message, with the sender's name against it.
+    /// </summary>
+    public async Task<PagedResult<ChatMessageResponse>> GetChatHistoryPagedAsync(
+        Guid sessionId, Guid userId, int page, int pageSize, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
         if (stream == null)
@@ -193,6 +251,8 @@ public sealed class InteractionService : IInteractionService
             _logger.LogWarning("Chat history requested for missing stream. SessionId: {SessionId}", sessionId);
             throw new KeyNotFoundException("Stream not found.");
         }
+
+        await EnsureInRoomAsync(stream, userId, "the chat history", ct);
 
         var (items, totalCount) = await _chatRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
 
@@ -211,7 +271,11 @@ public sealed class InteractionService : IInteractionService
         return new PagedResult<ChatMessageResponse>(responses, totalCount, page, pageSize);
     }
 
-    public async Task<PagedResult<QuestionResponse>> GetQuestionsPagedAsync(Guid sessionId, int page, int pageSize, CancellationToken ct)
+    /// <summary>
+    /// The lecture's questions, for people who belong in it. Took no caller, like the chat history.
+    /// </summary>
+    public async Task<PagedResult<QuestionResponse>> GetQuestionsPagedAsync(
+        Guid sessionId, Guid userId, int page, int pageSize, CancellationToken ct)
     {
         var stream = await _streamRepository.GetBySessionIdAsync(sessionId, false, ct);
         if (stream == null)
@@ -219,6 +283,8 @@ public sealed class InteractionService : IInteractionService
             _logger.LogWarning("Questions requested for missing stream. SessionId: {SessionId}", sessionId);
             throw new KeyNotFoundException("Stream not found.");
         }
+
+        await EnsureInRoomAsync(stream, userId, "the question list", ct);
 
         var (items, totalCount) = await _questionRepository.GetByStreamIdPagedAsync(stream.Id, page, pageSize, ct);
 

@@ -1871,6 +1871,73 @@ its own log and silently to the student, and that is the deliberate direction of
 
 **ClassroomService 512 → 522, StreamingService 204 → 230.**
 
+### 7.4e Inside the lecture (G-44..G-51) — **DONE; the surface the token fix did not reach**
+
+§7.4d closed the door. This is everything on the other side of it.
+
+`InteractionService` had **no tests at all** — by now a reliable signal rather than a coincidence,
+since every unguarded thing this sweep has found has also been the untested thing. Every method on
+it checked that the stream was Live and nothing whatever about the caller.
+
+- **The three writes took a `userId` and never consulted it.** Any authenticated account could post
+  chat into any live lecture in the platform from its session id — and chat is broadcast to everyone
+  in the room with the sender's display name against it, while the class is running. Reactions and
+  questions the same.
+- **The two reads took no caller at all.** `GetChatHistoryPagedAsync(sessionId, page, pageSize)` and
+  `GetQuestionsPagedAsync(sessionId, page, pageSize)`. Any authenticated account could page through
+  any lecture's entire chat history and question list.
+- **`StreamHub.JoinStreamRoom` put any connection into any session's broadcast group.** That group
+  carries every chat message, reaction, hand-raise and participant count, live. It was
+  `Groups.AddToGroupAsync(Context.ConnectionId, sessionId.ToString())` and nothing else.
+
+**Two ways to belong, and the cheap one first.** A **participant row** means this person joined the
+room, and since §7.4d a row can only be created by someone who passed the membership check — so the
+common case is a local read and no remote call, which matters because chat is the hot path here.
+**Classroom membership** is the fallback, and not a nicety: the browser opens its SignalR connection
+in an effect gated on the session id and the access token, which does not wait for `POST /join`, so
+demanding the row alone would refuse legitimate users intermittently. An authorization rule that is
+wrong occasionally is worse than one that is wrong consistently, because nobody believes the reports.
+
+**What was already correct, and one thing that was correct by accident.** `AnswerQuestionAsync`
+checks `stream.TeacherId != teacherId` and always did. `ToggleHandRaiseAsync` requires a participant
+row — which is a real check, but it is *§7.4d's* check, made in another method: this one is safe
+because joining is gated, and if that ever stops being true this reopens with nothing here to say
+so. There is a test pinning exactly that, including that membership alone is deliberately **not**
+enough — you cannot raise a hand in a room you have not entered.
+
+**The rule, written late and honestly so.** `StreamingTenancyTests` asks
+`ClassroomTenancyTests`' question of this service, keyed on `sessionId` rather than `classroomId`.
+Three separate sweeps found this same class here — the join token, then the roster, then the chat
+and the broadcast group — before anybody wrote the rule that makes the next one fail at build time.
+
+**And the hub needed a rule of its own.** `StreamHub` is not a controller: no `[ServiceFilter]`, no
+model binding step, no attribute in front of it ever sees the session id, and the caller arrives
+through `Context.User` rather than as a parameter — so there is nothing for reflection to look for.
+A rule that enumerated controllers would have declared this service clean while `JoinStreamRoom`
+handed out the live feed of any lecture in the platform. It is checked against the hub's source
+instead.
+
+**The fourth double-vs-reality finding, in the double that produced the third.**
+`RecordingStreamHubContext` discarded the arguments to `BroadcastChatMessageAsync`,
+`BroadcastReactionAsync` and `NotifyHandRaisedAsync` — the same class as
+`NotifyParticipantCountAsync`, in the same file, fixed one method at a time as each cycle happened
+to need it. A refusal is only proved by showing nothing reached the room, and a double that records
+nothing cannot show it.
+
+**Mutation-checked (§7.8), 15 mutations, all killed on the first pass** — each of the six checks
+removed one at a time; the hub joining the group without asking; each of the two sufficient
+conditions removed; the remote call hoisted so it runs even when the participant row would have
+answered; the check reading `IsTeacher`; the check scoped to the stream id instead of the classroom;
+hand-raise accepting a caller with no row; the refusal reverted to a 401; and the ended-lecture
+guard moved behind the membership check.
+
+**A guard that earned its keep immediately.** `CallerNames` was copied from `ClassroomTenancyTests`
+and the vacuum guard failed at once: `requestingUserId` and `studentId` match nothing in this
+service. Trimmed rather than kept, because an entry that matches nothing accepts a name silently the
+day somebody first uses it.
+
+**StreamingService 230 → 252 tests.**
+
 ### 7.11b The audit recorded intent, not outcome (C-10, C-11, C-23..C-25) — **DONE**
 
 C-10 and C-11 were the last two rows in the whole plan still marked `new`. **Both were already

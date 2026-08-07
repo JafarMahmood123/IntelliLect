@@ -103,7 +103,7 @@ public sealed class StreamsController : ApiBaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var result = await _interactionService.GetChatHistoryPagedAsync(sessionId, page, pageSize, ct);
+        var result = await _interactionService.GetChatHistoryPagedAsync(sessionId, UserId, page, pageSize, ct);
         return Ok(result);
     }
 
@@ -114,7 +114,7 @@ public sealed class StreamsController : ApiBaseController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
-        var result = await _interactionService.GetQuestionsPagedAsync(sessionId, page, pageSize, ct);
+        var result = await _interactionService.GetQuestionsPagedAsync(sessionId, UserId, page, pageSize, ct);
         return Ok(result);
     }
 

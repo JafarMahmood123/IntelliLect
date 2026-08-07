@@ -219,7 +219,14 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
         return Task.CompletedTask;
     }
 
-    public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised) => Task.CompletedTask;
+    /// <summary>Every hand-raise the room was told about.</summary>
+    public List<(Guid SessionId, Guid UserId, bool IsRaised)> HandRaises { get; } = new();
+
+    public Task NotifyHandRaisedAsync(Guid sessionId, Guid userId, bool isRaised)
+    {
+        HandRaises.Add((sessionId, userId, isRaised));
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Every participant count the class was told, in order.
@@ -236,8 +243,28 @@ public sealed class RecordingStreamHubContext : IStreamHubContext
         return Task.CompletedTask;
     }
 
-    public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message) => Task.CompletedTask;
-    public Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji) => Task.CompletedTask;
+    /// <summary>
+    /// Every chat message and reaction the room was shown.
+    ///
+    /// These three methods discarded their arguments, exactly as `NotifyParticipantCountAsync` did
+    /// until §7.4c — the same double, the same fault, three more times. A refusal is only proved by
+    /// showing that nothing reached the room, and a double that records nothing cannot show it.
+    /// </summary>
+    public List<(Guid SessionId, Guid UserId, string UserName, string Message)> ChatMessages { get; } = new();
+
+    public Task BroadcastChatMessageAsync(Guid sessionId, Guid userId, string userName, string message)
+    {
+        ChatMessages.Add((sessionId, userId, userName, message));
+        return Task.CompletedTask;
+    }
+
+    public List<(Guid SessionId, Guid UserId, string Emoji)> Reactions { get; } = new();
+
+    public Task BroadcastReactionAsync(Guid sessionId, Guid userId, string emoji)
+    {
+        Reactions.Add((sessionId, userId, emoji));
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Captures the requests handed to the LiveKit egress client and returns a canned
@@ -640,4 +667,92 @@ public sealed class TrackingParticipantRepository : IParticipantRepository
 
     public Task UpdateAsync(StreamParticipant entity, CancellationToken ct = default)
         => Task.CompletedTask;
+}
+
+/// <summary>In-memory chat rows, so a refused message can be shown to have written nothing.</summary>
+public sealed class FakeChatRepository : IStreamChatMessageRepository
+{
+    public readonly List<StreamChatMessage> Rows = [];
+
+    public Task AddAsync(StreamChatMessage entity, CancellationToken ct = default)
+    {
+        Rows.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task<IEnumerable<StreamChatMessage>> GetByStreamIdAsync(Guid streamId, CancellationToken ct = default)
+        => Task.FromResult(Rows.Where(r => r.StreamId == streamId).AsEnumerable());
+
+    public Task<(IEnumerable<StreamChatMessage> Items, int TotalCount)> GetByStreamIdPagedAsync(
+        Guid streamId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var all = Rows.Where(r => r.StreamId == streamId).ToList();
+        return Task.FromResult<(IEnumerable<StreamChatMessage>, int)>(
+            (all.Skip((page - 1) * pageSize).Take(pageSize), all.Count));
+    }
+
+    public Task<StreamChatMessage?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));
+    public Task UpdateAsync(StreamChatMessage entity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Rows.RemoveAll(r => r.Id == id);
+        return Task.CompletedTask;
+    }
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(1);
+}
+
+/// <summary>In-memory question rows.</summary>
+public sealed class FakeQuestionRepository : IStreamQuestionRepository
+{
+    public readonly List<StreamQuestion> Rows = [];
+
+    public Task AddAsync(StreamQuestion entity, CancellationToken ct = default)
+    {
+        Rows.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task<IEnumerable<StreamQuestion>> GetByStreamIdAsync(Guid streamId, CancellationToken ct = default)
+        => Task.FromResult(Rows.Where(r => r.StreamId == streamId).AsEnumerable());
+
+    public Task<(IEnumerable<StreamQuestion> Items, int TotalCount)> GetByStreamIdPagedAsync(
+        Guid streamId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var all = Rows.Where(r => r.StreamId == streamId).ToList();
+        return Task.FromResult<(IEnumerable<StreamQuestion>, int)>(
+            (all.Skip((page - 1) * pageSize).Take(pageSize), all.Count));
+    }
+
+    public Task<StreamQuestion?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));
+    public Task UpdateAsync(StreamQuestion entity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Rows.RemoveAll(r => r.Id == id);
+        return Task.CompletedTask;
+    }
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(1);
+}
+
+/// <summary>In-memory reaction rows.</summary>
+public sealed class FakeReactionRepository : IRepository<StreamReaction>
+{
+    public readonly List<StreamReaction> Rows = [];
+
+    public Task AddAsync(StreamReaction entity, CancellationToken ct = default)
+    {
+        Rows.Add(entity);
+        return Task.CompletedTask;
+    }
+
+    public Task<StreamReaction?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(Rows.FirstOrDefault(r => r.Id == id));
+    public Task UpdateAsync(StreamReaction entity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Rows.RemoveAll(r => r.Id == id);
+        return Task.CompletedTask;
+    }
+    public Task<int> SaveChangesAsync(CancellationToken ct = default) => Task.FromResult(1);
 }

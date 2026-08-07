@@ -47,8 +47,18 @@ public sealed class StreamHub : Hub<IStreamClient>
         return base.OnDisconnectedAsync(exception);
     }
 
+    /// <summary>
+    /// Puts this connection into the session's broadcast group.
+    ///
+    /// That group receives every chat message, reaction, hand-raise and participant count for the
+    /// session, live — and joining it was open to any authenticated connection that knew a session
+    /// id. The membership check goes here rather than in the caller because a hub method IS the
+    /// public surface: there is no controller in front of it and no filter that saw the session id.
+    /// </summary>
     public async Task JoinStreamRoom(Guid sessionId)
     {
+        await _interactionService.EnsureCanWatchAsync(sessionId, GetUserId(), Context.ConnectionAborted);
+
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId.ToString());
 
         _logger.LogInformation(

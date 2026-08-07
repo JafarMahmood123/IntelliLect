@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 17:29 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 18:20 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -36,13 +36,13 @@ without an attribute does not.
 |---|---|---|---|
 | UserManagementService | 324 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
 | ClassroomService | 522 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
-| StreamingService | 230 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
+| StreamingService | 252 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,377** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,399** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -79,7 +79,7 @@ that selection waits two minutes and then fails.
 |---|---|---|---|---|
 | UserManagementService | 51.4% | 36.3% | measured 2026-08-07 (1012 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 81.3% | 73.9% | measured 2026-08-07 (1228 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| StreamingService | 75.8% | 43.8% | measured 2026-08-07 (685 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| StreamingService | 78.1% | 43.8% | measured 2026-08-07 (686 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -101,7 +101,7 @@ that selection waits two minutes and then fails.
 | ClassroomService | Infrastructure | 75.1% |
 | ClassroomService | Presentation | 35.6% |
 | StreamingService | Domain | 100.0% |
-| StreamingService | Application | 61.0% |
+| StreamingService | Application | 88.3% |
 | StreamingService | Infrastructure | 83.8% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
@@ -271,6 +271,10 @@ found by writing a test, not by a user.
 | 41 | **Two live streams for one session, with nothing to stop it.** `SessionStartedConsumer` guards a redelivery with `ExistsAsync` then `AddAsync` — two calls — and `Streams.SessionId` carried **no index at all**, unique or otherwise. At-least-once delivery means the message arrives twice; two concurrent invocations both pass the check before either insert. The consumer's own comment names the consequence: "every later lookup picks one arbitrarily", so students join one row while recording state and participant count attach to the other, permanently and silently | found by a test FAILING under load, twice — see below |
 | 42 | `FakeStreamRepository` accepted two rows for one session, so the suite could not tell an idempotent consumer from one that usually wins the race. **A double more permissive than the database turns a real defect into a flake** — and this file already carried a comment about an earlier flake here that accused the product wrongly. This time the accusation was correct | L-01 |
 | 40 | **Sentence splitting was English-only, and it made the semantic chunker inert in Arabic.** `_SENTENCE_RE` was `[.!?]` — none of Arabic's terminators. Arabic borrows the Latin full stop, so statements split and questions did not: four Arabic questions came back as **one** sentence. `SemanticChunker` then takes its `len(sentences) == 1` shortcut, **never calls the embedder**, and falls through to the token-window packer — so the semantic tier silently became the structural tier and `semantic_breakpoint_percentile` did nothing. Every chunking test in the suite is written in English | F-27, F-28 |
+| 59 | **Any authenticated account could post chat into any live lecture**, from its session id. The three write paths on `InteractionService` took a `userId` and never consulted it, and a chat message is broadcast to everyone in the room with the sender's display name against it, while the class is running. Reactions and questions the same | G-44 |
+| 60 | **Any authenticated account could read any lecture's entire chat history and question list** — both read methods took no caller at all | G-45 |
+| 61 | **Any authenticated connection could subscribe to any session's SignalR broadcast group** — the live feed of every message, reaction, hand-raise and participant count. `StreamHub.JoinStreamRoom` was one `AddToGroupAsync` call and nothing else, and a hub method has no controller, filter or attribute in front of it that ever sees the session id | G-46 |
+| 62 | `RecordingStreamHubContext` discarded the arguments to `BroadcastChatMessageAsync`, `BroadcastReactionAsync` and `NotifyHandRaisedAsync`. **The fourth double-vs-reality finding, in the same double that produced the third** — fixed one method at a time as each cycle happened to need it, which is how three of them were still discarding | G-44 |
 | 55 | **The LiveKit join token was handed to anyone who asked.** `GET /api/streams/{sessionId}` checked that the stream existed and that it was Live, and nothing about the caller — so any account in the platform could name any live session and receive a token for it. The token is not a step towards entry, it *is* entry: §7.4's own note says "once LiveKit holds it our code is never consulted again", so there was no second place this could have been caught and no record that it had happened | G-02 |
 | 56 | **And publishing rights came from the caller's own role claim.** `isTeacher = role.Equals("Teacher", …)`, where `role` was read off the requester's token and had nothing to do with this classroom — so any Teacher-role account could walk into any live lecture **with camera and microphone**, appearing to the room as a teacher. The parameter is gone rather than better checked | G-36 |
 | 57 | **Joining the roster was separately unguarded.** A different endpoint from the token, and the one that writes the participant row the teacher's screen counts and that hand-raise and chat look up — so a stranger could appear in a lecture's roster even where the publish policy would not let them speak | G-39 |
@@ -287,7 +291,7 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 305 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 320 mutations across the project so far.
 
 Thirteen survived, and each one meant a test was passing for the wrong reason. (This said "nine"
 until it was counted against the table below, which had thirteen rows by then — the count was

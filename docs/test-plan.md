@@ -323,6 +323,14 @@ embedder — §8 work, not a unit test — and F-11 (Arabic) depends on the same
 | G-33 | The reconnection settings (retries, peer-connection and websocket timeouts) arrive intact — they are frozen at connect time | Unit | P0 | ✓ |
 | G-34 | Teacher and student receive identical media configuration | Unit | P1 | ✓ |
 | G-35 | No join token is issued once the session has ended — not even to the teacher | Unit | P0 | ✓ |
+| G-44 | A stranger cannot post chat, react or ask a question in a lecture — the three writes took a `userId` and never consulted it | Unit | P0 | ✓ (defects found & fixed) |
+| G-45 | A stranger cannot read a lecture's chat history or question list — both took **no caller at all** | Unit | P0 | ✓ (defects found & fixed) |
+| G-46 | A stranger cannot subscribe to a session's SignalR broadcast group — the live feed of every message, reaction, hand-raise and participant count | Unit | P0 | ✓ (defect found & fixed) |
+| G-47 | Being in the room (a participant row) is sufficient and costs **no** remote call; classroom membership is the fallback for the window before the join lands | Unit | P0 | ✓ |
+| G-48 | An unreachable ClassroomService refuses someone who has not joined, and does not silence anyone already in the room | Unit | P0 | ✓ |
+| G-49 | An ended lecture is refused before anyone is asked about — but its own members may still subscribe, because the group is how a client learns the session ended | Unit | P1 | ✓ |
+| G-50 | Raising a hand needs a participant row, not merely membership — safe today because of §7.4d's check on joining, and pinned so that dependency is visible | Unit | P1 | ✓ |
+| G-51 | Every session-scoped method on a browser-facing service takes the caller, **including the hub's own methods** — no attribute or filter in front of a hub ever sees the session id | Unit | P0 | ✓ (rule over the assembly + the hub source) |
 
 ## 10. Area H — Live assistant & feedback colours (work-plan §3)
 
