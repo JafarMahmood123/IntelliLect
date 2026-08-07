@@ -164,8 +164,11 @@ not. Every case here is a template applied per endpoint, not a one-off.
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | E-01 | A file at exactly the configured limit is accepted | Unit | P0 | ✓ (`ClassroomFileUploadLimitsTests`) |
-| E-02 | One byte over the limit is refused with a typed error, not a raw 413 page | Integration | P0 | ✓ (unit half: `One_byte_over_the_maximum_is_refused`); the typed error as seen over HTTP still needs a host |
-| E-03 | Over-size is refused on `Content-Length`, before the body is buffered | Integration | P0 | new |
+| E-02 | One byte over the limit is refused with a typed error, not a raw 413 page | Unit | P0 | ✓ (`UploadSizeLimitFilterTests` — the `ProblemDetails` the filter produces, plus the file-level `One_byte_over_the_maximum_is_refused`) |
+| E-03 | Over-size is refused on `Content-Length`, before the body is buffered | Unit | P0 | ✓ (defect found: a **fourth** limit in the request path, at a framework default) |
+| E-29 | Kestrel's per-request ceiling is raised to the configured limit, and a ceiling that cannot be changed is not fatal | Unit | P0 | ✓ |
+| E-30 | The multipart reader's limit is derived from the same setting, not left at its 128 MB default | Unit | P0 | ✓ (defect found) |
+| E-31 | Every action that accepts an `IFormFile` carries the size filter, and the filter is registered in the container | Unit | P0 | ✓ (a rule, so a second upload endpoint cannot ship unguarded) |
 | E-04 | A zero-byte file is refused | Unit | P1 | ✓ |
 | E-05 | A disallowed content type is refused even when under the size limit | Unit | P0 | ✓ (plus: content-type parameters do not defeat the allow list, and extension is an ALTERNATIVE signal, not an addition) |
 | E-06 | Extension/content-type mismatch (a `.pdf` that is not a PDF) is refused by the extractor rather than crashing it | Unit | P1 | ✓ (`test_format_mismatch.py`, full 4×5 matrix; three of twelve pairs did not crash — they succeeded, which is worse) |

@@ -8,9 +8,15 @@ namespace ClassroomService.Application.Abstractions;
 /// Vite and drifts from the API the first time either side changes. The upload control reads its
 /// bounds from here, so it can never accept a file the server will reject.
 ///
-/// Enforced in three places from this ONE value — the resource filter (before the body is read),
-/// the file service (the exact per-file check), and nginx's client_max_body_size. nginx is the
-/// only copy that cannot read this setting; see the note in nginx.conf.
+/// Enforced in FOUR places from this ONE value — the resource filter's up-front Content-Length
+/// check (before the body is read), Kestrel's per-request ceiling and the multipart reader's limit
+/// (both set by that filter, and both counting bytes as they arrive), the file service's exact
+/// per-file check, and nginx's client_max_body_size. nginx is the only copy that cannot read this
+/// setting; see the note in nginx.conf.
+///
+/// This comment said "three places" and omitted the multipart reader, which is how that one came
+/// to be left at a framework default of 128 MB — derived from nothing, mentioned nowhere, and
+/// wrong for any deployment that raises the limit past it. See `UploadSizeLimitFilterTests`.
 /// </summary>
 public interface IUploadSettings
 {

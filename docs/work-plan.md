@@ -1381,13 +1381,59 @@ opposite of the truth for `/api/classrooms`), and both readers reduced to empty 
 
 ---
 
+### 7.12b The upload guard itself (E-02, E-03, E-29..E-31) — **DONE; the fourth copy**
+
+§7.12 below counted three copies of the upload limit and reconciled them. **There were four.**
+E-03 — "over-size is refused on `Content-Length`, before the body is buffered" — was marked
+Integration and `new`, and `UploadSizeLimitFilter` is the code that answers it: **no test had ever
+executed a line of it.** That is how the fourth went unnoticed.
+
+It needs no host. A resource filter takes an `HttpContext` and a continuation; `DefaultHttpContext`
+is one, and *"before the body is buffered"* turns out to be directly assertable — it is the
+property that **the continuation never ran**, and therefore nothing downstream ever asked for the
+body. A 413 produced after reading 2 GB is still a 413; that assertion is the row.
+
+**The defect.** The multipart reader applies its own limit during model binding —
+`FormOptions.MultipartBodyLengthLimit`, a framework default of **128 MB** — derived from nothing
+and mentioned in none of the three places that documented this limit, including `IUploadSettings`'
+own comment. Raise `Uploads:MaxFileSizeBytes` past it (E-07's rule will make you raise nginx to
+match, and the filter raises Kestrel) and a file between 128 MB and the new limit passes both
+guards, is **buffered in full**, and then dies inside model binding with an `InvalidDataException`.
+`GlobalExceptionHandler` renders that as a **500 "An unexpected error occurred"** — precisely the
+untyped failure the other two guards are careful to avoid. Safe today only because 50 MB happens
+to be less than 128 MB, which is the same *safe by accident of the current value* shape B-10 found
+in the nginx route table.
+
+Fixed by deriving that limit from the same setting, the way the framework's own
+`[RequestFormLimits]` does but with a configured value rather than a compile-time constant — which
+is the reason this is a filter and not an attribute in the first place. The two comments claiming
+"three places" now say four and name the one that was missing.
+
+Tested against the framework's **real** `FormFeature` reading a **real** multipart body from a
+real stream, so what is asserted is the limit actually in force rather than a value handed to a
+setter. A paired test reads the same over-sized body *without* the filter and watches it buffer in
+full, so the fix's effect is visible rather than implied.
+
+Two rules came with it, both guarding omission rather than logic: every action accepting an
+`IFormFile` must carry the filter (a second upload endpoint cannot ship unguarded), and the filter
+must be registered in the container — `[ServiceFilter]` resolves from DI, so deleting one line in
+`Program.cs` turns every upload into a 500, and `Program.cs` is excluded from coverage by the
+shared runsettings.
+
+**Mutation-checked (§7.8), 11 mutations, all 11 killed** — including both wiring rules, the
+boundary at exactly the ceiling, and dropping the multipart overhead from the ceiling.
+
+ClassroomService 471 → 488 tests; Presentation layer 19.0% → 25.0%.
+
 ### 7.12 Upload limit consistency (E-07) — **DONE; a comment that asked to be a test**
 
-One upload limit, three copies, and only one of them can read the others. The size a teacher may
+One upload limit, several copies, and only one of them can read the others. The size a teacher may
 upload is enforced by the resource filter before the body is read, by the file service on the
-exact file length, and by nginx's `client_max_body_size` at the gateway. The first two come from
+exact file length, and by nginx's `client_max_body_size` at the gateway. All but nginx come from
 `Uploads:MaxFileSizeBytes`. **nginx cannot read that setting** — `IUploadSettings`' own comment
 says as much — and nginx is the one that acts first.
+
+("Several" rather than the "three" this section originally claimed. §7.12b found the fourth.)
 
 So the failure is one-directional and completely silent. Let nginx's number fall below the
 application's and enforcement moves back to the proxy: the upload is refused before it reaches any

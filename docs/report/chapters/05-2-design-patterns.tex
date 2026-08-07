@@ -79,12 +79,15 @@
 
 \subsection{وحدة العمل (\en{Unit of Work})}
 
-يضمن نمط وحدة العمل جمع عدة عمليات كتابة ضمن معاملة واحدة (\en{Transaction})، بحيث تنجح جميعها معاً أو تُلغى جميعاً، مما يحافظ على اتساق البيانات. يوضح الشكل~\ref{fig:pattern-06} مسار إنهاء الجلسة كمثال على هذا النمط.
+يجمع نمط وحدة العمل عدة عمليات كتابة ضمن معاملة واحدة (\en{Transaction})، بحيث تُودَع جميعها معاً أو تُلغى جميعاً، فلا يبقى أثر جزئي لعملية لم تكتمل. ويصبح حد المعاملة مملوكاً لطبقة التطبيق التي تعرف أين تبدأ العملية وأين تنتهي، لا لكل مستودع على حدة يودع كتابته بمفرده. وتتابع وحدة العمل التغييرات المتراكمة على الكيانات ثم تدفعها إلى المخزن دفعة واحدة عند الإيداع، أو تتخلى عنها كاملة عند الإلغاء. وبغياب هذا النمط قد تنجح الكتابة الأولى وتفشل الثانية، فتبقى البيانات في حالة غير متسقة يصعب اكتشافها لحظة وقوعها. يوضح الشكل~\ref{fig:pattern-06} هذا النمط.
 
-\begin{figure}[htbp]
+% [H]: pinned directly under the paragraph that introduces it. Width must stay
+% small enough to fit the space left on that page — [H] will not reflow text
+% past the figure, it just leaves a gap and pushes to the next page.
+\begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-06-unit-of-work.png}
-  \caption{نمط وحدة العمل: كتابتان عبر مستودعين تحت معاملةٍ واحدة، تُودَعان معًا أو تُلغَيان معًا.}
+  \includegraphics[width=0.6\textwidth,height=0.8\textheight,keepaspectratio]{figures/pattern-06-unit-of-work.png}
+  \caption{نمط وحدة العمل: كتابتان عبر مستودعين تحت معاملةٍ واحدة، تُودَعان معاً أو تُلغَيان معاً.}
   \label{fig:pattern-06}
 \end{figure}
 

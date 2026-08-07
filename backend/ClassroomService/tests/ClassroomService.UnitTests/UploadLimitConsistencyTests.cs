@@ -6,10 +6,14 @@ namespace ClassroomService.UnitTests;
 /// <summary>
 /// One upload limit, three copies, and only one of them can read the others (test-plan E-07).
 ///
-/// The size a teacher may upload is enforced in three places: the resource filter before the body
-/// is read, the file service on the exact file length, and nginx's `client_max_body_size` at the
-/// gateway. The first two come from `Uploads:MaxFileSizeBytes`. **nginx cannot read that setting**
-/// — `IUploadSettings`' own comment says so — and nginx is the one that acts first.
+/// The size a teacher may upload is enforced in several places: the resource filter before the
+/// body is read, the file service on the exact file length, and nginx's `client_max_body_size` at
+/// the gateway. All but nginx come from `Uploads:MaxFileSizeBytes`. **nginx cannot read that
+/// setting** — `IUploadSettings`' own comment says so — and nginx is the one that acts first.
+///
+/// "Several" rather than the "three" this comment used to claim, and the correction is E-03's
+/// finding: there was a fourth, the multipart reader's own 128 MB default, which no copy of this
+/// list had counted. `UploadSizeLimitFilterTests` covers it.
 ///
 /// So the failure is entirely one-directional and entirely silent. If nginx's number ever falls
 /// below the application's, enforcement moves back to the proxy: the upload is refused before it

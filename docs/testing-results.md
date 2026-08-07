@@ -34,14 +34,14 @@ without an attribute does not.
 | Suite | Tests | Command |
 |---|---|---|
 | UserManagementService | 291 | `dotnet test UserManagementService/tests/*/*.csproj` |
-| ClassroomService | 471 | `dotnet test ClassroomService/tests/*/*.csproj` |
+| ClassroomService | 488 | `dotnet test ClassroomService/tests/*/*.csproj` |
 | StreamingService | 173 | `dotnet test StreamingService/tests/*/*.csproj` |
 | EmailService | 59 | `dotnet test EmailService/tests/*/*.csproj` |
 | RagService | 384 (+13 skipped) | `cd backend/RagService && .venv/bin/python -m pytest` |
 | LiveAssistantService | 381 (+3 skipped) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest` |
 | front-end-web | 373 in 40 files | `cd front-end-web && npx vitest run` |
 | Cross-service E2E | 149 collected, of which **73 need nothing running** | `cd backend/tests/e2e && .venv/bin/python -m pytest` |
-| **Total** | **2,281** | |
+| **Total** | **2,298** | |
 
 The E2E figure needs the split. Most of that suite requires a live platform, but the
 containerless part — the smoke inventory, the latency harness's own arithmetic, the
@@ -61,7 +61,7 @@ that selection waits two minutes and then fails.
 | Component | Line | Branch | Status | How it is produced |
 |---|---|---|---|---|
 | UserManagementService | 50.7% | 36.0% | measured 2026-08-07 (1005 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| ClassroomService | 80.0% | 73.9% | measured 2026-08-07 (1213 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| ClassroomService | 80.3% | 73.9% | measured 2026-08-07 (1217 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | StreamingService | 73.6% | 43.8% | measured 2026-08-07 (656 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (176 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3957 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -82,7 +82,7 @@ that selection waits two minutes and then fails.
 | ClassroomService | Domain | 100.0% |
 | ClassroomService | Application | 97.8% |
 | ClassroomService | Infrastructure | 75.1% |
-| ClassroomService | Presentation | 19.0% |
+| ClassroomService | Presentation | 25.0% |
 | StreamingService | Domain | 100.0% |
 | StreamingService | Application | 58.9% |
 | StreamingService | Infrastructure | 81.2% |
@@ -243,12 +243,14 @@ found by writing a test, not by a user.
 | 19 | **Nothing limited password guessing anywhere in the system** — no lockout in `AuthService`, no ASP.NET rate limiter, no `limit_req` in nginx. The reset endpoint and the 2FA challenge were both capped; the front door was not | A-07 lockout tests |
 | 35 | **EmailService's required-credential guard was dead code** — the sender threw on a null `AppPassword`, and `appsettings.json` shipped `""` for it. An empty string is not null, so a deployment that forgot the environment variable started cleanly, answered `/health` with "ok", bound all five queues, and lost every email it was handed: three retries each, then the error queue. The repository's own `Required()` helper states the rule this missed, and was applied to the broker credentials in the same file | N-13 |
 | 36 | A malformed `SmtpPort` silently became 587 via `int.TryParse(...) ? parsed : 587`, and MailKit's 120-second default timeout was never overridden — one black-holed SMTP host held a consumer for six minutes per message across its retries | N-13, N-14 |
+| 37 | **A fourth upload limit that nobody had counted.** `IUploadSettings` documented three copies of the one configured value; the multipart reader applies a fourth during model binding — `FormOptions.MultipartBodyLengthLimit`, a framework default of 128 MB derived from nothing. Raise the limit past it and a file in between passes the Content-Length guard and Kestrel's, is buffered in full, and dies in model binding as a **500 "An unexpected error occurred"** instead of the typed 413 the other guards produce. Safe today only because 50 MB is under 128 MB | E-03, E-30 |
+| 38 | `UploadSizeLimitFilter` — the code answering E-03, a P0 — had **no test executing a single line of it**, and neither did the `[ServiceFilter]` wiring that makes it run at all. Deleting one line of `Program.cs` turns every upload into a 500, and `Program.cs` is excluded from coverage | E-03, E-31 |
 
 ## 9. Mutation testing
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 200 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 210 mutations across the project so far.
 
 Seven survived, and each one meant a test was passing for the wrong reason:
 
