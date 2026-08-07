@@ -739,6 +739,52 @@ Target applies per service, measured after the §0.3 exclusions.
 
       **Still open in this service, and container-bound:** `StreamHub` (the SignalR hub, 96
       lines at 0%), the EF repositories, and the composition root.
+
+### 7.4b One stream per session, from the database (L-15..L-18) — **DONE; a P0 the suite kept telling us about**
+
+`SessionStartedConsumer` guards a redelivery with
+
+    var exists = await _streamRepository.ExistsAsync(...);
+    if (exists) return;
+    ...
+    await _streamRepository.AddAsync(stream);
+
+which is **two calls**, and `Streams.SessionId` carried **no index at all** — unique or otherwise,
+just `HasKey("Id")`. L-01 covered the redelivery it could: publish twice, watch the second consume
+return. That is a *sequential* redelivery. At-least-once delivery also produces the concurrent one
+— a broker redelivery while the original is still in flight, or two service instances — and two
+invocations both pass the existence check before either insert lands. Nothing stopped the second.
+
+The consumer's own test comment already named the consequence: *"Two rows for one session would
+leave every later lookup picking one arbitrarily."* Exactly so — students join one row while the
+recording state, participant count and stream key attach to the other, permanently, with no error
+raised anywhere.
+
+**A check-then-act race is not closed by checking more carefully.** `IX_Streams_SessionId`, unique,
+makes the second write impossible: the duplicate insert throws, the retry policy re-runs the
+consumer, `ExistsAsync` now answers truthfully, and the redelivery ends as the clean no-op it was
+always meant to be. Migration `AddUniqueIndexOnStreamSessionId`, with a real `Down`.
+
+**How it was found is the part worth keeping.** `SessionStartedConsumerTests` failed twice on a
+loaded machine during an unrelated mutation sweep — and `FakeStreamRepository` carries a comment
+about an *earlier* flake in this same file that "accuses the code under test and is not one". The
+temptation was to read the second one the same way. It was not the same: the in-memory transport
+delivers concurrently, both copies passed the check, and the fake — which accepted two rows for one
+session — let the second through exactly as the schema did.
+
+So two things were wrong, and the second one hid the first: **a double more permissive than the
+database turns a real defect into a flake.** The fake now enforces the index, and `ConsumeAsync`
+publishes *sequentially*, because a redelivery is what that helper models; the concurrent case has
+its own file where the constraint is the subject rather than the ambient condition. Its wait budget
+went from 2s to 6s, since a loaded machine is the condition under which any of this appears.
+
+**Mutation-checked (§7.8), 7 mutations, 6 killed** — a non-unique index, an index on the wrong
+column, the migration's `unique: true` flipped, its `Down` emptied, the consumer swallowing the
+collision, the existence check disabled. The survivor is honest and recorded: removing the fake's
+constraint changes nothing now that the helper publishes sequentially, because the second consume
+returns before it reaches `AddAsync`. It stays so the double cannot drift looser than the schema
+again.
+
 - [x] **7.5 RagService — DONE.** 235 → **335** tests, coverage **77% → 81%**. Four new
       suites, taking the three named areas from partial or absent to complete.
 
@@ -2941,6 +2987,31 @@ Not forgotten; blocked on the environment.
       `media` settings object reaches the browser, reconnection in **both** directions,
       quality indicator, screen-share framerate ~5, recording still lands in MinIO.
       Cheapest available verification: needs no Groq.
+
+      **The "reaches the browser" half is DONE and static (test-plan P1 rules in
+      `MediaSettingsBrowserContractTests`).** There are FOUR copies of this setting list —
+      `MediaOptions` (the authority), `MediaSettingsResponse` (what is sent), the
+      `MediaSettings` TypeScript type (what the browser can name), and `MEDIA_FALLBACK`
+      (what it uses when nothing arrives) — and `mediaDefaults.ts` asks in prose for the
+      last to be kept in step: *"Values here are kept in sync with MediaOptions.cs, which is
+      the authority."* A comment cannot fail a build. Same argument as §7.12's upload limit,
+      and each link fails differently: a field not sent leaves livekit-client on its own
+      default; a field sent under a name the browser does not know arrives as `undefined`
+      and falls back, so the server appears to be ignored; a field named but never applied
+      is configuration that does nothing.
+
+      All eighteen agree today, in both names and values — so this row's static half
+      **passes**, and now goes on passing. What still needs the rebuild is the runtime half:
+      reconnection in both directions, the quality indicator, and the recording.
+
+      One mutation survived first and improved the rule: checking that a field's *name*
+      appears in `toRoomOptions.ts` is satisfied by the `f.field` fallback half on its own.
+      The check is now on `m.field` — the server's object — because a line quietly changed
+      to use only the fallback ignores the server for that setting forever.
+
+      **And chasing it turned up an unrelated P0.** Running the mutation sweep loaded the
+      machine, and `SessionStartedConsumerTests` failed — twice. It was right both times:
+      see §7.4b.
 - [ ] **P2 Real assistant detector end-to-end** — confirm `stream_prefetch.py` is in the
       built image, probe retrieval directly before blaming the assistant, force a
       `discrepancy`, re-measure latency. Blocked on a clean Groq exit IP.

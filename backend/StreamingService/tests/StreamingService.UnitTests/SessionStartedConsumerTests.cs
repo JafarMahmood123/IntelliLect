@@ -41,7 +41,9 @@ public sealed class SessionStartedConsumerTests
     /// </summary>
     private static async Task WaitForConsumed(ITestHarness harness, int expected)
     {
-        for (var attempt = 0; attempt < 200; attempt++)
+        // 600 x 10ms, not 200. The old two-second budget was enough on an idle machine and not
+        // on one running two test hosts at once, which is how a mutation sweep leaves it.
+        for (var attempt = 0; attempt < 600; attempt++)
         {
             if (harness.Consumed.Select<SessionStartedMessage>().Count() >= expected) return;
             await Task.Delay(10);
@@ -59,12 +61,19 @@ public sealed class SessionStartedConsumerTests
         var harness = provider.GetRequiredService<ITestHarness>();
         await harness.Start();
 
+        // One at a time, waiting for each. A REDELIVERY is what this helper models — the same
+        // message arriving again after the first was handled — and publishing both up front makes
+        // the in-memory transport deliver them concurrently instead, which is a different
+        // scenario with a different guarantee behind it. That ambiguity is what made this file
+        // fail intermittently on a loaded machine: two concurrent invocations both passed the
+        // existence check, and the test was right to complain. The concurrent case now has its
+        // own file, `StreamSessionUniquenessTests`, where the database constraint is the subject.
         for (var i = 0; i < times; i++)
         {
             await harness.Bus.Publish(Message());
+            await WaitForConsumed(harness, i + 1);
         }
 
-        await WaitForConsumed(harness, times);
         return streams;
     }
 

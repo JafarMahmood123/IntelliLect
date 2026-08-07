@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 12:05 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-07 12:49 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -36,13 +36,13 @@ without an attribute does not.
 |---|---|---|---|
 | UserManagementService | 299 | passed 2026-08-07 | `cd backend/UserManagementService && dotnet test UserManagementService.slnx --logger trx` |
 | ClassroomService | 488 | passed 2026-08-07 | `cd backend/ClassroomService && dotnet test ClassroomService.slnx --logger trx` |
-| StreamingService | 173 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
+| StreamingService | 189 | passed 2026-08-07 | `cd backend/StreamingService && dotnet test StreamingService.slnx --logger trx` |
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 397 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 381 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
 | Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
-| **Total** | **2,261** | all 8 suites passing, 16 skipped | |
+| **Total** | **2,277** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
 **This table was the last thing in the document still typed by hand**, while line 4 claimed
@@ -79,7 +79,7 @@ that selection waits two minutes and then fails.
 |---|---|---|---|---|
 | UserManagementService | 50.7% | 36.0% | measured 2026-08-07 (1005 lines) | `cd backend/UserManagementService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | ClassroomService | 80.3% | 73.9% | measured 2026-08-07 (1217 lines) | `cd backend/ClassroomService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
-| StreamingService | 73.6% | 43.8% | measured 2026-08-07 (656 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
+| StreamingService | 73.7% | 43.8% | measured 2026-08-07 (659 lines) | `cd backend/StreamingService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | EmailService | 100.0% | 94.4% | measured 2026-08-07 (191 lines) | `cd backend/EmailService && dotnet test --collect:'XPlat Code Coverage' -s ../coverlet.runsettings` |
 | RagService | 83.2% | 69.0% | measured 2026-08-07 (3960 lines) | `cd backend/RagService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
 | LiveAssistantService | 87.2% | 74.3% | measured 2026-08-06 (2700 lines) | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --cov=app --cov-report=xml` |
@@ -102,7 +102,7 @@ that selection waits two minutes and then fails.
 | ClassroomService | Presentation | 25.0% |
 | StreamingService | Domain | 100.0% |
 | StreamingService | Application | 58.9% |
-| StreamingService | Infrastructure | 81.2% |
+| StreamingService | Infrastructure | 81.3% |
 | StreamingService | Presentation | 59.3% |
 | EmailService | Application | 100.0% |
 | EmailService | Infrastructure | 100.0% |
@@ -262,6 +262,8 @@ found by writing a test, not by a user.
 | 36 | A malformed `SmtpPort` silently became 587 via `int.TryParse(...) ? parsed : 587`, and MailKit's 120-second default timeout was never overridden — one black-holed SMTP host held a consumer for six minutes per message across its retries | N-13, N-14 |
 | 37 | **A fourth upload limit that nobody had counted.** `IUploadSettings` documented three copies of the one configured value; the multipart reader applies a fourth during model binding — `FormOptions.MultipartBodyLengthLimit`, a framework default of 128 MB derived from nothing. Raise the limit past it and a file in between passes the Content-Length guard and Kestrel's, is buffered in full, and dies in model binding as a **500 "An unexpected error occurred"** instead of the typed 413 the other guards produce. Safe today only because 50 MB is under 128 MB | E-03, E-30 |
 | 38 | `UploadSizeLimitFilter` — the code answering E-03, a P0 — had **no test executing a single line of it**, and neither did the `[ServiceFilter]` wiring that makes it run at all. Deleting one line of `Program.cs` turns every upload into a 500, and `Program.cs` is excluded from coverage | E-03, E-31 |
+| 41 | **Two live streams for one session, with nothing to stop it.** `SessionStartedConsumer` guards a redelivery with `ExistsAsync` then `AddAsync` — two calls — and `Streams.SessionId` carried **no index at all**, unique or otherwise. At-least-once delivery means the message arrives twice; two concurrent invocations both pass the check before either insert. The consumer's own comment names the consequence: "every later lookup picks one arbitrarily", so students join one row while recording state and participant count attach to the other, permanently and silently | found by a test FAILING under load, twice — see below |
+| 42 | `FakeStreamRepository` accepted two rows for one session, so the suite could not tell an idempotent consumer from one that usually wins the race. **A double more permissive than the database turns a real defect into a flake** — and this file already carried a comment about an earlier flake here that accused the product wrongly. This time the accusation was correct | L-01 |
 | 40 | **Sentence splitting was English-only, and it made the semantic chunker inert in Arabic.** `_SENTENCE_RE` was `[.!?]` — none of Arabic's terminators. Arabic borrows the Latin full stop, so statements split and questions did not: four Arabic questions came back as **one** sentence. `SemanticChunker` then takes its `len(sentences) == 1` shortcut, **never calls the embedder**, and falls through to the token-window packer — so the semantic tier silently became the structural tier and `semantic_breakpoint_percentile` did nothing. Every chunking test in the suite is written in English | F-27, F-28 |
 | 39 | **The account audit trail recorded intent, not outcome.** C-09's records were written inside the decision loop, before the transaction that makes them true — and the batch is atomic, so a bulk approve that timed out on its commit wrote fifty Information lines saying fifty accounts had been approved, approved **none** of them, and wrote nothing at all to say it had failed. The log exists to answer "was this person's account deactivated, by whom, and when"; after a rolled-back batch it answered yes when the truth was no | C-11 work, from reading two passing tests together |
 
@@ -269,9 +271,9 @@ found by writing a test, not by a user.
 
 Coverage says a line ran; it does not say anything would have noticed if it were wrong. Every
 work-plan item in §7 onwards ends with a mutation spot-check: a deliberate defect introduced into
-the code under test, to confirm the suite fails. Roughly 241 mutations across the project so far.
+the code under test, to confirm the suite fails. Roughly 257 mutations across the project so far.
 
-Eight survived, and each one meant a test was passing for the wrong reason:
+Nine survived, and each one meant a test was passing for the wrong reason:
 
 | Mutation that survived | What it exposed |
 |---|---|
@@ -284,6 +286,7 @@ Eight survived, and each one meant a test was passing for the wrong reason:
 | Renaming a `TimeoutSeconds` property out of UserManagementService's options | Twice. First the settings rule asked "does ANYTHING read this?", and ClassroomService binds the same section with the same property name, so the wrong service vouched for it. Then it still passed, because the rule was reading TEST sources — UMS's own options test builds a config containing that exact key, so the test was vouching for the production code |
 | Removing the drawer's `rtl:-translate-x-full`, and the toggle knob's anchor | The RTL rule listed only utilities that HAVE a logical counterpart, so `translate-x` — which has none — was excluded, and the two defects the rule had just prompted fixes for were the two it could not see. The anchoring case then survived a second time because it was scoped per file rather than per className expression |
 | Removing the `HasStarted` guard from `GlobalExceptionHandler` | **It did not survive — the run did.** A recursive test double overflowed the stack and killed the test host, so the run reported `Passed!` with 12 of 235 tests executed. Checking the word and not the count would have recorded a fixed defect as unfixable |
+| Removing the unique-index modelling from `FakeStreamRepository` | Honest, and recorded rather than engineered around. Once `ConsumeAsync` was made to publish **sequentially** — which is what a redelivery actually is — the second consume returns at `ExistsAsync` and never reaches `AddAsync`, so the double's constraint is not exercised there. It exists so the fake cannot be more permissive than the schema; the concurrent case has its own file, with its own constrained repository |
 | Removing the `\b` anchor from the TRX reader's counter lookup | **An honest survivor, and the comment claiming otherwise was the thing that changed.** The anchor guards `executed="` against matching inside `notExecuted="` — and it cannot, because the counter is spelled with a capital E, so no attribute order collides. Recorded in the test that was written to kill it. Two neighbouring mutations did earn their keep: one exposed a "test" asserting `61 - 59 == 2`, a tautology exercising no product code at all |
 | Swapping `StartTls` for `StartTlsWhenAvailable` in the SMTP sender | **The fake server was too well-behaved.** It withheld AUTH until the connection was encrypted — what a careful server does — so a client that had silently downgraded failed anyway, for want of a mechanism rather than by its own decision. The test asserted "no password reached the server" and that was true for the server's reason. Once the fake offers AUTH PLAIN in the clear, as a misconfigured or hostile one does, MailKit **completes the send in plaintext with no exception at all** |
 

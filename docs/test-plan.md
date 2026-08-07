@@ -385,6 +385,17 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | ID | Case | Level | Pri | Cov |
 | --- | --- | --- | --- | --- |
 | L-01 | Every **state-changing** consumer is idempotent: the same message twice produces one effect | Unit | P0 | ✓ (recording-ready, summary-ready, session-started; the five email consumers are exempt — see §17) |
+| L-15 | Idempotency survives **concurrent** redelivery, not only sequential — two invocations that both pass the existence check still leave one row | Unit | P0 | ✓ (defect found: `Streams.SessionId` had no index at all) |
+| L-16 | The unique index is declared in the model **and** created as unique by a migration with a real `Down` | Unit | P0 | ✓ |
+| L-17 | The loser of the race faults so the broker retries it, and the retry is a clean no-op | Unit | P0 | ✓ |
+| L-18 | A different session is never refused by the constraint — uniqueness is per session, not per table | Unit | P1 | ✓ |
+
+**L-15 is the half L-01 could not see.** L-01 publishes twice and watches the second consume
+return, which is a *sequential* redelivery. The guard it exercises is `ExistsAsync` then
+`AddAsync` — two calls — and concurrent delivery passes both checks before either insert.
+Nothing stopped the second one. Found because `SessionStartedConsumerTests` failed twice on a
+loaded machine and was right both times.
+
 | L-02 | MassTransit envelope round-trips between the .NET and Python services | Unit | P0 | ✓ |
 | L-03 | Outbox message survives a service restart between commit and publish | Integration | P0 | partial |
 | L-04 | A consumer throwing does not lose the message (retry/DLQ observable) | Unit | P0 | ✓ (all four services; found ClassroomService's recording consumer and StreamingService's only consumer registered with no retry at all) |
@@ -394,7 +405,7 @@ DB-arbitrated on `(QuestionId, StudentId)` and `(QuizId, StudentId)`.
 | L-10 | A database failure inside a consumer faults the message rather than being swallowed — without this the retry policy never runs | Unit | P0 | ✓ (recording, summary, session-started) |
 | L-05 | Recording-ready and summary-ready consumers tolerate arriving out of order | Unit | P1 | ✓ |
 | L-06 | An internal HTTP call timing out degrades the caller gracefully rather than cascading | Unit | P1 | ✓ (`DownstreamDegradationTests`, `StreamingInternalClientTests`; the degradation paths were only ever tested with `HttpRequestException`, which is the one case that is unambiguous) |
-| L-10 | A downstream TIMEOUT degrades — and it arrives as `TaskCanceledException`, the same type an abandoned caller produces | Unit | P0 | ✓ |
+| L-19 | A downstream TIMEOUT degrades — and it arrives as `TaskCanceledException`, the same type an abandoned caller produces | Unit | P0 | ✓ |
 | L-11 | **A caller who has gone propagates instead of being swallowed** — otherwise the request keeps calling other services to finish an answer nobody will read | Unit | P0 | ✓ |
 | L-12 | The degradation flag is not raised against healthy services by ordinary browser navigation — it is the signal an operator uses to find a real outage | Unit | P1 | ✓ |
 | L-13 | A cancelled caller is not reported as StreamingService refusing the call, which would record a session as having failed to start a stream nobody refused | Unit | P0 | ✓ |

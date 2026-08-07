@@ -492,10 +492,30 @@ public sealed class FakeStreamRepository : IStreamRepository
             .ToList());
     }
 
+    /// <summary>
+    /// Enforces <c>IX_Streams_SessionId</c>, because the real table does.
+    ///
+    /// Without this the fake accepted two rows for one session and the suite could not tell the
+    /// difference between a consumer that is idempotent and one that merely usually wins the race.
+    /// That is not theoretical: `A_redelivered_message_does_not_create_a_second_stream` failed
+    /// twice on a loaded machine, and both times it was right — the in-memory transport delivered
+    /// the two copies concurrently, both passed `ExistsAsync` before either insert, and the fake
+    /// let the second one through exactly as the schema used to.
+    ///
+    /// A double that is more permissive than the database turns a real defect into a flake.
+    /// </summary>
     public Task AddAsync(LiveStream entity, CancellationToken ct = default)
     {
         if (ThrowOnAdd) throw new InvalidOperationException("database unavailable");
-        lock (_gate) _streams.Add(entity);
+        lock (_gate)
+        {
+            if (_streams.Any(s => s.SessionId == entity.SessionId))
+            {
+                throw new InvalidOperationException(
+                    "23505: duplicate key value violates unique constraint \"IX_Streams_SessionId\"");
+            }
+            _streams.Add(entity);
+        }
         return Task.CompletedTask;
     }
 
