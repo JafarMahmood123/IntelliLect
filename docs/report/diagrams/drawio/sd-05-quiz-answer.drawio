@@ -1,0 +1,201 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="SD 5 - Answer, Submit and Grade a Quiz">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="2270" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="2580" height="2240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorS" value="Student" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="120" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorSline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="180" as="sourcePoint" />
+            <mxPoint x="150" y="2180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actorT" value="Teacher" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="2420" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorTline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2450" y="180" as="sourcePoint" />
+            <mxPoint x="2450" y="2180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="ln2" value="studentApp : WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="360" y="60" width="240" height="2120" as="geometry" />
+        </mxCell>
+        <mxCell id="ln3" value=": QuizService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="700" y="60" width="220" height="2120" as="geometry" />
+        </mxCell>
+        <mxCell id="ln4" value=": IQuizRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="60" width="220" height="2120" as="geometry" />
+        </mxCell>
+        <mxCell id="ln5" value=": QuizDeadlineSweeper" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="60" width="220" height="2120" as="geometry" />
+        </mxCell>
+        <mxCell id="ln6" value=": StreamHub" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="60" width="200" height="2120" as="geometry" />
+        </mxCell>
+        <mxCell id="ln7" value="teacherApp : WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="2010" y="60" width="240" height="2120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragLoop" value="loop" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=80;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="530" width="1250" height="485" as="geometry" />
+        </mxCell>
+        <mxCell id="cLoop" value="[for each question, while the deadline has not passed]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="190" y="536" width="760" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragA" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1130" width="2400" height="390" as="geometry" />
+        </mxCell>
+        <mxCell id="cA1" value="[an earlier submission exists]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="1136" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divA" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="1220" as="sourcePoint" />
+            <mxPoint x="2500" y="1220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cA2" value="[else]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="110" y="1226" width="560" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragB" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1970" width="2400" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="cB1" value="[revealed = quiz.Status is Closed or Cancelled]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="1976" width="700" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divB" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="2060" as="sourcePoint" />
+            <mxPoint x="2500" y="2060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cB2" value="[else] — the quiz is still open" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="110" y="2066" width="560" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="opens the quiz shown in the session" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="210" as="sourcePoint" /><mxPoint x="480" y="210" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="GET /api/classrooms/{classroomId}/sessions/{sessionId}/quizzes/open" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="248" as="sourcePoint" /><mxPoint x="810" y="248" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="EnsureMemberAsync(classroomId, userId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="282" as="sourcePoint" /><mxPoint x="810" y="312" as="targetPoint" /><Array as="points"><mxPoint x="910" y="282" /><mxPoint x="910" y="312" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="extension = GetExtensionAsync(quiz.Id, userId) : QuizExtension?" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="350" as="sourcePoint" /><mxPoint x="1140" y="350" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value=": QuizExtension?" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="388" as="sourcePoint" /><mxPoint x="810" y="388" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="if (IsPastDeadline(quiz, extension)) return null" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="422" as="sourcePoint" /><mxPoint x="810" y="452" as="targetPoint" /><Array as="points"><mxPoint x="910" y="422" /><mxPoint x="910" y="452" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="200 OK : QuizStudentDto(questions[], options[], closesAtUtc) — the correct options are not included" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="490" as="sourcePoint" /><mxPoint x="480" y="490" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m8" value="picks an option" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="580" as="sourcePoint" /><mxPoint x="480" y="580" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="POST /api/classrooms/{classroomId}/quizzes/{quizId}/answers {questionId, optionId}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="618" as="sourcePoint" /><mxPoint x="810" y="618" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="EnsureEnrolledStudentAsync(...); if (quiz.Status != Open) throw ConflictException" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="652" as="sourcePoint" /><mxPoint x="810" y="688" as="targetPoint" /><Array as="points"><mxPoint x="910" y="652" /><mxPoint x="910" y="688" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="extension = GetExtensionAsync(quiz.Id, studentId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="726" as="sourcePoint" /><mxPoint x="1140" y="726" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="if (IsPastDeadline(quiz, extension)) throw ConflictException(&quot;Time is up&quot;) — THIS student's deadline" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="760" as="sourcePoint" /><mxPoint x="810" y="796" as="targetPoint" /><Array as="points"><mxPoint x="910" y="760" /><mxPoint x="910" y="796" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="submission = GetSubmissionAsync(quiz.Id, studentId) — non-null means already submitted" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="834" as="sourcePoint" /><mxPoint x="1140" y="834" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="isCorrect = option.IsCorrect; points = isCorrect ? question.Points : 0" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="868" as="sourcePoint" /><mxPoint x="810" y="904" as="targetPoint" /><Array as="points"><mxPoint x="910" y="868" /><mxPoint x="910" y="904" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="AddOrUpdateAnswer(questionId, studentId, optionId, isCorrect, points) — unique (QuestionId, StudentId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="942" as="sourcePoint" /><mxPoint x="1140" y="942" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m16" value="200 OK : SubmitAnswerResultDto — correctness is withheld" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="980" as="sourcePoint" /><mxPoint x="480" y="980" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m17" value="submits the quiz" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="1060" as="sourcePoint" /><mxPoint x="480" y="1060" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value="POST /api/classrooms/{classroomId}/quizzes/{quizId}/submit" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1098" as="sourcePoint" /><mxPoint x="810" y="1098" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m19" value="200 OK : QuizSubmissionDto — the existing submission is returned, idempotent" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1180" as="sourcePoint" /><mxPoint x="480" y="1180" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m20" value="if (quiz.Status != Open || IsPastDeadline(quiz, extension)) throw ConflictException" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1270" as="sourcePoint" /><mxPoint x="810" y="1306" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1270" /><mxPoint x="910" y="1306" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m21" value="AddSubmissionAsync(QuizSubmission(quizId, studentId, submittedAtUtc))" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1344" as="sourcePoint" /><mxPoint x="1140" y="1344" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m22" value="POST /api/internal/streams/{sessionId}/quiz-event {quizId, state = &quot;Open&quot;}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1382" as="sourcePoint" /><mxPoint x="1800" y="1382" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m23" value="QuizChanged(quizId, &quot;Open&quot;) — the submitted count moves" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1800" y="1420" as="sourcePoint" /><mxPoint x="2130" y="1420" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m24" value="200 OK : QuizSubmissionDto(quizId, submittedAtUtc, answered, total) — no marks" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1458" as="sourcePoint" /><mxPoint x="480" y="1458" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m25" value="SweepAsync() — periodic" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1470" y="1570" as="sourcePoint" /><mxPoint x="1470" y="1600" as="targetPoint" /><Array as="points"><mxPoint x="1570" y="1570" /><mxPoint x="1570" y="1600" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m26" value="re-read the quiz and its latest extension" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1470" y="1640" as="sourcePoint" /><mxPoint x="1140" y="1640" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m27" value="if (extended) skip; else Status = Closed; ClosedAtUtc = now" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1470" y="1678" as="sourcePoint" /><mxPoint x="1470" y="1714" as="targetPoint" /><Array as="points"><mxPoint x="1570" y="1678" /><mxPoint x="1570" y="1714" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m28" value="POST /api/internal/streams/{sessionId}/quiz-event {quizId, state = &quot;Closed&quot;}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1470" y="1752" as="sourcePoint" /><mxPoint x="1800" y="1752" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m29" value="QuizChanged(quizId, &quot;Closed&quot;)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1800" y="1790" as="sourcePoint" /><mxPoint x="480" y="1790" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m30" value="checks the result" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="1840" as="sourcePoint" /><mxPoint x="480" y="1840" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m31" value="GET /api/classrooms/{classroomId}/quizzes/{quizId}/my-result" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1878" as="sourcePoint" /><mxPoint x="810" y="1878" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m32" value="revealed = quiz.Status is Closed or Cancelled" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1912" as="sourcePoint" /><mxPoint x="810" y="1942" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1912" /><mxPoint x="910" y="1942" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m33" value="200 OK : MyQuizResultDto(score, totalPoints, countsTowardsMarks, answers[isCorrect, pointsAwarded])" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="2020" as="sourcePoint" /><mxPoint x="480" y="2020" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m34" value="200 OK : MyQuizResultDto(score = 0, answers[isCorrect = null]) — withheld while the quiz is open" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="2110" as="sourcePoint" /><mxPoint x="480" y="2110" as="targetPoint" /></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

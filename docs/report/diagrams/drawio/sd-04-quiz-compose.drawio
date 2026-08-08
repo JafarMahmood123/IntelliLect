@@ -1,0 +1,214 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="SD 4 - Compose, Edit and Publish a Quiz">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="2260" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="2580" height="2230" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorT" value="Teacher" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="120" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorTline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="180" as="sourcePoint" />
+            <mxPoint x="150" y="2170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actorS" value="Student" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="2420" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorSline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2450" y="180" as="sourcePoint" />
+            <mxPoint x="2450" y="2170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="ln2" value="teacherApp : WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="360" y="60" width="240" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="ln3" value=": QuizService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="700" y="60" width="220" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="ln4" value=": QuizGenerator" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="60" width="220" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="ln5" value=": BrainClient" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="60" width="200" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="ln6" value=": StreamHub" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="60" width="200" height="2110" as="geometry" />
+        </mxCell>
+        <mxCell id="ln7" value="studentApp : WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="2010" y="60" width="240" height="2110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragA" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="320" width="2400" height="590" as="geometry" />
+        </mxCell>
+        <mxCell id="cA1" value="[generate from what was just explained]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="326" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divA" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="830" as="sourcePoint" />
+            <mxPoint x="2500" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cA2" value="[else] — the teacher writes the questions by hand" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="110" y="836" width="700" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragB" value="opt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="380" y="960" width="900" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="cB1" value="[one more question, or options for a hand-written one]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="456" y="966" width="760" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragC" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1460" width="2400" height="420" as="geometry" />
+        </mxCell>
+        <mxCell id="cC1" value="[ValidateForPublish(quiz) passes]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="1466" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divC" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="1790" as="sourcePoint" />
+            <mxPoint x="2500" y="1790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cC2" value="[else] — ConflictException" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="110" y="1796" width="560" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragD" value="opt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1910" width="2400" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="cD1" value="[the teacher grants more time]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="176" y="1916" width="560" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="requests a quiz during the session" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="210" as="sourcePoint" /><mxPoint x="480" y="210" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="GET /api/classrooms/{classroomId}/quiz-limits" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="248" as="sourcePoint" /><mxPoint x="810" y="248" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="200 OK : QuizLimitsDto(maxQuestionsPerQuiz, minAnswersPerQuestion, maxAnswersPerQuestion, defaultSecondsPerQuestion, maxQuizDurationSeconds)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="286" as="sourcePoint" /><mxPoint x="480" y="286" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m4" value="asks to generate a draft" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="370" as="sourcePoint" /><mxPoint x="480" y="370" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="POST /api/classrooms/{classroomId}/sessions/{sessionId}/quizzes/generate {questionCount, wholeSession}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="408" as="sourcePoint" /><mxPoint x="810" y="408" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="count = Math.Clamp(questionCount, 1, maxQuestionsPerQuiz)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="442" as="sourcePoint" /><mxPoint x="810" y="472" as="targetPoint" /><Array as="points"><mxPoint x="910" y="442" /><mxPoint x="910" y="472" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="POST /api/internal/sessions/{sessionId}/quiz {classroomId, questionCount, minOptions, maxOptions, wholeSession}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="510" as="sourcePoint" /><mxPoint x="1140" y="510" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="idea = last_ideas.get(session_id) — 409 NoIdeaAvailable if the lecture has said too little" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="544" as="sourcePoint" /><mxPoint x="1140" y="574" as="targetPoint" /><Array as="points"><mxPoint x="1240" y="544" /><mxPoint x="1240" y="574" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="chunks = retrieve(classroom_id, idea.text, top_k) — POST /api/search on RagService" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="594" as="sourcePoint" /><mxPoint x="1140" y="624" as="targetPoint" /><Array as="points"><mxPoint x="1240" y="594" /><mxPoint x="1240" y="624" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="generate_quiz(idea_text, chunks, question_count, min_options, max_options, whole_session)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="662" as="sourcePoint" /><mxPoint x="1470" y="662" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value=": GeneratedQuiz(title, questions, grounded, citations, corrections)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1470" y="700" as="sourcePoint" /><mxPoint x="1140" y="700" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="200 OK : GenerateQuizResponse — 503 if no usable quiz" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="738" as="sourcePoint" /><mxPoint x="810" y="738" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="CreateDraftAsync(classroomId, sessionId, teacherId, draft) — marks and time limits are set here, not by the model" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="772" as="sourcePoint" /><mxPoint x="810" y="808" as="targetPoint" /><Array as="points"><mxPoint x="910" y="772" /><mxPoint x="910" y="808" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="POST /api/classrooms/{classroomId}/sessions/{sessionId}/quizzes {title, questions[]}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="875" as="sourcePoint" /><mxPoint x="810" y="875" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m15" value="200 OK : QuizTeacherDto(status = &quot;Draft&quot;) — students cannot see it" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="935" as="sourcePoint" /><mxPoint x="480" y="935" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m16" value="POST .../quizzes/generate-question {avoid}  |  .../generate-answers {questionText}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1010" as="sourcePoint" /><mxPoint x="810" y="1010" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="POST /api/internal/sessions/{sessionId}/quiz  |  .../quiz/answers" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1048" as="sourcePoint" /><mxPoint x="1140" y="1048" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value=": GeneratedQuestionResponse" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1140" y="1086" as="sourcePoint" /><mxPoint x="810" y="1086" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m19" value="200 OK : GeneratedQuestionDraftDto — nothing is persisted" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1124" as="sourcePoint" /><mxPoint x="480" y="1124" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m20" value="edits the draft" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="1200" as="sourcePoint" /><mxPoint x="480" y="1200" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m21" value="PUT /api/classrooms/{classroomId}/quizzes/{quizId} {title, questions[]}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1238" as="sourcePoint" /><mxPoint x="810" y="1238" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m22" value="if (quiz.Status != Draft) throw ConflictException" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1272" as="sourcePoint" /><mxPoint x="810" y="1302" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1272" /><mxPoint x="910" y="1302" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m23" value="200 OK : QuizTeacherDto" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1340" as="sourcePoint" /><mxPoint x="480" y="1340" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m24" value="publishes the quiz" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="1390" as="sourcePoint" /><mxPoint x="480" y="1390" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m25" value="POST /api/classrooms/{classroomId}/quizzes/{quizId}/publish" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1428" as="sourcePoint" /><mxPoint x="810" y="1428" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m26" value="ValidateForPublish(quiz) — at least one question, exactly one correct option each, points &gt; 0, total time &lt;= max" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1505" as="sourcePoint" /><mxPoint x="810" y="1541" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1505" /><mxPoint x="910" y="1541" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m27" value="Status = Open; PublishedAtUtc = now; ClosesAtUtc = now + sum(TimeLimitSeconds)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1575" as="sourcePoint" /><mxPoint x="810" y="1611" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1575" /><mxPoint x="910" y="1611" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m28" value="POST /api/internal/streams/{sessionId}/quiz-event {quizId, state = &quot;Open&quot;}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1645" as="sourcePoint" /><mxPoint x="1800" y="1645" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m29" value="QuizChanged(quizId, &quot;Open&quot;) — id and state only, never the questions" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1800" y="1683" as="sourcePoint" /><mxPoint x="2130" y="1683" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m30" value="the quiz appears in the session" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="2130" y="1721" as="sourcePoint" /><mxPoint x="2450" y="1721" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m31" value="200 OK : QuizTeacherDto(status = &quot;Open&quot;, closesAtUtc)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1759" as="sourcePoint" /><mxPoint x="480" y="1759" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m32" value="409 Conflict : ProblemDetails(detail) — nothing is published" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1840" as="sourcePoint" /><mxPoint x="480" y="1840" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m33" value="POST /api/classrooms/{classroomId}/quizzes/{quizId}/extend {seconds, studentIds?}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="480" y="1960" as="sourcePoint" /><mxPoint x="810" y="1960" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m34" value="basis = ClosesAtUtc &gt; now ? ClosesAtUtc : now; ClosesAtUtc = basis + seconds" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="1994" as="sourcePoint" /><mxPoint x="810" y="2030" as="targetPoint" /><Array as="points"><mxPoint x="910" y="1994" /><mxPoint x="910" y="2030" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m35" value="POST /api/internal/streams/{sessionId}/quiz-event {quizId, state = &quot;Open&quot;}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="810" y="2075" as="sourcePoint" /><mxPoint x="1800" y="2075" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m36" value="QuizChanged(quizId, &quot;Open&quot;) — each client re-reads its own deadline" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1800" y="2113" as="sourcePoint" /><mxPoint x="2130" y="2113" as="targetPoint" /></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

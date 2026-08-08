@@ -1,0 +1,94 @@
+% ===========================================================================
+% SEQUENCE DIAGRAMS — one per narrated use case (تحليل المتطلبات §2.2), in the
+% same order and with the same wording, so a reader can pair each diagram with
+% its narrative by name.
+%
+% LIFELINES STAY AT SERVICE GRANULARITY: الواجهة، خدمة الفصول، خدمة البث،
+% خدمة الاسترجاع، خدمة المساعد المباشر. Never internal components (the
+% ingestion worker, the boundary detector, a repository) — those belong to the
+% per-service sections that FOLLOW this one, and naming them here would be a
+% forward reference.
+%
+% Fill them one at a time; find the empty ones with:
+%   grep -n "TODO(sd-" chapters/05-2b-sequence-diagrams.tex
+% ===========================================================================
+
+تعرض الأقسام السابقة البنية الساكنة للنظام: الخدمات التي يتألّف منها، وأنماط التصميم التي بُنيت عليها. ويعرض هذا القسم سلوكه: كيف تتخاطب هذه الخدمات في حالات الاستخدام الأساسية التي وردت سردًا في القسم~\ref{sec:uc-narratives}. ويظهر في هذه المخططات، إلى جانب الخدمات، تطبيقُ الويب بوصفه طرفًا في الحوار لا واجهةَ عرضٍ فحسب، إذ تجري عليه السبورة البيضاء وتتبادل نسخُه ما يُرسم مباشرةً؛ وتُفصَّل مكوّناته في القسم التالي.
+
+\clearpage
+\subsection{مخطط التسلسل لحالة رفع ملف مرجعي إلى الفصل وفهرسته}
+\label{subsec:sd-ingest}
+
+يبيّن هذا المخطط تخاطب تطبيق الويب وخدمة الفصول وخدمة الاسترجاع، منذ رفع المعلم الملف إلى أن تصير حالته «مفهرَس». ويقابله السرد النصي في القسم~\ref{subsubsec:uc-ingest}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-01-ingest.png}
+  \caption{مخطط التسلسل لحالة «رفع ملف مرجعي إلى الفصل وفهرسته»: يعرض نداءات العمليات والطلبات المتبادلة بين تطبيق الويب وخدمة الفصول وخدمة الاسترجاع، ومسارَي الرفض والفهرسة غير المتزامنة.}
+  \label{fig:sd-01-ingest}
+\end{figure}
+
+\clearpage
+\subsection{مخطط التسلسل لحالة الشرح على السبورة والتفاعل داخل الجلسة}
+\label{subsec:sd-whiteboard}
+
+يبيّن هذا المخطط تخاطب تطبيق الويب عند المعلم وعند الطلاب مع خدمة البث، في الرسم على السبورة وفي الدردشة وطرح الأسئلة وضبط ما يُسمح للطلاب بمشاركته. ويقابله السرد النصي في القسم~\ref{subsubsec:uc-whiteboard}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-02-whiteboard.png}
+  \caption{مخطط التسلسل لحالة «الشرح على السبورة والتفاعل داخل الجلسة»: يعرض مسار السبورة عبر قناة البيانات بين المتصفّحات، ومسار الدردشة والأسئلة وضبط المشاركة عبر خدمة البث.}
+  \label{fig:sd-02-whiteboard}
+\end{figure}
+
+\clearpage
+\subsection{مخطط التسلسل لحالة تحليل شرح المعلم وإشعار المساعد المباشر}
+\label{subsec:sd-drift}
+
+يبيّن هذا المخطط الحلقة التي تربط خدمة البث بخدمة المساعد المباشر وخدمة الاسترجاع، من التقاط صوت المعلم إلى إرسال الملاحظة إليه وحده. ويقابله السرد النصي في القسم~\ref{subsubsec:uc-drift}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-03-drift.png}
+  \caption{مخطط التسلسل لحالة «تحليل شرح المعلم وإشعار المساعد المباشر»: يعرض حلقة الجلسة الحيّة وبوّاباتها الثلاث، وهي اكتمال الفكرة، ووجود مادة مرجعية تُقاس عليها، وقرار المهايأة قبل التسليم.}
+  \label{fig:sd-03-drift}
+\end{figure}
+
+\clearpage
+\subsection{مخطط التسلسل لحالة إنشاء مسودة اختبار وتعديلها ونشرها}
+\label{subsec:sd-quiz-compose}
+
+يبيّن هذا المخطط تخاطب تطبيق الويب وخدمة الفصول وخدمة المساعد المباشر، في تأليف مسودة الاختبار وتوليدها ممّا شُرح، ثمّ في نشرها على الجلسة. ويقابله السرد النصي في القسم~\ref{subsubsec:uc-quiz-compose}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-04-quiz-compose.png}
+  \caption{مخطط التسلسل لحالة «إنشاء مسودة اختبار وتعديلها ونشرها»: يلتقي فيه مسارا التأليف، المولَّد واليدوي، عند الحالة «مسودة» نفسها، فيمرّان بالتحقّق والنشر ذاتهما.}
+  \label{fig:sd-04-quiz-compose}
+\end{figure}
+
+\clearpage
+\subsection{مخطط التسلسل لحالة الإجابة عن الاختبار وتسليمه وتصحيحه}
+\label{subsec:sd-quiz-answer}
+
+يبيّن هذا المخطط تخاطب تطبيق الويب عند الطالب مع خدمة الفصول، في الإجابة عن الأسئلة وتبديلها والتسليم، ثمّ في كشف العلامة بعد إغلاق الاختبار. ويقابله السرد النصي في القسم~\ref{subsubsec:uc-quiz-answer}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-05-quiz-answer.png}
+  \caption{مخطط التسلسل لحالة «الإجابة عن الاختبار وتسليمه وتصحيحه»: يُصحَّح كل اختيار لحظة وقوعه وتُخزَّن علامته، ولا يُكشف صوابه ولا العلامة إلّا بعد إغلاق الاختبار.}
+  \label{fig:sd-05-quiz-answer}
+\end{figure}
+
+\clearpage
+\subsection{مخطط التسلسل لحالة إنهاء الجلسة وتوليد الملخّص}
+\label{subsec:sd-session-end}
+
+يبيّن هذا المخطط أوسع هذه الحالات انتشارًا بين الخدمات: خدمة الفصول وخدمة البث وخدمة المساعد المباشر وخدمة الاسترجاع، من طلب المعلم إنهاء الجلسة إلى إتاحة تسجيلها وملخّصها. ويقابله السرد النصي في القسم~\ref{subsubsec:uc-session-end}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/sd-06-session-end.png}
+  \caption{مخطط التسلسل لحالة «إنهاء الجلسة وتوليد الملخّص»: يُقيَّد فيه استحقاق الملخّص ضمن معاملة الإنهاء نفسها قبل إغلاق البثّ، ثمّ يجري التوليد لاحقًا على نحو غير متزامن.}
+  \label{fig:sd-06-session-end}
+\end{figure}

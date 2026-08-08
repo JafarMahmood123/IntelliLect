@@ -1,0 +1,194 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="SD 1 - Upload and Index">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="2070" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1780" height="2040" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor" value="Teacher" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="110" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="140" y="180" as="sourcePoint" />
+            <mxPoint x="140" y="1990" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="ln2" value=": WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="300" y="60" width="200" height="1930" as="geometry" />
+        </mxCell>
+        <mxCell id="ln3" value=": ClassroomFileService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="590" y="60" width="260" height="1930" as="geometry" />
+        </mxCell>
+        <mxCell id="ln4" value=": IFileStorageService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="910" y="60" width="240" height="1930" as="geometry" />
+        </mxCell>
+        <mxCell id="ln5" value=": DocumentsRouter" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="60" width="260" height="1930" as="geometry" />
+        </mxCell>
+        <mxCell id="ln6" value=": IngestionService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="60" width="260" height="1930" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragA" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="340" y="460" width="1430" height="620" as="geometry" />
+        </mxCell>
+        <mxCell id="fragB" value="opt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="610" y="820" width="1150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="fragC" value="async — background indexing" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=260;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="900" y="1120" width="870" height="620" as="geometry" />
+        </mxCell>
+        <mxCell id="fragD" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="940" y="1340" width="810" height="380" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cA1" value="[valid]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="420" y="466" width="300" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divA" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="340" y="980" as="sourcePoint" />
+            <mxPoint x="1770" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cA2" value="[else] — UnauthorizedAccessException | ValidationException | PayloadTooLargeException" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="350" y="986" width="900" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="cB1" value="[RagService unreachable]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="690" y="826" width="420" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="cD1" value="[content_hash != document.content_hash]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="1016" y="1346" width="500" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="divD1" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="1575" as="sourcePoint" />
+            <mxPoint x="1750" y="1575" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cD2" value="[content_hash == document.content_hash]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="950" y="1581" width="500" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="divD2" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="1640" as="sourcePoint" />
+            <mxPoint x="1750" y="1640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cD3" value="[chunks.isEmpty()]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="950" y="1646" width="500" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="requests to upload a reference file" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="140" y="210" as="sourcePoint" /><mxPoint x="400" y="210" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="GET /api/classrooms/{classroomId}/files/upload-limits" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="248" as="sourcePoint" /><mxPoint x="720" y="248" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="200 OK : UploadLimitsDto(maxFileSizeBytes, allowedContentTypes, allowedExtensions)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="286" as="sourcePoint" /><mxPoint x="400" y="286" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="selects the file and confirms the upload" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="140" y="324" as="sourcePoint" /><mxPoint x="400" y="324" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="POST /api/classrooms/{classroomId}/files (multipart/form-data: file)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="362" as="sourcePoint" /><mxPoint x="720" y="362" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="ValidateSize(fileStream); ValidateType(fileName, contentType)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="396" as="sourcePoint" /><mxPoint x="720" y="432" as="targetPoint" /><Array as="points"><mxPoint x="820" y="396" /><mxPoint x="820" y="432" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m7" value="url = UploadFileAsync(fileStream, s3Key, contentType)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="510" as="sourcePoint" /><mxPoint x="1030" y="510" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value=": string" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1030" y="548" as="sourcePoint" /><mxPoint x="720" y="548" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="AddAsync(classroomFile); SaveChangesAsync()" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="582" as="sourcePoint" /><mxPoint x="720" y="618" as="targetPoint" /><Array as="points"><mxPoint x="820" y="582" /><mxPoint x="820" y="618" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="POST /api/internal/documents/ingest {fileId, classroomId, s3Key, fileName, contentType, sizeBytes}" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="656" as="sourcePoint" /><mxPoint x="1330" y="656" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="documents.add(Document(status = PENDING))" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1330" y="694" as="sourcePoint" /><mxPoint x="1330" y="730" as="targetPoint" /><Array as="points"><mxPoint x="1430" y="694" /><mxPoint x="1430" y="730" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="accepted = enqueue(IngestionJob.from_document(saved))" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1330" y="768" as="sourcePoint" /><mxPoint x="1640" y="768" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="202 Accepted : IngestDocumentResponse(documentId, fileId, status = &quot;Pending&quot;)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1330" y="806" as="sourcePoint" /><mxPoint x="720" y="806" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="LogWarning(&quot;not indexed until re-triggered&quot;) — upload still succeeds" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="862" as="sourcePoint" /><mxPoint x="720" y="898" as="targetPoint" /><Array as="points"><mxPoint x="820" y="862" /><mxPoint x="820" y="898" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="200 OK : ClassroomFileResponse(id, fileName, contentType, sizeBytes)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="945" as="sourcePoint" /><mxPoint x="400" y="945" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m16" value="403 | 400 | 413 : ProblemDetails(detail)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="1030" as="sourcePoint" /><mxPoint x="400" y="1030" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="display rejection reason" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="1064" as="sourcePoint" /><mxPoint x="140" y="1064" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m18" value="claimed = claim_for_processing(template, now) : Document" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1170" as="sourcePoint" /><mxPoint x="1640" y="1206" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1170" /><mxPoint x="1740" y="1206" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m19" value="size = get_size(s3_key) : int" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1244" as="sourcePoint" /><mxPoint x="1030" y="1244" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m20" value="file_bytes = get_bytes(s3_key) : bytes" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1282" as="sourcePoint" /><mxPoint x="1030" y="1282" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m21" value=": bytes" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1030" y="1320" as="sourcePoint" /><mxPoint x="1640" y="1320" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m22" value="result = extract(file_bytes, file_name, content_type) : ExtractionResult" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1385" as="sourcePoint" /><mxPoint x="1640" y="1415" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1385" /><mxPoint x="1740" y="1415" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m23" value="result = ocr.process(file_bytes, result)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1425" as="sourcePoint" /><mxPoint x="1640" y="1455" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1425" /><mxPoint x="1740" y="1455" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m24" value="chunks = chunk(result, claimed.id, classroom_id) : list&lt;Chunk&gt;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1465" as="sourcePoint" /><mxPoint x="1640" y="1495" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1465" /><mxPoint x="1740" y="1495" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m25" value="embeddings = embed_documents(texts) : list&lt;vector&gt;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1505" as="sourcePoint" /><mxPoint x="1640" y="1535" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1505" /><mxPoint x="1740" y="1535" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m26" value="replace_for_document(claimed.id, chunks, embeddings); _mark_done(claimed, content_hash)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1545" as="sourcePoint" /><mxPoint x="1640" y="1565" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1545" /><mxPoint x="1740" y="1565" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m27" value="_mark_done(claimed, content_hash) — no reprocessing" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1605" as="sourcePoint" /><mxPoint x="1640" y="1630" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1605" /><mxPoint x="1740" y="1630" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m28" value="raise PermanentIngestionError; update_status(file_id, FAILED, message)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1670" as="sourcePoint" /><mxPoint x="1640" y="1700" as="targetPoint" /><Array as="points"><mxPoint x="1740" y="1670" /><mxPoint x="1740" y="1700" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m29" value="checks the file's indexing status" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="140" y="1790" as="sourcePoint" /><mxPoint x="400" y="1790" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m30" value="GET /api/classrooms/{classroomId}/files/{fileId}/indexing-status" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="400" y="1828" as="sourcePoint" /><mxPoint x="720" y="1828" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m31" value="GET /api/internal/documents/{fileId}/status" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="1866" as="sourcePoint" /><mxPoint x="1330" y="1866" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m32" value="200 OK : DocumentStatusResponse(fileId, status)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1330" y="1904" as="sourcePoint" /><mxPoint x="720" y="1904" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m33" value="200 OK : { status: &quot;Done&quot; }" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="720" y="1942" as="sourcePoint" /><mxPoint x="400" y="1942" as="targetPoint" /></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

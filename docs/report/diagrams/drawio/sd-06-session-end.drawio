@@ -1,0 +1,192 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="SD 6 - End Session and Generate Summary">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="2250" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="2580" height="2220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actorT" value="Teacher" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="120" y="40" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="actorTline" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="150" y="180" as="sourcePoint" />
+            <mxPoint x="150" y="2190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="ln2" value="teacherApp : WebApp" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="380" y="60" width="240" height="2130" as="geometry" />
+        </mxCell>
+        <mxCell id="ln3" value=": SessionTerminationService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="720" y="60" width="280" height="2130" as="geometry" />
+        </mxCell>
+        <mxCell id="ln4" value=": StreamService" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="60" width="200" height="2130" as="geometry" />
+        </mxCell>
+        <mxCell id="ln5" value=": SummaryPipeline" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="60" width="220" height="2130" as="geometry" />
+        </mxCell>
+        <mxCell id="ln6" value=": SummaryGenerator" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1785" y="60" width="230" height="2130" as="geometry" />
+        </mxCell>
+        <mxCell id="ln7" value=": SummaryStorage" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;size=50;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="2130" y="60" width="220" height="2130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragA" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=70;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="290" width="2400" height="660" as="geometry" />
+        </mxCell>
+        <mxCell id="cA1" value="[session.Status == Live]" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="180" y="296" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="divA" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#666666;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="880" as="sourcePoint" />
+            <mxPoint x="2500" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cA2" value="[else] — already ended, never started, or being deleted" style="text;html=1;align=left;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="110" y="886" width="760" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragAsync" value="async — outbox relay + RabbitMQ" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;width=300;height=30;fontSize=14;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="680" y="990" width="1820" height="980" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragB" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1700" y="1190" width="800" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="cB1" value="[transcript is long enough]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="1776" y="1196" width="520" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="divB" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1700" y="1380" as="sourcePoint" />
+            <mxPoint x="2500" y="1380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cB2" value="[else] — insufficient content" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="1710" y="1386" width="520" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fragC" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;width=70;height=28;fontSize=13;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="680" y="1655" width="1820" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="cC1" value="[artifacts uploaded]" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="756" y="1661" width="520" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="divC" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#999999;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="680" y="1790" as="sourcePoint" />
+            <mxPoint x="2500" y="1790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cC2" value="[else] — every attempt failed" style="text;html=1;align=left;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="690" y="1796" width="520" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="ends the session" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="210" as="sourcePoint" /><mxPoint x="500" y="210" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="POST /api/classrooms/{classroomId}/sessions/{sessionId}/end" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="248" as="sourcePoint" /><mxPoint x="860" y="248" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m3" value="BeginTransactionAsync()" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="340" as="sourcePoint" /><mxPoint x="860" y="370" as="targetPoint" /><Array as="points"><mxPoint x="980" y="340" /><mxPoint x="980" y="370" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="claimed = TryMarkEndedAsync(sessionId, endedAtUtc) — atomic claim; false means another caller is already ending it" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="410" as="sourcePoint" /><mxPoint x="860" y="446" as="targetPoint" /><Array as="points"><mxPoint x="980" y="410" /><mxPoint x="980" y="446" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="StageSummaryRequestAsync(session) — summary.Status = Generating" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="486" as="sourcePoint" /><mxPoint x="860" y="516" as="targetPoint" /><Array as="points"><mxPoint x="980" y="486" /><mxPoint x="980" y="516" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="PublishAsync(SessionSummaryRequestedMessage(sessionId, classroomId, reason = &quot;SessionEnded&quot;)) — outbox row in the SAME transaction" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="556" as="sourcePoint" /><mxPoint x="860" y="592" as="targetPoint" /><Array as="points"><mxPoint x="980" y="556" /><mxPoint x="980" y="592" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="SaveChangesAsync(); CommitAsync()" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="632" as="sourcePoint" /><mxPoint x="860" y="662" as="targetPoint" /><Array as="points"><mxPoint x="980" y="632" /><mxPoint x="980" y="662" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="EndStreamAsync(sessionId) — AFTER the commit, so a failing teardown cannot cost the summary" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="700" as="sourcePoint" /><mxPoint x="1220" y="700" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="stop egress; close the room; disconnect participants" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="734" as="sourcePoint" /><mxPoint x="1220" y="770" as="targetPoint" /><Array as="points"><mxPoint x="1320" y="734" /><mxPoint x="1320" y="770" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value=": bool streamEnded — false is logged, not fatal" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1220" y="808" as="sourcePoint" /><mxPoint x="860" y="808" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="200 OK : SessionEndOutcome(status = &quot;Ended&quot;, streamEnded, summaryTriggered, endedAtUtc)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="846" as="sourcePoint" /><mxPoint x="500" y="846" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="200 OK : SessionEndOutcome(alreadyEnded = true) — nothing is changed" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="925" as="sourcePoint" /><mxPoint x="500" y="925" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m13" value="SessionSummaryRequestedMessage(sessionId, classroomId)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="1050" as="sourcePoint" /><mxPoint x="1560" y="1050" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m14" value="result = generate(session_id) : SummaryResult" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1560" y="1088" as="sourcePoint" /><mxPoint x="1900" y="1088" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m15" value="transcript = fetch(session_id) — GET /api/internal/sessions/{sessionId}/transcript on LiveAssistantService" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1900" y="1122" as="sourcePoint" /><mxPoint x="1900" y="1158" as="targetPoint" /><Array as="points"><mxPoint x="2000" y="1122" /><mxPoint x="2000" y="1158" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m16" value="supporting = _retrieve_supporting(_query_windows(transcript)) — windows sampled across the session; a dead window is skipped" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1900" y="1240" as="sourcePoint" /><mxPoint x="1900" y="1276" as="targetPoint" /><Array as="points"><mxPoint x="2000" y="1240" /><mxPoint x="2000" y="1276" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m17" value="markdown = _summarize(transcript, supporting)  |  _map_reduce(...) when the transcript exceeds the model window" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1900" y="1310" as="sourcePoint" /><mxPoint x="1900" y="1346" as="targetPoint" /><Array as="points"><mxPoint x="2000" y="1310" /><mxPoint x="2000" y="1346" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m18" value="return the fixed &quot;insufficient content&quot; note — no retrieval, no model call" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1900" y="1425" as="sourcePoint" /><mxPoint x="1900" y="1455" as="targetPoint" /><Array as="points"><mxPoint x="2000" y="1425" /><mxPoint x="2000" y="1455" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m19" value=": SummaryResult(markdown, classroom_id, generated_at)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1900" y="1520" as="sourcePoint" /><mxPoint x="1560" y="1520" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m20" value="pdf_bytes = render(result.markdown, metadata)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1560" y="1554" as="sourcePoint" /><mxPoint x="1560" y="1584" as="targetPoint" /><Array as="points"><mxPoint x="1660" y="1554" /><mxPoint x="1660" y="1584" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m21" value="upload(md_key, markdown, &quot;text/markdown&quot;); upload(pdf_key, pdf_bytes, &quot;application/pdf&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1560" y="1622" as="sourcePoint" /><mxPoint x="2240" y="1622" as="targetPoint" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m22" value="SessionSummaryReadyMessage.success(sessionId, classroomId, mdS3Key, pdfS3Key)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1560" y="1700" as="sourcePoint" /><mxPoint x="860" y="1700" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m23" value="summary.Status = Available" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="1734" as="sourcePoint" /><mxPoint x="860" y="1764" as="targetPoint" /><Array as="points"><mxPoint x="980" y="1734" /><mxPoint x="980" y="1764" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="m24" value="SessionSummaryReadyMessage.failure(sessionId, error)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="1560" y="1835" as="sourcePoint" /><mxPoint x="860" y="1835" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m25" value="summary.Status = Failed — the session stays Ended and its recording is kept" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;edgeStyle=orthogonalEdgeStyle;fontSize=13;align=left;spacingLeft=8;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="1865" as="sourcePoint" /><mxPoint x="860" y="1895" as="targetPoint" /><Array as="points"><mxPoint x="980" y="1865" /><mxPoint x="980" y="1895" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="m26" value="views the recording and the summary" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="150" y="2000" as="sourcePoint" /><mxPoint x="500" y="2000" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m27" value="GET /api/classrooms/{classroomId}/summaries?sessionId={sessionId}" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="2038" as="sourcePoint" /><mxPoint x="860" y="2038" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m28" value="200 OK : SummaryDto(status = &quot;Available&quot;, generatedAtUtc)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="2076" as="sourcePoint" /><mxPoint x="500" y="2076" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m29" value="GET /api/classrooms/{classroomId}/summaries/{summaryId}/download" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="500" y="2114" as="sourcePoint" /><mxPoint x="860" y="2114" as="targetPoint" /></mxGeometry>
+        </mxCell>
+        <mxCell id="m30" value="200 OK : file stream (PDF)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;rounded=0;fontSize=13;strokeColor=#000000;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint x="860" y="2152" as="sourcePoint" /><mxPoint x="500" y="2152" as="targetPoint" /></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
