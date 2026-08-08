@@ -173,6 +173,39 @@
 \newcommand{\transition}[1]{\par\vspace{24pt}\noindent #1}
 
 % ===========================================================================
+% Use-case narrative tables (تحليل المتطلبات §2.2).
+%
+% A longtable, NOT a table float. The caption has to stay directly under
+% «السيناريو الرئيسي (المسار الناجح)»; a float would drift to the next page
+% with room. longtable is typeset in place and breaks across pages when the
+% steps do not fit on one, repeating the column headings after the break.
+%
+% Column order is ACTOR first, SYSTEM second, which in RTL puts «النظام» on
+% the LEFT as the report requires. Write every row the same way round: the
+% actor's step before the &, the system's step after it.
+%
+%   \begin{ucflow}{caption}{المعلم}
+%      1. ... &                 \\ \hline   % actor step
+%       & 2. ...               \\ \hline   % system step
+%   \end{ucflow}
+%
+% The environment is a group, so the padding it sets is restored on \end.
+% ===========================================================================
+\newenvironment{ucflow}[2]
+  {\setlength{\tabcolsep}{10pt}%
+   \setlength{\extrarowheight}{3pt}%
+   \renewcommand{\arraystretch}{1.3}%
+   \begin{longtable}{|p{6cm}|p{6cm}|}
+   \caption{#1}\\
+   \hline
+   \multicolumn{1}{|c|}{\textbf{#2}} & \multicolumn{1}{c|}{\textbf{النظام}} \\ \hline
+   \endfirsthead
+   \hline
+   \multicolumn{1}{|c|}{\textbf{#2}} & \multicolumn{1}{c|}{\textbf{النظام}} \\ \hline
+   \endhead}
+  {\end{longtable}}
+
+% ===========================================================================
 % Captions (STRUCTURE.md §6): "الشكل 1- text", 14pt Arabic bold, centred.
 % Figure caption goes BELOW the figure; table caption goes ABOVE the table.
 % ===========================================================================

@@ -1,0 +1,237 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Super Admin Use Cases">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="2005" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="frame" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;strokeWidth=2" vertex="1" parent="1">
+          <mxGeometry x="10" y="10" width="1480" height="1975" as="geometry" />
+        </mxCell>
+
+        <mxCell id="authuser" value="مستخدم مصرّح له" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="60" y="700" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sa" value="المدير الأعلى للنظام" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+          <mxGeometry x="60" y="950" width="60" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="gen0" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0.5;exitY=0;entryX=0.5;entryY=1" edge="1" parent="1" source="sa" target="authuser">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sys" value="النظام" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+          <mxGeometry x="200" y="45" width="1270" height="1920" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="تسجيل الدخول بالمصادقة الثنائية" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="90" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="إدارة مدراء النظام" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="220" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="إدارة المستخدمين على مستوى المنصة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="435" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="الإشراف على الفصول الدراسية" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="770" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p5" value="الإشراف على جلسات التعلم" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="1145" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p6" value="إدارة المحتوى وقاعدة المعرفة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="1520" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p7" value="إدارة التسجيلات والملخصات" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="250" y="1815" width="320" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l21" value="استعراض مدراء النظام الأدنى منه" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="180" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l22" value="إضافة مدير نظام أو تعطيل حسابه وإعادة تنشيطه" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="260" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l31" value="استعراض المستخدمين والبحث فيهم وفلترتهم" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="355" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l32" value="عرض تفاصيل مستخدم وعضوياته في الفصول" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="435" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l33" value="قبول طلبات التسجيل أو رفضها وتعطيل الحسابات أو تنشيطها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="515" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l41" value="استعراض الفصول الدراسية والبحث فيها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="610" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l42" value="إنشاء فصل دراسي أو تعديله" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="690" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l43" value="حذف فصل دراسي" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="770" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l44" value="إسناد معلم الفصل أو تغييره" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="850" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l45" value="إضافة طلاب إلى الفصل أو إزالتهم" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="930" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l51" value="استعراض الجلسات والبحث فيها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1025" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l52" value="عرض الجلسات النشطة في الوقت الفعلي" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1105" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l53" value="الإنهاء القسري لجلسة مباشرة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1185" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l54" value="حذف جلسة مع مخرجاتها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1265" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l61" value="استعراض الملفات وحالة فهرستها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1360" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l62" value="عرض تفاصيل أخطاء الفهرسة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1440" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l63" value="إعادة فهرسة ملف مفرد أو ملفات فصل كامل" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1520" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l64" value="حذف ملف مع مقاطعه المفهرسة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1600" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l65" value="استعراض إحصائيات قاعدة المعرفة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1680" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="l71" value="استعراض التسجيلات والملخصات وحالاتها" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1775" width="500" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="l72" value="حذف تسجيل أو ملخص" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="650" y="1855" width="500" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1" value="التحقق من رمز العامل الثاني" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="1210" y="90" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="معاينة أثر حذف الفصل" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="1210" y="770" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="معاينة أثر حذف الجلسة" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=14" vertex="1" parent="1">
+          <mxGeometry x="1210" y="1265" width="250" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="as1" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.15;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as2" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.25;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as3" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.35;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as4" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.45;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as5" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.6;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as6" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.75;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="as7" style="html=1;rounded=0;endArrow=open;endFill=0;strokeColor=#000000;exitX=1;exitY=0.85;entryX=0;entryY=0.5" edge="1" parent="1" source="sa" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g21" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.35" edge="1" parent="1" source="l21" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g22" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.65" edge="1" parent="1" source="l22" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g31" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.3" edge="1" parent="1" source="l31" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g32" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.5" edge="1" parent="1" source="l32" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g33" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.7" edge="1" parent="1" source="l33" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g41" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.2" edge="1" parent="1" source="l41" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g42" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.35" edge="1" parent="1" source="l42" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g43" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.5" edge="1" parent="1" source="l43" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g44" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.65" edge="1" parent="1" source="l44" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g45" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.8" edge="1" parent="1" source="l45" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g51" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.25" edge="1" parent="1" source="l51" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g52" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.45" edge="1" parent="1" source="l52" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g53" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.6" edge="1" parent="1" source="l53" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g54" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.8" edge="1" parent="1" source="l54" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g61" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.2" edge="1" parent="1" source="l61" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g62" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.35" edge="1" parent="1" source="l62" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g63" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.5" edge="1" parent="1" source="l63" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g64" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.65" edge="1" parent="1" source="l64" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g65" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.8" edge="1" parent="1" source="l65" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g71" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.35" edge="1" parent="1" source="l71" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g72" style="html=1;rounded=0;endArrow=block;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.65" edge="1" parent="1" source="l72" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="i1" value="&amp;laquo;include&amp;raquo;" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=13;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="p1" target="a1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i2" value="&amp;laquo;include&amp;raquo;" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=13;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="l43" target="a2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="i3" value="&amp;laquo;include&amp;raquo;" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=13;exitX=1;exitY=0.5;entryX=0;entryY=0.5" edge="1" parent="1" source="l54" target="a3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="x1" value="&amp;laquo;extend&amp;raquo;" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=13;exitX=0.85;exitY=0;entryX=0.85;entryY=1" edge="1" parent="1" source="l53" target="l52">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" value="&amp;laquo;extend&amp;raquo;" style="html=1;rounded=0;dashed=1;endArrow=open;endFill=0;strokeColor=#000000;fontSize=13;exitX=0.85;exitY=0;entryX=0.85;entryY=1" edge="1" parent="1" source="l62" target="l61">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
