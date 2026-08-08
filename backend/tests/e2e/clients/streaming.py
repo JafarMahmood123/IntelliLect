@@ -44,3 +44,31 @@ class StreamingClient:
             livekit_host=get_ci(data, "liveKitHost"),
             participant_count=int(get_ci(data, "participantCount", 0)),
         )
+
+    # --- the roster and the interaction surface (§8.4, §7.4d/e) ---------------
+    #
+    # Raw responses on purpose. Every one of these is asserted in both directions — a member
+    # succeeds, a stranger is refused — and a client that raised on a non-2xx would make the
+    # refusal half unwriteable without catching exceptions for control flow.
+
+    def get_stream_response(self, participant: Account, session_id: str) -> httpx.Response:
+        return self._http.get(f"/api/streams/{session_id}", headers=participant.auth)
+
+    def join(self, participant: Account, session_id: str) -> httpx.Response:
+        return self._http.post(f"/api/streams/{session_id}/join", headers=participant.auth)
+
+    def leave(self, participant: Account, session_id: str) -> httpx.Response:
+        return self._http.delete(f"/api/streams/{session_id}/leave", headers=participant.auth)
+
+    def chat_history(self, participant: Account, session_id: str) -> httpx.Response:
+        return self._http.get(f"/api/streams/{session_id}/chat", headers=participant.auth)
+
+    def questions(self, participant: Account, session_id: str) -> httpx.Response:
+        return self._http.get(f"/api/streams/{session_id}/questions", headers=participant.auth)
+
+    def ask_question(self, participant: Account, session_id: str, text: str) -> httpx.Response:
+        return self._http.post(
+            f"/api/streams/{session_id}/questions",
+            json={"questionText": text},
+            headers=participant.auth,
+        )

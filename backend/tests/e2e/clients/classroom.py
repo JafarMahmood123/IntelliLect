@@ -164,3 +164,205 @@ class ClassroomClient:
             )
         )
         return resp.json()
+
+    # --- material (§8.3) ------------------------------------------------------
+
+    def upload_file(
+        self, teacher: Account, classroom_id: str, *, file_name: str, content: bytes,
+        content_type: str = "text/plain",
+    ) -> dict:
+        """Upload through the public route, the way a teacher does.
+
+        Deliberately not seeded straight into MinIO: the upload endpoint is where the size
+        guard, the storage write and the RagService ingest trigger all live, and seeding the
+        bucket would skip all three while looking like the same starting state.
+        """
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/files",
+                files={"file": (file_name, content, content_type)},
+                headers=teacher.auth,
+            )
+        )
+        return resp.json()
+
+    def upload_file_response(
+        self, teacher: Account, classroom_id: str, *, file_name: str, content: bytes,
+        content_type: str = "application/octet-stream",
+    ) -> httpx.Response:
+        """Unwrapped, for the cases whose point is the refusal (an oversized upload)."""
+        return self._http.post(
+            f"/api/classrooms/{classroom_id}/files",
+            files={"file": (file_name, content, content_type)},
+            headers=teacher.auth,
+        )
+
+    def list_files(self, account: Account, classroom_id: str) -> list[dict]:
+        resp = expect_ok(
+            self._http.get(f"/api/classrooms/{classroom_id}/files", headers=account.auth)
+        )
+        return resp.json()
+
+    def list_files_response(self, account: Account, classroom_id: str) -> httpx.Response:
+        return self._http.get(f"/api/classrooms/{classroom_id}/files", headers=account.auth)
+
+    def indexing_status(self, account: Account, classroom_id: str, file_id: str) -> str:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/files/{file_id}/indexing-status",
+                headers=account.auth,
+            )
+        )
+        return str(get_ci(resp.json(), "status", ""))
+
+    def delete_file(self, teacher: Account, classroom_id: str, file_id: str) -> None:
+        expect_ok(
+            self._http.delete(
+                f"/api/classrooms/{classroom_id}/files/{file_id}", headers=teacher.auth
+            )
+        )
+
+    def upload_limits(self, account: Account, classroom_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/files/upload-limits", headers=account.auth
+            )
+        )
+        return resp.json()
+
+    # --- membership + lifecycle (§8.3) ---------------------------------------
+
+    def members_response(self, account: Account, classroom_id: str) -> httpx.Response:
+        return self._http.get(f"/api/classrooms/{classroom_id}/members", headers=account.auth)
+
+    def get_classroom(self, account: Account, classroom_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(f"/api/classrooms/{classroom_id}", headers=account.auth)
+        )
+        return resp.json()
+
+    def get_classroom_response(self, account: Account, classroom_id: str) -> httpx.Response:
+        return self._http.get(f"/api/classrooms/{classroom_id}", headers=account.auth)
+
+    def delete_classroom(self, teacher: Account, classroom_id: str) -> None:
+        expect_ok(
+            self._http.delete(f"/api/classrooms/{classroom_id}", headers=teacher.auth)
+        )
+
+    def sessions_response(self, account: Account, classroom_id: str) -> httpx.Response:
+        return self._http.get(f"/api/classrooms/{classroom_id}/sessions", headers=account.auth)
+
+    # --- session outputs (§8.4) ----------------------------------------------
+
+    def list_recordings(self, account: Account, classroom_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(f"/api/classrooms/{classroom_id}/recordings", headers=account.auth)
+        )
+        return resp.json()
+
+    def list_summaries(self, account: Account, classroom_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(f"/api/classrooms/{classroom_id}/summaries", headers=account.auth)
+        )
+        return resp.json()
+
+    # --- quizzes, the rest of the loop (§8.6) --------------------------------
+
+    def get_open_quiz(self, account: Account, classroom_id: str, session_id: str) -> dict | None:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/sessions/{session_id}/quizzes/open",
+                headers=account.auth,
+            )
+        )
+        return resp.json() if resp.content and resp.text.strip() not in ("", "null") else None
+
+    def publish_quiz(self, teacher: Account, classroom_id: str, quiz_id: str) -> dict:
+        return expect_ok(self.publish_quiz_response(teacher, classroom_id, quiz_id)).json()
+
+    def answer_quiz(
+        self, student: Account, classroom_id: str, quiz_id: str, *, question_id: str, option_id: str
+    ) -> dict:
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/answers",
+                json={"questionId": question_id, "optionId": option_id},
+                headers=student.auth,
+            )
+        )
+        return resp.json()
+
+    def answer_quiz_response(
+        self, student: Account, classroom_id: str, quiz_id: str, *, question_id: str, option_id: str
+    ) -> httpx.Response:
+        return self._http.post(
+            f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/answers",
+            json={"questionId": question_id, "optionId": option_id},
+            headers=student.auth,
+        )
+
+    def submit_quiz(self, student: Account, classroom_id: str, quiz_id: str) -> dict:
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/submit",
+                headers=student.auth,
+            )
+        )
+        return resp.json()
+
+    def close_quiz(self, teacher: Account, classroom_id: str, quiz_id: str) -> dict:
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/close", headers=teacher.auth
+            )
+        )
+        return resp.json()
+
+    def extend_quiz(
+        self, teacher: Account, classroom_id: str, quiz_id: str, *,
+        seconds: int, student_ids: list[str] | None = None,
+    ) -> dict:
+        body: dict = {"seconds": seconds}
+        if student_ids is not None:
+            body["studentIds"] = student_ids
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/extend",
+                json=body,
+                headers=teacher.auth,
+            )
+        )
+        return resp.json()
+
+    def quiz_results(self, teacher: Account, classroom_id: str, quiz_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/results", headers=teacher.auth
+            )
+        )
+        return resp.json()
+
+    def my_quiz_result(self, student: Account, classroom_id: str, quiz_id: str) -> dict:
+        resp = expect_ok(
+            self._http.get(
+                f"/api/classrooms/{classroom_id}/quizzes/{quiz_id}/my-result",
+                headers=student.auth,
+            )
+        )
+        return resp.json()
+
+    def quiz_draft_with(
+        self, teacher: Account, classroom_id: str, session_id: str, *,
+        title: str, questions: list[dict],
+    ) -> str:
+        """A draft with caller-supplied questions, so a suite can control the answer key."""
+        resp = expect_ok(
+            self._http.post(
+                f"/api/classrooms/{classroom_id}/sessions/{session_id}/quizzes",
+                json={"title": title, "questions": questions},
+                headers=teacher.auth,
+            )
+        )
+        quiz_id = get_ci(resp.json(), "id")
+        assert quiz_id, f"create quiz draft returned no id: {resp.text}"
+        return quiz_id

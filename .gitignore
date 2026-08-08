@@ -125,3 +125,10 @@ __pycache__/
 # problem again, one directory further away.
 test-results.xml
 *.trx
+
+# Playwright (§11.12): its JUnit file, its HTML report, and the traces/screenshots/videos it
+# keeps for failures. All of it is produced by a run and some of it is large.
+playwright-results.xml
+playwright-report/
+test-results/
+/front-end-web/.playwright/

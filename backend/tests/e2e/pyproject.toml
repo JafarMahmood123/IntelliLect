@@ -35,6 +35,12 @@ markers = [
     "smoke: the shortest sequence that proves a deployment is alive — every service probed, one login, one classroom fetch, one session start. Must finish well under a minute. test_smoke_inventory.py carries the same marker but needs nothing running.",
     "resilience: rules over configuration for what a slow or absent dependency costs (§10.4) — timeouts, retry counts and credential sources. Needs nothing running.",
     "latency: measures the session-broadcast hops in docs/latency.md (chat, quiz publish, assistant, SFU transit) and writes latency-results.md. Needs the platform up; the assistant hop additionally needs a feedback run to have happened, and the audio hop needs UDP media to flow.",
+    "integration: the §8 cross-service suites. Needs the platform up and nothing else — no models, no Groq, no WebRTC. `-m integration` runs all five in one pass; each also carries its own topical marker below so one can be run alone.",
+    "auth: §8.2 register -> admin approval -> login, single and bulk, across UMS + EmailService.",
+    "classroom: §8.3 classroom lifecycle — create, enrol, upload material, index into RAG, delete and confirm the cascade.",
+    "session: §8.4 session lifecycle — start, join, end, and what each one causes in the other services.",
+    "assistant: §8.5 the assistant loop with the model and STT faked, so it is deterministic and runs without Groq.",
+    "quiz: §8.6 quiz loop — draft, publish, answer, submit, score, extend, close.",
     "internal: probes the /api/internal surface for the shared-secret guard. Read-only, no seeding, no models — needs only the platform up, and must be run IN-NETWORK (nginx blocks these routes, so through the gateway it would pass with the guard removed).",
 ]
 log_cli = true

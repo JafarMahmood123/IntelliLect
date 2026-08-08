@@ -10,7 +10,7 @@ cd backend/tests/e2e && .venv/bin/python collect_results.py
 ```
 
 <!-- generated:stamp -->
-_Generated 2026-08-07 19:38 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
+_Generated 2026-08-08 07:54 UTC by `backend/tests/e2e/collect_results.py` from the artifacts present at that moment._
 <!-- /generated:stamp -->
 
 ---
@@ -40,8 +40,8 @@ without an attribute does not.
 | EmailService | 59 | passed 2026-08-07 | `cd backend/EmailService && dotnet test EmailService.slnx --logger trx` |
 | RagService | 407 (+13 skipped) | passed 2026-08-07 | `cd backend/RagService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
 | LiveAssistantService | 391 (+3 skipped) | passed 2026-08-07 | `cd backend/LiveAssistantService && .venv/bin/python -m pytest --junitxml=test-results.xml` |
-| front-end-web | 373 | passed 2026-08-07 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
-| Cross-service E2E (offline subset) | 91 | passed 2026-08-07 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
+| front-end-web | 373 | passed 2026-08-08 | `cd front-end-web && npx vitest run --reporter=junit --outputFile=test-results.xml` |
+| Cross-service E2E (offline subset) | 91 | passed 2026-08-08 — the rest of the suite needs the platform; see below | `cd backend/tests/e2e && .venv/bin/python -m pytest -m offline --junitxml=test-results.xml` |
 | **Total** | **2,454** | all 8 suites passing, 16 skipped | |
 <!-- /generated:inventory -->
 
@@ -54,7 +54,7 @@ a result older than the tests it counts is **withheld**, never quoted.
 Two things follow from that, both deliberate:
 
 - **The count is what RAN.** The cross-service row reports its `-m offline` subset, not the full
-  collection. The remaining 76 tests are authored and have never executed; adding them to the
+  collection. The remaining 127 of 218 are authored and have never executed; adding them to the
   others would be claiming they pass.
 - **The total refuses to be a number when any row is withheld.** Summing whichever rows happen to
   be readable gives a smaller figure that looks exactly like a real one, and a report that
@@ -195,19 +195,30 @@ Two hops will not say what their names suggest, and the report must not let them
 
 ## 6. Performance and stress (work-plan §10.2, §10.3)
 
-**Not started; blocked on tooling.** k6 is the chosen tool (work-plan §12) and is not installed —
-`sudo apt install k6` via the Grafana apt repository, or the standalone binary. The mixes to
-script, once it is:
+**Scripted, never run.** k6 is the chosen tool and the five scripts are written —
+`backend/tests/load/`, sharing a `lib/` for environment, HTTP surface and provisioning. The
+binary is still not installed (`sudo apt install k6` via the Grafana apt repository, or the
+standalone binary). Nothing below has been executed against a running platform, so the first
+real run should be expected to find mistakes in that directory before it finds any in the
+platform. Test-plan Area U.
 
-| Scenario | Why this one |
-|---|---|
-| Many students joining one session | The fan-out every other feature sits on top of |
-| Concurrent quiz submissions at the deadline | The natural thundering herd — every client submits on the same second |
-| RAG search under load | The only CPU-bound path, and the assistant's critical dependency |
-| Bulk approve of a large batch | Fans out through EmailService; the one operation whose failure is silent |
+| Script | Scenario | What it asks that a latency chart cannot |
+|---|---|---|
+| `load-session-join.js` | A class arriving at one session | Whether the join-token mint still admits everyone now that it makes a synchronous internal call to ClassroomService (§7.4d) |
+| `load-quiz-deadline.js` | Concurrent submissions at the deadline | Whether every acknowledged submission is **still there** afterwards — reconciled against the teacher's results in `teardown()` |
+| `load-rag-search.js` | RAG search under load | Whether results come back non-empty and correctly scoped, not merely 200 — a degraded embedder answers fast, successfully and uselessly |
+| `load-bulk-approve.js` | Bulk approve of a large batch | What was actually applied when the request crosses nginx's 60s proxy timeout and the admin gets a 504 |
+| `stress-ramp.js` | Ramp to failure, then recovery | Whether overload **refuses** (429/503/reset, acceptable at any volume) or **faults** (500, acceptable at none), and whether the roster survives it |
 
-k6 has no SignalR client, so the first scenario needs the hand-rolled client in
-`backend/tests/e2e/support/signalr.py` rather than k6 — noted so it is not discovered late.
+Three things deliberately absent, so they are not discovered late:
+
+- **No SignalR.** k6 has no client for it. The push channel's per-hop budgets stay with §9 and
+  the hand-rolled client in `backend/tests/e2e/support/signalr.py`.
+- **No media.** k6 has no WebRTC. Nothing here measures LiveKit; the join path is measured up to
+  the point where a browser would connect (U-15).
+- **No thresholds on latency or error rate in `stress-ramp.js`.** That script is *supposed* to
+  push past where they would fail; thresholding them would abort the run at the moment it starts
+  producing its result.
 
 ## 7. Resource ceilings (work-plan §10.4)
 
@@ -335,10 +346,11 @@ test that works.
 | Gap | Reason |
 |---|---|
 | Runtime 401/403 assertions, and the IDOR sweep over every `{id}` route param | Need a running host and real data. The cross-tenant *decisions* are no longer in this row: B-04/B-05 are covered at the unit level and found five open endpoints, and B-07's question — can this method refuse at all — is now a rule over the service layer (B-23). G-02, the LiveKit join token, is covered too, including the cross-service contract the check now depends on |
-| Integration suites (§8.2–8.6), migrations (§11.8), concurrency races (§11.7) | Need containers |
-| Browser-level E2E (§11.12) | Needs Playwright; one journey would cover the §4/§5/§6 seams |
+| Integration suites (§8.2–8.6) | **Written, not run.** 48 tests across five files behind `-m integration`; they need the platform up and nothing else — no models, no Groq, no WebRTC. This is where nine authorization defects fixed between §7.2b and §7.4e are observed as real 403s rather than argued against test doubles |
+| Migrations applying to a live database (§11.8), real transaction isolation (§11.7) | Need containers |
+| Browser-level E2E (§11.12) | **Written, not run.** One journey in `front-end-web/e2e/` covering the §4/§5/§6 seams — log in, join the live session, answer and submit, see the mark. Playwright is not installed and `@playwright/test` is deliberately absent from `package.json` until the lockfile can be regenerated with it. Test-plan Area V |
 | Email verification of a registered address (A-10) | **The feature does not exist.** Registration lands in `Pending` and an administrator approves it, which is the stronger gate — but nothing proves the address belongs to the registrant, and the approving administrator gets no signal either way |
-| Performance, stress, breaking point (§10.2–10.3) | k6 not installed |
+| Performance, stress, breaking point (§10.2–10.3) | **Written, not run.** Five k6 scripts in `backend/tests/load/`; only the binary is missing. See §6 above and test-plan Area U |
 | Behaviour under a stopped dependency (§10.4 runtime half) | Needs containers |
 | ~~The .NET equivalent of the settings-binding rule~~ | **Closed (Q-14).** Left here struck through because the stated reason — "a static rule produced false positives on every service" — was true of the rule that had been tried and was the wrong conclusion to draw from it. Recognising all five ways .NET reaches a setting reports zero across the 54 the compose files pass |
 | SMTP delivery to a real mail provider | N-10 covers the transport against a loopback server, which is where the protocol lives. Whether Gmail accepts the message, and what it does with it, is Gmail's behaviour and not ours |

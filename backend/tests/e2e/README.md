@@ -108,6 +108,46 @@ pytest                  # both
 > gateway timeout; the test retries, but the in-network runner (direct URLs) avoids
 > the cap entirely. Prefer `run-in-network.sh` when the host is loaded.
 
+## Integration suites (`-m integration`) — §8
+
+Five files, one per work-plan §8 item, each also carrying its own topical marker so one can be
+run alone. **They need the platform up and nothing else** — no models, no Groq, no WebRTC, no
+TTS — which is what makes them the part of this suite that can be run on any machine that can
+run `docker compose`.
+
+```bash
+# all five, in one pass
+.venv/bin/python -m pytest -m integration
+
+# or one at a time
+.venv/bin/python -m pytest -m "integration and quiz"
+```
+
+| File | Marker | §8 | Proves |
+|------|--------|-----|--------|
+| `test_auth_lifecycle_integration.py` | `auth` | 8.2 | Register → Pending → admin approval → login, single **and bulk**; a rejection revokes live sessions |
+| `test_classroom_lifecycle_integration.py` | `classroom` | 8.3 | Upload → MinIO → RagService index → retrievable; deletion cascades; a non-member is refused |
+| `test_session_lifecycle_integration.py` | `session` | 8.4 | Start cascades into Streaming + the assistant; join tokens; the roster; the reverse teardown |
+| `test_assistant_loop_integration.py` | `assistant` | 8.5 | The loop's seams with the **brain left out** — registration, transcript finalization, retrieval scoping |
+| `test_quiz_loop_integration.py` | `quiz` | 8.6 | Draft → publish → answer → submit → score → extend → close, with two students and a known key |
+
+Three things about how they are written are the point of them:
+
+- **They are where the authorization work is finally observed.** Nine defects fixed between
+  §7.2b and §7.4e were proved against test doubles and have never produced a real 403 that
+  anybody watched. The session and classroom suites assert exactly those refusals over HTTP.
+- **Every refusal has its opposite.** A service answering 403 to everybody would satisfy a
+  file full of "a stranger is refused" and be entirely broken, so each is paired with the
+  member who must succeed.
+- **No model is called.** §8.5 deliberately does not exercise the brain: four of the loop's
+  five stages need one, and a test whose outcome depends on what a language model felt like
+  saying is not a test. The real loop lives in `test_teaching_feedback_e2e.py` behind the
+  `media` and `feedback` markers.
+
+**Run the migrations first.** Three unique indexes are pending (`IX_Streams_SessionId`,
+`IX_Users_Email`, `IX_Participants_StreamId_UserId`); services apply them at startup and each
+*refuses* to apply over pre-existing duplicate rows. If a service will not start, that is why.
+
 ## Smoke (`-m smoke`)
 
 `test_smoke.py` is the shortest sequence that proves a deployment is alive: every

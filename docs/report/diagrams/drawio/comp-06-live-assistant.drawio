@@ -13,7 +13,7 @@
           <mxGeometry x="45" y="255" width="180" height="90" as="geometry" />
         </mxCell>
 
-        <mxCell id="svc" value="خدمة المساعد الحيّ" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
+        <mxCell id="svc" value="خدمة المساعد المباشر" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontSize=16;fontStyle=1;spacingTop=6" vertex="1" parent="1">
           <mxGeometry x="270" y="50" width="400" height="500" as="geometry" />
         </mxCell>
         <mxCell id="l1" value="طبقة الواجهات&lt;br&gt;FastAPI" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
@@ -41,7 +41,7 @@
         <mxCell id="llm" value="مزوّد النماذج&lt;br&gt;توليد وتضمين" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
           <mxGeometry x="790" y="265" width="300" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="ks" value="خدمة المعرفة&lt;br&gt;استرجاع المقاطع المرجعية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
+        <mxCell id="ks" value="خدمة الاسترجاع&lt;br&gt;استرجاع المقاطع المرجعية" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=15" vertex="1" parent="1">
           <mxGeometry x="790" y="370" width="300" height="70" as="geometry" />
         </mxCell>
         <mxCell id="pg" value="قاعدة بيانات الخدمة&lt;br&gt;PostgreSQL" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=15;whiteSpace=wrap;html=1;fillColor=#F2F2F2;strokeColor=#000000;fontSize=15" vertex="1" parent="1">

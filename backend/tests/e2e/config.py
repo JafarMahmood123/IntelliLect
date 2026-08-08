@@ -30,6 +30,10 @@ class Config:
 
     # --- Internal Python services (published host ports, hit with X-Internal-Secret)
     liveassistant_url: str = _env("E2E_LIVEASSISTANT_URL", "http://localhost:8084")
+    # EmailService is consumer-only — no controller, no metrics, only /health. It is here so
+    # the §8.2 suite can assert the consumer is alive rather than assume it (see that file for
+    # why "the mail arrived" is not checkable from the outside).
+    email_url: str = _env("E2E_EMAIL_URL", "http://localhost:8081")
     knowledge_url: str = _env("E2E_KNOWLEDGE_URL", "http://localhost:8083")
 
     # The shared service-to-service secret (X-Internal-Secret header).

@@ -81,6 +81,10 @@ class UmsClient:
         )
         return resp.json()
 
+    def login_raw(self, email: str, password: str) -> httpx.Response:
+        """Login without asserting success — for the cases whose point is the refusal."""
+        return self._http.post("/api/auth/login", json={"email": email, "password": password})
+
     def login_account(self, account: Account) -> Account:
         payload = self.login(account.email, account.password)
         token = get_ci(payload, "accessToken")
@@ -90,3 +94,34 @@ class UmsClient:
         )
         account.access_token = token
         return account
+
+    # --- the bulk path (§2, §8.2) -------------------------------------------
+
+    def approve_bulk(self, admin: Account, user_ids: list[str], action: str = "Accept") -> dict:
+        """Apply one action to many pending registrations in a single request.
+
+        Always 200 when the request is well-formed; the body reports each account
+        separately, because partial success is the expected outcome rather than an error.
+        """
+        resp = expect_ok(
+            self._http.put(
+                "/api/admin/requests/status",
+                json={"userIds": user_ids, "action": action},
+                headers=admin.auth,
+            )
+        )
+        return resp.json()
+
+    def pending_requests(self, admin: Account) -> list[dict]:
+        resp = expect_ok(self._http.get("/api/admin/requests", headers=admin.auth))
+        payload = resp.json()
+        # Paged or bare list, depending on the endpoint's shape.
+        return get_ci(payload, "items", payload) if isinstance(payload, dict) else payload
+
+    def refresh_raw(self, refresh_token: str) -> httpx.Response:
+        """Renew a session without asserting success — revocation is the interesting case."""
+        return self._http.post("/api/auth/refresh", json={"refreshToken": refresh_token})
+
+    def me(self, account: Account) -> dict:
+        resp = expect_ok(self._http.get("/api/users/me", headers=account.auth))
+        return resp.json()

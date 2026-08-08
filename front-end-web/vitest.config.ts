@@ -13,6 +13,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Explicit, because vitest's default pattern also matches `*.spec.ts` anywhere in the
+    // project — which would sweep up the Playwright journey in `e2e/` and try to run it in
+    // jsdom, where `@playwright/test` does not resolve and the failure names none of that.
+    // The unit suite is `src/**/*.test.*` and nothing else.
+    include: ['src/**/*.test.{ts,tsx}'],
     // MUST stay above testing-library's asyncUtilTimeout (5s, set in the setup file). Vitest's
     // default is also 5s, so the two budgets expired together: a slow `findBy*` blew the TEST
     // deadline before its own retry deadline, turning "unable to find element" — which names the

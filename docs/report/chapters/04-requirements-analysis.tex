@@ -1796,7 +1796,7 @@
 \begin{enumerate}
   \item \textbf{السباق} (\en{Race Condition}): يمكن أن تُنهى الجلسة من المعلّم أو المدير الأعلى أو الكانس الدوري في اللحظة نفسها. واستُعمل تحديثٌ ذرّيٌّ مشروط يُسنِد الفصل في التزامن إلى قاعدة البيانات: يتولّى التفكيك من ينجح في الحجز، ويتوقّف من يفشل فيه، فلا يُنفَّذ التفكيك مرّتين.
   \item \textbf{الذرّية} (\en{Atomicity}): يجب أن يُحفَظ تغيّرُ حالة الجلسة وتسجيلُ استحقاق الملخّص معًا أو لا يُحفَظ أيٌّ منهما. ولذلك تُكتَب رسالة طلب الملخّص في جدول صندوق الصادر ضمن المعاملة نفسها، ثمّ يُرحّلها عاملٌ مستقلّ إلى الناقل لاحقًا، بدلًا من نشرها مباشرةً.
-  \item \textbf{الترتيب} (\en{Ordering}): يجري تفكيك غرفة البث بعد إيداع المعاملة. ويُبنى الملخّص من النصّ الذي يُفرِغه المساعد الحيّ عند التفكيك، وقد صار طلب الملخّص محفوظًا في قاعدة البيانات قبل ذلك. ولا يؤدّي بطء تفكيك الغرفة أو تعثّره عندئذٍ إلى فقد الملخّص.
+  \item \textbf{الترتيب} (\en{Ordering}): يجري تفكيك غرفة البث بعد إيداع المعاملة. ويُبنى الملخّص من النصّ الذي يُفرِغه المساعد المباشر عند التفكيك، وقد صار طلب الملخّص محفوظًا في قاعدة البيانات قبل ذلك. ولا يؤدّي بطء تفكيك الغرفة أو تعثّره عندئذٍ إلى فقد الملخّص.
 \end{enumerate}
 
 \subsubsection{مخطط تسلسل النظام لحالة انضمام الطالب إلى جلسة تعلم مباشرة}
@@ -1973,7 +1973,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-03-live-assistant.png}
-  \caption{تدفّق الحلقة الحيّة في خدمة المساعد الحيّ.}
+  \caption{تدفّق الحلقة الحيّة في خدمة المساعد المباشر.}
   \label{fig:arch-03}
 \end{figure}
 
@@ -2020,7 +2020,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02-rag-pipeline.png}
-  \caption{تدفّق استيعاب المستندات وفهرستها في خدمة المعرفة.}
+  \caption{تدفّق استيعاب المستندات وفهرستها في خدمة الاسترجاع.}
   \label{fig:arch-02}
 \end{figure}
 
@@ -2044,7 +2044,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-02b-rag-retrieval.png}
-  \caption{تدفّق الاسترجاع وتوليد الإجابة في خدمة المعرفة.}
+  \caption{تدفّق الاسترجاع وتوليد الإجابة عن سؤال الطالب.}
   \label{fig:arch-02b}
 \end{figure}
 
@@ -2056,7 +2056,7 @@
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{figures/arch-03b-session-summary.png}
-  \caption{تدفّق توليد ملخّص الجلسة في خدمة المعرفة.}
+  \caption{تدفّق توليد ملخّص الجلسة في خدمة الاسترجاع.}
   \label{fig:arch-03b}
 \end{figure}
 

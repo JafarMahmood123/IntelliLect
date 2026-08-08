@@ -168,7 +168,11 @@ Four decisions worth recording:
 
 <details><summary>Original plan</summary>
 
-- [ ] **2.1 Backend** — bulk endpoint on the admin surface alongside the existing
+*Kept as a record of what was planned before the work started. Rendered as plain
+bullets rather than checkboxes: everything here is done, and unticked boxes in an
+archive make the document's own count of open work wrong.*
+
+- **2.1 Backend** — bulk endpoint on the admin surface alongside the existing
       single-user path (`AdminController`, `UserStatusService`, `UserStatusAction`,
       `ChangeUserStatusRequest`). Decisions to make explicitly:
       - partial success semantics — all-or-nothing transaction vs per-item result list
@@ -176,15 +180,15 @@ Four decisions worth recording:
       - a cap on batch size
       - idempotency — approving an already-approved user must not error or re-notify
       - authorization re-checked **per user**, not once for the batch
-- [ ] **2.2 Notifications** — approving 200 users must not fan out 200 emails
+- **2.2 Notifications** — approving 200 users must not fan out 200 emails
       synchronously. Route through the notification bus (see the `INotificationBus` vs
       `IEventBus` distinction) and confirm the outbox handles the batch.
-- [ ] **2.3 Frontend** — selection model on the pending-users table: row checkboxes,
+- **2.3 Frontend** — selection model on the pending-users table: row checkboxes,
       select-all-on-page vs select-all-matching-filter (these are different features —
       pick one and say so), a confirmation dialog carrying the count, and a result
       summary showing partial failures.
-- [ ] **2.4 Audit trail** — one audit record per user, not one per batch.
-- [ ] **2.5 Tests** — see §7.
+- **2.4 Audit trail** — one audit record per user, not one per batch.
+- **2.5 Tests** — see §7.
 </details>
 
 ### 2.6 Scan for other useful bulk operations — **DONE, ranked below**
@@ -245,16 +249,20 @@ scheduling deliberately rather than folding into §2.
 
 <details><summary>Original candidate list</summary>
 
+*Kept as a record of what was planned before the work started. Rendered as plain
+bullets rather than checkboxes: everything here is done, and unticked boxes in an
+archive make the document's own count of open work wrong.*
+
 Scan and produce a ranked shortlist (value vs effort), then implement only what earns
 it. Candidate areas to examine, to be confirmed against the code rather than assumed:
 
-- [ ] super-admin knowledge/RAG file management — bulk re-index, bulk delete
-- [ ] classroom membership — bulk enrol / bulk remove students
-- [ ] classroom materials — multi-file upload and multi-file delete
-- [ ] quizzes — bulk extend deadline (`QuizExtension` already exists), bulk publish/close
-- [ ] sessions & recordings — bulk delete of old recordings/transcripts
-- [ ] role assignment — bulk role change
-- [ ] notifications — bulk mark-as-read once §5 exists
+- super-admin knowledge/RAG file management — bulk re-index, bulk delete
+- classroom membership — bulk enrol / bulk remove students
+- classroom materials — multi-file upload and multi-file delete
+- quizzes — bulk extend deadline (`QuizExtension` already exists), bulk publish/close
+- sessions & recordings — bulk delete of old recordings/transcripts
+- role assignment — bulk role change
+- notifications — bulk mark-as-read once §5 exists
 
 For each: is the loop currently N HTTP calls from the browser? That is the real signal.
 
@@ -2329,7 +2337,7 @@ in the results document rather than banked as an improvement.
 
 ---
 
-## 8. Integration testing — core logic only
+## 8. Integration testing — core logic only — **ALL FIVE AUTHORED; they need the platform to run**
 
 - [x] **8.1 Choose the harness — DECIDED: extend `backend/tests/e2e`, not Testcontainers.**
       Not a close call once the existing harness is read properly. It is already a pytest
@@ -2353,16 +2361,54 @@ in the results document rather than banked as an improvement.
       **Where they live:** alongside the existing suite, one file per §8 item, each behind its
       own pytest marker so a run can pick what its environment supports (the existing
       `media` / `feedback` / `recording` markers already work this way).
-- [ ] **8.2 Auth → approval → login** across UMS + EmailService, including the bulk path.
-- [ ] **8.3 Classroom lifecycle** — create, enrol, upload material, index into RAG,
-      delete and confirm the cascade across services.
-- [ ] **8.4 Session lifecycle** — start, join, end, ejection, recording lands in MinIO,
-      transcript persists, summary written back to ClassroomService.
-- [ ] **8.5 Assistant loop** — transcript → boundary → retrieval → evaluation → card,
-      with the model and STT faked so it is deterministic and runnable without Groq.
-- [ ] **8.6 Quiz loop** — generate, publish, submit, score, extend, close.
+- [x] **8.2 Auth → approval → login — AUTHORED, not yet run.** `test_auth_lifecycle_integration.py`,
+      marker `auth`, **9 tests**. Pending cannot sign in; the refusal is specific only *after* the
+      password is proved (§7.1's ordering, over the wire); approval is what lets the account in; a
+      deactivation revokes live refresh tokens. The bulk half: one request approves many, one bad id
+      does not sink the rest, a repeat is a success rather than an error, an empty selection is
+      refused. **EmailService delivery is deliberately not asserted** — it has no controller, no
+      metrics and speaks real SMTP, so the suite checks the consumer is alive and names the gap
+      rather than asserting a proxy for it.
+- [x] **8.3 Classroom lifecycle — AUTHORED, not yet run.** `test_classroom_lifecycle_integration.py`,
+      marker `classroom`, **8 tests**. Upload → MinIO → RagService index → retrievable, polled
+      because ingestion is asynchronous by design. **F-07 measured rather than read**: two
+      classrooms' material in one database, and a search scoped to one must not return the other's.
+      E-02/E-03's oversized upload asserted as *not a 500*, which is the shape §7.12b's fourth limit
+      produced. Deletion cascades to the chunks, and the stronger claim beside it — the material is
+      no longer *retrievable*, which is a different fact from the row being gone.
+- [x] **8.4 Session lifecycle — AUTHORED, not yet run.** `test_session_lifecycle_integration.py`,
+      marker `session`, **12 tests**. This is where the authorization work of §7.2b/§7.4d/§7.4e is
+      finally *observed* rather than argued: a teacher who does not own the classroom cannot start
+      its session; a non-member is refused a join token; the roster and the chat history refuse
+      them too; publishing rights follow the classroom rather than the caller's role claim. The
+      token is read as a credential (room binding, identity, grants) rather than by connecting —
+      the media half is P1. Ending tears down the agent and stops issuing tokens, ending twice is
+      reported rather than repeated, and the transcript is finalized.
+
+      **Recording-in-MinIO is not here.** It needs the `docker-compose.e2e.yml` egress overlay and
+      has its own `recording` marker; folding it in would make this suite need a container the rest
+      of it does not.
+- [x] **8.5 Assistant loop — AUTHORED, not yet run.** `test_assistant_loop_integration.py`,
+      marker `assistant`, **8 tests**. The brain is left out rather than faked: four of the loop's
+      five stages need a model, and a test whose outcome depends on what one felt like saying is
+      not a test. What is exercised is everything the brain is bolted to — agent registration and
+      deregistration, the transcript record created and **finalized** (§7.3's defect, where an
+      un-finalized transcript makes the summary come back empty with nothing to explain it),
+      retrieval answering for this classroom and not another's, the internal secret refused and
+      admitted, and the counters §9's latency harness reads.
+- [x] **8.6 Quiz loop — AUTHORED, not yet run.** `test_quiz_loop_integration.py`, marker `quiz`,
+      **11 tests**. Two students answer a quiz with an authored key — one everything right, one
+      everything wrong, so a scorer returning a constant fails rather than passing by coincidence.
+      Answers change until submission and are frozen after; submitting twice reports the first
+      timestamp; the teacher's results and the student's own result agree; **closing is what
+      releases the key** and nothing is graded before it; an extension moves the deadline for the
+      student it names and not for anyone else.
+
+      **Generation is not exercised** — it calls a model, and §7.2 pinned the deliberate asymmetry
+      that it is never retried. Authoring the draft also gives the suite the key it needs to assert
+      a score at all.
 - [~] **8.7 Inter-service contract tests — AUTHORED, not yet run** (needs the platform up).
-      `tests/e2e/test_internal_surface_contract.py`, marker `internal`, **55 tests**: 18
+      `tests/e2e/test_internal_surface_contract.py`, marker `internal`, **58 tests**: 19
       read-only internal routes × three cases, plus a rule over the table.
 
       The route table is derived from the controllers and routers themselves and every path
@@ -2516,7 +2562,7 @@ cd tests/e2e && ./run-in-network.sh -m latency
 
 ---
 
-## 10. Smoke, performance and stress testing — **10.1 + 10.5 DONE, 10.4 part-done, 10.2/10.3 blocked on k6**
+## 10. Smoke, performance and stress testing — **10.1 + 10.5 DONE, 10.4 part-done, 10.2/10.3 SCRIPTED (k6 not installed, never run)**
 
 - [x] **10.1 Smoke suite — DONE, and writing it found that three of the six health
       endpoints could not fail and a fourth did not exist.**
@@ -2573,13 +2619,50 @@ cd tests/e2e && ./run-in-network.sh -m latency
 
       **ClassroomService 388 → 392** (`DatabaseHealthCheckTests`). **e2e 82 → 108**
       collected, of which the 13 inventory rules run with nothing up.
-- [ ] **10.2 Performance** — pick the tool (k6 / NBomber / Locust) and script the
-      realistic mixes: many students joining one session; concurrent quiz submissions at
-      the deadline (the natural thundering herd); RAG search under load; bulk approve of
-      a large batch.
-- [ ] **10.3 Stress / breaking point** — ramp until failure to find the limit and, more
-      importantly, confirm it degrades rather than corrupts: no dropped submissions, no
-      half-written recordings, no orphaned sessions.
+- [~] **10.2 Performance — SCRIPTED, never run.** Tool: **k6**. Four mixes in
+      `backend/tests/load/`, sharing `lib/` (environment, HTTP surface, provisioning).
+      k6 is not installed on this machine, so these are reviewed source and nothing more —
+      the first real run should be expected to find mistakes in that directory before it
+      finds any in the platform. Test-plan Area U.
+
+      - **`load-session-join.js`** — a class arriving at one session, as a *ramping arrival
+        rate* rather than a fixed pool of VUs. The subject is the join-token mint: since
+        §7.4d it is no longer a local read but a synchronous internal HTTP call to
+        ClassroomService followed by a signed LiveKit grant, and that cost has never been
+        measured under a class-sized arrival. Its one correctness threshold is
+        `join_admitted > 0.99` — a student who cannot get a token cannot attend.
+      - **`load-quiz-deadline.js`** — the deadline herd, the platform's only naturally
+        synchronised burst. All VUs start together, because this is a single instant and
+        modelling it as a rate would spread the very collision being tested. **Its pass
+        condition is correctness, not latency**: `teardown()` closes the quiz, reads the
+        teacher's results and reconciles them against the submissions the platform
+        acknowledged. A run can meet every latency threshold and still fail there.
+      - **`load-rag-search.js`** — retrieval under load, which is really "what does a busy
+        search surface cost the lecture happening at the same time", since the embedder is
+        shared with the assistant. It refuses to run against an unindexed corpus (searching
+        an empty index reports excellent latency for a service doing no work) and checks
+        that results come back **non-empty and correctly scoped**, not merely 200 — a
+        degraded embedder returns a fast, successful, useless answer that latency cannot see.
+      - **`load-bulk-approve.js`** — a different shape and labelled as such: one admin, one
+        request, hundreds of ids. The failure mode is crossing nginx's fixed 60s proxy
+        timeout and handing the admin a 504 for a batch that may or may not have applied, so
+        the script re-reads the pending list afterwards rather than trusting the response.
+- [~] **10.3 Stress / breaking point — SCRIPTED, never run.** `backend/tests/load/stress-ramp.js`.
+
+      Finding the number is the easy half and the less useful one — it is about one laptop
+      running seventeen containers and transfers nowhere. The **shape** of the failure does,
+      and that is what the script records: refusals (429/503/reset) are acceptable at any
+      volume and are counted separately from **faults** (500), which are not acceptable at
+      any volume and carry the only hard threshold. The ramp path is the session admission
+      chain, because it is the most cross-service request in the product.
+
+      Two things beyond the ramp: a **recovery stage** that drops back to a trickle, because
+      "bent" and "broken" are different outcomes and only one of them needs a restart; and a
+      **corruption check** in `teardown()` — a participant count above the number of distinct
+      students means §7.4c's unique index stopped holding under contention and the ghost rows
+      outlive the run. Deliberately **no** latency or error-rate threshold: this script is
+      supposed to push past the point where those fail, and thresholding them would abort the
+      run at the moment it starts producing its result.
 - [~] **10.4 Resource ceilings — the configuration half is DONE and found four defects, one
       of them serious.** Behaviour under a *stopped* dependency needs containers. But what
       decides that behaviour — whether a call has a timeout, how often it retries, where its
@@ -3184,10 +3267,47 @@ Ranked by value:
       **front-end-web 346 → 367 tests.** The colour-blindness half was already done in §3:
       every severity carries an icon *and* a written label, so the card reads in greyscale.
 
-- [ ] **11.12 No browser-level e2e.** `backend/tests/e2e` drives the API and LiveKit
-      directly, which is the right layer for the assistant loop but never exercises the
-      React app. One Playwright journey (login → join session → submit quiz → see mark)
-      would cover the seams between §4, §5 and §6.
+- [~] **11.12 Browser-level e2e — WRITTEN, never run.** `front-end-web/e2e/` +
+      `playwright.config.ts`. One journey, four steps: log in → open the classroom and join
+      the live session → answer a published quiz and submit → see the mark once the teacher
+      closes it. Playwright is not installed on this machine; the selectors were read off
+      `LoginForm`, `ClassroomSessionList`, `InteractionSidebar`, `StudentQuizPanel` and
+      `StudentQuizSummary` rather than observed in a browser. Test-plan Area V.
+
+      The seam it exists for: `backend/tests/e2e` drives the API and never renders the app;
+      the 373 frontend unit tests render the app and never touch a service. Whether the app
+      a user loads, talking to the services actually running, puts the **right number** on
+      the screen is a question neither can ask.
+
+      Four decisions worth recording:
+
+      - **Arrangement is over the API, assertions are in the browser.** Registering,
+        approving, creating a classroom, enrolling, starting a session and publishing a quiz
+        all happen in `support/platform.ts` over HTTP. Doing them through the UI would make
+        the journey depend on five features it is not testing, and when one changed every
+        step would go red without any of them naming what broke.
+      - **The quiz is authored, not generated** — the same choice §8.6 made, and for the same
+        two reasons: `GenerateDraftAsync` calls a model, and a generated quiz has no answer
+        key, which is exactly what the last assertion needs to predict full marks rather than
+        merely observe that a number appeared.
+      - **Media cannot fail the run.** Chromium launches with fake devices, and it works
+        because `LiveRoomPage` renders `<InteractionSidebar>` as a *sibling* of
+        `<LiveKitRoom>` rather than a child — the quiz panel is there whether or not the room
+        connects. Glass-to-glass timing needs `getStats()` and stays with P1.
+      - **`@playwright/test` is deliberately NOT in `package.json`.** The lockfile could not
+        be regenerated offline, and a `package.json` listing a dependency the lockfile does
+        not carry breaks `npm ci` for everyone. Add it with a regenerated lockfile, not
+        before; `npm run test:e2e` exists and fails with a plain "Cannot find module" until
+        then, which is the clearest possible statement of what is missing.
+
+      **Found while writing it:** the classroom card is a `<div onClick=…>` with no `role`
+      and no `tabIndex`, so it cannot be reached by keyboard at all — a real gap next to
+      §11.11's colour work, recorded here rather than fixed in passing.
+
+      Also fixed: `vitest.config.ts` now sets `include: ['src/**/*.test.{ts,tsx}']`. Vitest's
+      default pattern also matches `*.spec.ts` anywhere in the project, so it would have swept
+      the Playwright journey into jsdom and failed on an unresolvable import. 373 tests still
+      green, `npm run build` clean.
 - [x] **11.13 Dependency vulnerability scan — DONE. 22 advisories found, 20 fixed.**
       `dotnet list package --vulnerable --include-transitive` across all four .NET services,
       `npm audit` on the frontend, `pip-audit` on both Python services. Every suite re-run
@@ -3276,14 +3396,14 @@ channel and k6 has no SignalR client. The table below is for §10.
 
 | Tool | Scope | Install |
 | --- | --- | --- |
-| **k6** | load/stress (§10) | `sudo apt install k6` (via the Grafana apt repo) or the standalone binary. Recommended over NBomber/Locust here: scripts are JS, so they sit naturally next to the frontend, and it has first-class thresholds. |
+| **k6** | load/stress (§10) | `sudo apt install k6` (via the Grafana apt repo) or the standalone binary. **Chosen, and the five scripts are written** — `backend/tests/load/`. JS scripts sit naturally next to the frontend, and thresholds are first-class, which is what lets a load run pass or fail rather than produce a chart. Only the binary is missing. |
 | `k6-browser` or Playwright | glass-to-glass timing | **the only way to close the gap §9 leaves.** L-4 measures SFU transit; the browser's capture and playout jitter buffers — usually the larger terms — are only observable from inside a browser, via `getStats()`. See [latency.md](latency.md). |
 
 ### Recommended, not required
 
 | Tool | Scope | Install | Note |
 | --- | --- | --- | --- |
-| Playwright | frontend e2e | `npm i -D @playwright/test && npx playwright install` | §11.12. Downloads browser binaries — sizeable. |
+| Playwright | frontend e2e | `npm i -D @playwright/test && npx playwright install chromium` | §11.12. **The journey and its config are written** — `front-end-web/e2e/`. Downloads browser binaries — sizeable. Add the devDependency with a regenerated lockfile, never on its own. |
 | `msw` | frontend | `npm i -D msw` | Mock Service Worker; makes the untested auth/admin feature tests (§11.10) practical without hand-stubbing fetch |
 | `jest-axe` + `axe-core` | frontend | `npm i -D jest-axe axe-core` | §11.11, a11y assertions on the feedback cards |
 | Stryker.NET | .NET | `dotnet tool install -g dotnet-stryker` | §7.8 mutation checking. Slow — point it at one critical service (quiz scoring), not the whole solution. |
@@ -3653,4 +3773,28 @@ Not forgotten; blocked on the environment.
       **What this does NOT settle:** whether `qwen3-embedding` retrieves well in Arabic.
       That still needs the model. The point is that it was never the only blocker, and the
       other one could be fixed from here.
-- [ ] **P4 Run everything authored in §7–§10** and fill in the numbers.
+- [ ] **P4 Run everything authored and fill in the numbers.** With §10.2/§10.3 and §11.12 now
+      written, the authoring side of the plan is finished and this item is the whole of what is
+      left besides P1–P3. In dependency order, because each stage's failures are cheapest to
+      read before the next one adds its own:
+
+      1. **The three pending migrations** — `IX_Streams_SessionId`, `IX_Users_Email`,
+         `IX_Participants_StreamId_UserId`. They apply at service startup and each refuses over
+         pre-existing duplicate rows, so this is a step with an outcome, not a formality.
+         Nothing below can run until the services are up.
+      2. **`-m smoke`**, then **`-m internal` in-network** (58 tests). Minutes, and they name a
+         broken deployment in one line instead of failing deep inside a scenario.
+      3. **`-m integration`** — the 48 tests of §8.2–§8.6. Needs the platform and nothing else.
+         This is where nine authorization defects fixed between §7.2b and §7.4e are finally
+         observed as real 403s rather than argued against test doubles.
+      4. **`npm run test:e2e`** (§11.12) once Playwright is installed — the one seam neither the
+         API suites nor the 373 unit tests reach.
+      5. **The k6 mixes** (§10.2), then **`stress-ramp.js`** (§10.3) last, because it is the only
+         thing here that deliberately damages the platform it runs against.
+      6. **`-m latency`** (§9), **`-m recording`**, and then the model-dependent remainder —
+         `-m feedback` and P2 need a clean Groq exit ip, P3 needs the embedder.
+
+      **Expect the first run of each new suite to fail on the suite.** None of §8's 48 tests,
+      none of the five k6 scripts and none of the browser journey has ever executed; their field
+      names, status codes and orderings were read off the source, not observed. That is normal
+      for this much unrun code and it is the reason the documents say `written` and never `✓`.

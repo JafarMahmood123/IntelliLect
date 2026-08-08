@@ -36,8 +36,32 @@ nobody goes looking for it.
 | **Browser E2E** | Only seams no API test can reach: rendering, focus, tab visibility, notification permission | Business rules |
 | **Non-functional** | Latency budgets, load profiles, breaking point | Correctness |
 
+Areas U and V label their rows `Load`, `Stress` and `Browser` — the first two are the
+non-functional level, the third is Browser E2E. They are named for what they run under because
+in those two areas the *executor* is the distinguishing fact, not the scope.
+
 The existing suite is strong at the unit level. The gaps are concentrated at
 integration and above, and in one service with no tests at all.
+
+### Where the integration level actually lives
+
+Rows marked `Integration` in the areas below are, with few exceptions, served by five suites in
+`backend/tests/e2e/`, all behind `-m integration` so the whole set runs in one pass:
+
+| Suite | Work-plan | Areas it serves |
+| --- | --- | --- |
+| `test_auth_lifecycle_integration.py` | §8.2 | A, C, N |
+| `test_classroom_lifecycle_integration.py` | §8.3 | B, D, E, F |
+| `test_session_lifecycle_integration.py` | §8.4 | B, G, L |
+| `test_assistant_loop_integration.py` | §8.5 | F, H, L |
+| `test_quiz_loop_integration.py` | §8.6 | B, I, J |
+
+**They are written and have never been run.** They need the platform up and nothing else — no
+Groq, no Ollama, no WebRTC — but "needs only the platform" is not the same as "passes", and no
+row below is marked ✓ on their account. When they first run, the rows they cover get evidence;
+until then this table is the honest position.
+
+Areas U (load) and V (browser) are in the same state for the same reason, one tool short each.
 
 ---
 
@@ -199,7 +223,7 @@ wrong place relative to them.
 | D-02 | Enrol / remove a student; duplicate enrolment is rejected or idempotent | Unit | P1 | ✓ |
 | D-03 | Changing the teacher transfers ownership and revokes the old teacher's write access | Unit | P0 | ✓ |
 | D-04 | Deleting a classroom cascades: files, sessions, quizzes, recordings, summaries, and the RAG index | Integration | P0 | ✓ (unit) |
-| D-05 | A partially-failed cascade leaves no orphan (deleted index but surviving rows, or vice versa) | Integration | P0 | gap |
+| D-05 | A partially-failed cascade leaves no orphan (deleted index but surviving rows, or vice versa) | Integration | P0 | **gap — but the prerequisite is now authored.** §8.3 pins the *successful* cascade (classroom deleted → document dropped from RagService → its chunks no longer retrievable), which had to exist first: without it there is nothing for a partial failure to be compared against. Injecting the failure still needs a way to stop RagService mid-delete. |
 | D-06 | A removed student immediately loses read access to classroom content | Integration | P0 | gap |
 | D-07 | Only the classroom's own teacher may remove a student; ownership is checked *before* the membership lookup, so the two failures stay indistinguishable | Unit | P0 | ✓ |
 | D-08 | Enrolment is scoped to the (classroom, student) pair — being in one classroom does not block joining another | Unit | P1 | ✓ |
@@ -256,7 +280,7 @@ Well covered at unit level already. New cases target the seams and the Arabic qu
 | F-04 | Embedding dimension guard rejects a vector of the wrong size | Unit | P0 | ✓ |
 | F-05 | pgvector search returns results ordered by score | Unit | P0 | ✓ |
 | F-06 | Retrieval below the min-score cutoff returns nothing rather than a weak match | Unit | P0 | **n/a — no cutoff exists** |
-| F-07 | Search is scoped to one classroom — never returns another classroom's chunks | Integration | P0 | gap |
+| F-07 | Search is scoped to one classroom — never returns another classroom's chunks | Integration | P0 | **authored, unrun.** Twice over, from both ends: §8.3 uploads a second classroom's material and asserts a search of the first cannot reach it; §8.5 does the same from the live session's side, where a leak would have the assistant contradict a teacher using another course's notes. Also asserted per-request under load (U-08). |
 | F-08 | Deleting a classroom's index removes every vector; a later search returns nothing | Integration | P0 | ✓ (unit) |
 | F-09 | Re-ingesting the same document replaces rather than duplicates its chunks | Integration | P1 | gap |
 | F-10 | Ingestion worker resumes/retries after a crash mid-document without half-indexing | Integration | P1 | partial |
@@ -710,7 +734,58 @@ own note on why.
 | T-10 | EF migrations apply cleanly to an empty database | Integration | P0 | gap (needs Postgres) |
 | T-11 | Alembic upgrades **and downgrades** without loss — an empty downgrade is detectable here, a *wrong* one is not | Integration | P0 | gap (needs Postgres + pgvector) |
 
-## 23. Deliberately not covered — and why
+## 23. Area U — Load, capacity and breaking point (work-plan §10.2 / §10.3)
+
+`backend/tests/load/` — five k6 scripts. **Every row here is `written` rather than `✓`**:
+k6 is not installed and none of them has ever run. A row that said ✓ for a script nobody has
+executed would be the most expensive kind of wrong entry in this document.
+
+The pass condition differs from every other area. Elsewhere a case is met or it is not; here a
+threshold is a claim about what a user experiences, and two of the scripts can meet every
+latency threshold and still fail — on reconciliation (U-04) and on corruption (U-11).
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| U-01 | A class-sized arrival at one session is admitted — >99% receive a join token | Load | P0 | written (`load-session-join.js`) |
+| U-02 | The join-token mint stays under 2s at p95 — the point past which a student reloads, and a reload is another mint | Load | P0 | written |
+| U-03 | Concurrent submissions at the deadline are accepted, and none faults with a 500 | Load | P0 | written (`load-quiz-deadline.js`) |
+| U-04 | **Every acknowledged submission is still there afterwards** — the teacher's results are reconciled against what the platform said it accepted | Load | P0 | written (the one case that can fail a run whose latency is perfect) |
+| U-05 | Answering under load updates rather than accumulates — §11.7's I-07 against a real unique index under real contention | Load | P1 | written |
+| U-06 | RAG search under load stays under 3s at p95 — beyond it, the assistant's own retrieval stage eats the feedback budget | Load | P1 | written (`load-rag-search.js`) |
+| U-07 | Search returns **non-empty** results under load, not merely 200 — a degraded embedder answers fast, successfully and uselessly | Load | P0 | written |
+| U-08 | The classroom scope holds under load — F-07 when the connection pool is saturated | Load | P0 | written (threshold is every request, not 99%) |
+| U-09 | A large bulk approve completes inside nginx's 60s proxy timeout | Load | P1 | written (`load-bulk-approve.js`) |
+| U-10 | After a bulk approve, nothing in the batch is still pending — the reconciliation a 504 makes necessary | Load | P0 | written |
+| U-11 | **Overload refuses rather than corrupts** — 429/503/reset are acceptable at any volume, 500 at none | Stress | P0 | written (`stress-ramp.js`; the only hard threshold there) |
+| U-12 | The roster holds no more rows than there are distinct students, after a ramp to failure | Stress | P0 | written (§7.4c's unique index under contention) |
+| U-13 | A session can still be ended after an overload — the orphaned-session case in its most literal form | Stress | P0 | written |
+| U-14 | The platform serves traffic again once the ramp drops back — "bent" and "broken" are different outcomes | Stress | P1 | written (recovery stage) |
+| U-15 | Media capacity — how many publishers one SFU sustains | Load | P2 | **gap, and deliberately**: k6 has no WebRTC client. Needs a browser-based harness; belongs with P1 and `docs/latency.md`. |
+
+## 24. Area V — Browser journey (work-plan §11.12)
+
+`front-end-web/e2e/student-journey.spec.ts`. **Written, never run** — Playwright is not
+installed, and the selectors were read off the components rather than observed in a browser.
+
+One journey, deliberately. Everything a component test can answer, a component test should
+answer: seconds against minutes, and a failure that names a component instead of handing you a
+screenshot. What is left over is the seam between two bodies of tests that never meet — the API
+suites never render the app, the 373 unit tests never touch a service.
+
+| ID | Case | Level | Pri | Cov |
+| --- | --- | --- | --- | --- |
+| V-01 | A student logs in through the form and lands on the route their role decides | Browser | P0 | written |
+| V-02 | Their classroom is listed, and opening it reaches the classroom page | Browser | P1 | written |
+| V-03 | "Join Now" is enabled for a live session and reaches the live room — which is also an assertion that the session-start cascade reached the frontend's view | Browser | P0 | written |
+| V-04 | The published quiz appears in the sidebar for a student who joined *after* it was published — the seeded path, not the broadcast | Browser | P0 | written (§5's seam) |
+| V-05 | Answers register server-side — the answered count comes back from the server, not from the local selection | Browser | P0 | written |
+| V-06 | Submitting locks the quiz, and the panel says so from `submittedAtUtc` rather than a local flag | Browser | P0 | written |
+| V-07 | No mark is shown while the quiz is open | Browser | P0 | written (releasing the score early releases the key) |
+| V-08 | Closing releases **the right number** — full marks for a student who answered everything correctly, not merely "a number appeared" | Browser | P0 | written (§4 + §6 seam) |
+| V-09 | Keyboard-only navigation of the same journey | Browser | P1 | **gap.** Blocked by a real defect rather than by effort: the classroom card is a `<div onClick=…>` with no role and no tabIndex, so the journey is not keyboard-completable today. Recorded in work-plan §11.12. |
+| V-10 | Glass-to-glass media timing via `getStats()` | Browser | P1 | gap — P1's, see `docs/latency.md`. This journey asserts nothing about media and cannot fail on it. |
+
+## 25. Deliberately not covered — and why
 
 Stating this is part of the plan. An unstated gap reads as an oversight; a stated one is
 a decision.
@@ -742,7 +817,7 @@ a decision.
 - **Load beyond a single host.** Everything runs on one machine; numbers from §9–§10 are
   comparative and directional, not capacity planning.
 
-## 24. Entry / exit criteria
+## 26. Entry / exit criteria
 
 **Entry** — before a suite is considered runnable: containers up, migrations applied,
 seed data present, `.env` complete, and for the assistant path a working model/STT key
@@ -761,7 +836,7 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 5. The smoke suite passes against a fresh `docker compose up` from a clean volume
    (**authored — Area P; the containerless half already passes**).
 
-## 25. Traceability
+## 27. Traceability
 
 | Area | Work-plan section |
 | --- | --- |
@@ -784,3 +859,5 @@ seed data present, `.env` complete, and for the assistant path a working model/S
 | R | §10.5 |
 | S | §11.7 |
 | T | §11.8 |
+| U | §10.2, §10.3 |
+| V | §11.12 |
